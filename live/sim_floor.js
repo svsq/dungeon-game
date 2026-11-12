@@ -135,8 +135,13 @@
     const st = R.stats && R.stats[f], counted = st ? st.kills - ((R.slain || []).includes(f) ? 1 : 0) : 0;
     const logged = ((R.log && R.log.fl) || []).filter((v) => v.f === f).reduce((s, v) => s + Object.entries(v.kills || {}).filter(([k]) => !D.BOSSES[k.split(' ')[0]]).reduce((a, [, c]) => a + c, 0), 0);
     return Math.max(deadNow + gone, counted, logged); }
-  function restoreFloor(R, f, M) { const old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
-    else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
+  function restoreFloor(R, f, M) { let old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
+    else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B));
+      // a diff that no longer fits the floor built now (TASKS 1917): the floor is built anew as an old generator's is, so the way on is
+      // never shut; the explored map stays when it still fits
+      try { if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
+      catch (err) { console.error('restoreFloor', f, 'diff does not fit, floor built anew', err); const seen = M.seen, rseen = M.rseen; migrateFloor(R, f, M);
+        if (seen && unrle(seen).length === R.map.W * R.map.H && rseen && rseen.length === R.map.rooms.length) { M.seen = seen; M.rseen = rseen; } old = true; } }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
     R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); return old; }
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);

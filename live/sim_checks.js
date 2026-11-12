@@ -2665,18 +2665,24 @@
         if (live.length !== 1 || live[0].quest !== q.id) out.push(`memo: an almost cleared old floor leaves a hunt no quarry (${live.length} alive)`); }
       catch (err) { out.push('memo: an almost cleared old floor fails to load: ' + err.message); }
       R.quests = R.quests.filter((o) => o !== q); }
-    // TASKS 1918: a floor that fails to restore leaves the run in the town as it was, portal and all, and a save made in the half-made
-    // state of before (the floor's number over the town's map, the town written into the floor's diff) loads in the town with its portal
+    // TASKS 1917, 1918: a kept floor whose diff no longer fits is built anew with its dead and its explored map, never shut; a step
+    // that still fails leaves the run in the town as it was, portal and all; a save made in the half-made state of before (the
+    // floor's number over the town's map, the town written into the floor's diff) loads in the town with its portal
     { const T3 = spawn(0, {}); T3.run = newRun(T3, 'campaign', 77, { town: 1, allFree: 1 }); T3.screen = 'play'; const Q = T3.run, hq = Q.hero, M = () => Q.memo[1];
-      enterFloor(T3, Q, 1); Q.portal = { f: 1, x: hq.x, y: hq.y }; enterFloor(T3, Q, 0, undefined, 'portal'); M().d = { p: { map: { p: { gone: { p: { step: { v: 1 } } } } } } };
-      const d0 = JSON.stringify(M().d), n0 = Q.log.fl.length, err = console.error; console.error = () => {};
-      hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; interact(T3, Q); console.error = err;
+      const home = () => { Q.portal = { f: 1, x: hq.x, y: hq.y }; enterFloor(T3, Q, 0, undefined, 'portal'); }, gate = (S, P) => { P.hero.x = P.map.town.svc.portal.x; P.hero.y = P.map.town.svc.portal.y + 30; interact(S, P); };
+      const err = console.error; console.error = () => {};
+      enterFloor(T3, Q, 1); const ids = Q.en.filter((e) => !D.BOSSES[e.type]).slice(0, 3).map((e) => e.id); for (const e of Q.en) if (ids.includes(e.id)) { e.hp = 0; e.deadT = T3.t; }
+      Q.stats[1].kills = 3; Q.seen.fill(1); home(); M().d.p.map = { p: { gone: { p: { step: { v: 1 } } } } }; gate(T3, Q);
+      if (Q.floor !== 1 || Q.town || Q.map.town || M().gv !== D.GEN_VERSION || Q.en.filter((e) => e.deadT >= 0).length !== 3 || Q.seen.some((v) => !v))
+        out.push(`memo: a kept floor whose diff no longer fits is not built anew with its dead and its map (floor ${Q.floor}, ${Q.en.filter((e) => e.deadT >= 0).length} dead)`);
+      home(); const d0 = JSON.stringify(M().d), n0 = Q.log.fl.length, cp = root.SIMX.captivePlace; root.SIMX.captivePlace = () => { throw new Error('a step that fails'); };
+      try { gate(T3, Q); } finally { root.SIMX.captivePlace = cp; console.error = err; }
       if (Q.floor !== 0 || !Q.town || !Q.map.town || !Q.portal || Q.portal.f !== 1 || Q.log.fl.length !== n0 || JSON.stringify(M().d) !== d0 || T3.floorFails !== 1)
-        out.push(`memo: a floor that fails to restore leaves the run half moved (floor ${Q.floor}, town ${Q.town}, portal ${JSON.stringify(Q.portal)})`);
+        out.push(`memo: a floor step that fails leaves the run half moved (floor ${Q.floor}, town ${Q.town}, portal ${JSON.stringify(Q.portal)})`);
       Q.floor = 1; Q.town = 0; Q.portal = null; M().d = { p: { map: { p: { town: { v: Q.map.town } } } } };
       const U = spawn(1, JSON.parse(JSON.stringify(persist(T3)))); U.run = null; root.SIMX.loadSlot(U, U.slot); const Z = U.run;
       if (!Z || Z.floor !== 0 || !Z.town || !Z.portal || Z.portal.f !== 1) out.push('memo: a save with the floor\'s number over the town\'s map does not load in the town with its portal');
-      else { Z.hero.x = Z.map.town.svc.portal.x; Z.hero.y = Z.map.town.svc.portal.y + 30; interact(U, Z);
+      else { gate(U, Z);
         if (Z.floor !== 1 || Z.town || Z.map.town || Z.portal) out.push('memo: the mended save\'s portal does not lead back to the floor'); } }
     // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
     // town's portal brings him back beside it, and the stairs lead on
