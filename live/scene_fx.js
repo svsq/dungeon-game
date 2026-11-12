@@ -82,7 +82,7 @@
       if (tc.kind === 'wall') embers(tc.x + (tc.side ? -tc.side * 9 : 3), tc.y - 30, 2, 34, col, i * 13 + 1);
       else embers(tc.x, tc.y - (big ? 44 + 40 : 32 + 26), big ? 5 : 3, big ? 70 : 46, col, i * 13 + 2); });
     for (const d of m.decor) if (d.n === 'torch_stand' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) embers(d.x, d.y + 4 - STAND.torch_stand[0][1] - 20, 3, 40, torchCol(m, d), d.x + d.y);
-    // (TASKS 1898: over a lake's columns these specks sat on the tops as a white dot on nearly each; the leaping sparks below stay)
+    // (TASKS 1923: over a lake's columns these specks sat on the tops as a white dot on nearly each; the leaping sparks below stay)
     const inLake = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (SIM.Q.cell(m, x + i, y + j) !== 3) return false; return true; };
     for (const [x, y] of lavaCells) if (rnd(x, y) < 0.6 && known(x * TILE, y * TILE) && !(m.cliff && inLake(x, y))) embers((x + rnd(y, x)) * TILE, (y + 0.5) * TILE, 1, 30, [1, 0.62, 0.15], x * 31 + y);
     for (const [id, f] of Object.entries(RIM.embers)) { embers(f[1][0] + cx, f[1][1] + cy, 4, 64, [1, 0.6, 0.2], +id * 13 + 5); embers(f[0][0] + cx, f[0][1] + cy, 2, 44, [1, 0.7, 0.3], +id * 13 + 6); }
@@ -301,7 +301,7 @@
       for (const g of sets.values()) { const z0 = g[0], H = D.HAZ.vent, w = D.hazClock(z0, GT) - (z0.per - H.warn), q = w >= 0 ? w / H.warn : 0, rowX = !!z0.ay, reach = H.r * (z0.s || 1) * (rowX ? 1 : H.ry);
         const along = g.map((z) => rowX ? z.x : z.y), a0 = Math.min(...along) - reach + 6, a1 = Math.max(...along) + reach - 6, c = rowX ? z0.y : z0.x, br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z0.x), al = 0.45 + 0.35 * br + 0.5 * q;
         L.shadow(sx(rowX ? (a0 + a1) / 2 : c), sy(rowX ? c : (a0 + a1) / 2), rowX ? (a1 - a0) / 2 : 10, rowX ? 6 : (a1 - a0) / 2, 0.45);
-        // (one unbroken 2 px line kinking a pixel or two either way, its kinks smouldering, TASKS 1906: dashes of 4–8 px read as a HUD mark)
+        // (one unbroken 2 px line kinking a pixel or two either way, its kinks smouldering, TASKS 1931: dashes of 4–8 px read as a HUD mark)
         const col = [1, 0.38 + 0.25 * q, 0.08], seg = (s0, s1, o) => (rowX ? L.solid(sx(s0), sy(c) + o, sx(s1) - sx(s0), 2, col, 0, 0, 0, al) : L.solid(sx(c) + o, sy(s0), 2, sy(s1) - sy(s0), col, 0, 0, 0, al));
         const jog = (s, o0, o1) => (rowX ? L.solid(sx(s), sy(c) + Math.min(o0, o1), 2, Math.abs(o1 - o0) + 2, col, 0, 0, 0, al) : L.solid(sx(c) + Math.min(o0, o1), sy(s), Math.abs(o1 - o0) + 2, 2, col, 0, 0, 0, al));
         let o = 0; for (let s = a0; s < a1;) { const n = Math.min(a1, s + 8 + 4 * Math.floor(rnd(c, s + 1) * 3)), o1 = Math.max(-4, Math.min(4, o + 2 * (Math.floor(rnd(s, c) * 3) - 1)));
@@ -318,7 +318,7 @@
         for (let j = 0; j < 2; j++) { const b = (GT * 0.5 + rnd(z.x + z.y, j)) % 1; L.puff(X + (rnd(z.x, j + 3) - 0.5) * 14, Y0 - 4 - 26 * b, 3 + 3 * b, [0.5, 0.4, 0.34], 0.3 * (1 - b), j); } continue; }
       // (the warning starts with a step and a flash, TASKS 1714: its first tenths looked like rest)
       const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(chirp(w, H.warn, 9, 16)), onset = z.gate ? 0.35 * (1 - SS(0, 0.3, w)) + 0.25 : 0;
-      if (z.gate && w < 0.13) L.glow(X, Y0 - 4, Hr * 0.8, [1, 0.62, 0.2], 0.9 * (1 - SS(0.05, 0.13, w)), 2.2);   // (dying over four frames, TASKS 1906: cut in one it clicked)
+      if (z.gate && w < 0.13) L.glow(X, Y0 - 4, Hr * 0.8, [1, 0.62, 0.2], 0.9 * (1 - SS(0.05, 0.13, w)), 2.2);   // (dying over four frames, TASKS 1931: cut in one it clicked)
       L.ring(X, Y0, Hr, Ry, [1, 0.4, 0.1], (0.18 + onset + 0.7 * q) * beat, 0.06); L.ring(X, Y0, Hr * 0.55, Ry * 0.55, [1, 0.5, 0.15], 0.35 * q * beat, 0.1);
       L.glow(X, Y0 - 4, 18 + 30 * q, [1, 0.55, 0.15], 0.2 + 0.7 * q, 2.4);
       for (let j = 0; j < 7; j++) { const b = (chirp(w, H.warn, 1.2, 2.4) + rnd(z.x + z.y, j)) % 1, px = X + (rnd(z.x, j + 3) - 0.5) * 26, py = Y0 - 2 - 22 * b;
@@ -378,7 +378,7 @@
       if (e.k === 'erupt' && a < 0.9) { const H = D.HAZ.vent, [Hr, Ry] = D.hazAxes((m.hazards || [])[e.i] || { k: 'vent' }), q = Math.min(1, a / 0.3);
         L.glow(ex, ey - 10, 30 + 40 * q, [1, 0.55, 0.15], 0.75 * (1 - a / 0.9), 2.2); L.ring(ex, ey, Hr * (0.25 + 0.75 * q), Ry * (0.25 + 0.75 * q), [1, 0.6, 0.2], 0.9 * (1 - SS(0.15, 0.6, a)), 0.12);
         // (TASKS 485: it read as a soft disc) a jet of lava stands up out of the mouth, and each gout thrown lands with a splash
-        const jz = (m.hazards || [])[e.i] || {}, jk = jz.gate ? 0.85 + 0.3 * rnd(e.i, 3) : 1, jn = jz.gate ? (m.hazards || []).filter((o) => o.gate && o.per === jz.per && o.ph === jz.ph).length : 0, jw = jz.gate ? (jn === 1 ? Hr / 30 : Math.max(1, Hr / 50)) : 1, jh = 110 * jk * SS(0, 0.12, a) * (1 - SS(0.25, 0.55, a));   // (a gate's jets each their own height and as wide as its ring allows, TASKS 1714; a lone vent's near half its ring, TASKS 1906)
+        const jz = (m.hazards || [])[e.i] || {}, jk = jz.gate ? 0.85 + 0.3 * rnd(e.i, 3) : 1, jn = jz.gate ? (m.hazards || []).filter((o) => o.gate && o.per === jz.per && o.ph === jz.ph).length : 0, jw = jz.gate ? (jn === 1 ? Hr / 30 : Math.max(1, Hr / 50)) : 1, jh = 110 * jk * SS(0, 0.12, a) * (1 - SS(0.25, 0.55, a));   // (a gate's jets each their own height and as wide as its ring allows, TASKS 1714; a lone vent's near half its ring, TASKS 1931)
         for (let k = 0; k * 6 < jh; k++) { const f = k * 6 / Math.max(1, jh), jx = ex + Math.sin(a * 30 + k * 0.7) * 2;
           L.glow(jx, ey - 6 - k * 6, (14 - 7 * f) * jw, [1, 0.6 - 0.25 * f, 0.12], 1.1, 2.6); L.star(jx, ey - 6 - k * 6, 7 - 3 * f, [1, 0.92 - 0.3 * f, 0.45], 1); }
         for (let j = 0; j < 24; j++) { const life = 0.45 + 0.4 * rnd(e.t, j + 7), an = rnd(e.t, j) * 6.283, d1 = Hr * (0.5 + 0.55 * rnd(e.t, j + 40));

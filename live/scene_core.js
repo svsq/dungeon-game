@@ -200,7 +200,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float pool = step(0.6 + (id - 0.5) * 0.08, fbm(p / 18.0 + 17.0) * 0.6 + vnoise(p / 7.0 + 3.0) * 0.4);   // (≈ 40 px backwaters, TASKS 1038, 1047: they lay as blots mid-lake)
   if (pool > 0.5) col = hash(vec2(id, 9.3)) < 0.45 ? Dk : Rd;
   // (the seams 3–4 px with a thin lemon core, TASKS 1038, 1047: a cream thread washed the lava's colour out, 44 against 82)
-  // (TASKS 1902: the yellow net a third thinner, 22 % of the lava at L* ≥ 75 against the ref's 15, and in the hottest few seams the
+  // (TASKS 1927: the yellow net a third thinner, 22 % of the lava at L* ≥ 75 against the ref's 15, and in the hottest few seams the
   // core goes near white, as the ref's do: ours stopped at lemon)
   float core = step(seam, 0.15 + 0.1 * beat) * (1.0 - pool), white = step(0.84, hash(vec2(id, 2.7)));
   col = seam < 0.15 + 0.1 * beat ? (pool > 0.5 ? YO : mix(vec3(1.35, 1.35, 0.5), vec3(1.45, 1.45, 1.2), white)) : seam < 0.47 + 0.15 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.4 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 2.3 && pool < 0.5 ? mix(col, O1, 0.5) : col;
@@ -414,13 +414,13 @@ vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
     if (!drop(vec2(cx, y - 2.0))) break; return vec4(cx, y + 3.0 + floor(hash(vec2(i, 6.7)) * 2.0) * 2.0, 0.0, 0.0); } }
   return vec4(cx, 0.0, 0.0, 0.0); }
 // where w falls on a column (half width hw): 0 off it, 1 its top, 2 its face; f: across, down the face 0..1
-// (TASKS 1899: the plateaus' edge columns are hexagonal as the lake's, 1898; round caps read as a row of cylinders)
+// (TASKS 1924: the plateaus' edge columns are hexagonal as the lake's, 1923; round caps read as a row of cylinders)
 float colAt(vec2 w, vec4 c, out vec2 f, float hw){ return hexAt(w, c, f, hw); }
 // a cluster of 3–8 columns standing in a lake or a river (TASKS 447: ref_cave_lava's field reads through its columns, 13–18 % basalt
 // against our 0–2), one in most cells of a 96×80 grid, only where the lava under its cap and at its foot is deep: no bank, crust,
 // crossing or source near (u_lake). A cluster may reach over its cell's edge, so w looks into the cells round it; the front-most
 // foot under w wins; foot: w is in the lava just under one
-// (TASKS 1898: round caps on smooth shafts read as cylinders; ref_cave_lava's are bundles of hexagonal columns: here each stands on
+// (TASKS 1923: round caps on smooth shafts read as cylinders; ref_cave_lava's are bundles of hexagonal columns: here each stands on
 // a hex lattice round its cluster's middle, so the tops tile, each a step of its own height, c.w 3)
 const vec2 HEXR[6] = vec2[6](vec2(0.0, -2.0), vec2(1.0, -1.0), vec2(1.0, 1.0), vec2(0.0, 2.0), vec2(-1.0, 1.0), vec2(-1.0, -1.0));
 float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foot = 0.0; hwo = 13.0;
@@ -524,7 +524,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     for (int k = 1; k <= 6; k++) if (isWall(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.7 + 0.3 * smoothstep(0.47, 0.9, op)) * (1.0 - 0.5 * under);
     // a low dark rock kerb along the lava's north banks (TASKS 1635: the concept's dark wall, here a flat floor runs to the lava)
-    // (TASKS 1899: a band of strokes; now the faces of a row of columns a step apart in height, as ref_cave_lava's plateau edges)
+    // (TASKS 1924: a band of strokes; now the faces of a row of columns a step apart in height, as ref_cave_lava's plateau edges)
     float ci = floor(w.x / 26.0), kx = (w.x - ci * 26.0 - 13.0) / 13.0, kh = 20.0 + 6.0 * floor(hash(vec2(ci, 3.7)) * 3.0);
     if (lavaAt(w + vec2(0.0, kh)) > 0.5) { float t = abs(kx) > 0.85 ? 0.15 : abs(abs(kx) - 0.45) < 0.08 ? 0.35 : kx < -0.45 ? 1.25 : kx < 0.45 ? 0.8 : 0.45;
       col = lavaAt(w + vec2(0.0, kh - 2.0)) <= 0.5 ? vec3(0.012, 0.009, 0.01) : lavaAt(w + vec2(0.0, kh - 8.0)) <= 0.5 ? (kx < 0.3 ? vec3(0.15, 0.13, 0.14) : vec3(0.08, 0.065, 0.07))
@@ -537,7 +537,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     for (int k = 1; k <= 72; k++) { float d = float(k) * 2.0; if (d > hf) break; vec2 q = w + vec2(0.0, d); if (!isWall(q)) { fd = d; down = !isOpen(q); break; } }
     float nearFall = 0.0; for (int i = 0; i < 6; i++) { vec4 q = u_fall[i]; if (q.w > 0.0 && abs(w.x - q.x) < q.z + 70.0 + 50.0 * vnoise(vec2(w.y / 24.0, q.x)) && w.y > q.y - q.w - 40.0 && w.y < q.y + 12.0) nearFall = 1.0; }
     if (fd < 99.0) { float h = fd / hf; col = gCol(w) * (0.55 + 0.65 * h * h);
-      // (TASKS 1899: by a lavafall the wall is a cliff of columns, as ref_cave_lava's: facets, ink seams, a lit cap row at the top)
+      // (TASKS 1924: by a lavafall the wall is a cliff of columns, as ref_cave_lava's: facets, ink seams, a lit cap row at the top)
       if (nearFall > 0.5) { float ci = floor(w.x / 24.0), kx = (w.x - ci * 24.0 - 12.0) / 12.0, dt = hf - fd - 4.0 * floor(hash(vec2(ci, 6.1)) * 3.0);
         float t = abs(kx) > 0.84 ? 0.12 : abs(abs(kx) - 0.45) < 0.09 ? 0.35 : kx < -0.45 ? 1.3 : kx < 0.45 ? 0.85 : 0.45;
         col = dt < 0.0 ? vec3(0.012, 0.01, 0.012) : dt < 2.0 ? vec3(0.02, 0.016, 0.018) : dt < 8.0 ? (kx < 0.3 ? vec3(0.2, 0.18, 0.2) : vec3(0.09, 0.08, 0.09))
@@ -702,7 +702,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     // racing down it in dashes
     // (its edges ragged and running down with it, TASKS 1038: a ruled curtain, σ 2.6 px against the concept's 11)
     // (widening to its foot, TASKS 1053: it narrowed, 55 → 33 px against 77 → 105)
-    // (TASKS 1899: held in its gap down to a ledge, then spilling wide over the stumps under it; the edges stay a little ragged)
+    // (TASKS 1924: held in its gap down to a ledge, then spilling wide over the stumps under it; the edges stay a little ragged)
     float ledge = lip + (land - lip) * (0.42 + 0.12 * hash(vec2(u_seed, 2.0))), sx = dx - wob;
     float hw0 = uw * (1.0 + 0.12 * clamp((y - lip) / max(ledge - lip, 1.0), 0.0, 1.0) + 0.62 * smoothstep(ledge, ledge + 14.0, y) + 0.12 * clamp((y - ledge) / max(land - ledge, 1.0), 0.0, 1.0));
     float hw = hw0 + ((vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 8.0 + (vnoise(vec2(sign(sx) * 3.0 + u_seed, (y - u_t * 22.0) / 26.0)) - 0.5) * 10.0) * smoothstep(lip, lip + 12.0, y);
@@ -714,7 +714,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
         for (int i = 0; i < 5; i++) { float fi = float(i); if (fi >= n) break; float px = ((fi + 0.5) / n - 0.5) * 1.5 * hw + (hash(vec2(fi, u_seed)) - 0.5) * 5.0;
           if (abs(floor(sx / 2.0) - floor(px / 2.0)) < 0.5 && vnoise(vec2(fi * 7.3 + u_seed, (y - u_t * (90.0 + 25.0 * fi)) / 16.0)) > 0.36) col = vec3(1.0, 0.92, 0.5); } }
       a = 1.0; glow = 1.0; liquid = 1.0; }
-    // (TASKS 1899: a sheet standing alone on the dark wall, its sides tongues of flame; ref_cave_lava's pours through a gap in a
+    // (TASKS 1924: a sheet standing alone on the dark wall, its sides tongues of flame; ref_cave_lava's pours through a gap in a
     // cliff of columns) either side a tall jamb at the lip and one further out, and in front a short column rising out of the lava
     // over the sheet's foot, so its edge steps where they stand
     if (land - lip > 30.0) for (int j = 0; j < 6; j++) { float fj = float(j), sd = j < 3 ? -1.0 : 1.0, k = 2.0 - mod(fj, 3.0), hk = hash(vec2(fj, u_seed + 5.0)), R = 11.0 + floor(hk * 4.0);
@@ -873,7 +873,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the lava round it) over its band, cell by cell (its mask unblurred: a blurred one lay over a bridge's deck as a rounded pill),
     // welling up in patches as u_q rises (a slow noise, the cells by the lava first: the mask's blue), and over the warning's last
     // moments a front running from the lavafall down the band (u_fr against the mask's green, how far a cell is from the fall)
-    // (TASKS 1894: its band's cells ran as a box over the floor, straight-edged and rimless: where it borders floor, not lava (u_lv),
+    // (TASKS 1919: its band's cells ran as a box over the floor, straight-edged and rimless: where it borders floor, not lava (u_lv),
     // a warped second look eats its edge back up to ~20 px, never out past the band, and its yellow lip comes back there; its
     // cells' levels are read warped too, or the patches welling up met along the cells' straight edges)
     const SPILL = MLAVA.replace('uniform sampler2D u_mask,', 'uniform float u_q, u_fr; uniform sampler2D u_lv, u_mask,')

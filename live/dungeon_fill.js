@@ -213,10 +213,12 @@
             if (shore) c.push([x, y]); }
           return c.length ? c[Math.floor(R() * c.length)] : null; };
         const W2 = { near, back, any: anywhere, bank, lava: lavaPost }; plan.length = 0;
-        for (const [kinds, [lo, hi], where] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where]]); }
+        for (const [kinds, [lo, hi], where, keep] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where], keep]); }
         const own = P.plan[0][1][0], last = P.plan[P.plan.length - 1], lk = last[0].filter(has);
         while (plan.length < n && lk.length) plan.push([pick(lk), W2[last[2]]]);
-        if (plan.length > n) plan.length = Math.max(n, r.kind === 'ledge' ? 0 : own); }   // (a ledge, TASKS 432, may hold a lone one)
+        // (a ledge, TASKS 432, may hold a lone one; an entry marked keep is cut last: a small nest's cut took its one priest, TASKS 1647)
+        const lim = Math.max(n, r.kind === 'ledge' ? 0 : own); for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!plan[i][2]) plan.splice(i, 1);
+        if (plan.length > lim) plan.length = lim; }
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;
       for (const [type0, where] of plan) { let type = type0, p = null;
@@ -521,7 +523,10 @@
         if (enemies.some((e) => Math.hypot(e.x / TILE - ex, e.y / TILE - ey) < 5)) continue;
         const spots = []; for (let y = ey - 7; y <= ey + 7; y++) for (let x = ex - 7; x <= ex + 7; x++) { const k = y * W + x, d = fromStart[k] - fromStart[end];
           if (d >= 2 && d <= 7 && !own.has(k) && free(x, y) && dry(x, y) && !crossings.some((q) => q.cells.includes(k)) && !rooms.some((q) => (q.type === 'start' || q.type === 'shop') && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h) && Math.hypot(x - start.cx, y - start.cy) > 12) spots.push([x, y]); }
-        for (let i = 0; i < 2 && spots.length; i++) { const [x, y] = spots.splice(Math.floor(R() * spots.length), 1)[0]; used.add(key(x, y)); addEnemy(pick(kinds), x, y, (roomOf(x, y) || rooms.filter((q) => !['secret', 'start', 'shop'].includes(q.type)).reduce((a, q) => (Math.hypot(q.cx - x, q.cy - y) < Math.hypot(a.cx - x, a.cy - y) ? q : a))).id); enemies[enemies.length - 1].ford = 1; } } }
+        // (a nest keeps its one fire priest: a crossing's guard in it is of another kind, TASKS 1647)
+        for (let i = 0; i < 2 && spots.length; i++) { const [x, y] = spots.splice(Math.floor(R() * spots.length), 1)[0]; used.add(key(x, y)); const q = roomOf(x, y) || rooms.filter((o) => !['secret', 'start', 'shop'].includes(o.type)).reduce((a, o) => (Math.hypot(o.cx - x, o.cy - y) < Math.hypot(a.cx - x, a.cy - y) ? o : a));
+          const nest = q.hall === 'nest' && enemies.some((e) => e.room === q.id && e.type === 'fire_priest'), ks = nest && kinds.some((t) => t !== 'fire_priest') ? kinds.filter((t) => t !== 'fire_priest') : kinds;
+          addEnemy(pick(ks), x, y, q.id); enemies[enemies.length - 1].ford = 1; } } }
     if (boss && !fin) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
     // the magma caves' elites and spoils (TASKS 433): an elite is a reward of the ways off the walk to the stairs, never met on it (the
     // stairs' own aside). As many as the floor's chance drew go to the dead ends with a pack and nothing else to win, one each, then
@@ -979,7 +984,7 @@
       const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
       const all = way.flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k)) ?? all.find((k) => ok(k, 0) && roomy8(k));   // (TASKS 1161: props in its middle third cost a lake its chest)
       if (mid !== undefined) { const x = mid % W, y = Math.floor(mid / W); claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
-    // a long dry way round a cave's crossing pays a chest in a niche half way along it (TASKS 1897)
+    // a long dry way round a cave's crossing pays a chest in a niche half way along it (TASKS 1922)
     for (const k of dryPay) { const x = k % W, y = Math.floor(k / W); if (cells[k] === 1 && !used.has(key(x, y))) { claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
     const hazards = [];
     if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y]), ...circles.map((q) => [q.x, q.y])];
@@ -1061,7 +1066,7 @@
           const span = (a + b + 1) * TILE - 6, along = side === 1, full = 2 * HZ.vent.r * (along ? 1 : HZ.vent.ry); let n = 1; while (n < 6 && span / (1 + G.pitch * (n - 1)) > full) n++; if (n === 6) return null;
           const E = span / (1 + G.pitch * (n - 1)), s = E / full, mid = (b - a) / 2 * TILE, row = Array.from({ length: n }, (_, i) => { const off = mid + (i - (n - 1) / 2) * G.pitch * E; return { k: 'vent', gate: 1, s, x: along ? wx(k % W) + off : wx(k % W), y: along ? wy(Math.floor(k / W)) : wy(Math.floor(k / W)) + off }; });
           row.lat = [-a * TILE + 8, b * TILE - 8]; return row; };
-        // the rings reach G.deep cells along the walk at the passage's thinnest chord (TASKS 1895, the player's decision 11.11.2026: at 2 cells a
+        // the rings reach G.deep cells along the walk at the passage's thinnest chord (TASKS 1920, the player's decision 11.11.2026: at 2 cells a
         // blind crossing cost ≈0.3 s against a 2.3 s wait); their width across stays wall to wall
         const depth = (zs, k, ax) => { const lx = wx(k % W), ly = wy(Math.floor(k / W)); let lo = Infinity;
           for (let u = zs.lat[0]; u <= zs.lat[1]; u += 8) { let run = 0; for (const sg of [1, -1]) for (let v = sg > 0 ? 0 : -2; Math.abs(v) < 8 * TILE; v += 2 * sg) { const x = ax === 'x' ? lx + v : lx + u, y = ax === 'x' ? ly + u : ly + v; if (!zs.some((z) => D.hazIn(z, x, y))) break; run += 2; } lo = Math.min(lo, run); }
@@ -1080,7 +1085,7 @@
             for (const d of decor) if (d.haz !== undefined) d.haz -= [...gone].filter((j) => j < d.haz).length;
             for (const j of [...gone].sort((p, q) => q - p)) hazards.splice(j, 1); }
           break; }
-        // no shooter stands within G.calm cells of a gate (TASKS 1895: an archer by 24 of 68 gates made waiting for the window a worse
+        // no shooter stands within G.calm cells of a gate (TASKS 1920: an archer by 24 of 68 gates made waiting for the window a worse
         // bet than walking in blind); it keeps its post and its pack, as one of the floor's own melee
         const gz = hazards.filter((z) => z.gate), melee = ['skel_ember', 'goblin', 'skeleton'].filter((t) => roster.includes(t));
         if (gz.length && melee.length) { const gx = gz.reduce((t, z) => t + z.x, 0) / gz.length, gy = gz.reduce((t, z) => t + z.y, 0) / gz.length;
@@ -1126,6 +1131,14 @@
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
     if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    // the descent holds a floor to ST.cap monsters (TASKS 388): with pop's growth past the campaign (385) its floors held 60 and took
+    // 150–210 s. The elites' share is kept: cutting the plain ones alone took it from 20 to 27 %
+    if (ST.cap && enemies.length > ST.cap) { const cut = (e) => e.key === undefined && !e.guard && !e.post && !e.ford && !e.exit && !e.lake && !D.BOSSES[e.type] && !D.ENEMIES[e.type].deep && !D.ENEMIES[e.type].lurk && !(rooms[e.room] && rooms[e.room].hall);
+      const c = enemies.filter(cut), share = c.filter((e) => e.elite).length / (c.length || 1), gone = new Set(); let el = c.filter((e) => e.elite).length, left = c.length;
+      while (enemies.length - gone.size > ST.cap && left) { const want = el / left > share ? 1 : 0, g = c.filter((e) => !gone.has(e) && !!e.elite === !!want), pool = g.length ? g : c.filter((e) => !gone.has(e)), n = new Map();
+        for (const e of pool) n.set(e.room, (n.get(e.room) || 0) + 1); let top, best = -1; for (const [k, v] of n) if (v > best || (v === best && String(k) < String(top))) { top = k; best = v; }
+        const x = pool.filter((e) => e.room === top).pop(); gone.add(x); left--; if (x.elite) el--; }
+      for (let i = enemies.length - 1; i >= 0; i--) if (gone.has(enemies[i])) enemies.splice(i, 1); }
     // a stream of its own: which chests are trapped must not move anything else on the floor (TASKS 1357)
     if (runFloor >= D.CHEST_TRAP.from) { const Tc = mul32(seed ^ 0x1357), T = D.CHEST_TRAP; let n = 0; for (const c of chests) { const v = Tc(); if (n < T.max && !c.boss && !c.lair && c.key === undefined && v < T.p) { c.trap = 1; n++; } } }
     if (runFloor >= D.MIMIC.from) { const Mc = mul32(seed ^ 0x367), st = rooms.find((r) => r.type === 'start'), inSt = (c) => st && c.x >= st.x * TILE && c.x < (st.x + st.w) * TILE && c.y >= st.y * TILE && c.y < (st.y + st.h) * TILE; for (const c of chests) { const v = Mc(); if (v < D.MIMIC.p && !c.boss && !c.lair && !c.trap && !c.hall && c.sec === undefined && c.key === undefined && !inSt(c)) { c.mimic = 1; break; } } }

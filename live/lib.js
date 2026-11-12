@@ -376,7 +376,7 @@ float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }
 void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1; k <= 3; k++) if (at(-u_dir * float(k)) > 0.5) edge = true; if (!edge) discard;
   for (int k = 1; k <= 24; k++) if (at(u_dir * float(k)) > 0.5) discard; o = vec4(u_col, 1.0); }`;
   // the lit edge on the body's own outermost pixel toward the light, inside the ink: a bottom edge stays dark, light from the lava
-  // doesn't wrap under the feet (TASKS 1904)
+  // doesn't wrap under the feet (TASKS 1929)
   const RIMIN = `
 uniform sampler2D u_src; uniform vec2 u_dir; uniform vec3 u_col;
 float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }

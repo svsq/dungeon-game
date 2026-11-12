@@ -6,7 +6,7 @@
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..'), MD = path.join(ROOT, 'CHANGELOG.md'), OUT = path.join(ROOT, 'live', 'data_changes.js');
 // «Самое главное» (TASKS 1305): the version's few main lines for the menu's frame, kept apart from the groups the news screen lists
-const arg = process.argv.slice(2), GROUPS = ['Главное', 'Геймплей', 'Исправления'], SHORT = 'Самое главное', MAIN_N = 5, MAIN_LEN = 80;
+const arg = process.argv.slice(2), GROUPS = ['Главное', 'Геймплей', 'Интерфейс', 'Исправления'], SHORT = 'Самое главное', MAIN_N = 5, MAIN_LEN = 80;
 
 function parse(src) {
   const out = []; let v = null, g = null, item = null;

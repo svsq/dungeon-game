@@ -237,7 +237,7 @@
   const FLOW = [[1, 0], [0, 1], [-1, 0], [0, -1]];
   // the magma caves' lava runs on under its slabs and bridges, not under a stone arch (TASKS 401)
   const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m); if (!u) { const arch = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => c.cells)); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !arch.has(k)))); } return u; };
-  // (TASKS 1900: an arch over a river that ended a cell past it stood on dry floor over a pocket of lava; ref_cave_lava's spans an
+  // (TASKS 1925: an arch over a river that ended a cell past it stood on dry floor over a pocket of lava; ref_cave_lava's spans an
   // arm of it) an arch only where the river runs on past its feet, four cells south of its walk, and a cell north
   const archSpans = (m, c) => { if (c.axis !== 'x') return false; const W = m.W, xs = c.cells.map((k) => k % W), ys = c.cells.map((k) => Math.floor(k / W)), x = Math.round((Math.min(...xs) + Math.max(...xs)) / 2);
     const cr = new Set(m.crust || []), run = (y, d) => { let n = 0; while (n < 4 && SIM.Q.cell(m, x, y + d * (n + 1)) === 3 && !cr.has((y + d * (n + 1)) * W + x)) n++; return n; };
@@ -338,7 +338,7 @@
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + KR] * R.seen[y * W + u]; } a[y * W + x] = v / KS; }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + KR] * a[u * W + x]; } b[y * W + x] = v / KS; }
     // unexplored lava next to the seen keeps a dim tail (TASKS 1724): its glow cut from ~0.45 to black in one cell read as a hard step
-    // (TASKS 1907: an explored room by the lava still ended on its cells' straight edge, 250–400 px of it against the chasm's black: by
+    // (TASKS 1932: an explored room by the lava still ended on its cells' straight edge, 250–400 px of it against the chasm's black: by
     // the lava its last two seen cells fade into the fog by a slow noise along the edge, up to two cells deep, never past what was seen)
     const lavaBy = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (SIM.Q.cell(m, x + i, y + j) === 3) return true; return false; };
     const unseenIn = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { const X = x + i, Y = y + j; if (X >= 0 && Y >= 0 && X < W && Y < H && !R.seen[Y * W + X]) return true; } return false; };

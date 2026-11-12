@@ -42,7 +42,14 @@
     for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
       if (o.hollow && i === 1 && j === 1) continue;
       const sw = xs[i + 1] - xs[i], sh = ys[j + 1] - ys[j]; if (sw <= 0.01 || sh <= 0.01 || us[i + 1] <= us[i] || vs[j + 1] <= vs[j]) continue;
-      L.sprite(P.tex, xs[i], ys[j], { w: sw, h: sh, src: [us[i], vs[j], us[i + 1], vs[j + 1]], u: o.u }); }
+      // a middle squeezed far tighter one way than the other drops to a small mip level, where the edge's outline blurs into the
+      // clear texels beside it, a grey tongue on the narrow stats tabs (TASKS 1889): it takes a narrower band of its own plain
+      // middle instead, at the scale the other way has
+      let u0 = us[i], u1 = us[i + 1], v0 = vs[j], v1 = vs[j + 1];
+      const kx = (u1 - u0) * T.w / sw, ky = (v1 - v0) * T.h / sh;
+      if (i === 1 && (cl || cr) && kx > ky * 3) { const c = (u0 + u1) / 2, hw = sw * ky / T.w / 2; u0 = c - hw; u1 = c + hw; }
+      if (j === 1 && (ct || cb) && ky > kx * 3) { const c = (v0 + v1) / 2, hh = sh * kx / T.h / 2; v0 = c - hh; v1 = c + hh; }
+      L.sprite(P.tex, xs[i], ys[j], { w: sw, h: sh, src: [u0, v0, u1, v1], u: o.u }); }
     if (P.wear && !o.hollow) K.wear(P.wear[0], x + P.wear[1] * PX * k, y + P.wear[1] * PX * k, w - 2 * P.wear[1] * PX * k, h - 2 * P.wear[1] * PX * k, o.u);
   };
   // the stretched middle of a panel is flat, so its scuffs or fibres are a tile laid over it at the kit's art pixel (TASKS 1743);
@@ -93,11 +100,12 @@
   // a button: b = { x, y, w, h, label, on }; kind 'parch' (the plain one) or 'wax' (the one that does the thing, light letters)
   K.button = (id, b, st, kind = 'parch') => {
     // a button that cannot be pressed is dimmed, not greyed out: its words stay readable on it (TASKS 1762)
-    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.35, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.1, 1.32, 0, 1.06] : gradeOf(st), dy = st.press ? 2 : 0;
-    // the red wax barely lightens under a grade, so the one that does the thing also glows when it is the one Enter would press
-    if (kind === 'wax' && lit) L.glow(b.x + b.w / 2, b.y + b.h / 2 + dy, b.w * 0.62, [1, 0.5, 0.2], 0.3, 2.2);
-    K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
-    const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
+    // the red wax barely lightens under a grade, so the lit one lightens it more and its letters turn pale gold; no glow under it
+    // (TASKS 1894: it read as a lamp's spot on the paper)
+    // the dimmed parchment keeps a warm cast (TASKS 1892): a grade alone took it to a cold grey
+    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.7, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.12, 1.5, 0, 1.08] : gradeOf(st), dy = st.press ? 2 : 0;
+    K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: st.off && kind !== 'wax' ? { grade: g, tint: [1, 0.94, 0.87, 1] } : { grade: g } });
+    const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#ffe7a3' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
     (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
@@ -121,24 +129,28 @@
     L.uiBox(id, x, y, s, s, 0);
   };
   // the tabs over a page: tabs = [{ id, label, x, y, w, h }]; the open one stands taller, with the wax seal on its corner. The
-  // lit one (o.lit, else the pointer's or the keyboard's) lightens; the open one when lit also glows, as the open one is already
-  // the lightest and the keyboard's focus sits on it while ←→ change it (TASKS 1856). o.fill (the start screen, TASKS 1757): the
-  // open tab is filled red with light letters, as on ref_ui_start_b, its seal inside at the left
-  K.tabs = (id, tabs, open, S, o = {}) => { for (const b of tabs) { const st = K.st(S, b.id), on = b.id === open, up = on ? 8 : 0, lit = o.lit !== undefined ? b.id === o.lit : st.hover || st.focus;
-    if (on && lit) L.glow(b.x + b.w / 2, b.y - up + b.h / 2, b.w * 0.75, [1, 0.6, 0.25], 0.55, 2);
-    const g = on ? (lit ? [1.05, 1.3, 0, 1.06] : [1, 1.06, 0, 1]) : gradeOf({ hover: lit }).map((v, i) => (i === 1 && !lit ? v * 0.82 : v));
-    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : { grade: g } });
+  // lit one (o.lit, else the pointer's or the keyboard's) shows as a choice does (TASKS 1846, 1890): a lighter tone and red
+  // letters, no glow, as a lamp's spot on paper is not in look B. A red label marks one tab only: while another is lit, the open
+  // one keeps its seal and height and goes back to ink. o.fill (the start screen, TASKS 1757): the open tab is filled red with
+  // light letters, as on ref_ui_start_b, its seal inside at the left
+  K.tabs = (id, tabs, open, S, o = {}) => { const litOf = (b) => { const st = K.st(S, b.id); return o.lit !== undefined ? b.id === o.lit : st.hover || st.focus; }, other = tabs.some((b) => b.id !== open && litOf(b));
+    for (const b of tabs) { const on = b.id === open, up = on ? 8 : 0, lit = litOf(b);
+    // a closed tab is darker and warmer, as on the ref's (hue 31°, saturation 0.41–0.44), not a dimmed grey olive (TASKS 1892)
+    const g = on ? (lit ? [1.05, 1.3, 0, 1.06] : [1, 1.06, 0, 1]) : lit ? gradeOf({ hover: true }) : [1.1, 0.85, 0, 1];
+    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : !on && !lit ? { grade: g, tint: [1, 0.9, 0.82, 1] } : { grade: g } });
     const sx = on && o.fill ? b.x + 0.6 * K.endW('tab', b.h) + 26 : 0;
     if (on) K.part('ui_b_wax_seal', [40, 40], o.fill ? sx : b.x + 6, o.fill ? b.y - up + b.h / 2 + 1 : b.y - up + 2, { c: true, k: o.fill ? 0.5 : 0.55 });
     const x0 = sx ? sx + 22 : b.x + 0.3 * K.endW('tab', b.h) + 4, x1 = b.x + b.w - 0.3 * K.endW('tab', b.h) - 4;
-    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size: 24, fit: x1 - x0, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : on || lit ? K.INK.r : K.INK.d });
+    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size: 24, fit: x1 - x0, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : lit || (on && !other) ? K.INK.r : on ? K.INK.t : K.INK.d });
     L.uiBox(id + b.id, b.x + 8, b.y - up, b.w - 16, b.h, 4); } };
   // an item cell: square (the bag) or round (a skill, a trophy); o.sel (picked), o.off (locked)
+  // a lit cell (TASKS 1894) shows by a lighter, warmer well, flat, no glow: its well is near black, so a grade alone did not lighten it
   K.cell = (id, x, y, s, st, o = {}) => {
-    if (o.round) L.rrect(x + s * 0.12, y + s * 0.12, s * 0.76, s * 0.76, s * 0.38, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
+    const lit = (st.hover || st.press || st.focus) && !st.off;
+    if (o.round) L.rrect(x + s * 0.12, y + s * 0.12, s * 0.76, s * 0.76, s * 0.38, lit ? [0.3, 0.22, 0.16] : [0.11, 0.08, 0.09], lit ? [0.18, 0.13, 0.1] : [0.06, 0.045, 0.05]);
     if (o.round) K.part('ui_b_cell_round', [48, 48], x, y, { k: s / 96, u: { grade: gradeOf(st) } });
     else K.nine('cell', x, y, s, s, { u: { grade: gradeOf(st) } });
-    if ((st.hover || st.press || st.focus) && !st.off) L.glow(x + s / 2, y + s / 2, s * 0.62, [0.95, 0.68, 0.3], st.press ? 0.18 : 0.32, 2.2);
+    if (lit && !o.round) L.solid(x + 6, y + 6, s - 12, s - 12, [0.62, 0.47, 0.32], 0, 0, 0, st.press ? 0.12 : 0.2);
     if (o.sel) { const r = s * 0.17; K.part('ui_b_wax_seal', [40, 40], x + s - r * 0.6, y + r * 0.6, { c: true, k: r * 2 / 80 }); }
     L.uiBox(id, x, y, s, s, 0);
   };
@@ -146,9 +158,10 @@
   K.banner = (id, cx, y, w, s, o = {}) => { const h = o.h || 80; K.nine('banner', cx - w / 2, y, w, h);
     const e = K.ends('banner')[0] * h / (40 * PX), fit = w - 2 * e * 0.8;
     K.ink(id + '_t', s, cx, y + h / 2 + 1, { size: o.size || 36, fit, al: 0.5, col: K.INK.r, bold: true }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
-  // a heading straight on the page, a flourish to each side of it
-  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r, bold: true }), r = o.wing || 90;
-    K.rule(cx - tw / 2 - 24 - r, y + 2, r, 0.8); K.rule(cx + tw / 2 + 24, y + 2, r, 0.8); K.rule(cx - tw / 2 * 0.8, y + (o.size || 48) * 0.75, tw * 0.8); return tw; };
+  // a heading straight on the page, a flourish to each side of it; o.w, the width the heading stands in, shortens the flourishes
+  // to stay inside it, and one shorter than 20 px is left out (TASKS 1873: they ran past the version sheet's edge)
+  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r, bold: true }), r = Math.min(o.wing || 90, o.w ? o.w / 2 - tw / 2 - 24 - 8 : 1e9);
+    if (r >= 20) { K.rule(cx - tw / 2 - 24 - r, y + 2, r, 0.8); K.rule(cx + tw / 2 + 24, y + 2, r, 0.8); } K.rule(cx - tw / 2 * 0.8, y + (o.size || 48) * 0.75, tw * 0.8); return tw; };
   // the vine flourishes in a page's four corners
   K.corners = (P, k = 0.8) => { const s = 64 * PX * k, h = s * G.tex('ui_b_flourish').h / G.tex('ui_b_flourish').w;
     L.sprite('ui_b_flourish', P.x, P.y, { w: s, h }); L.sprite('ui_b_flourish', P.x + P.w - s, P.y, { w: s, h, flip: true });

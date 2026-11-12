@@ -1,4 +1,4 @@
-# the codex's sheets of the magma monsters (TASKS 1912): the slivers left outside the silhouette, each under 2 % of the body's
+# the codex's sheets of the magma monsters (TASKS 1937): the slivers left outside the silhouette, each under 2 % of the body's
 # largest piece, go clear; rebuilds from art/old/specks/ so it can be re-run
 import numpy as np; from PIL import Image; from scipy import ndimage as nd
 for n in ['en_golem', 'en_salamander', 'en_colossus']:

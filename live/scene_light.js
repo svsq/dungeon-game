@@ -28,7 +28,7 @@
     TL.forEach((q) => ltS(...q)); GL.forEach((q) => ltS(...q));
     for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 8)), ny = Math.max(1, Math.round((r.h - 2) / 8));
       for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) ltS((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 150, col, D.BIOMES[r.zone].fill || 0.32, 1.8); }
-    // (TASKS 1908: the sanctum and the forge read dark beside the lakes, their braziers' pools a cell or two across) the priests' circle
+    // (TASKS 1933: the sanctum and the forge read dark beside the lakes, their braziers' pools a cell or two across) the priests' circle
     // and the forge's coals light half the hall
     if (m.cliff) for (const r of m.rooms) { if (r.hall !== 'sanctum' && r.hall !== 'forge') continue; const rr = Math.max(r.w, r.h) * TILE * 0.5;
       const src = r.hall === 'sanctum' ? (m.circles || []).find((q) => q.r === r.id) : m.decor.find((d) => d.n === 'forge_mg' && d.r === r.id); if (!src || hid(src)) continue;

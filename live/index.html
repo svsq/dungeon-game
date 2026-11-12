@@ -5,13 +5,11 @@
 html,body{margin:0;background:#000;height:100%;overflow:hidden}
 canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-ratio:var(--ar);margin:auto;position:absolute;inset:0}
 canvas{cursor:crosshair}
-#hint{pointer-events:none;position:absolute;left:0;right:0;bottom:3vh;text-align:center;font:600 18px -apple-system,sans-serif;color:#fff;text-shadow:0 2px 6px #000;transition:opacity .4s}
 #dev{position:absolute;left:10px;bottom:8px;font:12px ui-monospace,Menlo,monospace;color:#fff;background:#0008;padding:5px 8px;border-radius:6px;opacity:.55;white-space:pre}
 #dev:hover{opacity:1}
 #flash{position:absolute;right:12px;bottom:10px;font:600 13px -apple-system,sans-serif;color:#9f9;background:#000a;padding:4px 10px;border-radius:6px;opacity:0;transition:opacity .6s}
 </style>
 </head><body><canvas id="c"></canvas>
-<div id="hint">press any key or click to play — arrows / WASD move, Space jump, X action, R restart</div>
 <div id="dev"></div><div id="flash">reloaded</div>
 <script>
 // LIVE PREVIEW. Scripts and images load with a cache-buster; the page polls its sources and reloads itself when any of
@@ -28,7 +26,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // canvas take the aspect that comes out; the scene rebuilds its targets on the next frame
   const fitView = () => { if (SIM.setView) SIM.setView(SIM.viewFor(innerWidth, innerHeight)); document.documentElement.style.setProperty('--ar', SIM.VIEW.W / SIM.VIEW.H); };
   fitView(); addEventListener('resize', fitView);
-  const VW = SIM.VIEW.W, VH = SIM.VIEW.H; if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
+  const VW = SIM.VIEW.W, VH = SIM.VIEW.H;
   G.init(document.getElementById('c'), VW, VH);
   await Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))));
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
@@ -37,9 +35,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   window.__duration = SIM.L;
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
   window.__ready = true;
-  if (render) { document.getElementById('hint').style.opacity = 0; return; }
+  if (render) return;
 
-  const keys = {}, hint = document.getElementById('hint'), dev = document.getElementById('dev'), flash = document.getElementById('flash');
+  const keys = {}, dev = document.getElementById('dev'), flash = document.getElementById('flash');
   const SPEEDS = [0.1, 0.25, 0.5, 1];
   // game saves: meta progress + the current run in localStorage (the sim asks by bumping S.saveN)
   // v2 keys: the balance pass (task 154) started every player from scratch; the old v1 saves are dropped
@@ -54,25 +52,29 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run');
       localStorage.setItem('dc2_slot', JSON.stringify(p.slot || 0)); localStorage.setItem('dc2_saves', JSON.stringify(p.saves || [])); } catch (e) { console.warn('save failed', e); } };
   addEventListener('beforeunload', () => { if (play && play.screen === 'play' && play.run && !play.demo) { play.saved = play.run; persist(); play.saved = null; } });
-  const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; loggedReq = play.logReq || 0; hint.style.opacity = 0; };
+  const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; };
   // a finished run's log goes to the browser's downloads as crypt-run-<date>.json, for the balance analysis
-  let loggedN = 0, loggedReq = 0;
+  let loggedN = 0, loggedReq = 0, quitN = 0;
   const downloadLog = (res) => { const d = new Date(), pad = (n) => String(n).padStart(2, '0'), stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
     const body = Object.assign({ date: d.toISOString() }, res.log, { result: Object.assign({}, res, { log: undefined }) });
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(body, null, 1)], { type: 'application/json' })); a.download = `crypt-run-${stamp}.json`; a.click(); };
   let play = null, acc = 0, simT = 0, speed = 1, paused = false, stepOnce = false, fps = 60;
   try { const sv = JSON.parse(sessionStorage.getItem('live2') || 'null');                     // restore across live reloads
-    if (sv) { simT = sv.simT; speed = sv.speed; paused = sv.paused; if (sv.play) { play = Object.assign(SIM.create(), sv.play); hint.style.opacity = 0; }
+    if (sv) { simT = sv.simT; speed = sv.speed; paused = sv.paused; if (sv.play) { play = Object.assign(SIM.create(), sv.play); }
       flash.style.opacity = 1; setTimeout(() => (flash.style.opacity = 0), 1200); } } catch (e) {}
-  if (play) { loggedN = play.logN || 0; loggedReq = play.logReq || 0; }
+  if (play) { loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; }
   const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
-    if (c === 'KeyP') { paused = !paused; e.preventDefault(); return; }
-    if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
-    if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
-    if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
+    // the dev keys sit on letters of the Russian layout (з х ъ ю), so in the hero's name field they are letters (review of PR 63);
+    // not while paused: a pause that reached the field, by a step or a reload, would otherwise have no key to lift it
+    if (paused || !(play && SIM.Q.typing && SIM.Q.typing(play))) {
+      if (c === 'KeyP') { paused = !paused; e.preventDefault(); return; }
+      if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
+      if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
+      if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; } }
     keys[c] = 1; if (play) (e.repeat ? pend.rep : pend.keys).push(c);
+    if (play && e.key.length === 1 && !e.ctrlKey && !e.metaKey) pend.chars.push(e.key);   // e.key, not e.code: the name takes the letters of the player's layout (TASKS 1879)
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay(); else fullSync(true);
     e.preventDefault();
@@ -94,7 +96,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   document.addEventListener('fullscreenchange', () => fullBack(!!document.fullscreenElement));
   if (desk) desk.onFull((on) => fullBack(on));
   // pointer in view pixels (VW×VH); click is true for exactly one sim step
-  const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, moved: 0, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [], rep: [] };
+  const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, moved: 0, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [], rep: [], chars: [] };
   addEventListener('wheel', (e) => { if (play) { pend.wheel = Math.sign(e.deltaY); e.preventDefault(); } }, { passive: false });
   addEventListener('contextmenu', (e) => e.preventDefault());
   // the pointer is kept where it is on the page and put into view px on every frame (review of PR 57): a resize moves the canvas
@@ -107,7 +109,11 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     fullSync(true);
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
-  addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; pend.keys = []; pend.rep = []; pend.slot = 0; });
+  // a lost window or a hidden tab pauses a run through the sim's input, the way Esc does (TASKS 1882)
+  const away = () => { for (const k in keys) keys[k] = 0; ptr.down = 0; pend.keys = []; pend.rep = []; pend.chars = []; pend.slot = 0; pend.away = 1; };
+  addEventListener('blur', away);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) away(); });
+  if (desk && desk.onAway) desk.onAway(away);
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
@@ -117,11 +123,13 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (play) {
       acc += dt; viewPtr();
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep,
-        now: Date.now() - new Date().getTimezoneOffset() * 60000 };
-      while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; acc -= SIM.DT; }
+        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
+        now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away };
+      while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
+      // «Выход» (TASKS 1877): the save is written just above, then the desktop build closes its window
+      if ((play.quitReq || 0) !== quitN) { quitN = play.quitReq || 0; if (desk && desk.quit) desk.quit(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);

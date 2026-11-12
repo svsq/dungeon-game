@@ -169,7 +169,8 @@
     const CROSS = ['combat'], roomOf = (x, y) => rooms.find((q) => inRm(q, x, y));
     // the boss hall's wall stays rock two cells thick (TASKS 505): a river by it turned the one-cell wall to lava, a way out past its
     // sealed doors, and a river kept off the wall alone left a strip of masonry one cell thick
-    const bossR = rooms.find((q) => q.type === 'boss'), arenaWall = (x, y) => !!bossR && inRm(bossR, x, y, 2) && !inRm(bossR, x, y);
+    // (and the start's and the shop's, TASKS 1867: a river ending at the shop's wall stood a cell from its shelves)
+    const walled = rooms.filter((q) => ['boss', 'start', 'shop'].includes(q.type)), arenaWall = (x, y) => walled.some((q) => inRm(q, x, y, 2) && !inRm(q, x, y));
     const river = (r, dir) => { const [dx, dy] = [[1, 0], [0, 1], [-1, 0], [0, -1]][dir], vert = dir % 2 === 1, px = vert ? 1 : 0, py = vert ? 0 : 1;
       if ((vert ? r.w : r.h) < 8) return false;
       // the spring lies 4–9 cells before the room's near wall, level with a spot inside it
@@ -893,7 +894,7 @@
       const under = new Set(lavaUnder), cr = new Set(crust), bad = new Set();
       for (const f of lavaFeatures) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) bad.add(f.cell + j * W + i);
       for (const r of rooms) if (r.type === 'secret') for (let y = r.y - 2; y < r.y + r.h + 2; y++) for (let x = r.x - 2; x < r.x + r.w + 2; x++) bad.add(y * W + x);
-      // (nor beside another crossing, TASKS 1897: its own lava would be decked over)
+      // (nor beside another crossing, TASKS 1922: its own lava would be decked over)
       const lane = (k) => cells[k] === 3 && !under.has(k) && !bad.has(k) && !cr.has(k) && !nearX.has(k);
       let nearX = new Set();
       const len0 = reach(s0, new Set())[e0]; let alts = 0;
@@ -927,7 +928,7 @@
           const F = new Int32Array(W * H).fill(-1), fq = []; for (let k = 0; k < W * H; k++) if (cells[k] !== 0) { F[k] = 0; fq.push(k); }
           for (let i = 0; i < fq.length; i++) for (const o of D8) { const m2 = fq[i] + o; if (m2 >= 0 && m2 < W * H && F[m2] < 0) { F[m2] = F[fq[i]] + 1; fq.push(m2); } }
           const cheb = (k) => Math.min(...B.cells.map((b) => Math.max(Math.abs(b % W - k % W), Math.abs(Math.floor(b / W) - Math.floor(k / W)))));
-          // (TASKS 1897: the nearest tunnel was often a shortcut the walk would take, or a step longer than the way over: it is sought
+          // (TASKS 1922: the nearest tunnel was often a shortcut the walk would take, or a step longer than the way over: it is sought
           // again `ring` cells further off the crossing each time, mouths and all, so the way round grows long instead of failing)
           const tryRing = (rad) => {
           const mouth = (d) => { const z = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) { if (cells[k] !== 1 || under.has(k) || d[k] < 0) continue; const c = cheb(k); if (c < Math.max(Dr.off[0], rad) || c > Dr.off[1] + rad) continue;
@@ -952,7 +953,7 @@
           const n = reach(s0, new Set())[e0];
           // (and longer than the way over by `more`: no longer, the walk left the lava for it on 13 floors of 30)
           const nB = reach(s0, ban)[e0]; if (straight || n < len0 || nB < 0 || nB < n + Dr.more) { for (let k = 0; k < W * H; k++) cells[k] = c0[k]; return 0; }
-          // (a way round `pay` cells longer and more pays a chest half way along it, TASKS 1897: the gate's own pays nothing, decision 1723)
+          // (a way round `pay` cells longer and more pays a chest half way along it, TASKS 1922: the gate's own pays nothing, decision 1723)
           if (nB - n >= Dr.pay) { const mid = bulge.filter(([, k]) => cells[k] === 1).sort((p, q) => Math.abs(p[0] - path.length / 2) - Math.abs(q[0] - path.length / 2))[0]; if (mid) dryPay.push(mid[1]); }
           return 1; };
           for (let rad = 0; rad <= Dr.ring * 3; rad += Dr.ring) if (tryRing(rad)) { dug++; break; } } } }

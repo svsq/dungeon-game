@@ -91,7 +91,7 @@
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
     const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c', 'slab_mg_d'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
-    // (TASKS 1901: rows of the same grey cushions, the double row of 1722 doubling the repeat) four slabs, each its own size and a
+    // (TASKS 1926: rows of the same grey cushions, the double row of 1722 doubling the repeat) four slabs, each its own size and a
     // little slant; a second lane sits half a slab along, and the front face is a shade lighter than the top
     const basaltSlabs = (c, cells = c.cells) => { const hor = c.axis !== 'y', lane = (k) => hor ? Math.floor(k / m.W) : k % m.W, l0 = Math.min(...c.cells.map(lane)), lanes = new Set(c.cells.map(lane)).size;
       for (const k of cells) { const n = SLAB[Math.floor(4 * rnd(k, 7))], [w0, hh0] = SZ(n), sc = 0.94 + 0.18 * rnd(k, 11), w = w0 * sc, hh = hh0 * sc, half = lanes > 1 && (lane(k) - l0) % 2 ? TILE / 2 : 0;
@@ -109,7 +109,7 @@
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
       basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
-      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); // (TASKS 1900: its legs dark red in the lava's light as ref_cave_lava's, C 9.6 against 12.8; its crown stays grey)
+      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); // (TASKS 1925: its legs dark red in the lava's light as ref_cave_lava's, C 9.6 against 12.8; its crown stays grey)
       L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [1.8, 0.42, 0.24, 0.9] } }); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.95, 0.5, 0.32, 0.55], cut: [Y + 0.5 * ht, 40, 1] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope

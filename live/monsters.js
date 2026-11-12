@@ -56,7 +56,7 @@
     // the breath at least 0.75 % of the height: a fixed 0.8 view px was lost on the boss
     const stepPhase = (u0 * 2) % 1, settle = (o.settle || 0) / s * run * SS(0, 0.1, stepPhase) * (1 - SS(0.1, 0.45, stepPhase));
     let hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h) * (o.breathK || 1), drop) + crouch0 + (o.crouch || 0) + settle;
-    // o.hipFloor: the deepest crouch eases out that far (× height) over the ankles; at the ankles the folded knee sank under the ground (TASKS 1893)
+    // o.hipFloor: the deepest crouch eases out that far (× height) over the ankles; at the ankles the folded knee sank under the ground (TASKS 1918)
     if (o.hipFloor) { const lim = Math.min(RG.ankleL[1] - RG.hipL[1], RG.ankleR[1] - RG.hipR[1]) - o.hipFloor * RG.h, k = 0.08 * RG.h;
       if (hipDy > lim - k) hipDy = lim - k * Math.exp(-(hipDy - lim + k) / k); }
     const legs = {};
@@ -610,9 +610,11 @@
     if ((e.st === 'bwind' || stuck || crackBack) && (e.mv === 'fists' || e.mv === 'crack')) {
       const fists = e.mv === 'fists', end = fists ? (e.openUntil || e.t0 + w + M.duration + M.stuck) : e.t0 + w + M.duration;
       const back = SS(end, end + 0.4, GT), raise = SS(0, w * 0.6, u), hit = SS(w - 0.28, w, u), k = raise * (1 - back);
-      const tug = fists && GT > e.t0 + w + M.duration ? Math.pow(Math.sin((GT - e.t0 - w - M.duration) * Math.PI / 0.4), 8) : 0;
-      base.crouch += (85 * hit - 3 * tug) * (1 - back);
-      base.lean = face * lerp(-0.16 * raise, 0.6 - 0.035 * tug, hit) * (1 - back);
+      const held = fists ? Math.max(0, GT - e.t0 - w - M.duration) : 0, tug = held > 0 ? Math.pow(Math.sin(held * Math.PI / 0.4), 8) : 0;
+      // (TASKS 1775: at 3 px and 0.035 the tugs did not read, the stuck colossus stood frozen through frames 6–12 of the sheet; it heaves
+      // between them too, breathing hard)
+      base.crouch += (85 * hit - 16 * tug + 7 * Math.sin(held * 5.2) * SS(0, 0.2, held)) * (1 - back);
+      base.lean = face * lerp(-0.16 * raise, 0.6 - 0.1 * tug, hit) * (1 - back);
       base.handTarget = (side, rest) => {
         if (!fists && side === 'L') return target(side, [-0.2, -0.35], rest, k);
         const p = DATA.colossusContact(e, side), floor = [(p.x - e.x) / (face * E.h), (p.y - e.y) / E.h - 0.11];
