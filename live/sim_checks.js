@@ -1702,6 +1702,10 @@
         if (R2.shards - s0 !== REWARD.full || !fstat(R2).full.kills) out.push(`completion: the last kill paid ${R2.shards - s0} shards, not ${REWARD.full}`);
         R2.en.push(Object.assign({}, live[0], { id: 9e6 + 1, deadT: -1, hp: 5 })); fstat(R2).foes++; hitEnemy(S2, R2, R2.en.at(-1), 1e9, false, 0, 0);
         if (R2.shards - s0 !== REWARD.full) out.push('completion: a floor paid its kills twice'); }
+      // TASKS 1979: a reward that fell to the town's floor and is picked up later is no floor's loot to complete
+      { const S3 = spawn(0, {}); startRun(S3, 'town'); const R3 = S3.run, f3 = fstat(R3), s0 = R3.shards, m0 = S3.meta.shards; f3.lootN = 1;
+        const it = Object.assign(rollItem(R3, 1, 0, 'ring'), { id: R3.nextId++ }); root.SIMX.takeItem(S3, R3, { item: it, loot: 1, x: R3.hero.x, y: R3.hero.y });
+        if (R3.shards !== s0 || S3.meta.shards !== m0) out.push('completion: a reward picked up in the town paid floor shards'); }
       const L2 = spawn(0, {}); L2.saved = JSON.parse(JSON.stringify(R)); delete L2.saved.stats; L2.run = L2.saved; L2.screen = 'play'; step(L2, { keys: [] });
       if (!L2.run.stats || L2.run.stats[2].foes !== L2.run.en.filter(counted).length) out.push('completion: an old save gets no stats for its floor'); }
     // doors: shut, a doored room stays unseen and its monsters can't see the hero through the door; E opens it; a locked one holds
