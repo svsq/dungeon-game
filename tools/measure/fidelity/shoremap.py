@@ -2,7 +2,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 import sys,re,json,numpy as np
 from PIL import Image
 from scipy import ndimage as nd
-F=ROOTP+'frames/critic_r14_fidelity/'; M=F
+F=ROOTP+'frames/critic_r15_fidelity/'; M=F
 def hot(a):
   m=(a[...,0]>=205)&(a[...,1]>=55)&(a[...,2]<=120); m=nd.binary_closing(m,iterations=3); return nd.binary_opening(m,iterations=2)
 def load(v):
@@ -11,12 +11,13 @@ def load(v):
     m=re.match(r'(\S+) (\{.*\})$',l.strip())
     if m: R[m.group(1)]=json.loads(m.group(2))
   return R
+# r15: ui box is HUD B (bottom panel, hint bar, minimap with its legend)
 def one(v,n,j):
   a=np.asarray(Image.open(F+f'shoremap_{v}/{n}.png').convert('RGB')).astype(int); H,W=a.shape[:2]
   cx,cy=j['cam']; cat=np.array(j['cat']).reshape(j['H'],j['W'])
   X,Y=np.meshgrid(np.arange(W),np.arange(H)); tx=np.floor((X+cx)/32).astype(int); ty=np.floor((Y+cy)/32).astype(int)
   ok=(tx>=0)&(ty>=0)&(tx<j['W'])&(ty<j['H']); C=np.full((H,W),-1); C[ok]=cat[ty[ok],tx[ok]]
-  ui=(X<370)&(Y<260)|(X>1560)&(Y<660)|(X>1440)&(Y>1040); hm=hot(a)&~ui
+  ui=(X<390)&(Y<310)|(X>1520)&(Y<670)|(X>280)&(X<1640)&(Y>940)|(X>1010)&(Y>880); hm=hot(a)&~ui
   walk=(C==1)&~ui; lava=C==3
   L,k=nd.label(hm); keep=np.unique(L[hm&lava]); hm=np.isin(L,keep[keep>0])
   if len(sys.argv)>1 and v=='new' and n==sys.argv[1]: Image.fromarray(((hm&walk)*255).astype('uint8')).save(F+'z_map_'+n+'.png')

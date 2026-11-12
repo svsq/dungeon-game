@@ -1,7 +1,7 @@
 import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../..'))+'/'
 import sys,numpy as np
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r14_fidelity/qa/'
+W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r15_fidelity/qa/'
 def cats(p,box=None,k=1.0):
   a=load(p,k,box).reshape(-1,3); L,C,H=LCH(a)
   pp=lambda v:[int(x) for x in np.percentile(v,[10,25,50,75,90])]; sh=lambda m: round(float(m.mean())*100)

@@ -2,7 +2,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 # lava at the fog's rim after 1047/1048: brightest pixels vs the cells around them, and their hue, by distance to the fog
 import sys,numpy as np; from scipy import ndimage
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; Q=W+'frames/critic_r14_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
+W=ROOTP+''; Q=W+'frames/critic_r15_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
 for n,p,b,k in [('ref',R,None,1.05),('magma_fog',Q+'magma_fog.png',(380,120,1560,1000),1),('magma_fog_walk',Q+'magma_fog_walk.png',(0,120,760,1080),1),
                 ('r4 magma_fog',W+'frames/assets_r4/magma_fog.png',(380,120,1560,1000),1),('r4 magma_fog_walk',W+'frames/assets_r4/magma_fog_walk.png',(0,120,760,1080),1)]:
   try: a=load(p,k,b)

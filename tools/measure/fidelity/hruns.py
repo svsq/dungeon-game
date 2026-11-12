@@ -2,7 +2,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 # straight horizontal runs of bright yellow (G>150) >= 12 px in lava areas; ref at x1.05 nearest
 import sys,numpy as np
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r14_fidelity/qa/'
+W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r15_fidelity/qa/'
 def runs(a,minlen):
   s=(a[...,1]>150)&(a[...,0]>230); out=[]
   for y in range(s.shape[0]):
