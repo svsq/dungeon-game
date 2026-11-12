@@ -113,6 +113,10 @@
         // go round: slabs two cells wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a
         // floor; the walk keeps `keep` of its length, and the way by them is `more` cells longer than the way over at the least
         alt: { off: 3, wide: 10, len: [1, 9], max: 4, keep: 0.7, more: 10,
+          // bend (TASKS 1939): on a terrace floor the way round bends through the lava, `ring` cells and more off the crossing, `len` blocks
+          // at most, its mouths within `reach` steps of the crossing's ends, `more` cells longer than the way over (`round` preferred),
+          // `max` ways round a floor in all, the `tries` longest ends tried
+          bend: { ring: [3, 9], len: 40, reach: 32, more: 16, round: 20, max: 8, tries: 12 },
           // dry (TASKS 1726): on a cave floor a tunnel round a crossing, its mouths `off` cells from it, `len` cells at most, `max` a floor, the
           // way round `more` cells longer than the way over at the least; failing that, sought again `ring` cells further off (TASKS 1922),
           // and one `pay` cells longer or more holds a chest half way

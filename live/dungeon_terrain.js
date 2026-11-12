@@ -898,7 +898,41 @@
       const lane = (k) => cells[k] === 3 && !under.has(k) && !bad.has(k) && !cr.has(k) && !nearX.has(k);
       let nearX = new Set();
       const len0 = reach(s0, new Set())[e0]; let alts = 0;
-      for (const B of crossings.filter((c) => c.lava && !c.chasm)) { if (alts >= A.max || len0 < 0) break; const ban = new Set(B.cells), ds = reach(s0, ban); if (ds[e0] >= 0) continue;
+      // a terrace's walk is one serpentine, every crossing on it a cut and any straight second row of slabs a shortcut past the walk's
+      // least (TASKS 1939: no terrace floor of 36 took one): its way round bends, slabs two cells wide down into the lava beside the
+      // crossing, along and back up, `ring` cells and more off it, touching no floor but its two ends and no rock (beside rock its
+      // straight legs ran as the ruled walls selfCheck forbids)
+      const bend = (B, ban, ds, de) => { const Bd = A.bend, cheb = (k) => Math.min(...B.cells.map((b) => Math.max(Math.abs(b % W - k % W), Math.abs(Math.floor(b / W) - Math.floor(k / W)))));
+        const blk = (k) => [k, k + 1, k + W, k + W + 1];
+        // (an islet's thin crust, its one way, stays: a bend over it left the hoard out of reach)
+        const isl = new Set(thin.flatMap((k) => [0, 1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].map((o) => k + o)));
+        // (its mouths within `reach` steps of the crossing's two ends: from anywhere, the nearest bend joined two rows, a shortcut)
+        const near = (d) => { const o = new Int32Array(W * H).fill(-1), q = []; for (const b of B.cells) for (const s of D4) if (cells[b + s] === 1 && d[b + s] >= 0 && o[b + s] < 0) { o[b + s] = 0; q.push(b + s); }
+          for (let i = 0; i < q.length; i++) for (const s of D4) { const n = q[i] + s; if (o[n] < 0 && cells[n] === 1 && d[n] >= 0 && !ban.has(n)) { o[n] = o[q[i]] + 1; q.push(n); } } return o; };
+        const nA = near(ds), nZ = near(de), inR = (o, n) => o[n] >= 0 && o[n] <= Bd.reach;
+        const side = (k) => { let a = 0; for (const q of blk(k)) for (const o of D4) { const n = q + o; if (cells[n] !== 1 || blk(k).includes(n)) continue; a |= ds[n] >= 0 ? (inR(nA, n) ? 1 : 4) : de[n] >= 0 ? (inR(nZ, n) ? 2 : 4) : 4; } return a; };
+        let got = null; for (let rad = Bd.ring[0]; rad <= Bd.ring[1]; rad += 2) { const okB = (k) => blk(k).every((q) => (lane(q) || cr.has(q) && cells[q] === 3 && !under.has(q) && !bad.has(q) && !nearX.has(q)) && cheb(q) >= rad && !isl.has(q) && D4.every((o) => cells[q + o] !== 0)) && !(side(k) & 4) && (side(k) & 3) !== 3;
+          const from = new Int32Array(W * H).fill(-2), dist = new Int32Array(W * H), q = [], ends = []; for (let k = W * 3; k < W * (H - 4); k++) if (k % W > 2 && k % W < W - 4 && okB(k) && side(k) & 1) { from[k] = -1; q.push(k); }
+          for (let i = 0; i < q.length; i++) { const k = q[i]; if (side(k) & 2) { ends.push(k); continue; }
+            for (const o of D4) { const n = k + o; if (from[n] === -2 && n % W > 2 && n % W < W - 4 && okB(n)) { from[n] = k; dist[n] = dist[k] + 1; q.push(n); } } }
+          // (every mouth on the far side, the longest first: the nearest made the way round +10 at most)
+          for (const end of ends.filter((k) => dist[k] < Bd.len).sort((p, r) => dist[r] - dist[p]).slice(0, Bd.tries)) {
+            const path = []; for (let k = end; k >= 0; k = from[k]) path.push(k);
+            const deck = [...new Set(path.flatMap(blk))]; for (const k of deck) cells[k] = 1; const n = reach(s0, new Set())[e0], nb = reach(s0, ban)[e0];
+            for (const k of deck) cells[k] = 3; if (n < Math.max(far ? pathMin : 0, A.keep * len0) || nb < n + Bd.more) continue;
+            if (!got || got.r < Bd.round && nb - n > got.r) got = { path, deck, r: nb - n }; if (got.r >= Bd.round) break; }
+          if (got && got.r >= Bd.round) break; }
+        if (!got) return false; const { path, deck } = got; for (const k of deck) cells[k] = 1;
+        lavaUnder.push(...deck); for (const k of deck) under.add(k);
+        // (a crust on or by it, a corner too, goes back to lava: it would join the slabs to a bank)
+        for (let i = crust.length - 1; i >= 0; i--) if ([0, 1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].some((o) => deck.includes(crust[i] + o))) { cr.delete(crust[i]); crust.splice(i, 1); }
+        // each straight leg its own row of slabs (the corner block closes the leg before it)
+        const hz = path.slice(1).map((k, j) => Math.abs(k - path[j]) === 1);
+        for (let j = 0; j < hz.length; ) { let j2 = j; while (j2 + 1 < hz.length && hz[j2 + 1] === hz[j]) j2++;
+          const hor = hz[j], cs = [...new Set(path.slice(j ? j + 1 : 0, j2 + 2).flatMap(blk))], U = (k) => (hor ? k % W : Math.floor(k / W)), V = (k) => (hor ? Math.floor(k / W) : k % W);
+          crossings.push({ kind: 'slabs', cells: cs, axis: hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, bend: 1, of: B.cells[0], span: [Math.min(...cs.map(U)), Math.max(...cs.map(U)), Math.min(...cs.map(V))] }); j = j2 + 1; }
+        return true; };
+      for (const B of crossings.filter((c) => c.lava && !c.chasm)) { if (alts >= (ftype === 'terrace' && A.bend ? A.bend.max : A.max) || len0 < 0) break; const ban = new Set(B.cells), ds = reach(s0, ban); if (ds[e0] >= 0) continue;
         nearX = new Set(crossings.flatMap((c) => c.cells.flatMap((q) => [q, q + 1, q - 1, q + W, q - W])));
         const de = reach(e0, ban), cand = [], offB = (x, y) => B.cells.every((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) >= A.off);
         for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const px = dx ? 0 : 1, py = dx ? 1 : 0, side = py * W + px;
@@ -918,7 +952,8 @@
           lavaUnder.push(...c.deck); for (const k of c.deck) under.add(k);
           // (a crust by the slabs would have floor on two sides: it goes back to lava)
           for (let i = crust.length - 1; i >= 0; i--) if (D4.some((o) => under.has(crust[i] + o) && c.deck.includes(crust[i] + o))) { cr.delete(crust[i]); crust.splice(i, 1); }
-          crossings.push({ kind: 'slabs', cells: c.deck, axis: c.hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, of: B.cells[0], span: [Math.min(...c.deck.map(U)), Math.max(...c.deck.map(U)), Math.min(...c.deck.map(V))] }); alts++; break; } }
+          crossings.push({ kind: 'slabs', cells: c.deck, axis: c.hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, of: B.cells[0], span: [Math.min(...c.deck.map(U)), Math.max(...c.deck.map(U)), Math.min(...c.deck.map(V))] }); alts++; B.done = 1; break; }
+        if (!B.done && ftype === 'terrace' && A.bend && bend(B, ban, ds, de)) alts++; }
       // a cave's stream crosses a tunnel wall to wall, no lava beside it for slabs (TASKS 1726): a dry tunnel through the rock round
       // the crossing instead, from the tunnel `off` cells before it to the one past it, `len` cells at most, its cells three of rock
       // off any floor but at its two mouths, by no secret; the walk keeps its length
