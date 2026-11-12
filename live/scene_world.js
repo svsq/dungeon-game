@@ -7,6 +7,33 @@
     deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   const HERO_RIM = { x: 0, y: 0 };
+  // a colossus's crack in local (along, across) world px, one shape for the wind-up's hairlines and the split that runs (TASKS 1749):
+  // kinks, side branches, chips and lifted bits of tile hashed on the colossus and its aim, its width widest at the feet
+  const CRACK_GEO = new Map();
+  SCX.crackGeo = (x0, y0, a, seed) => {
+    const key = `${Math.round(x0)},${Math.round(y0)},${a.toFixed(3)},${seed}`; let G0 = CRACK_GEO.get(key); if (G0) return G0;
+    if (CRACK_GEO.size > 8) CRACK_GEO.clear();
+    const s = seed * 13 + Math.round(a * 1000), pts = [{ l: 0, j: 0, f: 1 }], br = [], chips = [], lifts = [];
+    for (let k = 1, l = 0, j = 0; l < 540; k++) { l += 12 + 26 * rnd(s, k); j = Math.max(-15, Math.min(15, -0.2 * j + (rnd(s, k + 50) - 0.5) * 32)); pts.push({ l, j, f: 0.6 + 0.65 * rnd(s, k + 100) }); }
+    for (let k = 1; k < pts.length - 1; k++) { const p = pts[k];
+      for (let b = 0; b < 2; b++) { if (rnd(s, k * 3 + b + 150) > (b ? 0.3 : 0.55)) continue;
+        const side = rnd(s, k * 3 + b + 200) < 0.5 ? -1 : 1, n = b ? 1 : 2 + (rnd(s, k + 230) < 0.5 ? 1 : 0), seg = [[p.l, p.j]]; let an = side * (0.5 + 0.6 * rnd(s, k * 3 + b + 250)), u = p.l, v = p.j;
+        for (let i = 0; i < n; i++) { const d = (b ? 6 : 8) + 10 * rnd(s, k * 7 + i + b + 300); an += (rnd(s, k * 7 + i + b + 350) - 0.5) * 0.7; u += Math.cos(an) * d; v += Math.sin(an) * d; seg.push([u, v]); }
+        br.push({ l: p.l, w: b ? 2 : 4, seg }); }
+      for (let i = 0; i < 3; i++) { const side = rnd(s, k * 5 + i + 400) < 0.5 ? -1 : 1, u = p.l + (rnd(s, k * 5 + i + 450) - 0.5) * 18;
+        chips.push({ l: u, side, off: 2 + 7 * rnd(s, k * 5 + i + 500), sz: rnd(s, k * 5 + i + 550) < 0.35 ? 4 : 2, lite: rnd(s, k * 5 + i + 600) < 0.4 }); }
+      if (rnd(s, k + 650) < (p.l < 200 ? 0.7 : 0.35)) lifts.push({ l: p.l + (rnd(s, k + 700) - 0.5) * 10, side: rnd(s, k + 750) < 0.5 ? -1 : 1, w: 8 + 2 * Math.floor(3 * rnd(s, k + 800)), h: 6 + 2 * Math.floor(2 * rnd(s, k + 850)), rot: (rnd(s, k + 900) - 0.5) * 0.6 }); }
+    G0 = { pts, br, chips, lifts, co: Math.cos(a), sn: Math.sin(a), x0, y0 }; CRACK_GEO.set(key, G0); return G0; };
+  // the split's half-open width (world px) at `l` of a crack `len` long whose front is at `front`: widest at the feet, narrowing to the end
+  SCX.crackW = (l, len, front, f) => Math.max(2, (2 + 22 * Math.pow(Math.max(0, 1 - l / Math.max(1, len)), 0.8)) * f * SS(-6, 44, front - l));
+  SCX.crackAt = (g, u, v) => [g.x0 + g.co * u - g.sn * v, g.y0 + g.sn * u + g.co * v];
+  // a ragged lip: the top and bottom edges of the split at step n each stand out or in by an art pixel, in runs of 2–3 steps
+  SCX.crackEdge = (seed, n, w) => w < 4 ? [0, 0] : [2 * Math.round(rnd(seed, Math.floor(n / 3) + 900) * 2 - 1), 2 * Math.round(rnd(seed, Math.floor((n + 1) / 2) + 1900) * 2 - 1)];
+  // the split walked every 2 px up to its front: cb(l, j, w, n) with its ragged width w (a step of the art grid) and n the step's number
+  SCX.crackWalk = (g, len, front, cb) => { const end = Math.min(front, len), s = g.pts.length * 7 + 3;
+    for (let k = 0, n = 0; k + 1 < g.pts.length && g.pts[k].l < end; k++) { const p0 = g.pts[k], p1 = g.pts[k + 1];
+      for (let l = n * 2; l < Math.min(p1.l, end); l += 2, n++) { const f = (l - p0.l) / (p1.l - p0.l);
+        cb(l, p0.j + (p1.j - p0.j) * f, 2 * Math.round(SCX.crackW(l, len, front, p0.f + (p1.f - p0.f) * f) * (0.8 + 0.4 * rnd(s, Math.floor(n / 2))) / 2), n); } } };
   SCX.worldPass = (F) => {
     const {
       B, GT, MH, MW, R, ST, TL, blastFx, cx, cy, fireFx, flick, h, hid, known, m, seen, st, sx, sy, t, vis, whirlFx } = F;
@@ -283,6 +310,21 @@
       if (e.k === 'whirl' && a < 0.5) whirlFx(e, a, 1);
       if (e.k === 'boom' && a < 0.6) { G.blend('emit'); blastFx(e, a, 1); G.blend(); }
       if (e.k === 'die') L.puff(sx(e.x) + 6, sy(e.y) + 4, 12 + 30 * SS(0.1, 1.4, a), [0.28, 0.02, 0.02], 0.75, 41); }
+    // a colossus's crack is a dark split in the floor (TASKS 1749: an orange line read as a wire, a row of bars): near-black and uneven,
+    // widest at its feet, side branches off it, chips and lifted bits of tile along its lips; its glow is laid inside it in the fx pass
+    for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, front = Math.min(c.len, u * c.speed), fade = 1 - SS(run + 0.4 * c.linger, run + c.linger, u); if (u < 0 || fade <= 0) continue;
+      const g = SCX.crackGeo(c.x, c.y, c.a, c.owner), P = (q, v) => { const [x, y] = SCX.crackAt(g, q, v); return [sx(x), sy(y)]; }, seg = (A, B, w, col, al) => { const d = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d < 0.5) return;
+        L.solid(A[0], A[1] - w / 2, d + w * 0.5, w, col, Math.atan2(B[1] - A[1], B[0] - A[0]), 0, w / 2, al); };
+      for (const q of g.lifts) { if (q.l > front - 10 || q.l > c.len) continue; const w0 = SCX.crackW(q.l, c.len, front, 1), [X, Y] = P(q.l, q.side * (w0 / 2 + 3 + q.h / 2));
+        L.solid(X - q.w / 2 + 2, Y - q.h / 2 + 2, q.w, q.h, [0.02, 0.015, 0.015], q.rot, q.w / 2, q.h / 2, 0.7 * fade); L.solid(X - q.w / 2, Y - q.h / 2 - 2, q.w, q.h, [0.36, 0.24, 0.2], q.rot, q.w / 2, q.h / 2, fade);
+        L.solid(X - q.w / 2, Y - q.h / 2 - 2, q.w, 2, [0.58, 0.42, 0.34], q.rot, q.w / 2, q.h / 2, fade); }
+      for (const b of g.br) { if (b.l > front - 8 || b.l > c.len) continue; const open = SS(0, 0.25, u - b.l / c.speed);
+        for (let i = 0; i + 1 < b.seg.length; i++) seg(P(...b.seg[i]), P(...b.seg[i + 1]), i ? 2 : b.w, [0.03, 0.02, 0.02], 0.9 * open * fade); }
+      for (const layer of [0, 1, 2]) SCX.crackWalk(g, c.len, front, (l, j, w, n) => { const [X, Y] = P(l, j), w2 = Math.max(2, w), [t0, b0] = SCX.crackEdge(c.owner, n, w2), x = X - 1, y = Y - w2 / 2 + t0, hh = w2 + b0 - t0;
+        if (layer === 0) { if (w2 >= 4 && rnd(c.owner, n + 950) < 0.6) L.solid(x, y - 3, 2, 2, [0.55, 0.4, 0.33], 0, 0, 0, 0.6 * fade); }
+        else if (layer === 1) L.solid(x - 1, y - 1, 4, hh + 2, [0.07, 0.05, 0.045], 0, 0, 0, 0.85 * fade); else L.solid(x, y, 2, hh, [0.01, 0.006, 0.006], 0, 0, 0, fade); });
+      for (const q of g.chips) { if (q.l > front - 6 || q.l > c.len) continue; const w0 = SCX.crackW(q.l, c.len, front, 1), [X, Y] = P(q.l, q.side * (w0 / 2 + q.off));
+        L.solid(X - q.sz / 2, Y - q.sz / 2, q.sz, q.sz, q.lite ? [0.52, 0.38, 0.31] : [0.04, 0.03, 0.03], 0, 0, 0, 0.9 * fade); } }
     // a slime's puddle (TASKS 308): a glossy green spill that spreads out of the splat, then shrinks as it dries (sim GOO.dry)
     for (const g of m.goo || []) { const a = GT - g.t0, left = g.t0 + g.T - GT; if (a < 0 || left <= 0 || !vis(g.x, g.y)) continue;
       const r = g.r * SS(0, 0.25, a) * Math.min(1, left / 2), X = sx(g.x), Y = sy(g.y);

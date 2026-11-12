@@ -245,19 +245,32 @@
     // line of embers to where it will run, then the crack itself racing out and glowing as it cools; a circle where a rock will land,
     // brighter as it comes; stars over its head while it stands stuck
     {
-      // a crack as one jagged line on the 2 px grid, an orange edge round a hot core, its front white-hot (TASKS 1749: a dotted band
-      // of glows read as a trail of embers, not a split in the floor); the bend of each step hashed on the colossus so the wind-up's
-      // line and the crack that runs share one shape
+      // a crack's light (TASKS 1749): the heat glows only inside the dark split of the ground pass, a hot thread down its widest middle
+      // and a faint warm wash on the floor along its lips, a flash at the front while it runs; the wind-up shows the same path only
+      // as faint glowing hairlines. Laid on the 2 px grid in palette steps, square by square along the path
       const g2 = (v) => Math.round(v / 2) * 2;
-      const crackLine = (x0, y0, a, len, seed, amt, hot) => { if (len <= 0 || amt <= 0) return; const co = Math.cos(a), sn = Math.sin(a), st = 16;
-        const at = (l) => { const k = Math.round(l / st), j = k ? (rnd(seed, k + 61) - 0.5) * 18 : 0; return [sx(x0 + co * l - sn * j), sy(y0 + sn * l + co * j)]; };
-        let [ax, ay] = at(0);
-        for (let l = st; ; l += st) { const end = Math.min(l, len), [bx, by] = end === l ? at(l) : (() => { const [px, py] = at(l - st), [qx, qy] = at(l), f = (end - l + st) / st; return [px + (qx - px) * f, py + (qy - py) * f]; })();
-          const d = Math.max(2, g2(Math.hypot(bx - ax, by - ay))), an = Math.atan2(by - ay, bx - ax), tip = SS(len - 48, len, end) * hot;
-          L.solid(g2(ax), g2(ay), d + 2, 8, [0.75, 0.16, 0.02], an, 1, 4, 0.6 * amt); L.solid(g2(ax), g2(ay), d + 2, 4, [1, 0.42, 0.08], an, 1, 2, amt);
-          L.solid(g2(ax), g2(ay), d, 2, [1, 0.85, 0.5], an, 0, 1, (0.45 + 0.55 * tip) * amt);
-          ax = bx; ay = by; if (end >= len) break; }
-        if (hot > 0) L.glow(ax, ay, 14, [1, 0.6, 0.2], 0.7 * hot * amt, 2.4); };
+      const dotLine = (A, B, sz, col, al) => { const d = Math.hypot(B[0] - A[0], B[1] - A[1]), n = Math.max(1, Math.ceil(d / 2)); let px = NaN, py = NaN;
+        for (let i = 0; i <= n; i++) { const x = g2(A[0] + (B[0] - A[0]) * i / n - sz / 2), y = g2(A[1] + (B[1] - A[1]) * i / n - sz / 2); if (x === px && y === py) continue; px = x; py = y; L.solid(x, y, sz, sz, col, 0, 0, 0, al); } };
+      // a hairline: the path broken into 6 px steps, each nudged off it by an art pixel, its glow coming and going along it
+      const hair = (A, B, k, al) => { const d = Math.hypot(B[0] - A[0], B[1] - A[1]), n = Math.max(1, Math.round(d / 6)), nx = -(B[1] - A[1]) / (d || 1), ny = (B[0] - A[0]) / (d || 1); let a0 = A;
+        for (let i = 1; i <= n; i++) { const o = i < n ? 2 * Math.round(rnd(k, i) * 2 - 1) : 0, b0 = [A[0] + (B[0] - A[0]) * i / n + nx * o, A[1] + (B[1] - A[1]) * i / n + ny * o], v = rnd(k, i + 40);
+          dotLine(a0, b0, 2, v > 0.75 ? [1, 0.5, 0.12] : [0.75, 0.24, 0.05], (0.25 + 0.4 * v) * al); a0 = b0; } };
+      const crackFx = (x0, y0, a, seed, len, front, amt, hot, wind) => { if (front <= 0 || amt <= 0) return; const g = SCX.crackGeo(x0, y0, a, seed), P = (q, v) => { const [x, y] = SCX.crackAt(g, q, v); return [sx(x), sy(y)]; };
+        for (let k = 0; k + 1 < g.pts.length; k++) { const p0 = g.pts[k], p1 = g.pts[k + 1]; if (p0.l >= front) break; const l1 = Math.min(p1.l, front, len), j1 = p0.j + (p1.j - p0.j) * (l1 - p0.l) / (p1.l - p0.l), A = P(p0.l, p0.j), B = P(l1, j1);
+          if (wind) { hair(A, B, seed * 31 + k, amt); if (k % 3 === 1) L.glow((A[0] + B[0]) / 2, (A[1] + B[1]) / 2, 10, [1, 0.35, 0.08], 0.1 * amt, 2.2); }
+          else if (k % 2 === 0) { const w = SCX.crackW((p0.l + l1) / 2, len, front, p1.f); L.glow((A[0] + B[0]) / 2, (A[1] + B[1]) / 2, 14 + w, [1, 0.35, 0.08], 0.07 * amt * (1 - 0.5 * (p0.l + l1) / 2 / len), 2); }
+          if (l1 >= len) break; }
+        // inside the split: its far wall dimly lit from below, then pockets of heat down in it, three steps hashed every 6 px, so the
+        // glow breaks up along the split instead of running as one wire
+        if (!wind) SCX.crackWalk(g, len, front, (l, j, w, n) => { if (w < 4) return; const [X, Y] = P(l, j), [t0, b0] = SCX.crackEdge(seed, n, w), y0 = Y - w / 2 + t0, hh = w + b0 - t0, heat = 1 - 0.45 * l / len;
+          const q = l / 14, i0 = Math.floor(q), f = q - i0, nz = (rnd(seed, i0 + 1200) * (1 - f) + rnd(seed, i0 + 1201) * f) * heat, deep = y0 + hh * 0.6;
+          if (nz < 0.38) return; const lv = nz > 0.72 ? 3 : nz > 0.55 ? 2 : 1, sz = Math.min(hh - 2, lv * 2);
+          L.solid(g2(X - 1), g2(deep - sz / 2 + (rnd(seed, n + 1300) < 0.3 ? 2 : 0)), 2, Math.max(2, g2(sz)), lv === 3 ? [1, 0.68, 0.26] : lv === 2 ? [0.95, 0.38, 0.07] : [0.55, 0.12, 0.025], 0, 0, 0, amt);
+          if (lv === 3 && hh >= 10) L.solid(g2(X - 1), g2(y0 + 2), 2, g2(hh * 0.4), [0.3, 0.07, 0.015], 0, 0, 0, amt); });
+        for (const b of g.br) { if (b.l > front - 8 || b.l > len) continue; const open = wind ? SS(0.35, 0.8, amt) : SS(0, 0.25, (front - b.l) / 900);
+          for (let i = 0; i + 1 < b.seg.length; i++) if (wind) hair(P(...b.seg[i]), P(...b.seg[i + 1]), seed * 37 + b.l + i, 0.7 * amt * open); else dotLine(P(...b.seg[i]), P(...b.seg[i + 1]), 2, [0.6, 0.15, 0.03], 0.35 * (i ? 0.5 : 1) * amt * open); }
+        if (hot > 0) { const k = g.pts.findIndex((p) => p.l >= front), p0 = g.pts[Math.max(0, k - 1)], p1 = g.pts[Math.max(0, k)], f = p1.l > p0.l ? (front - p0.l) / (p1.l - p0.l) : 0, [X, Y] = P(front, p0.j + (p1.j - p0.j) * f);
+          L.glow(X, Y, 22, [1, 0.55, 0.2], 0.55 * hot, 2.2); L.glow(X, Y, 8, [1, 0.9, 0.65], 0.8 * hot, 3); L.star(X, Y - 2, 9, [1, 0.85, 0.55], 0.7 * hot); } };
       // where the boulder lands (TASKS 1749): a wide target, its rim with ticks pointing in, filling from the middle out to the rim as the
       // rock comes; the wind-up already marks the hero, as the throw aims at him (a small thin ring was lost under the colossus)
       const landMark = (X, Y0, r, f, beat) => { const ry = 0.75, a = (0.45 + 0.5 * f) * beat;
@@ -284,9 +297,9 @@
           L.ring(X, Y0, Mv.r * (0.45 + 0.55 * q), Mv.r * 0.75 * (0.45 + 0.55 * q), [1, 0.85, 0.55], 0.6 * q * beat, 0.04); }
         if (e.mv === 'crack' && u < w) { const p = D.colossusContact(e), c = Math.cos(e.aimA), sn = Math.sin(e.aimA); let reach = 0;
           for (let l = 0; l <= Mv.len; l += 8) { const cl = SIM.Q.cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)); if (cl !== 1 && cl !== 3) break; reach = l; }
-          crackLine(p.x, p.y, e.aimA, reach * SS(0, w * 0.6, u), e.id, (0.35 + 0.55 * q) * beat, q); } }
+          crackFx(p.x, p.y, e.aimA, e.id, reach, reach * SS(0, w * 0.6, u), (0.3 + 0.7 * q) * beat, 0, 1); } }
       for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, cool = 1 - SS(run, run + c.linger, u);
-        crackLine(c.x, c.y, c.a, Math.min(c.len, u * c.speed), c.owner, cool, u < run ? 1 : 0.4 * cool); }
+        crackFx(c.x, c.y, c.a, c.owner, c.len, Math.min(c.len, u * c.speed), cool, u < run ? 1 : 0, 0); }
       // the colossus's rain (TASKS 466): while rocks of it are on their way, each whole slab of cover shows its shelter, a dark
       // overhang on the floor with a pale rim, where none falls
       if ((R.rocks || []).some((q) => q.kind === 'rain' && !q.done && GT < q.t + 0.2)) { const sh = D.BOSSES.boss_colossus.moves.rain.shelter, pulse = 0.8 + 0.2 * Math.sin(GT * 4);
@@ -551,6 +564,12 @@
       for (let j = 0; j < 6; j++) { const c = GT * 1.7 + j / 6, q = c % 1, k = Math.floor(c) * 7 + j;
         L.solid(Math.round((sx(h.x) + (rnd(k, 1) - 0.5) * 28) / PIX) * PIX, Math.round((sy(h.y) - 64 * rnd(k, 2) + 46 * q * q) / PIX) * PIX, PIX, PIX * 2, [0.55, 0.85, 0.95], 0, 0, 0, 0.85 * (1 - q) * SS(0, 0.3, left)); } }
     // non-additive event FX (dust, debris, blood)
+    // a running crack's front throws up dust and grit (TASKS 1749), the dust hanging a moment behind it
+    for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed; if (u < 0 || u > run + 0.45) continue; const g = SCX.crackGeo(c.x, c.y, c.a, c.owner);
+      for (let i = 0; i < 4; i++) { const ui = Math.min(u, run) - i * 0.07, age = u - Math.max(0, ui); if (ui < 0) continue; const l = ui * c.speed, [x, y] = SCX.crackAt(g, l, 0), k = 1 - SS(0, 0.45, age);
+        L.puff(sx(x), sy(y) - 4 - 14 * age, 8 + 18 * SS(0, 0.4, age), [0.56, 0.5, 0.43], 0.7 * k, c.id * 5 + i); }
+      if (u < run) { const [x, y] = SCX.crackAt(g, u * c.speed, 0); for (let j = 0; j < 6; j++) { const q = (u * 5 + rnd(c.id, j)) % 1, an = (rnd(c.id, j + 9) - 0.5) * 2.4;
+        L.solid(Math.round((sx(x) + Math.sin(an) * 22 * q) / PIX) * PIX, Math.round((sy(y) - 30 * q + 50 * q * q) / PIX) * PIX, PIX, PIX, j % 2 ? [0.36, 0.33, 0.3] : [0.08, 0.06, 0.05], 0, 0, 0, 1 - q); } } }
     // a rock about to fall (TASKS 406), from its clock: dust and grit trickle down onto its shadow
     for (const z of m.hazards || []) { if (z.k !== 'fall' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.fall, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue;
       const q = w / H.warn; for (let j = 0; j < 5; j++) { const b = (GT * 1.6 + rnd(z.x + z.y, j)) % 1, px = sx(z.x) + (rnd(z.x, j + 5) - 0.5) * 30;
