@@ -20,13 +20,17 @@
 
   // ---------------- the biped ----------------
   // o: { id, n, x, y, face, H, dist, vx, vy, lean, crouch, arm(side, base) → [r1, r2], item, shield, wSide, U, Ufar, fallR, lift }
+  const bipedSL = (RG, s, k) => 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s * (k || 1);
   function biped(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.footL[1], fallR = o.fallR || 0, lean = o.lean || 0;
     // a boss move begins by cutting the walk (spd0 + its direction, sim.js): speed and direction ease down together, so neither
     // the stride amplitude nor the swing's side snaps
     const k0 = o.spd0 != null ? SS(0, 0.14, Math.max(0, o.t - o.t0)) : 1;
     const vxE = k0 < 1 ? lerp(o.vxn0 * o.spd0, o.vx, k0) : o.vx, vyE = k0 < 1 ? lerp(o.vyn0 * o.spd0, o.vy, k0) : o.vy;
-    const legL = d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL), sl = 0.4 * legL * s * (o.strideK || 1), u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU;
+    const sl = bipedSL(RG, s, o.strideK), cd = o.chargeK ? Math.min(o.chargeD || 0, o.dist) : 0;
+    // (the distance covered charging is stepped at the charge's stride and the rest at the walk's, so the feet keep their phase as the
+    // charge starts and ends instead of jumping to dist over the new stride)
+    const u0 = ((((o.dist - cd) / (2 * bipedSL(RG, s, o.walkK ?? o.strideK)) + cd / (2 * bipedSL(RG, s, o.chargeK || 1))) % 1) + 1) % 1, ph = u0 * TAU;
     // the stride opens over the first step's distance, not with the speed: a step of a few px in from standing (after a blow, to the
     // hero at its reach's edge) threw the feet a full stride apart in two frames
     const cut = k0 < 1 && o.spd0 > 4, sp = Math.hypot(vxE, vyE), run = SS(4, 30, sp) * (o.gaitK ?? 1) * (cut ? 1 : SS(0, sl, o.walkIn ?? sl));
@@ -208,7 +212,8 @@
   // (TASKS 1802) the small walkers stepped 11–15 times a second, their feet a blur: a longer stride by type brings them under 9 a second
   // and every biped's step to at least 0.15 of its height (the skeletons' was 0.12); the golem and the colossus plod by their weight
   const STRIDE_K = (MON.STRIDE_K = { goblin: 2, imp: 1.8, skel_ember: 1.3, skeleton: 1.4, skel_archer: 1.3, skel_mage: 1.15, brute: 1.05, boss: 1.05, boss_forge: 1.05 });
-  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; if (RG.hipL && STRIDE_K[type]) return STRIDE_K[type] * 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
+  const CHARGE_K = { boss_colossus: 1.45 };
+  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * bipedSL(RG, s, STRIDE_K[type]) : 0.28 * RG.h * s; };
 
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
   // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
@@ -666,7 +671,7 @@
     if (e.mv === 'charge') {
       const end = w + Math.max(M.time, M.duration), k = SS(0, Math.min(0.3, w), u) * (1 - SS(end - 0.25, end, u));
       base.lean = (base.lean || 0) + face * 0.22 * k; base.crouch += 14 * k;
-      base.strideK = 1.45; base.charge = 1; base.lift = 0.065;
+      base.strideK = base.chargeK; base.charge = 1; base.lift = 0.065;
       base.gaitK = SS(w, w + 0.12, u) * (1 - SS(end - 0.12, end, u));
       return (side, b) => [lerp(b, 0.7, k * 0.65), lerp(b + 0.18, 1.1, k * 0.65)];
     }
@@ -682,7 +687,7 @@
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
   MON.draw = (e, E, x, y, GT, o) => {
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
-    const base = { strideK: STRIDE_K[e.type], lift: e.type === 'goblin' ? 0.055 : undefined, item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, flinch: o.flinch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
+    const base = { strideK: STRIDE_K[e.type], walkK: STRIDE_K[e.type] ?? 1, chargeK: CHARGE_K[e.type], chargeD: e.chargeD, lift: e.type === 'goblin' ? 0.055 : undefined, item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, flinch: o.flinch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
     if (live && e.st === 'idle' && e.amb && GT - e.amb.t < DATA.AMB_T) base.amb = { w: (GT - e.amb.t) / DATA.AMB_T, x0: e.amb.x0, y0: e.amb.y0, x1: e.amb.x1, y1: e.amb.y1, x: e.x, y: e.y };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
     if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
@@ -828,12 +833,12 @@
       // charge) raises through its whole wind instead: its raise is long, a hold at the top would make it hurry
       const cast = boss && e.mv !== 'slam' && e.mv !== 'charge';
       const CO = { raise: -2.6, chopT: boss ? Math.min(0.26, w) : 0.26, recover: 0.32, over: 0.15, hold: 0.14, top: cast ? 0 : 0.12, bossW: w, dur: boss ? move.duration : 0.4 };
-      const CO2 = Object.assign({}, CO, { hold: 0.02 });
+      const CO2 = Object.assign({}, CO, { hold: 0.02 });   // the chained slam springs back at once: its follow-through overshoots deeper, and the recovery needs that room
       // (TASKS 1805) the two chapter lords strike their own blow, not the brute's: the demon lord swings both fists from far behind its head,
       // the forge lord brings them straight down from overhead like a hammer
       const own = live && boss && e.mv === 'slam' && !e.chain && (e.type === 'boss' || e.type === 'boss_forge') && e.st === 'bwind';
       const OWN = e.type === 'boss_forge' ? { raise: -3.1, chopT: Math.min(0.22, w), recover: 0.3, over: 0.12, hold: 0.08, top: 0.14, bendUp: 0.35, bendHit: 0.3, bend0: 0.18, bossW: w, dur: boss ? move.duration : 0.4 }
-        : { raise: -2.95, chopT: Math.min(0.24, w), recover: 0.36, over: 0.22, hold: 0.1, top: 0.18, bendUp: 1.35, bendHit: 0.08, bend0: 0.18, bossW: w, dur: boss ? move.duration : 0.4 };   // the chained slam springs back at once: its follow-through overshoots deeper, and the recovery needs that room
+        : { raise: -2.95, chopT: Math.min(0.24, w), recover: 0.36, over: 0.22, hold: 0.1, top: 0.18, bendUp: 1.35, bendHit: 0.08, bend0: 0.18, bossW: w, dur: boss ? move.duration : 0.4 };
       const top = (b) => chop(Object.assign({}, e, { st: 'bwind' }), E, e.t0 + w - CO.chopT, face, H, b, CO);   // the frozen pose at the top of the raise
       const pose = (b) => { if (!live) return null;
         if (ready) { const q = top(b), k = SS(0, w, GT - e.t0); return { r1: lerp(b, q.r1, k), bend: lerp(0.18, q.bend, k), k }; }

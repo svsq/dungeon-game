@@ -506,17 +506,16 @@
             if (g) g.hi++; else ways.push({ dx, dy, a: dx ? x : y, lo: dx ? y : x, hi: dx ? y : x }); }
           const w = ways.length ? ways[Math.floor(R() * ways.length)] : null;
           if (w) pair(w.dx ? [w.a, w.lo - 2] : [w.lo - 2, w.a], w.dx ? [w.a, w.hi + 2] : [w.hi + 2, w.a], 'torch_stand'); }
-        // the first floor's start, where the hero comes down from the lit town (TASKS 1795): two more sconces nearest the stairs (top
-        // wall first, else a side wall), two torch posts a few cells from the stairs' foot, two candle groups along the top wall, so
-        // the step down is not into a lone fire's pool. No draw from R: the rest of the floor is laid out as before
+        // (TASKS 1795) the step down from the lit town must not land in a lone fire's pool; no draw from R, so the rest of the floor is
+        // laid out as before
         if (r.id === start.id && runFloor === 1 && !plat) { const sx = up && !up.free ? up.tx : r.cx, sy = up && !up.free ? up.ty + 1 : r.cy, near = (x, y) => Math.hypot(x - sx, y - sy);
           const cols = Array.from({ length: r.w }, (_, i) => r.x + i).sort((p, q) => near(p, r.y) - near(q, r.y));
-          let n = 0; for (const x of cols) { if (n >= 2) break; if (x <= r.x || x >= r.x + r.w - 1 || at(x, r.y - 1) || !at(x, r.y) || tallAt(wx(x), r.y, HANG.wall) || doorTop(wx(x), r.y, HANG.wall) || torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < 3 * TILE && Math.abs(t.y - (r.y * TILE - 26)) < TILE)) continue; torches.push({ x: wx(x), y: r.y * TILE - 26, kind: 'wall', r: r.id }); n++; }
+          let n = 0; for (const x of cols) { if (n >= 2) break; if (x <= r.x || x >= r.x + r.w - 1 || at(x, r.y - 1) || !at(x, r.y) || tallAt(wx(x), r.y, HANG.wall) || hungAt(wx(x), r.y, HANG.wall) || torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < 3 * TILE && Math.abs(t.y - (r.y * TILE - 26)) < TILE)) continue; torches.push({ x: wx(x), y: r.y * TILE - 26, kind: 'wall', r: r.id }); n++; }
           const sides = []; for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, sd] of [[r.x, -1], [r.x + r.w - 1, 1]]) sides.push([x, y, sd]);
           for (const [x, y, sd] of sides.sort((p, q) => near(p[0], p[1]) - near(q[0], q[1]))) { if (n >= 2) break; if (at(x + sd, y) || !at(x, y) || doorway(x, y) || torches.some((t) => Math.hypot(t.x - wx(x), t.y - wy(y)) < 3 * TILE)) continue; torches.push({ x: sd < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: sd, r: r.id }); n++; }
-          const cells = []; for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (near(x, y) >= 2.5 && near(x, y) <= 5) cells.push([x, y]);
-          cells.sort((p, q) => near(...p) - near(...q)); n = 0;
-          for (const [x, y] of cells) { if (n >= 2) break; if (fits(x, y, 'torch_stand') && !decor.some((d) => d.n === 'torch_stand' && Math.hypot(d.x - wx(x), d.y - wy(y)) < 3 * TILE)) { stand(x, y, 'torch_stand'); n++; } }
+          const posts = []; for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (near(x, y) >= 2.5 && near(x, y) <= 5) posts.push([x, y]);
+          posts.sort((p, q) => near(...p) - near(...q)); n = 0;
+          for (const [x, y] of posts) { if (n >= 2) break; if (fits(x, y, 'torch_stand') && !decor.some((d) => d.n === 'torch_stand' && Math.hypot(d.x - wx(x), d.y - wy(y)) < 3 * TILE)) { stand(x, y, 'torch_stand'); n++; } }
           n = 0; for (const x of cols) { if (n >= 2) break; if (free(x, r.y) && !at(x, r.y - 1) && !doorway(x, r.y) && roomy(x, r.y, 'candles') && !tallAt(wx(x), r.y, 14) && !hungAt(wx(x), r.y, 6) && !decor.some((d) => d.n === 'candles' && Math.abs(d.x - wx(x)) < 3 * TILE && Math.abs(d.y - (r.y * TILE + 20)) < TILE)) { used.add(key(x, r.y)); decor.push({ x: wx(x) + ((x * 5) % 9) - 4, y: r.y * TILE + 20, n: 'candles' }); n++; } } } }
       // one group at most, and never at the foot of a statue, a rack or a sconce: candles piled on a pedestal read as clutter
       if (!cave) for (let i = 0, n = R() < 0.6 ? 1 : 0; i < n; i++) { const x = ri(r.x + 1, r.x + r.w - 2); if (!free(x, r.y) || at(x, r.y - 1) !== 0 || doorway(x, r.y) || !roomy(x, r.y, 'candles') || tallAt(wx(x), r.y, 14) || hungAt(wx(x), r.y, 6)) continue; used.add(key(x, r.y)); decor.push({ x: wx(x) + ri(-6, 6), y: r.y * TILE + 20, n: 'candles' }); }

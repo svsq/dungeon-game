@@ -136,15 +136,15 @@
     const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face - 0.14 * cryPrep * face + cryShake - 0.16 * hop * face + rangedLean + whirlLean;
     // death keeps the rig: the knees buckle (the hip drops, IK folds them), the arms fling, then the whole body falls back about the feet,
     // accelerating but slowed just before the floor so it lands with a small bounce instead of a board's slap
-    // (TASKS 1803) killed on the run (over half his running speed) he pitches forward the way he ran and skids 0.3 of his height; the
+    // (TASKS 1803) killed on the run (over half his running speed) he pitches forward the way he ran; the
     // mage sinks to his knees before he goes over; the archer twists a quarter round, his back to us, and falls forward onto his face
     const du = h.deadT >= 0 ? GT - h.deadT : -1, cls = D.clsOf(h).look.rig, dsp = Math.hypot(h.vx, h.vy), ran = du >= 0 && dsp > 0.5 * SIM.K.RUN;
     const twist = cls === 'archer' && !ran, fDir = ran ? (Math.abs(h.vx) > 0.3 * dsp ? Math.sign(h.vx) * face : 1) : twist ? 1 : -1, kneel = cls === 'mage' && !ran ? 0.22 : 0, late = kneel + (twist ? 0.14 : 0);
     const buckle = du >= 0 ? SS(0, 0.15 + kneel, du) : 0, fq = Math.min(1, Math.max(0, (du - 0.12 - late) / 0.35));
     const fallR = du < 0 ? 0 : fDir * face * (0.1 * buckle + 1.32 * (2.4 * fq * fq - 1.4 * fq * fq * fq) - (du > 0.47 + late ? 0.03 * Math.sin(Math.PI * Math.min(1, (du - 0.47 - late) / 0.16)) : 0));
-    const fc = Math.cos(fallR), fs = Math.sin(fallR), skid = ran ? fDir * face * 0.3 * HERO_H * SS(0, 0.45, du) : 0;
-    const root = [hx + skid, hy - 24 * hop], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
-    const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, ft = [1, 1, 1, 0], LK = D.clsOf(h).look, lt0 = LK.cold && HERO.lightAt ? HERO.lightAt(h.x, h.y) : null, cold = lt0 && !(SC.state && SC.state.run && SC.state.run.town) ? SS(1.2, 1, lt0.all[0] / Math.max(0.02, lt0.all[1])) : 0, U = { alpha, tint: cold && ft[3] ? [ft[0] * (1 - LK.cold.red * cold), ft[1], ft[2], ft[3]] : ft, grade: hurt ? [0.4, 2.4, 0, 1] : [(LK.sat || HSAT) * (1 - (1 - (LK.cold?.sat ?? 1)) * cold) * dk, HERO.lift * (1 - (1 - (LK.cold?.lift ?? 1)) * cold) * dk, 0, 1] }, Ufar = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * HSAT * dk, 0.72 * HERO.lift * dk, 0, 1] };
+    const fc = Math.cos(fallR), fs = Math.sin(fallR);
+    const root = [hx, hy - 24 * hop], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
+    const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, ft = [1, 1, 1, 0], LK = D.clsOf(h).look, lt0 = LK.cold && HERO.lightAt ? HERO.lightAt(h.x, h.y) : null, cold = lt0 && !(SC.state && SC.state.run && SC.state.run.town) ? SS(1.2, 1, lt0.all[0] / Math.max(0.02, lt0.all[1])) : 0, U = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [(LK.sat || HSAT) * (1 - (1 - (LK.cold?.sat ?? 1)) * cold) * dk, HERO.lift * (1 - (1 - (LK.cold?.lift ?? 1)) * cold) * dk, 0, 1] }, Ufar = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * HSAT * dk, 0.72 * HERO.lift * dk, 0, 1] };
     if (o.cut) U.cut = Ufar.cut = o.cut;
     const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: [0, 1, 2].map((i) => (u.tint ? 1 + (u.tint[i] - 1) * u.tint[3] : 1) * (1 + (t[i] - 1) * t[3])).concat(1) }) : u);   // a piece's rarity over the fire's tint
     const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0) => { const g = GR.part(n); return L.sprite(g.tex, 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };

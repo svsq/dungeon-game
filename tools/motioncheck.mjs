@@ -37,7 +37,7 @@
 //   glide     — walk cycles (TASKS 1801): some joint travels GLIDE of the height against the ground point (a robe slid); townsfolk warn
 //   cadence   — walk cycles (TASKS 1802): at most STEPS steps a second, a biped's step at least STEP of its height; townsfolk warn
 //   lies      — hero_*death (TASKS 1803) and the monsters' *_death but the crab's (TASKS 1907): lying (hip under LOW of the height),
-//               no hand or tip over UP of it; inertia — hero_death_run: the hip's way over the first 0.3 s goes the way he ran
+//               no hand or tip over UP of it; inertia — hero_*death_run: the hip's way over the first 0.3 s goes the way he ran
 //   recoil    — hit_* on a light body (TASKS 1804): the head is thrown against the hip by RECOIL of the height
 //   same      — monster attacks pairwise, the mage's shot/frost/cast per aim, the three hero deaths (TASKS 1805): the near hand's paths
 //               against the hip correlate at most SAME in x and in y at the best lag (one motion reused)
@@ -288,7 +288,7 @@ if (meta.tr.includes('imp_claw')) {
 // robes slid at 0.06); the townsfolk only warn (TASKS 1807: the sweeper)
 { const REACH = 0.15, GLIDE = 0.1, warn = (check, nm, msg) => console.log(`WARN ${check} ${nm}: ${msg}`);
   for (const nm of meta.tr.filter((n) => /_attack$/.test(n) && !n.startsWith('hero'))) {
-    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.hip); if (!fr.length) continue;
+    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.hip && j.ground); if (!fr.length || !fr[0].top) continue;
     const H = tall(fr[0]), hands = ['handL', 'handR'].filter((k) => fr.every((j) => j[k])); if (!hands.length) continue;
     const m = Math.max(...hands.map((k) => { const r = (j) => [j[k][0] - j.hip[0], j[k][1] - j.hip[1]], r0 = r(fr[0]); return Math.max(...fr.map((j) => Math.hypot(r(j)[0] - r0[0], r(j)[1] - r0[1]))); }));
     report('reach', nm, m >= REACH * H, `a hand leaves its place against the hip by ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px (≥ ${100 * REACH} %)`); }
@@ -309,19 +309,19 @@ if (meta.tr.includes('imp_claw')) {
     const legs = fr[0].legs && !plod.test(nm), ok = sps <= STEPS && (!legs || step >= STEP), msg = `${sps.toFixed(1)} steps a second (≤ ${STEPS})${fr[0].legs ? `, a step ${(100 * step).toFixed(0)} % of the height${legs ? ` (≥ ${100 * STEP} %)` : ' (a heavy plod, not held)'}` : ''}`;
     if (nm.startsWith('folk_') && !ok) console.log(`WARN cadence ${nm}: ${msg}`); else report('cadence', nm, ok, msg); } }
 // lies (TASKS 1803): over the last 10 frames of a death, once the hip is down within LOW of the height of the floor, no hand and no held
-// weapon's tip stands more than UP of it over the floor (the hero's near hand stayed 0.59 up, his sword standing in it). inertia: killed
-// on the run, the hip's way over the first 0.3 s goes the way he ran (it fell back against the run)
-{ const LOW = 0.1, UP = 0.35;
+// weapon's tip stands more than UP of it over the floor (the hero's near hand stayed 0.59 up, his sword standing in it)
+{ const LOW = 0.1, UP = 0.35, RUNV = 0.5 * await p.evaluate(() => SIM.K.RUN);
   // (and the monsters' corpses, TASKS 1907; the crab is no biped and lies as it stands, the sinkers and the floaters leave no body, and a
   // skeleton's burst scatters its bones over the floor, where a bone's height on the screen is how far back it lies)
   for (const nm of meta.tr.filter((n) => /^hero.*_death(_run)?$/.test(n) || (/_death/.test(n) && !/^hero|^crab|^spider|^ghost|^serpent|^eel|^slime|_burst$/.test(n)))) {
-    const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null, h = st.run.hero; LIB.TRACE = null; return { j, vx: h.vx, dead: h.deadT }; }); }, nm);
+    const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null, h = st.run.hero; LIB.TRACE = null; return { j, t: st.t, vx: h.vx, vy: h.vy, dead: h.deadT }; }); }, nm);
     const ok = fr.map((f) => f.j).filter((j) => j && j.hip && j.ground); if (ok.length < fr.length / 2 || !ok[0].top) continue;
     const H = tall(ok[0]), up = (j, k) => (j[k] ? (j.ground[1] - j[k][1]) / H : -1), last = ok.slice(-10);
     if (last.every((j) => up(j, 'hip') < LOW)) { const hi = Math.max(...last.map((j) => Math.max(up(j, 'handL'), up(j, 'handR'), up(j, 'tip'))));
       report('lies', nm, hi <= UP, `lying, the highest hand or tip ${(100 * hi).toFixed(0)} % of the height over the floor (≤ ${100 * UP} %)`); }
-    if (nm.endsWith('_run') && nm.startsWith('hero')) { const i0 = fr.findIndex((f) => f.dead >= 0), i1 = i0 + 18, f0 = fr[i0], f1 = fr[i1];
-      if (!f0 || !f1 || !f0.j || !f1.j) { report('inertia', nm, false, 'no trace'); continue; }
+    // (only the direction: the fall's size is tuned by eye, the sign is what the run gives it)
+    if (/^hero.*_death_run$/.test(nm)) { const f0 = fr.find((f) => f.dead >= 0), f1 = f0 && fr.find((f) => f.t - f0.t >= 0.3), sp = f0 ? Math.hypot(f0.vx, f0.vy) : 0;
+      if (!f0 || sp <= RUNV || !f1 || !f0.j || !f1.j) { report('inertia', nm, false, !f0 ? 'no frame with the hero dead' : sp <= RUNV ? `the run ${sp.toFixed(0)} px/s is not over ${RUNV.toFixed(0)}` : !f1 ? 'no frame 0.3 s after the death' : 'no trace'); continue; }
       const dx = (f1.j.hip[0] - f1.j.ground[0]) - (f0.j.hip[0] - f0.j.ground[0]); report('inertia', nm, Math.sign(dx) === Math.sign(f0.vx), `the hip moves ${dx.toFixed(1)} px over 0.3 s after the death, the run ${f0.vx.toFixed(0)} px/s`); } } }
 // recoil (TASKS 1804): a blow on a light body (not heavy, narrower than the brute) throws its head against its hip by RECOIL of its height
 // (every type nodded 0.05–0.08 and the knock-back moved the rest)

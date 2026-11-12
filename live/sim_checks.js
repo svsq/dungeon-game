@@ -3596,9 +3596,22 @@
     return out;
   }
 
+  function heroDeathCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
+    const put = (perk) => { R.en = []; S.ev.length = 0; h.hp = heroSt(S).maxHp; h.deadT = -1; h.ifr = 0; h.dashT = -9; h.revived = 0; h.perks = perk ? { [perk]: 1 } : {}; };
+    const dies = () => S.ev.filter((e) => e.k === 'die').length;
+    put(); hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike');
+    if (!(h.deadT >= 0 && h.hp === 0 && dies() === 1)) out.push(`hero death: a lethal blow leaves deadT ${h.deadT}, hp ${h.hp}, ${dies()} die events`);
+    const t0 = h.deadT; S.t += 1; SIMX.killHero(S, R); if (h.deadT !== t0 || dies() !== 1) out.push('hero death: a second kill restarts the death or doubles the die event');
+    put(); S.t = 0.3; S.t -= 0.8; SIMX.killHero(S, R); S.t += 0.8; SIMX.killHero(S, R);
+    if (dies() !== 1) out.push('hero death: a kill with a negative deadT is let through twice');
+    put('phoenix'); hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike'); if (h.deadT >= 0 || dies()) out.push('hero death: a phoenix gift does not save the hero from the first lethal blow');
+    return out;
+  }
+
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
-  const PARTS = { menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { heroDeathCheck, menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

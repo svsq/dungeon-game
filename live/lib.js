@@ -308,10 +308,10 @@ void main(){ vec2 q = fxuv() * 2.0 - 1.0; float d = length(q);
   o = vec4(c * a, a); }`;
   const STAR = `
 uniform vec3 u_col; uniform float u_amt;
-void main(){ vec2 q = v_uv * 2.0 - 1.0; float d = length(q);
+void main(){ vec2 q = fxuv() * 2.0 - 1.0; float d = length(q);
   float s = 0.035 / (abs(q.x * q.y) * 6.0 + 0.035) * smoothstep(1.0, 0.0, d);
   float core = exp(-d * d * 18.0);
-  float a = clamp(s * 0.9 + core, 0.0, 1.0) * u_amt; o = vec4(u_col * a, 0.0); }`;
+  float a = fxq(clamp(s * 0.9 + core, 0.0, 1.0)) * u_amt; o = vec4(u_col * a, 0.0); }`;
   const RING = `
 uniform vec3 u_col; uniform float u_amt, u_w;
 void main(){ float d = length(fxuv() * 2.0 - 1.0); float a = fxq(smoothstep(u_w, 0.0, abs(d - 0.85))) * u_amt; o = vec4(u_col * a, a * 0.6); }`;
@@ -423,7 +423,7 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
     rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, reveal: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   const UNAME = {};
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
-  L.FXPX = 0;   // > 0: L.glow, L.puff and L.ring drawn now sit on this art grid in stepped levels (TASKS 1792)
+  L.FXPX = 0;   // > 0: L.glow, L.puff, L.ring and L.star drawn now sit on this art grid in stepped levels (TASKS 1792)
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
   // sprite(name, x, y, { w | h, src, pad, flip, rot, pivot, m, u: { uniforms without the u_ prefix } })
@@ -497,7 +497,7 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py));   // a: opacity (premultiplied)
   L.rrect = (x, y, w, h, r, c0, c1 = c0, a = 1) => G.draw(P.rrect, { u_sz: [w, h], u_r: r, u_a: a, u_c0: c0, u_c1: c1 }, G.xf(x, y, w, h));
   L.puff = (x, y, r, col, amt, seed) => G.draw(P.puff, { u_col: col, u_amt: amt, u_seed: seed, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r));
-  L.star = (x, y, r, col, amt) => { G.blend('add'); G.draw(P.star, { u_col: col, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
+  L.star = (x, y, r, col, amt) => { G.blend('add'); G.draw(P.star, { u_col: col, u_amt: amt, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   // cracks(x, y, R, age, seed, mode): ground impact fissures centred on the impact point (screen px), R = radius on the ground
   // (the quad is 2R × R in a 2:1 view). mode 0 in the ground decal pass (under everything, lit with the ground), mode 1 after
   // the light pass for the magma glow (additive; masked by T.bg = the frame before the light, whose alpha marks sprites).

@@ -235,18 +235,36 @@
   let LAVA_CLIP = null;
   // (the mask's edge grows over the bank as it climbs out, TASKS 1171: fading the clip off dropped the whole body on the bank in a frame)
   const swimClip = (sw) => Object.assign({ clipk: SS(0, 0.03, sw), clipr: 96 * Math.max(0, 1 - 2 * (0.5 - Math.sin(Math.asin(1 - 2 * sw) / 3))) }, LAVA_CLIP);
+  // lean back through the wind-up, swing forward over 0.1 s on the strike, settle back to upright before the strike ends: no one-frame pops
+  // melee bodies swing forward through the impact (centred on it), others on the strike's first frames
+  function attackLean(e, E, GT, ew, wind) {
+    const sd = E.kind === 'lunge' ? 0.45 : 0.32, u = GT - e.t0, mel = E.kind === 'melee', c = mel ? 0.1 : 0, still = E.kind === 'bomber';   // a lit fuse holds the body upright: it bursts from that pose
+    return (e.st === 'strike' ? (-0.08 + 0.2 * SS(-c, 0.1, u)) * (1 - SS(sd - 0.15, sd, u)) : e.st === 'wind' ? (still ? 0 : -0.08 * wind) + (mel ? 0.2 * SS(ew - 0.1, ew + 0.1, u) : 0) : still ? 0 : -0.08 * wind) * e.face; }
+  // (asked for a monster up to three times a frame, by the body, its draw and the light's occluder; the key holds what a QA tool may
+  // change on an enemy between two renders at one t)
+  const POSE_C = new WeakMap(), poseMemo = (tag, f) => (e, E, GT) => { let c = POSE_C.get(e); if (!c) POSE_C.set(e, c = {}); const q = c[tag];
+    if (q && q.GT === GT && q.st === e.st && q.t0 === e.t0 && q.hitT === e.hitT && q.mv === e.mv) return q.v;
+    const v = f(e, E, GT); c[tag] = { GT, st: e.st, t0: e.t0, hitT: e.hitT, mv: e.mv, v }; return v; };
+  const windOfEn = poseMemo('wind', (e, E, GT) => { const ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind);
+    return [ew, e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0]; });
+  // a hit flinches the upper body away from the hero, by its weight (TASKS 1804: every type nodded the same 0.07 of its height and the
+  // knock-back did the rest): a light body is thrown back from the waist, arms flung wide, and held there two frames; a heavy one
+  // (heavy, or as broad as the brute) only sinks a twentieth of its height and holds one
+  function hitFlinch(e, E, GT) {
+    const hA = GT - e.hitT, big = !!(E.heavy || E.r >= 20 || D.BOSSES[e.type]), hold = big ? 1 / 60 : 2 / 60, rise = big ? 0.06 : 0.11, fl = hA >= 0 ? SS(0, rise, hA) * (1 - SS(rise + hold, 0.4, hA)) : 0;
+    const RGh = RIGS[MONSTERS.rigOf(e.type)].h;
+    return { flLean: (big ? 0.06 : 0.3) * fl * e.face, flCrouch: big ? 0.05 * RGh * fl : 4 * fl, flArms: big ? 0.2 * fl : fl }; }
+  // (the light's occluder mask draws a live rig in this same pose, PR 67 review: drawn upright it left a flinching goblin's arms unlit)
+  const livePose = poseMemo('pose', (e, E, GT) => { const [ew, wind] = windOfEn(e, E, GT), f = hitFlinch(e, E, GT); return { lean: attackLean(e, E, GT, ew, wind) - f.flLean, crouch: f.flCrouch, flinch: f.flArms }; });
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
     // a golem in its crust takes a blow on the plates: its edge flashes, not the whole body white (TASKS 1724), the blow that breaks the last one too (1935)
-    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3 || (E.crust && ((e.crust ?? E.crust.n) > 0 || (e.plateT && e.plateT[1] === e.hitT))), hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
+    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3 || (E.crust && ((e.crust ?? E.crust.n) > 0 || (e.plateT && e.plateT[1] === e.hitT))), hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, [ew, wind] = windOfEn(e, E, GT);
     const sp = Math.hypot(e.vx, e.vy), ph = e.dist / 20 * Math.PI, step = SS(5, 40, sp) * Math.abs(Math.sin(ph));
     const flt = E.ghost ? 6 + 3 * Math.sin(t * 2.3 + e.id) : 0;
     let sx = 1, sy = 1, lean = 0;
     if (dead < 0) { sy = 1 - 0.05 * step + 0.03 * Math.sin(t * 2 + e.id); sx = 1 / Math.sqrt(sy); 
-      // lean back through the wind-up, swing forward over 0.1 s on the strike, settle back to upright before the strike ends: no one-frame pops
-      // melee bodies swing forward through the impact (centred on it), others on the strike's first frames
-      const sd = E.kind === 'lunge' ? 0.45 : 0.32, u = GT - e.t0, mel = E.kind === 'melee', c = mel ? 0.1 : 0, still = E.kind === 'bomber';   // a lit fuse holds the body upright: it bursts from that pose
-      lean = (e.st === 'strike' ? (-0.08 + 0.2 * SS(-c, 0.1, u)) * (1 - SS(sd - 0.15, sd, u)) : e.st === 'wind' ? (still ? 0 : -0.08 * wind) + (mel ? 0.2 * SS(ew - 0.1, ew + 0.1, u) : 0) : still ? 0 : -0.08 * wind) * e.face; }
+      lean = attackLean(e, E, GT, ew, wind); }
     const alpha = dead < 0 ? (E.ghost ? 0.82 : 1) : E.ghost ? 0.82 * (1 - SS(0.1, 0.9, dead)) : 1 - SS(4.5, 6, dead);
     // a live monster is a dark body with a rim of the fire's colour on its upper-left edge, as in the reference: it reads anywhere
     // in the room, not only inside a pool; bone loses its warm cast
@@ -321,11 +339,7 @@
     function drawLive() {
     if (E.mimic) return drawMimic();
     if (E.blood === 'slime') return drawSlime();
-    // a hit flinches the upper body away from the hero, by its weight (TASKS 1804: every type nodded the same 0.07 of its height and the
-    // knock-back did the rest): a light body is thrown back from the waist, arms flung wide, and held there two frames; a heavy one
-    // (heavy, or as broad as the brute) only sinks a twentieth of its height and holds one
-    if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, big = !!(E.heavy || E.r >= 20 || D.BOSSES[e.type]), hold = big ? 1 / 60 : 2 / 60, rise = big ? 0.06 : 0.11, fl = hA >= 0 ? SS(0, rise, hA) * (1 - SS(rise + hold, 0.4, hA)) : 0;
-      const RGh = RIGS[MONSTERS.rigOf(e.type)].h, flLean = (big ? 0.06 : 0.3) * fl * e.face, flCrouch = big ? 0.05 * RGh * fl : 4 * fl, flArms = big ? 0.2 * fl : fl;
+    if (MONSTERS.rigOf(e.type)) { const PO = livePose(e, E, GT);
       const Ur = Object.assign({ alpha, grade }, rim, cut), Uf = Object.assign({ alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] }, cut), dy = sub * h * 1.02;
       const sw = swimOf(e, GT); if (sw > 0) { Ur.grade = [Ur.grade[0], Ur.grade[1] * (1 - 0.3 * sw), 0, Ur.grade[3]]; if (e.st === 'soak' && e.soaked) Ur.alpha = alpha * (1 - 0.5 * SS(0, 0.5, GT - e.soakT) * SS(0.5, 0.9, sw)); }   // (solid again as it heaves out, TASKS 1054: it rose as a see-through pale fill)
       // (a salamander sunk in the lava shows only over the open lava, TASKS 460: not over a slab or the bank by it)
@@ -333,11 +347,11 @@
       // see-through shape; and its glow is clipped as its body is, else it lit the bank in a flat pale fill)
       let clip = null; if (sw > 0 && e.type === 'salamander' && LAVA_CLIP) { clip = swimClip(sw); Object.assign(Ur, clip); Object.assign(Uf, clip); }
       const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
-      const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - flLean, crouch: flCrouch, flinch: flArms, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub, swim: sw });
+      const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: PO.lean, crouch: PO.crouch, flinch: PO.flinch, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub, swim: sw });
         if (r && r.head && E.lake) RIM.heads[e.id] = P(r.head);
         if (r && r.arms && e.type === 'imp' && e.st === 'wind' && !e.claw) RIM.imps[e.id] = P(r.R2U(r.arms.R.Hd[0], r.arms.R.Hd[1])); if (r && r.mouth) RIM.salams[e.id] = [r.mouth, r.fa]; if (r && r.priest) RIM.priests[e.id] = [r.staffHead, r.handR]; else if (r && r.handR) RIM.hands[e.id] = r.handR; if (e.fireT > GT && MONSTERS.wpn['en' + e.id]) RIM.kindled[e.id] = MONSTERS.wpn['en' + e.id]; if (r && r.palm) RIM.mages[e.id] = [r.pearl, r.palm, r.gather]; if (r && r.fire) RIM.embers[e.id] = r.fire; };
       halo(rig); if (edge && !(sw > 0)) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: sw > 0 ? null : edgeOf() }); if (RIM.embers[e.id]) emberFire(e, E, RIM.embers[e.id], GT, t); if (RIM.priests[e.id]) priestFire(e, RIM.priests[e.id], t); if (RIM.kindled[e.id]) weaponFire(e, RIM.kindled[e.id], GT, t);
-      if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - flLean, crouch: flCrouch, flinch: flArms, fallR: 0, U: Object.assign({ alpha: k * alpha }, clip), Ufar: Object.assign({ alpha: k * alpha }, clip), t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
+      if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: PO.lean, crouch: PO.crouch, flinch: PO.flinch, fallR: 0, U: Object.assign({ alpha: k * alpha }, clip), Ufar: Object.assign({ alpha: k * alpha }, clip), t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
       return; }
     // the mimic (TASKS 367, 1670) wears the chest it hid as: that chest's own painting cut along its lid line, so waking changes neither size nor rank. It squats and gapes
     // through the wind-up, flies with its mouth open and bites shut as it lands; between the leaps it claps its lid in step
@@ -485,19 +499,21 @@
   // the basalt props drawn this frame (TASKS 1036): they take the basalt's cold light in the lit pass as the crossings do
   // (and the boulders, and an iron rail's links and stakes as solids, TASKS 1052: brown and orange beside the grey basalt)
   const BAS_PROPS = new Set(['basalt_a', 'basalt_b', 'forge_mg', 'boulder_mg_a', 'boulder_mg_b']), PROP_BAS = [], OCC_SOLIDS = [];
+  const warmsBy = (n) => BAS_PROPS.has(n) || n.startsWith('slab_mg');
   // how far the deck the hero walks sags under him this frame (TASKS 1042: his feet kept the ground's line while it bent 9 px)
   const DECK = { dy: 0 }; SC.deckDy = () => DECK.dy; SC.deckTgt = () => DECK.tgt;   // (read by tools/motioncheck.mjs bridgeStep)
   function drawProp(n, x, y, o = {}) { const [w, h] = SZ(n), k = o.k || 1, j = o.j;
     if (BAS_PROPS.has(n) && !j) PROP_BAS.push([n, x - w * k / 2, y - h * k + (o.dy || 0), w * k, h * k, !!o.flip]);
     // (TASKS 1793: a basalt block by the lava takes its glow on its lower part, `warm` from how near it stands: lit grey to its foot by
     // a river it read as plastic; the lit pass keeps a basalt's paint and takes only the light's level, so the warmth is in the paint)
-    const warm = (o.warm || 0) > 0.02 && (BAS_PROPS.has(n) || n.startsWith('slab_mg')) ? o.warm : 0;   // (the crossing's slabs too: 1793 passed theirs but left them out)
-    const draw = () => { if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: o.u });
-        if (warm) L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: { tint: [1.5, 0.7, 0.42, 1], alpha: 0.6 * warm, cut: [y + (o.dy || 0) - h * k * 0.55, -h * k * 0.35, 1] } }); return; }
-      const W = w * k, H = h * k * j.sy, u = j.fl > 0 ? Object.assign({}, o.u, { tint: [...(j.ft || [2.2, 2, 1.8]), j.fl] }) : o.u;
-      const mj = M.of(M.t(x + j.dx, y + (o.dy || 0)), M.r(j.rot)); L.sprite(n, 0, 0, { m: mj, w: W, h: H, pivot: [W / 2, H], flip: o.flip, u });
-      if (warm) L.sprite(n, 0, 0, { m: mj, w: W, h: H, pivot: [W / 2, H], flip: o.flip, u: { tint: [1.5, 0.7, 0.42, 1], alpha: 0.6 * warm, cut: [y + (o.dy || 0) - H * 0.55, -H * 0.35, 1] } }); };
-    if (NO_INK.has(n)) draw(); else L.inked(draw, { r: 2, n: 8, col: BAS_PROPS.has(n) ? [0.03, 0.022, 0.026] : [0.09, 0.04, 0.04], dy: 0 }); }   // (the basalt's near black, TASKS 1793: brown, its contour sank into the ash)
+    const warm = (o.warm || 0) > 0.02 && warmsBy(n) ? o.warm : 0;   // (the crossing's slabs too: 1793 passed theirs but left them out)
+    const W = w * k, H = h * k * (j ? j.sy : 1), mj = j && M.of(M.t(x + j.dx, y + (o.dy || 0)), M.r(j.rot));
+    const draw = (u) => { if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: W, h: H, flip: o.flip, u }); return; }
+      L.sprite(n, 0, 0, { m: mj, w: W, h: H, pivot: [W / 2, H], flip: o.flip, u }); };
+    const u = j && j.fl > 0 ? Object.assign({}, o.u, { tint: [...(j.ft || [2.2, 2, 1.8]), j.fl] }) : o.u;
+    if (NO_INK.has(n)) draw(u); else L.inked(() => draw(u), { r: 2, n: 8, col: BAS_PROPS.has(n) ? [0.03, 0.022, 0.026] : [0.09, 0.04, 0.04], dy: 0 });   // (the basalt's near black, TASKS 1793: brown, its contour sank into the ash)
+    // (outside the inked call: stamped as outline too, the half-clear overlay left a dark halo round the block's foot)
+    if (warm) draw({ tint: [1.5, 0.7, 0.42, 1], alpha: 0.6 * warm, cut: [y + (o.dy || 0) - H * 0.55, -H * 0.35, 1] }); }
   // a knocked prop's recoil about its foot, away from the blow (s): wood rocks, metal rattles, stone shudders, crystal rings, sacks slump
   const KNOCK = {
     fungus: (a, s) => ({ rot: s * 0.13 * Math.exp(-5 * a) * Math.sin(16 * a), dx: 0, sy: 1 - 0.06 * Math.exp(-7 * a) }),
@@ -516,6 +532,6 @@
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, warmsBy, livePose, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

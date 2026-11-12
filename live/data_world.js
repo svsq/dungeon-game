@@ -8,7 +8,8 @@
   // fill: the light an accent room of this biome is flooded with; dim: how much darker its pale floor stone is laid as an accent zone, so its light reads as pools
   // litSat: how much the lit pass saturates the light (1.6 by default, TASKS 163); 1 in the dungeon (TASKS 1789: its slate went brown under it)
   // candle: the warm light of the wall torches in a room without a hearth (TASKS 1787: the concept's side rooms, the biome's colour in its
-  // braziers' pools only); hearth: how much wider and brighter a brazier's cold pool is [r, amt]; sconce: the reach of a wall torch in its colour; ambK, ambLvl: its neutral stone between them
+  // braziers' pools only); hearth: how much wider and brighter a brazier's cold pool is [r, amt]; sconce: the reach of a wall torch in its colour;
+  // candleR: a candle's pool against a torch's (the halls keep 1: 1787's floor between the hearths, L 18–20, was tuned on full pools); ambK, ambLvl: its neutral stone between them
   const BIOMES = {
     dungeon: { name: TXT('BIOMES.dungeon.name'), rock: [0.05, 0.04, 0.052], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], litSat: 1.0, floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
@@ -16,7 +17,7 @@
       tint: [0.95, 1.0, 0.96], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
     lava: { name: TXT('BIOMES.lava.name'), rock: [0.064, 0.032, 0.022], vein: [1.0, 0.38, 0.08, 0.02], seam: 1.4, amb: [0.14, 0.09, 0.05], ambK: 0.7, ambLvl: 2.5, torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
-    arcane: { name: TXT('BIOMES.arcane.name'), rock: [0.036, 0.04, 0.068], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.11, 0.10, 0.09], ambK: 0.7, ambLvl: 1.6, torch: [0.16, 0.38, 1.0], candle: [1.0, 0.62, 0.26], hearth: [1.7, 3.6], sconce: 0.75, fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    arcane: { name: TXT('BIOMES.arcane.name'), rock: [0.036, 0.04, 0.068], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.11, 0.10, 0.09], ambK: 0.7, ambLvl: 1.6, torch: [0.16, 0.38, 1.0], candle: [1.0, 0.62, 0.26], hearth: [1.7, 3.6], sconce: 0.75, candleR: 1, fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.94, 0.96, 1.03], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
     // cave: natural rock instead of masonry (scene.js caveBake, TASKS 303), lit cold (305): its own light is the mushrooms' (shroom)
     // and the crystals' (gem) glow, fire only by the camp and the merchant; ambK: how much of the dark's colour is the biome's

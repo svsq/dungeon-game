@@ -293,8 +293,8 @@
   const FULL = [['kills', 'foes', TXT('FULL')], ['loot', 'lootN', TXT('FULL.2')], ['sec', 'secN', TXT('FULL.3')]];
   function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; tally(S, R, 'shards', n); ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
   // a floor's kills, loot or secrets brought to 100 % pay once, on the spot
-  function checkFull(S, R) { if (R.town) return; const f = fstat(R), h = R.hero; f.full = f.full || {};
-    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); }
+  function checkFull(S, R) { const f = fstat(R), h = R.hero; f.full = f.full || {};
+    if (!R.town) for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); }
     markStairs(R, f); }
   // half the floor's foes slain shows the way on (TASKS 1808, 388): a patch of the fog round the stairs lifts, so the minimap's
   // stairs and the stairs themselves show through the dark; done in the fog, not the HUD, so it reads on the map and in the world alike

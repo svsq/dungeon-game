@@ -8,6 +8,9 @@
     BRIDGE, CANDLE, D, DEPTH_K, GLOW_COL, GOLD_TINT, HERO, L, PIX, RIM, SC, SS, STAND, SZ, TILE, bake, emitted, glowBeat, glowOf,
     swimTex, rnd, seenTex, spellFloor, torchCol, torchZ, sconceK, views, whirlP } = SCX;
   // ---------------- render ----------------
+  const LAVA_D = new WeakMap(), lavaField = (m) => { const g = (m.lava || 0) + ':' + (m.geometry || 0), q = LAVA_D.get(m); if (q && q.g === g) return q.d; const d = new Float64Array(m.W * m.H).fill(9);
+    for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) { const cx = k % m.W, cy = Math.floor(k / m.W); for (let j = Math.max(-6, -cy); j <= Math.min(6, m.H - 1 - cy); j++) for (let i = Math.max(-6, -cx); i <= Math.min(6, m.W - 1 - cx); i++) { const n = (cy + j) * m.W + cx + i, h = Math.hypot(i, j); if (h < d[n]) d[n] = h; } }
+    LAVA_D.set(m, { g, d }); return d; };
   SC.render = (t) => {
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
     if ((R && (R.zoom || D.ZOOM || 1) !== SCX.Z) || SIM.VIEW.H !== SCX.H) views(R ? R.zoom || D.ZOOM || 1 : SCX.Z);
@@ -94,9 +97,10 @@
     // well turned the steel khaki over a river and violet on a slab, the bones blue and the golem lilac; away from it (TASKS 1035,
     // as the lit pass's own nearness to the lava) the tint takes the torches' boosted light back as everywhere else
     const lavaD = (px, py) => { if (!m.cliff) return 9; const cx0 = Math.floor(px / TILE), cy0 = Math.floor(py / TILE); let d = 9;
+      if (cx0 >= 0 && cy0 >= 0 && cx0 < m.W && cy0 < m.H) return lavaField(m)[cy0 * m.W + cx0];
       for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.Q.cell(m, cx0 + i, cy0 + j) === 3) d = Math.min(d, Math.hypot(i, j)); return d; };
-    HERO.lavaNear = (px, py) => SS(5.5, 2, lavaD(px, py));
-    HERO.lavaWarm = (px, py) => SS(7, 2.5, lavaD(px, py));   // (a basalt block's warm foot, TASKS 1793: a little farther than its light)   // (as far as the lava's own light reaches, 170 px)
+    HERO.lavaNear = (px, py) => SS(5.5, 2, lavaD(px, py));   // (as far as the lava's own light reaches, 170 px)
+    HERO.lavaWarm = (px, py) => SS(7, 2.5, lavaD(px, py));   // (a basalt block's warm foot, TASKS 1793: a little farther than its light)
     // (the take-back is held to 0.75–1.3 a channel: up to 1.8 under the crypt's green torch it pushed red ~1.7× and every warm paint went
     // flat orange, the archer's ochre whole, TASKS 1124 critic)
     HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2], wl = HERO.lavaNear(px, py);

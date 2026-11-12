@@ -21,7 +21,7 @@
     // patch of ground instead of the darkest thing in the frame. It is a ring of small lights round his feet and in front of them, none
     // behind: one light on his feet lit him as much as the ground, and the concept's hero stands darker than the floor round him)
     if (B.heroGlow && h.deadT < 0) { const [gr, ga, gn, gd] = B.heroGlow;
-      for (let i = 0; i < gn; i++) { const q = -0.25 + (Math.PI + 0.5) * i / (gn - 1); lt(h.x + gd * Math.cos(q), h.y + 4 + 0.55 * gd * Math.sin(q), gr, [1, 0.62, 0.36], ga, 2.0); } }
+      for (let i = 0; i < gn; i++) { const q = -0.25 + (Math.PI + 0.5) * i / Math.max(1, gn - 1); lt(h.x + gd * Math.cos(q), h.y + 4 + 0.55 * gd * Math.sin(q), gr, [1, 0.62, 0.36], ga, 2.0); } }
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     // (TASKS 1681: a foe in view keeps a pale glint of its own on a floor without light, else one beyond the lamp's reach is lost)
     if (FM.glint) for (const e of R.en) if (e.deadT < 0 && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 36, 64, [0.78, 0.84, 1], FM.glint);
@@ -120,18 +120,20 @@
     // (the fire depths' lava too, TASKS 510: their actors go in black, alpha only, as the lit pass's colour channels are the magma's)
     // (TASKS 1790: on every floor now, red only off the magma: the lit pass bleaches the light on an actor, so a zone's colour no
     // longer paints a hero's cloak or a robe whole; only the magma's lava keeps its own nearness channel)
-    { const J0 = L.joint; L.joint = () => {}; const SP0 = L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] }, ink = (c) => (m.cliff ? c : [c[0], 0, c[2]]);
+    const occEn = R.en.filter((e) => !(e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined));
+    const occHero = !SC.hide.hero && !h.qaHide && h.deadT < 0 && h.fallT === undefined && !h.sunk && vis(h.x, h.y);
+    if (m.cliff || occEn.length || occHero) { const J0 = L.joint; L.joint = () => {}; const SP0 = L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] }, ink = (c) => (m.cliff ? c : [c[0], 0, c[2]]);
       try { if (m.cliff) { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f }); for (const [x, y, w, hh] of OCC_SOLIDS) L.solid(x, y, w, hh, [0, 0, 0]); }
         L.sp.ink = m.cliff ? [1, 1, 1] : [0, 0, 0];
-        for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
+        for (const e of occEn) {
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
           const sub = E.lake ? submerged(e, E, GT) : 0, sw0 = swimOf(e, GT), U = Object.assign(sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {}, sw0 > 0 && e.type === 'salamander' && SCX.LAVA_CLIP ? SCX.swimClip(sw0) : {});   // (clipped as its body is, TASKS 1156: unclipped here it bleached the bank in a grey veil)
           L.sp = SP0; SP0.ink = ink([1, HERO.lavaNear(e.x, e.y), 1]);   // (green: how near the lava it stands, by its feet: TASKS 1035; a rig's own draw may clear L.sp)
-          MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
+          const PO = SCX.livePose(e, E, GT); MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: PO.lean, crouch: PO.crouch, flinch: PO.flinch, fallR: 0, U, Ufar: U, t, rise: 1 - sub, swim: swimOf(e, GT) }); }
         // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
         L.sp = SP0; SP0.ink = ink([1, HERO.lavaNear(h.x, h.y), 0]);   // (blue: a monster, not the hero, TASKS 1055)
         // (not while he is under the lava: his raised blade left a pale patch over it in the mask, TASKS 1058)
-        if (!SC.hide.hero && !h.qaHide && h.deadT < 0 && h.fallT === undefined && !h.sunk && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { id: 'occ', cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }); }
+        if (occHero) drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { id: 'occ', cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }); }
       finally { L.sp = null; L.joint = J0; } }
     G.bind(SCX.LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: SCX.LT.light, u_occ: SCX.LT.occ, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_heat: m.cliff ? lavaGlowTex(m) : waterTex(m), u_haze: m.cliff ? 1 : 0, u_face: m.cliff && BAKE.face ? BAKE.face : seen, u_far: m.cliff ? lavaNearTex(m) : seen, u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_low: B.low || [0.86, 0.82, 0.78], u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein, u_sat: B.litSat || 1.6 }); G.blend();
 
