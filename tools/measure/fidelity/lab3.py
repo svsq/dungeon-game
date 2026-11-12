@@ -3,7 +3,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 import sys,json,numpy as np
 from PIL import Image, ImageDraw
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; REF=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r14_fidelity/qa/'
+W=ROOTP+''; REF=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r15_fidelity/qa/'
 def px(path,boxes,mask=None):
   im=np.asarray(Image.open(path).convert('RGB')).astype(float)
   a=np.concatenate([im[y0:y1,x0:x1].reshape(-1,3) for x0,y0,x1,y1 in boxes])
@@ -44,4 +44,4 @@ for lab_,c in sheet:
   if x+c.width>1800: x=0;y+=rowh+16;rowh=0
   canvas.paste(c,(x,y+12)); d.text((x,y),lab_,fill=(255,255,255)); x+=c.width+6; rowh=max(rowh,c.height+12)
 canvas.crop((0,0,1800,y+rowh+16)).save(W+'frames/fidelity_r14/boxes.png')
-json.dump(out,open(W+'frames/critic_r14_fidelity/lab3.json','w'),indent=1)
+json.dump(out,open(W+'frames/critic_r15_fidelity/lab3.json','w'),indent=1)

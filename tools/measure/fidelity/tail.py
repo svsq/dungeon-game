@@ -4,7 +4,7 @@ from PIL import Image
 def lab(a):
     c=a/255.; c=np.where(c<=0.04045,c/12.92,((c+0.055)/1.055)**2.4); M=np.array([[.4124,.3576,.1805],[.2126,.7152,.0722],[.0193,.1192,.9505]]); x=c@M.T/np.array([.9505,1,1.089])
     f=np.where(x>0.008856,np.cbrt(x),7.787*x+16/116); return np.dstack([116*f[...,1]-16,500*(f[...,0]-f[...,1]),200*(f[...,1]-f[...,2])])
-Q=ROOTP+'frames/critic_r14_fidelity/qa/'
+Q=ROOTP+'frames/critic_r15_fidelity/qa/'
 def st(n,b,path=None):
     a=np.asarray(Image.open(path or Q+n.split()[0]+'.png').convert('RGB')).astype(float)[b[1]:b[3],b[0]:b[2]]
     l=lab(a).reshape(-1,3); p=a.reshape(-1,3)

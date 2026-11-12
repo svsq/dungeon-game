@@ -1,7 +1,7 @@
 import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../..'))+'/'
 import sys,numpy as np; from scipy import ndimage as nd; from scipy.spatial import cKDTree
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; Q=W+'frames/critic_r14_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
+W=ROOTP+''; Q=W+'frames/critic_r15_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
 def go(n,p,box,k=1.0):
   a=load(p,k,box); L,C,H=LCH(a); lava=(L>=45)&(C>=60)
   lav=nd.binary_closing(lava,iterations=2); st=nd.binary_opening(~lav,iterations=3)

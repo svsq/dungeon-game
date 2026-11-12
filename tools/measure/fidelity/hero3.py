@@ -1,7 +1,7 @@
 import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../..'))+'/'
 import sys,numpy as np
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; Q=W+'frames/critic_r14_fidelity/qa/'
+W=ROOTP+''; Q=W+'frames/critic_r15_fidelity/qa/'
 for n,b in [('magma_river',(885,628,945,705)),('zone_magma',(935,450,985,540))]:
   a=load(Q+n+'.png',1,b).reshape(-1,3); L,C,H=LCH(a)
   lava=(C>=60)&(L>=40)&(H>25)&(H<70); s=~lava&(L>3); a2=a[s]; L,C,H=L[s],C[s],H[s]

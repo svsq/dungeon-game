@@ -2,7 +2,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 # lava at the fog's edge: median L of hot pixels by distance to the fog (big black area), and the glow L into the fog
 import sys,numpy as np; from scipy import ndimage
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; Q=W+'frames/critic_r14_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
+W=ROOTP+''; Q=W+'frames/critic_r15_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
 for n,p,b,k in [('ref',R,None,1.05),('magma_fog',Q+'magma_fog.png',(380,120,1560,1000),1),('magma_fog_walk',Q+'magma_fog_walk.png',(0,120,760,1080),1)]:
   a=load(p,k,b); L,C,H=LCH(a); hot=(L>=45)&(C>=60)
   blk=ndimage.binary_opening(L<3,iterations=6)

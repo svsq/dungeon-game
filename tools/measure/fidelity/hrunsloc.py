@@ -2,7 +2,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 # where the long (>=24 px) straight yellow runs lie: list + overlay
 import sys,numpy as np; from PIL import Image, ImageDraw
 n=sys.argv[1]; W=ROOTP+''
-im=Image.open(W+'frames/critic_r14_fidelity/qa/'+n+'.png').convert('RGB'); a=np.asarray(im).astype(int)
+im=Image.open(W+'frames/critic_r15_fidelity/qa/'+n+'.png').convert('RGB'); a=np.asarray(im).astype(int)
 s=(a[...,1]>150)&(a[...,0]>230); d=ImageDraw.Draw(im); out=[]
 for y in range(120,1000):
   r=np.flatnonzero(np.diff(np.r_[0,s[y,380:1560].astype(int),0])); st,en=r[::2],r[1::2]
