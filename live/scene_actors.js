@@ -237,8 +237,8 @@
   const swimClip = (sw) => Object.assign({ clipk: SS(0, 0.03, sw), clipr: 96 * Math.max(0, 1 - 2 * (0.5 - Math.sin(Math.asin(1 - 2 * sw) / 3))) }, LAVA_CLIP);
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
-    // a golem in its crust takes a blow on the plates: its edge flashes, not the whole body white (TASKS 1724)
-    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3 || (E.crust && (e.crust ?? E.crust.n) > 0), hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
+    // a golem in its crust takes a blow on the plates: its edge flashes, not the whole body white (TASKS 1724), the blow that breaks the last one too (1935)
+    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3 || (E.crust && ((e.crust ?? E.crust.n) > 0 || (e.plateT && e.plateT[1] === e.hitT))), hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
     const sp = Math.hypot(e.vx, e.vy), ph = e.dist / 20 * Math.PI, step = SS(5, 40, sp) * Math.abs(Math.sin(ph));
     const flt = E.ghost ? 6 + 3 * Math.sin(t * 2.3 + e.id) : 0;
     let sx = 1, sy = 1, lean = 0;
@@ -268,10 +268,12 @@
       if (dead >= 0 || hit || !L0 || L0.k < 0.15) return null; const n = Math.hypot(L0.dx, L0.dy * 1.25) || 1, a = 0.4 * SS(0.15, 0.8, L0.k);
       const dir = { dx: Math.round(2 * L0.dx / n), dy: Math.round(2 * L0.dy * 1.25 / n) };
       // (a salamander lies low in the lava: its lit side brighter, TASKS 490: 1.15 of its dark side against 1.3 wanted)
-      // (an imp over the lava takes the hero's one-pixel outline pass, TASKS 1717: the silhouette stamped 2 px off broke into dashes along its thin limbs)
-      if (L0 === lv) return { ...dir, col: [1, 0.6, 0.22].map((v) => v * (e.type === 'salamander' ? 1.05 : 0.75) * SS(0.15, 0.8, lv.k)), box: e.type === 'imp' ? [2 * Math.round((x - 70) / 2), 2 * Math.round((y - 150) / 2), 140, 170] : undefined };
+      // (an imp's and the colossus's edge sits on the body's own last pixel inside the ink, TASKS 1929: over the ink it read as a target outline
+      // and on the colossus it greyed the ink on its lit side)
+      const inBox = e.type === 'imp' ? [x - 70, y - 150, 140, 170] : e.type === 'boss_colossus' ? [x - 220, y - 340, 440, 400] : null, inside = inBox ? { box: inBox.map((v, i) => (i < 2 ? 2 * Math.round(v / 2) : v)), inside: true } : {};
+      if (L0 === lv) return { ...dir, col: [1, 0.6, 0.22].map((v) => v * (e.type === 'salamander' ? 1.05 : 0.75) * SS(0.15, 0.8, lv.k)), ...inside };
       const c = E.rim || L0.col, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
-      return { ...dir, col: c.map((v) => (g + 0.5 * (v - g)) * a) }; };
+      return { ...dir, col: c.map((v) => (g + 0.5 * (v - g)) * a), ...(e.type === 'boss_colossus' ? inside : {}) }; };
     const INK = [0.024, 0.02, 0.024];
     if (E.kind === 'serpent') return drawSerpent(e, E, x, y, GT, t, { alpha, grade, rim, INK, edgeOf });
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });

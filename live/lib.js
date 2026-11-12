@@ -375,7 +375,14 @@ uniform sampler2D u_src; uniform vec2 u_dir; uniform vec3 u_col;
 float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }
 void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1; k <= 3; k++) if (at(-u_dir * float(k)) > 0.5) edge = true; if (!edge) discard;
   for (int k = 1; k <= 24; k++) if (at(u_dir * float(k)) > 0.5) discard; o = vec4(u_col, 1.0); }`;
-  const SH = { RIMOUT, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
+  // the lit edge on the body's own outermost pixel toward the light, inside the ink: a bottom edge stays dark, light from the lava
+  // doesn't wrap under the feet (TASKS 1929)
+  const RIMIN = `
+uniform sampler2D u_src; uniform vec2 u_dir; uniform vec3 u_col;
+float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }
+void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2.0) > 0.5) discard;
+  for (int k = 2; k <= 12; k++) if (at(u_dir * float(2 * k)) > 0.5) discard; o = vec4(u_col, 1.0); }`;
+  const SH = { RIMOUT, RIMIN, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
   L.SH = SH;
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
@@ -468,16 +475,19 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
   let rimLast = null;
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
-    if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(bx, by, bw, bh); rimLast = rim.box; G.blend();
+    const rimMask = (rs) => { const back = G.cur(); G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(...rim.box); rimLast = rim.box; G.blend(); L.stamp(draw, rs); G.bind(back); };
+    if (rim && rim.box && !rim.inside) { const [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1;
       const nr = 4, rs = []; for (let i = 0; i <= nr; i++) { const an = i * 2 * Math.PI / nr + Math.PI / 4, q = i < nr ? r * 1.25 : 0; rs.push({ dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }); }
-      L.stamp(draw, rs);
-      G.bind(back); G.blend('emit'); G.draw(P.rimout, { u_src: T.rim, u_dir: [rim.dx / len, rim.dy / len], u_col: rim.col }, G.xf(bx, by, bw, bh)); if (!emit) G.blend(); }
+      rimMask(rs);
+      G.blend('emit'); G.draw(P.rimout, { u_src: T.rim, u_dir: [rim.dx / len, rim.dy / len], u_col: rim.col }, G.xf(bx, by, bw, bh)); if (!emit) G.blend(); }
+    if (rim && rim.inside) rimMask([{ dx: 0, dy: 0, a: 1, lod: 0, ink: [1, 1, 1] }]);
     if (emit) G.blend('emit');
     const sps = []; for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; sps.push({ dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }); }
     L.stamp(draw, sps);
     if (rim && !rim.box) { G.blend('emit'); L.stamp(draw, [{ dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }]); }
     if (emit || (rim && !rim.box)) G.blend();
-    L.sp = null; draw(); };
+    L.sp = null; draw();
+    if (rim && rim.inside) { const m = Math.max(Math.abs(rim.dx), Math.abs(rim.dy)) || 1; G.blend('emit'); G.draw(P.rimin, { u_src: T.rim, u_dir: [rim.dx / m, rim.dy / m], u_col: rim.col }, G.xf(...rim.box)); G.blend(); } };
 
   // a telegraph's beat, quickening as its wind-up fills: the phase counts from the telegraph's own start (TASKS 1362: multiplied by the
   // game clock, the rising rate threw the phase about wildly and the rings flickered at random)

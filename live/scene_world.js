@@ -90,21 +90,26 @@
     // cell, a little off the grid, a hot line where the lava licks their foot; an arch over a narrow river flowing toward the camera
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
-    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
-    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n), q = 0.92 * (0.86 + 0.14 * rnd(k, 11));   // (each a little its own size, TASKS 1795: a row of them read as one stamp repeated)
-      const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
+    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c', 'slab_mg_d'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
+    // (TASKS 1926: rows of the same grey cushions, the double row of 1722 doubling the repeat) four slabs, each its own size and a
+    // little slant; a second lane sits half a slab along, and the front face is a shade lighter than the top
+    const basaltSlabs = (c, cells = c.cells) => { const hor = c.axis !== 'y', lane = (k) => hor ? Math.floor(k / m.W) : k % m.W, l0 = Math.min(...c.cells.map(lane)), lanes = new Set(c.cells.map(lane)).size;
+      for (const k of cells) { const n = SLAB[Math.floor(4 * rnd(k, 7))], [w0, hh0] = SZ(n), sc = 0.94 + 0.18 * rnd(k, 11), w = w0 * sc, hh = hh0 * sc, half = lanes > 1 && (lane(k) - l0) % 2 ? TILE / 2 : 0;
+      const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8) + (hor ? half : 0), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6) + (hor ? 0 : half), foot = ev2(sy(y) + hh * 0.5);
+      const j = { rot: (rnd(k, 12) - 0.5) * 0.16, dx: 0, sy: 0.9 + 0.14 * rnd(k, 13), fl: 0 }, fl = rnd(k, 9) < 0.5;
       // (the hot line only where the lava itself lies under its foot, shorter and off its middle, TASKS 1039: under every row of a
       // wide crossing it ruled the slabs into a cobbled road)
       // (the slab stands on the lava, TASKS 1629: flat on it without a lower face or a dark line under it)
-      L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * q / 2), ev2(foot - hh * q + 3), { w: ev2(w * q), h: ev2(hh * q), flip: rnd(k, 9) < 0.5, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
-      drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5, k: q, warm: HERO.lavaWarm(x, y) }); basaltOcc.push([n, sx(x) - w * q / 2, foot - hh * q, w * q, hh * q, rnd(k, 9) < 0.5]); } };
+      L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: fl, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
+      drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { tint: [1.35, 1.28, 1.25, 1] } }); drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { cut: [foot - hh * 0.3, 2, 1] } });
+      basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, fl]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
-      if (c.axis !== 'x' || SIM.Q.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
       // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
       basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
-      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.95, 0.5, 0.32, 0.55] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
+      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); // (TASKS 1925: its legs dark red in the lava's light as ref_cave_lava's, C 9.6 against 12.8; its crown stays grey)
+      L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [1.8, 0.42, 0.24, 0.9] } }); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.95, 0.5, 0.32, 0.55], cut: [Y + 0.5 * ht, 40, 1] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
@@ -547,7 +552,7 @@
       for (let i = -1; i <= r.w; i++) { const c = r.x + i, inside = i >= 0 && i < r.w, back = rock(c - 1, r.y - 1) && rock(c, r.y - 1) && rock(c + 1, r.y - 1) && (inside ? SIM.Q.cell(m, c, r.y) === 1 : rock(c, r.y)); if (!back || rnd(c, 6) < 0.2) continue;
         const x = (c + 0.5) * TILE + (rnd(c, 7) - 0.5) * 20, n = rnd(c, 3) < 0.5 ? 'basalt_a' : 'basalt_b', y = (r.y + 0.3) * TILE + (rnd(c, 4) - 0.5) * 24, k = 0.82 + rnd(c, 8) * 0.26; if (vis(x, y) && known(x, y)) Y.push([y - 40, () => drawProp(n, sx(x), sy(y), { flip: rnd(c, 5) < 0.5, k })]); } } }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
-    if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = (u.free ? 'stairs_up_free' : 'stairs_up') + (m.biome === 'magma' ? '_mg' : ''), [w, hh] = SZ(st); if (m.biome === 'magma') PROP_BAS.push([st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, w, hh, false]); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
+    if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = u.free ? 'stairs_up_free' : m.biome === 'magma' ? 'stairs_up_mg' : 'stairs_up', [w, hh] = SZ(st); if (m.biome === 'magma') PROP_BAS.push([st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, w, hh, false]); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
     // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
     if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
       const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);

@@ -625,7 +625,7 @@
     states.push(['fx_arrive', fx((S, R, h) => { S.keepFloor = 1; S.ev.push({ k: 'floor', t: S.t - 0.45, x: h.x, y: h.y, f: R.floor }); })]);
     states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; S.ev.push({ k: 'roar', t: S.t - 0.25, x: b.x, y: b.y - 70, id: b.id }); })]);
-    // the HUD's worst cases (TASKS 1759, 1794, 1862): four-digit health and mana on their plates, the legend folded after its 10 s,
+    // the HUD's worst cases (TASKS 1759, 1794, 1862): four-digit health and mana on their plates, the legend folded after its 5 s,
     // a boss's arrival under its ribbon, a hero at 14 % health, a pickup and a new level over the hero's head
     const hudBig = (S) => { const h = S.run.hero; h.base.vit = 400; h.base.int = 400; const st = SIM.Q.stats(h, S.meta); h.hp = st.maxHp - 7; h.mp = st.maxMp - 13; };
     states.push(['hud_hp4', play((S) => { hudBig(S); S.run.msg = null; })]);
@@ -927,10 +927,11 @@
       Q.hero.x = x - 3 * TILE; Q.hero.y = y + 2 * TILE; Q.en = []; Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; states.push([name, S]); }
     // the magma caves' lava (TASKS 401): each kind of crossing over a river, a lake with its source, the crust giving under the hero
     // beside a cell of it melted, and monsters knocked off a plateau, one sinking in the lava and one dropping into the chasm
-    { const at = (S, f, pick) => { S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };
+    { const at = (S, f, pick, sd = 3) => { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };
       const view = (S, x, y, hx = x, hy = y + 40) => { const R = S.run, h = R.hero; h.x = hx; h.y = hy; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; };
       const mid = (m, ks) => [ks.reduce((a, k) => a + (k % m.W + 0.5) * TILE, 0) / ks.length, ks.reduce((a, k) => a + (Math.floor(k / m.W) + 0.5) * TILE, 0) / ks.length];
-      for (const kind of ['bridge', 'slabs', 'arch']) { const S = play(), c = at(S, 1, (m) => m.crossings.find((q) => q.lava && q.kind === kind)); if (!c) continue;
+      for (const kind of ['bridge', 'slabs', 'arch']) { const S = play(), pick = (m) => m.crossings.find((q) => q.lava && q.kind === kind && (kind !== 'arch' || DUNGEON.archLegs(m, q))); let c = at(S, 1, pick);
+        for (let sd = 4; !c && kind === 'arch' && sd < 24; sd++) c = at(S, 1, pick, sd); if (!c) continue;
         const m = S.run.map, [x, y] = mid(m, c.cells), end = c.cells[0]; view(S, x, y, (end % m.W + 0.5) * TILE, (Math.floor(end / m.W) + 0.5) * TILE); states.push(['magma_' + kind, S]); }
       { const S = play(), q = at(S, 1, (m) => m.lavaFeatures.find((f) => f.kind === 'fall') || m.lavaFeatures[0]); if (q) { view(S, q.x, q.y + 160); states.push(['magma_source', S]); } }
       // TASKS 403: a lavafall down the back wall close up, and a still lake with its vent, its bubbles and a river leaving it
@@ -1179,9 +1180,9 @@
     const swings = {};
     for (const deg of [-135, -90, -45, 0, 45, 90, 135, 180]) swings['hero_swing_' + (deg < 0 ? 'm' + -deg : deg)] = [...Array(30).keys()].map((i) => swingAt(deg * Math.PI / 180, -0.03 + i / 60, 1));
     // enemy attacks played by the sim 1/60 s apart: wind-up → strike → back to the chase must not pop
-    const enemyT = (ty, elite, move = 'slam', phase = 0, extra = {}) => { const fr = []; let S = playOf(ty)((S) => { const R = S.run, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5), h = R.hero, E = D.ENEMIES[ty];
-      if (!MG.has(ty)) { h.x = (r.x + 2) * TILE; h.y = (r.y + r.h / 2) * TILE; } h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
-      R.en = [{ id: 990, type: ty, x: h.x + 34 + E.r, y: h.y, tx: h.x, ty: h.y, vx: 0, vy: 0, hp: E.hp * (phase ? 0.4 : 1), max: E.hp, dmg: 1, elite, room: MG.has(ty) ? DUNGEON.roomAt(R.map, h.x, h.y) : r.id, st: D.BOSSES[ty] ? 'bwind' : 'wind', mv: move, phase, bossVersion: 1, t0: S.t,
+    const enemyT = (ty, elite, move = 'slam', phase = 0, extra = {}) => { const fr = [], mg = MG.has(ty) || ty === 'boss_colossus'; let S = (mg ? playMg : play)((S) => { const R = S.run, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5), h = R.hero, E = D.ENEMIES[ty];
+      if (!mg) { h.x = (r.x + 2) * TILE; h.y = (r.y + r.h / 2) * TILE; } h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
+      R.en = [{ id: 990, type: ty, x: h.x + 34 + E.r, y: h.y, tx: h.x, ty: h.y, vx: 0, vy: 0, hp: E.hp * (phase ? 0.4 : 1), max: E.hp, dmg: 1, elite, room: mg ? DUNGEON.roomAt(R.map, h.x, h.y) : r.id, st: D.BOSSES[ty] ? 'bwind' : 'wind', mv: move, phase, bossVersion: 1, t0: S.t,
         face: -1, aimA: Math.PI, targetD: 34 + E.r, travel: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; if (ty === 'boss_colossus' && move === 'charge') {
         const e = R.en[0], m = R.map, cx = Math.floor(e.x / TILE), cy = Math.floor(e.y / TILE);
         for (let y = cy - 4; y <= cy + 4; y++) for (let x = cx - 12; x <= cx + 3; x++) if (x > 0 && y > 0 && x < m.W - 1 && y < m.H - 1) m.cells[y * m.W + x] = 1;
@@ -1410,12 +1411,21 @@
       S.result.mode = 'magma'; S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta); S.result.lvl = 17; states.push(['win_magma', S]); }
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
     for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', 'mimic', ...MG]) { const fr = []; let S = playOf(ty)((S) => { const R = S.run, h = R.hero; R.msg = null;
-      R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
+      R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - SCX.VW / 2, h.y - SCX.VH / 2]; });
       // the camera held where it was set: the sim eased it toward the hero 400 px off, and the sheets slid for the first 17 frames
+      // (no post, hx/hy: an idle foe ambles round it now and then, and the imp's sheet opened on that amble, sliding 8 px, TASKS 1935)
       const cam = S.run.cam.slice();
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
       loops[ty + '_idle'] = fr; }
+    // (all on the magma hall: in the crypt's stand the foe stood in the start room, where no monster may step)
+    for (const ty of ['skeleton', 'goblin', 'brute', 'drowned', 'skel_archer', 'skel_mage', ...MG].filter((ty) => D.ENEMIES[ty].amble !== 0)) { const fr = []; let S = playMg((S) => { const R = S.run, h = R.hero; R.msg = null;
+      R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
+      h.x -= 400; R.cam = [h.x + 400 - SCX.VW / 2, h.y - SCX.VH / 2]; });
+      const cam = S.run.cam.slice(), u = () => (S.t + 990 * 2.3) % 6;
+      for (let i = 0; i < 1500 && !(u() > 3.05 && u() < 3.15); i++) { SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
+      for (let i = 0; i < 60; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
+      loops[ty + '_amble'] = fr; }
     // the eel (TASKS 310) on the lake of eel_states, the hero on the shore: it comes up, bites him, spits at him farther off, dives,
     // is struck and dies; up and watching for 2 s (subject en990)
     { const lake = (states.find((q) => q[0] === 'eel_states') || [])[1], E = D.ENEMIES.eel;

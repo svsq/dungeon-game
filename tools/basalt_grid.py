@@ -10,7 +10,7 @@ from PIL import Image
 from scipy import ndimage as nd
 
 INK = (8, 6, 8)
-HEIGHTS = {'slab_mg_a': 12, 'slab_mg_b': 12, 'slab_mg_c': 10, 'arch_mg': 66}
+HEIGHTS = {'slab_mg_a': 12, 'slab_mg_b': 12, 'slab_mg_c': 10, 'arch_mg': 80}
 COLORS = 12
 
 
