@@ -36,7 +36,7 @@
   const outOfPlay = () => false;
 
   // one rule for L and the HUD's map (TASKS 1794): with two, L could fold a legend the HUD had already folded and open it instead
-  const legShown = (S, R) => R.mapLeg === 1 || (R.legAuto && S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9)));
+  const legShown = (S, R) => R.mapLeg === 1 || (R.legAuto && S.t - (R.enteredT ?? -1e9) < 5 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9)));
   const REPEATS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'PageUp', 'PageDown', 'Backspace']);
   function step(S, inp = {}) {
     if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
@@ -61,7 +61,7 @@
       if (keys.Backquote && !S.demo) S.debug = !S.debug;
       const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
-      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for 10 s once a run for the floors and once for the
+      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for 5 s (the player's decision 11.11.2026, TASKS 1934) once a run for the floors and once for the
       // town (TASKS 1887 и: opening on every floor got in the way), on its first such entry (legKnown)
       if (keys.KeyL && !S.demo) { const R = S.run, open = legShown(S, R); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
       if ((keys.Escape || inp.away) && !S.demo) { S.screen = 'pause'; S.pauseAsk = 0; }

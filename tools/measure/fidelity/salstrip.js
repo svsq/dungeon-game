@@ -1,0 +1,3 @@
+const Q = SCENE.QA(), cv = document.getElementById('c'), list = Q.transitions.salamander_emerge || Q.cycles.salamander_emerge, B = 260, n = list.length, idx = [0,1,2,3,4,5,6,7].map((i) => Math.floor(i * (n - 1) / 7)), c = document.createElement('canvas'); c.width = idx.length * B; c.height = B; const g = c.getContext('2d');
+idx.forEach((i, k) => { const S = list[i], R = S.run, e = R.en.find((q) => q.type === 'salamander'); SCENE.state = S; SCENE.render(S.t + 0.01); const X = e.x - R.cam[0], Y = e.y - R.cam[1]; g.drawImage(cv, X - B / 2, Y - B * 0.6, B, B, k * B, 0, B, B); g.fillStyle = '#ff0'; g.font = '14px monospace'; g.fillText(i + '/' + n, k * B + 4, 16); });
+return { png: { sal_emerge: c.toDataURL('image/png') } };

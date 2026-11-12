@@ -1,0 +1,26 @@
+// node trans.mjs OUTDIR [seed]  (run from the worktree root): the town run's 12 -> 13 -> town -> 13, rendered from sim state
+import { fileURLToPath } from 'node:url';
+import http from 'http'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
+const require = createRequire(process.env.HOME + '/.claude/skills/ref2game/scripts/package.json'); const { chromium } = require('playwright');
+const [out, seed = '77'] = process.argv.slice(2); fs.mkdirSync(out, { recursive: true });
+const root = process.env.ROOT || fileURLToPath(new URL('../../..', import.meta.url)), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
+const srv = http.createServer((a, r) => { const f = path.join(root, decodeURIComponent(a.url.split('?')[0])); fs.stat(f, (e) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); }); });
+await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+const browser = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const p = await browser.newPage({ viewport: { width: 1920, height: 1080 } }); p.on('pageerror', (e) => console.log('ERR', e.message));
+await p.goto(`http://127.0.0.1:${srv.address().port}/live/index.html?render=1`); await p.waitForFunction(() => window.__ready, null, { timeout: 30000 });
+const snap = async (n, code = '') => { const r = await p.evaluate(([code]) => { const S = window.__S; let ret = code ? new Function('S', 'R', 'h', 'm', code)(S, S.run, S.run.hero, S.run.map) : null;  SCENE.state = S; SCENE.render(S.t + 0.01); return [document.getElementById('c').toDataURL('image/png'), JSON.stringify(ret)]; }, [code]); fs.writeFileSync(path.join(out, n + '.png'), Buffer.from(r[0].split(',')[1], 'base64')); console.log(n, r[1]); };
+const adv = (n) => `for(let i=0;i<${n};i++) SIM.step(S,{px:960,py:540,keys:[]});`;
+await p.evaluate(() => { window.__QA = SCENE.QA(); }); await p.evaluate((seed) => { const S = SIM.spawn(0, {}); S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', seed, { town: 1 }); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); window.__S = S; const R = S.run; for (let f = 1; f <= 12; f++) SIM.enterFloor(S, R, f); }, +seed);
+const info = `return {f:R.floor,biome:(R.map||{}).biome,ftype:(R.map||{}).ftype,msg:R.msg&&R.msg.s,up:!!(R.map||{}).up,way:!!(R.map||{}).way}`;
+await snap('t12_arrive', adv(30) + info);
+await snap('t12_stairs', `const b=R.en.find(e=>/boss/.test(e.type)); if(b){b.hp=0;b.deadT=S.t;} h.x=m.exit.x;h.y=m.exit.y+70;R.cam=[h.x-960/ (R.zoom||1)/1, h.y-540/(R.zoom||1)];for(let i=0;i<20;i++)SIM.step(S,{px:960,py:540,keys:[]});` + info);
+await snap('t13_00', `SIM.enterFloor(S,R,13);` + info);
+for (const [n, k] of [['t13_05', 30], ['t13_15', 60], ['t13_25', 60], ['t13_40', 90]]) await snap(n, adv(k) + info);
+await snap('t13_wide', `R.seen=R.seen.map(()=>1);` + info);
+await snap('t12_up', `SIM.enterFloor(S,R,12,undefined,'up');` + adv(20) + info);
+await snap('t13_again', `SIM.enterFloor(S,R,13);` + adv(20) + info);
+await snap('t_town', `SIM.enterFloor(S,R,0,undefined,'portal');` + adv(20) + info);
+await snap('t_gate', `S.screen='gate';R.ways=[4,8,12];R.portal={f:13,x:0,y:0};` + adv(2) + info);
+await snap('t13_back', `S.screen='play';SIM.enterFloor(S,R,13,undefined,'portal');` + adv(20) + info);
+await browser.close(); srv.close();

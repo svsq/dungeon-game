@@ -43,6 +43,9 @@
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
       tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
+      if (o.amb) { const B = o.amb, fw = SS(side === 'L' ? 0 : 0.45, side === 'L' ? 0.55 : 1, B.w), dx = B.x0 + (B.x1 - B.x0) * fw - B.x, dy = B.y0 + (B.y1 - B.y0) * fw - B.y;
+        const lf = fw > 0 && fw < 1 ? Math.pow(Math.sin(Math.PI * fw), 0.6) * RG.h * (o.lift || 0.038) * 0.8 : 0;
+        Object.assign(tg[side], { off: Math.hypot(dx, dy) / s, tx: tg[side].tx + dx * face / s, ty: tg[side].ty - lf, lift: tg[side].lift + lf, dz: tg[side].dz + dy / s }); }
       if (o.foot) o.foot(side, tg[side]);   // (a pose that moves the feet off the gait: the imp's legs in its leap, TASKS 489)
     }
     const cr = o.crumble ? o.crumble.t : -1, dbl = 0.5 + 0.5 * Math.cos(2 * ph), breath = (1 - run) * (cr >= 0 ? 1 - SS(0, 0.2, cr) : 1) * Math.sin(o.t * 2.1 + (o.seed || 0));
@@ -55,7 +58,10 @@
       crouch0 = Math.max(crouch0, A0[1] - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx0 * dx0))); }
     // the breath at least 0.75 % of the height: a fixed 0.8 view px was lost on the boss
     const stepPhase = (u0 * 2) % 1, settle = (o.settle || 0) / s * run * SS(0, 0.1, stepPhase) * (1 - SS(0.1, 0.45, stepPhase));
-    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h) * (o.breathK || 1), drop) + crouch0 + (o.crouch || 0) + settle;
+    let hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h) * (o.breathK || 1), drop) + crouch0 + (o.crouch || 0) + settle;
+    // o.hipFloor: the deepest crouch eases out that far (× height) over the ankles; at the ankles the folded knee sank under the ground (TASKS 1918)
+    if (o.hipFloor) { const lim = Math.min(RG.ankleL[1] - RG.hipL[1], RG.ankleR[1] - RG.hipR[1]) - o.hipFloor * RG.h, k = 0.08 * RG.h;
+      if (hipDy > lim - k) hipDy = lim - k * Math.exp(-(hipDy - lim + k) / k); }
     const legs = {};
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty } = tg[side], Hp = [H0[0], H0[1] + hipDy];
@@ -659,6 +665,7 @@
   MON.draw = (e, E, x, y, GT, o) => {
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
     const base = { item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
+    if (live && e.st === 'idle' && e.amb && GT - e.amb.t < DATA.AMB_T) base.amb = { w: (GT - e.amb.t) / DATA.AMB_T, x0: e.amb.x0, y0: e.amb.y0, x1: e.amb.x1, y1: e.amb.y1, x: e.x, y: e.y };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
     if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
     if (n === 'skeleton' || n === 'goblin') {
@@ -838,7 +845,7 @@
       const arm = colossusPose(pose, E, clock, face, H, base); if (arm) base.arm = arm;
       if (!live) { base.crumble = { t: Math.max(0, GT - e.deadT - 0.55) / 2.4, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       // (a body of 230 px sinks at each step by more than the walkers' 2.2 px, or its stride reads as a glide)
-      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.stanceTime = base.strideK ? 0.5 : 0.64; base.settle = base.strideK ? 0 : 4; const r = biped(base);
+      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.hipFloor = 0.14; base.stanceTime = base.strideK ? 0.5 : 0.64; base.settle = base.strideK ? 0 : 4; const r = biped(base);
       // the boulder in both hands over the head while it is lifted, gone from them on the throw (sim R.rocks takes it on)
       if (base.rock && r) {
         const at = [x + face * base.rockAt[0] * H, y + base.rockAt[1] * H + base.rockBuried], bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;
