@@ -2,7 +2,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 # brightest hero pixels (blade, steel) on the plateau: top 5 % by luminance, median and p90 RGB; G-R gap
 import numpy as np; from PIL import Image
 W=ROOTP+''
-for n,p,b in [('zone_magma r5',W+'frames/critic_r14_fidelity/qa/zone_magma.png',(935,450,1000,540)),('zone_magma r4',W+'frames/assets_r4/zone_magma.png',(935,450,1000,540)),
+for n,p,b in [('zone_magma r5',W+'frames/critic_r15_fidelity/qa/zone_magma.png',(935,450,1000,540)),('zone_magma r4',W+'frames/assets_r4/zone_magma.png',(935,450,1000,540)),
               ('ref hero',W+'study/refs/ref_cave_lava.png',None)]:
   try: im=Image.open(p).convert('RGB')
   except Exception: print(n,'missing'); continue

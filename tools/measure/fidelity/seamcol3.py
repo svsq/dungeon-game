@@ -25,9 +25,9 @@ def run(n,p,box,k):
   r=dict(spacing50=float(np.median(sp)),seamw50=float(np.median(sw)),seamshare=round(float(s.sum()/keep.sum()),2),seam_p50=pick(50),seam_p90=pick(90),seam_p99=pick(99),
      white=round(float(((a[...,2]>100)&s).sum()/max(1,s.sum()))*100,1),cell_blue=int(np.median(cells[:,2])),cell_med=np.median(cells,0).astype(int).tolist())
   print(f'{n:20s}',json.dumps(r)); return r
-W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r14_fidelity/qa/'
+W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r15_fidelity/qa/'
 if __name__!="__main__": raise SystemExit
 out={}
 for n,p,b,k in [('ref lake R',R,(1150,200,1536,480),1.05),('ref lake BL',R,(420,700,760,1000),1.05),('magma_lava',Q+'magma_lava.png',(380,120,1560,1000),1),('magma_lake',Q+'magma_lake.png',(380,120,1560,1000),1),('magma_river',Q+'magma_river.png',(1050,150,1580,1000),1),('magma_islet',Q+'magma_islet.png',(0,150,1500,1000),1)]:
   out[n]=run(n,p,b,k)
-json.dump(out,open(W+'frames/critic_r14_fidelity/seamcol3.json','w'),indent=1)
+json.dump(out,open(W+'frames/critic_r15_fidelity/seamcol3.json','w'),indent=1)

@@ -27,10 +27,10 @@ def run(name,p,box,k,vis):
     blue_med=int(np.median(a[keep][:,2])))
   print(f'{name:22s}',json.dumps(r)); return r
 if __name__=='__main__':
-  W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r14_fidelity/qa/'; F=W+'frames/critic_r14_fidelity/'
+  W=ROOTP+''; R=W+'study/refs/ref_cave_lava.png'; Q=W+'frames/critic_r15_fidelity/qa/'; F=W+'frames/critic_r15_fidelity/'
   jobs=[('ref lake R',R,(1150,200,1536,480),1.05),('ref lake BL',R,(420,700,760,1000),1.05)]
   for n,b in [('magma_lava',(380,120,1560,1000)),('magma_lake',(380,120,1560,1000)),('magma_lake_shore',(0,560,760,1080)),('magma_river',(1050,150,1580,1000)),('magma_terrace_step',(380,120,1560,1000)),('magma_islet',(0,150,1500,1000))]:
     jobs.append((n,Q+n+'.png',b,1.0))
   out={}
   for n,p,b,k in jobs: out[n]=run(n,p,b,k,F+'tiles_'+n.replace(' ','_')+'.png')
-  json.dump(out,open(W+'frames/critic_r14_fidelity/lavatiles.json','w'),indent=1)
+  json.dump(out,open(W+'frames/critic_r15_fidelity/lavatiles.json','w'),indent=1)

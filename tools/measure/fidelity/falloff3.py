@@ -1,7 +1,7 @@
 import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../..'))+'/'
 import sys,numpy as np; from scipy import ndimage
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; Q=W+'frames/critic_r14_fidelity/qa/'
+W=ROOTP+''; Q=W+'frames/critic_r15_fidelity/qa/'
 def prof(path,box=None,k=1.0):
   a=load(path,k,box); L,C,H=LCH(a)
   lava=(L>=45)&(C>=60); lava=ndimage.binary_opening(lava,iterations=2)

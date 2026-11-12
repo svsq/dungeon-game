@@ -2,7 +2,7 @@ import os; ROOTP=(os.environ.get('ROOT') or os.path.abspath(__file__+'/../../../
 # 1059 pit rims: Lab of the 0-12 px band inside the lava edge of each pocket vs the ref's basalt round its voids; local contrast (std of L in 6 px) as "stones read or not"
 import sys,numpy as np; from scipy import ndimage
 sys.path.insert(0,__file__.rsplit('/',1)[0]); from labc import *
-W=ROOTP+''; Q=W+'frames/critic_r14_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
+W=ROOTP+''; Q=W+'frames/critic_r15_fidelity/qa/'; R=W+'study/refs/ref_cave_lava.png'
 def stats(L,C,m):
   sd=np.sqrt(np.maximum(ndimage.uniform_filter(L*L,6)-ndimage.uniform_filter(L,6)**2,0))
   return f'n {m.sum():6d} L p50/p90 {np.percentile(L[m],50):.0f}/{np.percentile(L[m],90):.0f} C50 {np.percentile(C[m],50):.0f} localSD6 {np.median(sd[m]):.1f}'
