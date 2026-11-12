@@ -1,0 +1,28 @@
+// node chap.mjs OUTDIR SEED (worktree root): chapter banner 9/13, fade R.leaving, the magma start room lit, basalt stairs
+import { fileURLToPath } from 'node:url';
+import http from 'http'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
+const require = createRequire(process.env.HOME + '/.claude/skills/ref2game/scripts/package.json'); const { chromium } = require('playwright');
+const [out, seed = '77'] = process.argv.slice(2); fs.mkdirSync(out, { recursive: true });
+const root = process.env.ROOT || fileURLToPath(new URL('../../..', import.meta.url)), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
+const srv = http.createServer((a, r) => { const f = path.join(root, decodeURIComponent(a.url.split('?')[0])); fs.stat(f, (e) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); }); });
+await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+const browser = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const p = await browser.newPage({ viewport: { width: 1920, height: 1080 } }); p.on('pageerror', (e) => console.log('ERR', e.message));
+await p.goto(`http://127.0.0.1:${srv.address().port}/live/index.html?render=1`); await p.waitForFunction(() => window.__ready, null, { timeout: 30000 });
+await p.evaluate((seed) => { SCENE.QA(); const S = SIM.spawn(0, {}); S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', seed, { town: 1 }); S.screen = 'play'; window.__S = S; }, +seed);
+const snap = async (n, code) => { const r = await p.evaluate((code) => { const S = window.__S, R = S.run, adv = (k) => { for (let i = 0; i < k; i++) { SIM.step(S, { px: 960, py: 540, keys: [] }); R.hero.hp = R.hero.hpMax || 9999; } }; const ret = new Function('S', 'R', 'adv', code)(S, R, adv); SCENE.state = S; SCENE.render(S.t + 0.01); return [document.getElementById('c').toDataURL('image/png'), JSON.stringify(ret)]; }, code); fs.writeFileSync(path.join(out, n + '.png'), Buffer.from(r[0].split(',')[1], 'base64')); console.log(n, r[1]); };
+const inf = "return {f:R.floor,b:R.map.biome,msg:R.msg&&[R.msg.chapter,R.msg.s,R.msg.d],leaving:R.leaving,decor:(R.map.decor||[]).filter(q=>q.n==='vent_mg').length}";
+await snap('f8', "SIM.enterFloor(S,R,8);adv(120);" + inf);
+await snap('f8_leave_0', "R.leaving=0.44;" + inf);
+await snap('f8_leave_mid', "R.leaving=0.22;" + inf);
+await snap('f8_leave_end', "R.leaving=0.02;" + inf);
+await snap('f9_08', "R.leaving=0;SIM.enterFloor(S,R,9);adv(96);" + inf);
+await snap('f9_25', "adv(204);" + inf);
+await snap('f12', "SIM.enterFloor(S,R,12);adv(120);" + inf);
+await snap('f13_08', "SIM.enterFloor(S,R,13);adv(96);" + inf);
+await snap('f13_25', "adv(204);" + inf);
+await snap('f13_60', "adv(420);" + inf);
+await snap('f13_again', "SIM.enterFloor(S,R,12,undefined,'up');adv(30);SIM.enterFloor(S,R,13);adv(96);" + inf);
+await snap('f13_stairs_up', "const m=R.map,h=R.hero,u=m.up||m.entry||{x:h.x,y:h.y};R.seen=R.seen.map(()=>1);R.cam=[h.x-960,h.y-540];adv(2);return {up:!!m.up, ux:u.x,uy:u.y,hx:h.x,hy:h.y}");
+await snap('f13_exit', "const m=R.map,h=R.hero;h.x=m.exit.x;h.y=m.exit.y+120;R.seen=R.seen.map(()=>1);adv(6);R.cam=[h.x-960,h.y-540];R.msg=null;return {ex:m.exit.x,ey:m.exit.y}");
+await browser.close(); srv.close();

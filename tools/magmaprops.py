@@ -6,7 +6,8 @@ decals are Codex art since 421.
   obsidian_mg     crystal_cv re-shaded into black volcanic glass with violet-grey glints
   banner_mg       the cult banner hung from a crossbar between two iron posts (it stands on the plateau, no wall to hang on)
   forge_mg        forge_tw's slate, brick and iron re-shaded into basalt, the fire (hot warm pixels) kept as drawn
-  stairs_mg, stairs_up_mg, stairs_up_free_mg  stairs, stairs_up and stairs_up_free re-shaded into basalt, the treads keeping their light and dark steps;
+  slab_mg_d       slab_mg_c broken: a corner split off, a crack across it, its front face a shade lighter (TASKS 1926)
+  stairs_mg, stairs_up_mg  stairs and stairs_up re-shaded into basalt, the treads keeping their light and dark steps;
                   stairs_up_mg only its opening, cut in the wall (TASKS 1730)
   python3 tools/magmaprops.py [--only name1,name2]
 """
@@ -63,24 +64,10 @@ STAIR_CUTS = [0.07, 0.14, 0.24, 0.38]
 FERN_GROW, CLOSE = 5, 12
 
 
-UP_JAMB = [(365, 905, 0, 275), (365, 905, 745, 1024), (905, 1024, 0, 245), (905, 1024, 775, 1024)]
-UP_FREE_JAMB = [(215, 455, 0, 260), (455, 705, 0, 250), (705, 940, 0, 195),
-                (215, 455, 770, 1024), (455, 705, 775, 1024), (705, 940, 825, 1024)]
-
-
-def darken_jamb(im, rects=UP_JAMB):
-    a = np.asarray(im).copy(); H, W = a.shape[:2]
-    m = np.zeros((H, W), bool)
-    for y0, y1, x0, x1 in rects:
-        m[y0:y1, x0:x1] = True
-    for hi, lo in ((BAS[3], BAS[2]), (BAS[2], BAS[1])):
-        a[m & (a[..., :3] == hi).all(-1), :3] = lo
-    return Image.fromarray(a)
-
-
 # the opening of stairs_up (its arch's inner circle and jambs, on the source's canvas) and one art pixel of it
 HEWN_ARCH = (507, 416, 240)
 HEWN_PX = 16
+HEWN_SEGS = 13
 
 
 def hewn(im):
@@ -91,12 +78,20 @@ def hewn(im):
     cx, cy, r = HEWN_ARCH
     yy, xx = np.mgrid[0:H, 0:W]
 
-    def inside(rr):
-        return np.where(yy < cy, (xx - cx) ** 2 + (yy - cy) ** 2 <= rr ** 2, np.abs(xx - cx) <= rr)
+    # the arch's radius steps a block in or out along its curve (TASKS 1930: a true half circle stood out among the hewn stone);
+    # its feet stay on the jambs
+    seg = np.random.default_rng(11).integers(-1, 2, (3, HEWN_SEGS)); seg[:, 0] = seg[:, -1] = 0
+    ang = np.arctan2(np.maximum(cy - yy, 0), xx - cx)
+    dr = HEWN_PX * seg[:, np.clip((ang / np.pi * HEWN_SEGS).astype(int), 0, HEWN_SEGS - 1)]
+
+    def inside(rr, k):
+        return np.where(yy < cy, (xx - cx) ** 2 + (yy - cy) ** 2 <= (rr + dr[k]) ** 2, np.abs(xx - cx) <= rr)
     drawn = yy <= np.nonzero((a[..., 3] >= 128).any(1))[0].max()
-    hole, rim, lip = inside(r) & drawn, inside(r + HEWN_PX) & drawn, inside(r + 3 * HEWN_PX) & drawn
+    hole, rim, lip = inside(r, 0) & drawn, (inside(r + HEWN_PX, 1) | inside(r, 0)) & drawn, inside(r + 3 * HEWN_PX, 2) & drawn
     out = np.zeros_like(a)
-    out[hole, :3] = a[hole, :3] * np.array([0.8, 0.576, 0.496]); out[hole, 3] = 255
+    # the treads' grain kept to whole art pixels (TASKS 1937: finer than a block, it was lost to the downscale as mush)
+    blk = a[np.minimum((yy // HEWN_PX) * HEWN_PX + HEWN_PX // 2, H - 1), np.minimum((xx // HEWN_PX) * HEWN_PX + HEWN_PX // 2, W - 1)]
+    out[hole, :3] = blk[hole, :3] * np.array([0.8, 0.576, 0.496]); out[hole, 3] = 255
     out[rim & ~hole] = INK + (255,)
     band = lip & ~rim & (yy < cy + 40)
     n = np.random.default_rng(7).random((H // HEWN_PX + 1, W // HEWN_PX + 1))[yy // HEWN_PX, xx // HEWN_PX]
@@ -173,6 +168,30 @@ def forge(src):
     return Image.fromarray(a)
 
 
+def broken_slab(path, px=4):
+    a = np.asarray(Image.open(path).convert('RGBA'))[::px, ::px].copy()
+    m = a[..., 3] >= 128
+    ys, xs = np.where(m)
+    y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+    yy, xx = np.mgrid[:a.shape[0], :a.shape[1]]
+    m &= ~((xx - (x1 - 6)) + ((y0 + 5) - yy) > 4)
+    h = y1 - y0 + 1
+    out = np.where(m[..., None], a, 0).astype(np.uint8)
+    m = out[..., 3] >= 128
+    inner = m.copy(); inner[1:] &= m[:-1]; inner[:-1] &= m[1:]; inner[:, 1:] &= m[:, :-1]; inner[:, :-1] &= m[:, 1:]
+    lum_ = lum(out[..., :3].astype(float))
+    face = inner & (yy > y0 + h * 0.62) & (lum_ > 0.06)
+    out[face, :3] = np.clip(out[face, :3].astype(int) + 14, 0, 255)
+    cx = (x0 + x1) // 2
+    for i, y in enumerate(range(y0 + 3, y0 + h // 2 + 2)):
+        x = cx + 2 - i // 2
+        if inner[y, x]:
+            out[y, x, :3] = INK
+    out[m & ~inner, :3] = INK
+    out[..., 3] = np.where(m, 255, 0)
+    return Image.fromarray(out.repeat(px, 0).repeat(px, 1), 'RGBA')
+
+
 def banner():
     b = Image.open('art/gen/banner.png').convert('RGBA')
     ap = b.height / 32.0
@@ -196,10 +215,10 @@ if __name__ == '__main__':
         'obsidian_mg': glass(reshade('art/gen/crystal_cv.png', [INK] + OBS[1:], [0.1, 0.3, 0.5, 0.72])),
         'skel_mg': charred('art/gen/skel_cv.png'),
         'banner_mg': banner(),
+        'slab_mg_d': broken_slab('art/gen/slab_mg_c.png'),
         'forge_mg': forge('art/gen/forge_tw.png'),
         'stairs_mg': reshade('art/gen/stairs.png', STAIR_RAMP, STAIR_CUTS),
         'stairs_up_mg': hewn(reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS)),
-        'stairs_up_free_mg': darken_jamb(reshade('art/gen/stairs_up_free.png', STAIR_RAMP, STAIR_CUTS), UP_FREE_JAMB),
     }
     only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(out)
     for n, im in ((k, out[k]) for k in only):

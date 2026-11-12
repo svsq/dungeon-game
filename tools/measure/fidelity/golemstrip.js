@@ -1,0 +1,3 @@
+const Q = SCENE.QA(), cv = document.getElementById('c'), list = Q.cycles.golem_attack || Q.transitions.golem_attack, B = 300, idx = [40, 52, 60, 64, 68, 72, 76, 80, 84, 92], c = document.createElement('canvas'); c.width = idx.length * B; c.height = B; const g = c.getContext('2d');
+idx.forEach((i, k) => { const S = list[i], R = S.run, e = R.en.find((q) => q.type === 'golem'); SCENE.state = S; SCENE.render(S.t + 0.01); const X = e.x - R.cam[0], Y = e.y - R.cam[1]; g.drawImage(cv, X - B / 2, Y - B * 0.75, B, B, k * B, 0, B, B); g.fillStyle = '#ff0'; g.font = '16px monospace'; g.fillText(i + ' ' + e.st, k * B + 4, 18); });
+return { png: { golem_attack: c.toDataURL('image/png') } };

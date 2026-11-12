@@ -28,6 +28,11 @@
     TL.forEach((q) => ltS(...q)); GL.forEach((q) => ltS(...q));
     for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 8)), ny = Math.max(1, Math.round((r.h - 2) / 8));
       for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) ltS((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 150, col, D.BIOMES[r.zone].fill || 0.32, 1.8); }
+    // (TASKS 1933: the sanctum and the forge read dark beside the lakes, their braziers' pools a cell or two across) the priests' circle
+    // and the forge's coals light half the hall
+    if (m.cliff) for (const r of m.rooms) { if (r.hall !== 'sanctum' && r.hall !== 'forge') continue; const rr = Math.max(r.w, r.h) * TILE * 0.5;
+      const src = r.hall === 'sanctum' ? (m.circles || []).find((q) => q.r === r.id) : m.decor.find((d) => d.n === 'forge_mg' && d.r === r.id); if (!src || hid(src)) continue;
+      ltS(src.x, src.y - 16, rr, [1, 0.52, 0.2], 0.8 * (0.92 + 0.08 * Math.sin(t * 1.9 + r.id)), 1.6); }
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) ltS(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
     // the shop is lit warm and bright: lanterns by its ways in, a lamp over the counter
     if (m.shop) { for (const q of m.shop.lanterns) ltS(q.x, q.y - 40, 190, [1, 0.78, 0.45], 0.85 * flick(q.x)); ltS(m.shop.x, m.shop.y - 50, 260, [1, 0.82, 0.55], 0.75); }

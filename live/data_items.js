@@ -53,9 +53,9 @@
   // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
-  // 20: the halls' and crossings' packs and the descent's cut of PR 65 laid other floors without a new version (TASKS 1917); selfCheck
-  // now holds the generator's print to its version
-  const GEN_VERSION = 20;
+  // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
+  // floors anew); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 26;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   // the chance of a find above the hero's level: `base`, `per` more for each floor he is ahead of it, at most `cap`; at most `up` levels above
   const LOOT_OVER = { base: 0.04, per: 0.06, cap: 0.3, up: 4 };

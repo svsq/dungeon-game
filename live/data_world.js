@@ -32,7 +32,7 @@
     magma: { name: TXT('BIOMES.magma.name'), rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, ambLvl: 0.48, torchR: 0.72, low: [1.05, 0.8, 0.74], floorK: 1.14, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
-      from: { cultist: 2, skel_ember: 2, imp: 2, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
+      from: { cultist: 2, skel_ember: 2, imp: 1, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
     // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
@@ -91,8 +91,9 @@
       // first: the type of a run's first floor (the player's call 04.11.2026: the caves first, a lake's archers over the lava were too
       // much for the first floor)
       types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave',
-      // guard (TASKS 1729): a lava cave's only spike plates, `n` at most, each on the way in to a reward `far` cells off it
-      guard: { n: 2, far: [3, 8] },
+      // guard (TASKS 1729): a lava cave's only spike plates, `n` at most, each on the way in to a reward `far` cells off it; `hit`: a
+      // stab's share of the hero's health there (TASKS 1936: at the crypt's 0.12 one plate by a chest took a fifth of it on floor 13)
+      guard: { n: 2, far: [3, 8], hit: 0.07 },
       // stub (TASKS 1730): the wall raised behind the stairs up on a floor with no top wall near the start, `w` cells either side of
       // them and `deep` rows of rock, within `far` cells of the start room
       stub: { w: [2, 1], deep: 4, far: 10 },
@@ -108,13 +109,15 @@
         // a hoard's islet (TASKS 476): a pad of floor (`pad` cells) out in the open lava, `ring` cells of it all round, its only way a
         // strip of thin crust two cells wide `len` cells long to the nearest plateau; `n` a floor
         islet: { pad: [3, 3], ring: 1, len: [4, 9], n: 1 },
-        // alt (TASKS 1722): on a cave or terrace floor the second way over a lava crossing the walk can't go round: slabs two cells
-        // wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a floor; the walk keeps
-        // `keep` of its length
-        alt: { off: 3, wide: 6, len: [1, 9], max: 2, keep: 0.8,
+        // alt (TASKS 1722): on a cave, terrace or plain floor (plain since TASKS 1922) the second way over a lava crossing the walk can't
+        // go round: slabs two cells wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a
+        // floor; the walk keeps `keep` of its length, and the way by them is `more` cells longer than the way over at the least
+        alt: { off: 3, wide: 10, len: [1, 9], max: 4, keep: 0.7, more: 10,
+          bend: { ring: [3, 9], len: 40, reach: 32, more: 16, round: 20, max: 8, tries: 12 },
           // dry (TASKS 1726): on a cave floor a tunnel round a crossing, its mouths `off` cells from it, `len` cells at most, `max` a floor, the
-          // way round `more` cells longer than the way over at the least
-          dry: { off: [3, 10], len: 48, max: 3, more: 6 } } } },
+          // way round `more` cells longer than the way over at the least; failing that, sought again `ring` cells further off (TASKS 1922),
+          // and one `pay` cells longer or more holds a chest half way
+          dry: { off: [3, 10], len: 64, max: 3, more: 6, ring: 4, pay: 16 } } } },
     // the rooms-and-corridors floors' layouts (TASKS 379), each a set of knobs on the one generator (dungeon.js): room, the room count
     // of the floor's range taken (min: fewest a floor is laid with); rect, a plain room's size (cells, else by the map); shapes, the
     // shapes' weights over ROOM_SHAPES; gap, the rock kept between rooms; bends, the corridor length (cells) past which it takes one
@@ -164,7 +167,7 @@
   // fewer); apart: cells between two of a kind; aim: falling rocks laid first on the narrows of the walk to the stairs (TASKS 461);
   // clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
   // stairs (selfCheck)
-  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8, gate: { per: 4.6, hp: 0.2, tails: 2, pitch: 0.72, minCells: 3, off: 0.2, from: 0.1, to: 0.9, kb: 160, stun: 1, see: 14 } },
+  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8, gate: { per: 4.6, hp: 0.2, tails: 2, pitch: 0.72, minCells: 3, off: 0.2, from: 0.1, to: 0.9, kb: 160, stun: 1, see: 14, deep: 3.5, deepMax: 3, calm: 8, shy: ['imp', 'skel_archer', 'cultist', 'fire_priest'] } },
     // (run, gap: an aimed rock is a run of 2·run + 1 down the walk, falling gap s one after another, TASKS 485)
     fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2, run: 2, gap: 0.2 },
     // a terrace floor's lavafall surges (TASKS 475): every `per` s its river rises over its banks, `band` cells of floor either side
@@ -179,7 +182,8 @@
   // (lag: the seconds the floor stood still on a load, TASKS 1812, kept apart from ph, which also names a gate's row)
   const hazCycle = (z, t) => (t - (z.lag || 0)) / z.per + z.ph, hazClock = (z, t) => (hazCycle(z, t) % 1 + 1) % 1 * z.per;
   const ZONE = new WeakMap(), zoneOf = (z) => { let q = ZONE.get(z); if (!q) ZONE.set(z, q = new Set(z.cells)); return q; };
-  const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r * (z.s || 1); };
+  const hazAxes = (z) => { const H = HAZ[z.k], r = H.r * (z.s || 1), d = z.d || 1; return [z.ax ? r * d : r, H.ry * r * (z.ay ? d : 1)]; };
+  const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const [rx, ry] = hazAxes(z); return Math.hypot((x - z.x) / rx, (y - z.y) / ry) < 1; };
   // how far a surge has risen over its band at time t, 0..1 (TASKS 475)
   const surgeLevel = (z, t) => { const H = HAZ.surge, c = hazClock(z, t); if (c < H.burst) return 1; if (c < H.burst + H.ebb) return 1 - (c - H.burst) / H.ebb;
     const w = c - (z.per - H.warn); return w >= 0 ? H.creep * w / H.warn : 0; };
@@ -225,7 +229,10 @@
     brute: { w: 2, plan: [[['brute'], [1, 1], 'near'], [['goblin'], [2, 3], 'any']] },
     // imps across a river from the way in (TASKS 407), salamanders in the lava by the hall (408), golems on the ridge in front of the
     // priests (409): bank, a cell of the hall by its lava, the far half first; lava, a cell of lava at the hall's edge
-    imps: { w: 2, plan: [[['imp'], [3, 4], 'bank'], [['skeleton', 'goblin'], [0, 1], 'near']] },
+    imps: { w: [0, 2], plan: [[['imp'], [3, 4], 'bank'], [['skeleton', 'goblin'], [0, 1], 'near']] },
+    // (spark: the 1st floor's imps, the player's decision 11.11.2026 on TASKS 1921, amending 465: the chapter opened on the crypt's
+    // own pack, so two imps come with goblins there, never with archers; a small hall keeps the two alone)
+    spark: { w: [4, 0], plan: [[['imp'], [2, 2], 'back'], [['goblin'], [2, 3], 'near']] },
     lava: { w: 2, plan: [[['salamander'], [1, 2], 'lava'], [['skeleton', 'skel_archer', 'goblin'], [1, 2], 'any']] },
     rock: { w: 2, plan: [[['golem'], [1, 1], 'near'], [['fire_priest', 'cultist'], [1, 1], 'back'], [['imp'], [0, 2], 'bank']] },
   };
@@ -274,12 +281,12 @@
   const PROP_W = { chest: 53, coffin: 81, grave: 50, statue: 61, pillar: 81, crystal: 49, cage: 51, rack: 69, bookshelf: 103, table: 59, brazier: 57,
     altar: 67, gold: 96, goldpile: 46, barrel: 45, crate: 48, pot: 32, vase_a: 30, vase_b: 43, vase_c: 30, candlestick: 22, candelabra: 46, torch_stand: 26, crystal_cv: 68,
     stalag_a: 55, stalag_b: 44, boulder_a: 62, boulder_b: 63, wreck_cv: 107, tent_cv: 115, shroom_a: 42, shroom_b: 47, skel_cv: 51,
-    anvil_tw: 37, forge_tw: 83, forge_mg: 83, basalt_a: 66, basalt_b: 62, boulder_mg_a: 62, boulder_mg_b: 63, obsidian_mg: 68, skel_mg: 51, banner_mg: 70, vent_mg: 53 };
+    anvil_tw: 37, forge_tw: 83, forge_mg: 83, basalt_a: 66, basalt_b: 62, boulder_mg_a: 62, boulder_mg_b: 63, obsidian_mg: 68, skel_mg: 51, banner_mg: 70, vent_mg: 53, arch_mg: 250 };
   // and how tall (sizes.js heights): with the width, the sprite's box an item lying behind the prop disappears in
   const PROP_H = { chest: 52, coffin: 51, grave: 51, statue: 117, pillar: 89, crystal: 81, cage: 81, rack: 71, bookshelf: 107, table: 52, brazier: 51,
     altar: 56, gold: 52, goldpile: 32, barrel: 56, crate: 51, pot: 36, vase_a: 60, vase_b: 48, vase_c: 60, candlestick: 60, candelabra: 66, torch_stand: 76, crystal_cv: 84,
     stalag_a: 54, stalag_b: 74, boulder_a: 44, boulder_b: 32, wreck_cv: 50, tent_cv: 80, shroom_a: 40, shroom_b: 56, skel_cv: 44,
-    anvil_tw: 40, forge_tw: 64, forge_mg: 64, basalt_a: 72, basalt_b: 44, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 22 };
+    anvil_tw: 40, forge_tw: 64, forge_mg: 64, basalt_a: 72, basalt_b: 44, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 22, arch_mg: 172 };
   const PROP_MAT = { table: 'wood', rack: 'wood', bookshelf: 'wood', coffin: 'wood', shop_shelf: 'wood', shop_barrel: 'wood', shop_crate: 'wood',
     statue: 'stone', pillar: 'stone', grave: 'stone', cage: 'metal', brazier: 'metal', candlestick: 'metal', candelabra: 'metal', torch_stand: 'metal', shop_lantern: 'metal', shop_armor: 'metal', shop_weapons: 'metal',
     crystal: 'crystal', crystal_cv: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth', fire: 'fire', bones: 'bone',
@@ -300,5 +307,5 @@
   // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2 };
-  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

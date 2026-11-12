@@ -9,6 +9,8 @@
 //   lunge     — spider_attack: the spider's ground stays at least the two bodies' radii short of the hero's (it stopped passing through)
 //   flat      — spider_death: the body never collapses to a card while it turns over (its joints' height ≥ FLAT of the rest's)
 //   breath    — *_idle loops: the hip and the head rise and fall at least HIP / HEAD of the height (a still pelvis passed "something moves")
+//   amble     — *_amble loops (TASKS 1938): a foe's step at its post; a foot moving under AMB_V px a frame is planted, and over
+//               each planted run it drifts at most AMB px from where it was set down, while the feet do step at least 3 px
 //   cast      — hero_cast_*: the casting hand leaves its rest by at least CAST of the height (a cast down moved it 3 px)
 //   phase     — side walk cycles (*_right, *_left): each arm's swing along the travel correlates with its own leg's at most PHASE (qa.mjs
 //               fails only above +0.3, so arms a quarter cycle off the legs, 0.06, passed as swinging against them); an arm that holds
@@ -36,7 +38,7 @@ import http from 'node:http'; import fs from 'node:fs'; import path from 'node:p
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const BREATH = 0.15, ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75, WORK = 0.12, CRUST = 0.05;
+const AMB = 2, AMB_V = 0.5, BREATH = 0.15, ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75, WORK = 0.12, CRUST = 0.05;
 const root = process.cwd(), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
 const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0]));
   fs.stat(f, (e) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); }); });
@@ -94,6 +96,15 @@ for (const nm of meta.loops.filter((n) => n.endsWith('_idle'))) {
   const fr = (await trace('loops', nm)).map((f) => (nm.startsWith('hero') ? f.hero : f.en)).filter(Boolean); if (!fr.length) continue;
   const H = tall(fr[0]), sp = (k) => { const v = fr.filter((j) => j[k]).map((j) => j[k][1] - j.ground[1]); return v.length ? Math.max(...v) - Math.min(...v) : null; }, hip = sp('hip'), head = sp('head') ?? sp('top');
   report('breath', nm, (hip === null || hip >= HIP * H) && head >= HEAD * H, `hip ${hip === null ? '—' : (100 * hip / H).toFixed(2) + ' %'}, head ${(100 * head / H).toFixed(2)} % of ${H.toFixed(0)} px`);
+}
+for (const nm of meta.loops.filter((n) => n.endsWith('_amble'))) {
+  const fr = (await trace('loops', nm)).map((f) => f.en).filter(Boolean); if (fr.length < 2) { report('amble', nm, false, 'no trace'); continue; }
+  let slide = 0, moved = 0;
+  for (const k of ['ankleL', 'ankleR']) { if (!fr.every((j) => j[k])) continue; let run = null;
+    moved = Math.max(moved, Math.hypot(fr[fr.length - 1][k][0] - fr[0][k][0], fr[fr.length - 1][k][1] - fr[0][k][1]));
+    for (let i = 1; i < fr.length; i++) { const d = Math.hypot(fr[i][k][0] - fr[i - 1][k][0], fr[i][k][1] - fr[i - 1][k][1]);
+      if (d < AMB_V) { run = run || fr[i - 1][k]; slide = Math.max(slide, Math.hypot(fr[i][k][0] - run[0], fr[i][k][1] - run[1])); } else run = null; } }
+  report('amble', nm, slide <= AMB && moved >= 3, `a planted foot slides ${slide.toFixed(1)} px (max ${AMB}), the feet step ${moved.toFixed(1)} px`);
 }
 for (const nm of meta.tr.filter((n) => n.startsWith('hero_cast_'))) {
   const fr = (await trace('transitions', nm)).map((f) => f.hero).filter(Boolean), H = tall(fr[0]);
