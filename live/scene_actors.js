@@ -491,11 +491,12 @@
     if (BAS_PROPS.has(n) && !j) PROP_BAS.push([n, x - w * k / 2, y - h * k + (o.dy || 0), w * k, h * k, !!o.flip]);
     // (TASKS 1793: a basalt block by the lava takes its glow on its lower part, `warm` from how near it stands: lit grey to its foot by
     // a river it read as plastic; the lit pass keeps a basalt's paint and takes only the light's level, so the warmth is in the paint)
-    const warm = (o.warm || 0) > 0.02 && BAS_PROPS.has(n) && !j ? o.warm : 0;
+    const warm = (o.warm || 0) > 0.02 && (BAS_PROPS.has(n) || n.startsWith('slab_mg')) ? o.warm : 0;   // (the crossing's slabs too: 1793 passed theirs but left them out)
     const draw = () => { if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: o.u });
         if (warm) L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: { tint: [1.5, 0.7, 0.42, 1], alpha: 0.6 * warm, cut: [y + (o.dy || 0) - h * k * 0.55, -h * k * 0.35, 1] } }); return; }
       const W = w * k, H = h * k * j.sy, u = j.fl > 0 ? Object.assign({}, o.u, { tint: [...(j.ft || [2.2, 2, 1.8]), j.fl] }) : o.u;
-      L.sprite(n, 0, 0, { m: M.of(M.t(x + j.dx, y + (o.dy || 0)), M.r(j.rot)), w: W, h: H, pivot: [W / 2, H], flip: o.flip, u }); };
+      const mj = M.of(M.t(x + j.dx, y + (o.dy || 0)), M.r(j.rot)); L.sprite(n, 0, 0, { m: mj, w: W, h: H, pivot: [W / 2, H], flip: o.flip, u });
+      if (warm) L.sprite(n, 0, 0, { m: mj, w: W, h: H, pivot: [W / 2, H], flip: o.flip, u: { tint: [1.5, 0.7, 0.42, 1], alpha: 0.6 * warm, cut: [y + (o.dy || 0) - H * 0.55, -H * 0.35, 1] } }); };
     if (NO_INK.has(n)) draw(); else L.inked(draw, { r: 2, n: 8, col: BAS_PROPS.has(n) ? [0.03, 0.022, 0.026] : [0.09, 0.04, 0.04], dy: 0 }); }   // (the basalt's near black, TASKS 1793: brown, its contour sank into the ash)
   // a knocked prop's recoil about its foot, away from the blow (s): wood rocks, metal rattles, stone shudders, crystal rings, sacks slump
   const KNOCK = {

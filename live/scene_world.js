@@ -101,7 +101,7 @@
       // wide crossing it ruled the slabs into a cobbled road)
       // (the slab stands on the lava, TASKS 1629: flat on it without a lower face or a dark line under it)
       L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: fl, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
-      drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { tint: [1.35, 1.28, 1.25, 1] } }); drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { cut: [foot - hh * 0.3, 2, 1] } });
+      drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { tint: [1.35, 1.28, 1.25, 1] } }); drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { cut: [foot - hh * 0.3, 2, 1] }, warm: HERO.lavaWarm(x, y) });   // (the warm foot by the lava, TASKS 1793)
       basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, fl]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
       // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
