@@ -71,7 +71,7 @@
   // the floor waits under its name a moment as on an arrival (TASKS 1812): an elite left at arm's length struck at once. The hero
   // waits with it (holdClocks), so nothing a load gives can be chained into a dodge
   function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.potAsk = null; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t };
-    R.holdT = S.t + RESUME_HOLD; }
+    SIMX.mendRun(S, R); R.holdT = S.t + RESUME_HOLD; }
   const RESUME_HOLD = 1.2;
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }

@@ -103,7 +103,7 @@
     finally { for (const k of Object.keys(R)) if (!(k in keep)) delete R[k]; Object.assign(R, keep); R.mode = mode; } }
   // the baseline as JSON, taken when a floor is first built or first restored, so that leaving it again does not generate it a third time
   const BASE = new WeakMap(), snapFloor = (o) => JSON.stringify(Object.fromEntries(FLOOR_KEYS.map((k) => [k, o[k]])));
-  function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1) return;
+  function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1 || (R.map && R.map.town)) return;
     const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
     M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
   // a floor kept by another generator (an old save): its diff fits a map no longer built, so the floor is built anew and only what
@@ -142,7 +142,25 @@
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
+  // a floor that fails to build or restore (TASKS 1918) leaves the run as it was before the step: a half-made one, floor N over the
+  // town's map, was saved and loaded back as the town under the floor's name, and the next stash wrote the town into floor N
   function enterFloor(S, R, f, gen, how = 'down') {
+    const { memo, ...rest } = R, was = JSON.stringify(rest), kept = memo && Object.entries(memo).map(([k, M]) => [k, M, Object.assign({}, M)]);
+    try { goFloor(S, R, f, gen, how); return true; }
+    catch (err) { console.error('enterFloor', f, err);
+      for (const k of Object.keys(R)) delete R[k]; Object.assign(R, JSON.parse(was));
+      if (memo) { for (const k of Object.keys(memo)) if (!kept.some(([q]) => q === k)) delete memo[k];
+        for (const [k, M, o] of kept) { for (const q of Object.keys(M)) delete M[q]; memo[k] = Object.assign(M, o); } R.memo = memo; }
+      S.floorFails = (S.floorFails || 0) + 1; R.msg = { s: TXT('sim_floor.enterFail', { floor: f }), t: S.t, d: 4 };
+      return false; } }
+  // a save made in that half-made state (TASKS 1918): back to the town with its portal to the floor, and every kept floor whose diff
+  // holds the town's map built anew, with its dead as an old generator's floor keeps them
+  function mendRun(S, R) { if (!R || !R.viaTown || !(R.floor > 0) || !R.map || !R.map.town) return false; const f = R.floor;
+    for (const M of Object.values(R.memo || {})) { const p = M.d && M.d.p && M.d.p.map && M.d.p.map.p; if (!p || !p.town) continue; M.gv = -1; M.d = { p: { en: { p: {}, n: 0 } } }; M.drops = []; M.seen = null; M.rseen = null; }
+    R.floor = 0; R.town = 1; R.portal = null;
+    if (!enterFloor(S, R, 0, undefined, 'portal')) return false;
+    R.portal = { f }; R.msg = { s: TXT('sim_floor.mended', { floor: f }), t: S.t, d: 5 }; return true; }
+  function goFloor(S, R, f, gen, how) {
     if (R.map && R.viaTown) stashFloor(R);
     if (R.map && R.town && R.shop) R.townShop = R.shop;
     R.htraps = [];   // (a set trap stays where it was set: kept, it sprang on the new floor at the old floor's spot, PR 36 review)
@@ -174,7 +192,7 @@
     // up from below the campaign's last floor: by its own stairs on (TASKS 514), not its portal out
     if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     else if (how === 'down' && m.up) [hx, hy] = standNear(R, m.up.x, m.up.y + 46);
-    else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
+    else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
@@ -336,6 +354,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, genApart, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, genApart, standNear, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);
