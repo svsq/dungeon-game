@@ -713,6 +713,9 @@
     // the town (R-17, TASKS 1002): the hero where a town run puts him, by the campfire
     { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; R.msg = null; S.ev = [];
       R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; states.push(['zone_town', S]); }
+    // TASKS 1795: the first floor as the hero comes down to it from the town, the fog as play leaves it
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; SIM.enterFloor(S, S.run, 1);
+      for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); const h = S.run.hero; S.run.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; S.run.msg = null; S.ev = []; states.push(['floor1_entry', S]); }
     // the whole town in one frame (TASKS 1003): every service, the gate, the mine and the rails
     { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
       const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; void h; states.push(['town_services', S]); }

@@ -723,9 +723,10 @@ void main(){ vec2 p = floor(v_uv * vec2(48.0, 64.0) / 2.0) * 2.0 + 1.0 - vec2(24
   if (a == 0.0) discard; o = vec4(col * a, a); }`;
   const LIT = `
 uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins, u_water, u_heat, u_face, u_occ, u_far; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb, u_low; uniform vec4 u_vein; uniform float u_seam, u_cave, u_haze, u_sat;
-// the abyss is black (TASKS 187): the concept's rock past the masonry is a flat near-black, its veins only in the fire depths, faint,
-// and only by the explored masonry and lava (u_veins), so the fog gives nothing of the layout away
-vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock;
+// the abyss and the fog take the biome's dark stone tone, not black (TASKS 1795, the player's call over 187: after the lit town the
+// first floor read as a void), mottled slowly in three flat tones (smooth, it read as smoke) so it reads as stone far below; the mottle is the world's, never the layout's
+// Its veins only in the fire depths, faint, and only by the explored masonry and lava (u_veins), so the fog gives nothing away
+vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock * (0.5 + 0.55 * floor(smoothstep(0.25, 0.75, fbm(q * 0.7 + 4.3) + (hash(floor(p / 2.0)) - 0.5) * 0.08) * 2.0 + 0.5));
   float near = texture(u_veins, w).r * smoothstep(0.05, 0.3, texture(u_seen, w).r) * u_vein.a;
   float vein = step(0.965, 1.0 - abs(fbm(q * 0.8 + 21.0) * 2.0 - 1.0)), pulse = 0.55 + 0.45 * sin(u_t * 0.6 + fbm(q * 0.5) * 12.0);
   c += u_vein.rgb * vein * pulse * near;
@@ -815,6 +816,8 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   if (u_haze > 0.5 && s < 1.0 && lit.r > lit.b) lit.g *= mix(0.35, 1.0, smoothstep(0.1, 0.9, s));
   // (TASKS 1175: past the light a seam keeps its yellow's ratio and reads olive; it stays yellow only where it burns bright)
   if (u_haze > 0.5 && oc.r < 0.5 && lit.r > 2.5 * lit.b) lit.g = min(lit.g, lit.r * mix(0.5, 1.0, smoothstep(0.45, 0.75, lit.r)));
+  // a seen floor past every light sinks into that same tone rather than to black, the outlines on it kept
+  lit += u_rock * 0.6 * (1.0 - smoothstep(0.04, 0.35, dot(l, vec3(0.3, 0.5, 0.2)))) * (1.0 - em);
   o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), lit, s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
