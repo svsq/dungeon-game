@@ -920,6 +920,9 @@
         if (f === 1 && AR.first && m.ftype !== AR.first) out.push(`${tag}: the first floor is not ${AR.first}`);
         if (f > 1 && AR.first && m.ftype === AR.first) out.push(`${tag}: ${AR.first} again past the first floor`);
         if (f < D.RUNS.magma.floors && D.floorName(f, 'magma', sd, undefined, m) !== AR.names[m.ftype]) out.push(`${tag}: the title does not name the floor's type`);
+        // (TASKS 1940) a stone arch's legs stand clear of props, chests, pots and braziers
+        for (const legs of m.crossings.map((c) => DG.archLegs(m, c)).filter(Boolean)) for (const [n, x, y] of [...m.decor.filter((d) => d.solid && !d.wall).map((d) => [d.n, d.x, d.y]), ...m.chests.map((c) => ['chest', c.x, c.y]), ...m.pots.map((q) => ['pot', q.x, q.y]), ...m.torches.filter((t) => t.kind === 'brazier').map((t) => ['brazier', t.x, t.y])])
+          if (DG.onArchLeg(legs, n, x, y)) out.push(`${tag}: ${n} at ${Math.round(x)},${Math.round(y)} over a stone arch's leg`);
         // a river (TASKS 428): one island; two to four places to cross, a pack waiting at them
         if (m.ftype === 'river') { const W = m.W, isles = m.rooms.filter((r) => r.isle), rc = m.crossings.filter((c) => c.river);
           if (isles.length !== 1) out.push(`${tag}: ${isles.length} islands on the river`);

@@ -169,6 +169,15 @@
   }
   const MOD_HELD = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
 
+  // a stone arch's two legs as the scene draws them (scene_world.js stoneArch: arch_mg's crown 0.35 of its height over the walk's
+  // near edge, a leg its outer 0.3 of its width, from 0.4 of its height down), [l, t, r, b] in px; null where no arch shows
+  const archLegs = (m, c) => { if (!c.lava || c.kind !== 'arch' || c.axis !== 'x') return null; const W = m.W, xs = c.cells.map((k) => k % W), ys = c.cells.map((k) => Math.floor(k / W)), x = Math.round((Math.min(...xs) + Math.max(...xs)) / 2);
+    const cr = m.crust instanceof Set ? m.crust : new Set(m.crust || []), run = (y, d) => { let n = 0; while (n < 4 && m.cells[(y + d * (n + 1)) * W + x] === 3 && !cr.has((y + d * (n + 1)) * W + x)) n++; return n; };
+    if (run(Math.max(...ys), 1) < 4 || run(Math.min(...ys), -1) < 1) return null;
+    const wd = D.PROP_W.arch_mg, ht = D.PROP_H.arch_mg, cx = (Math.min(...xs) + Math.max(...xs) + 1) * TILE / 2, Y = (Math.max(...ys) + 1) * TILE + 2 - 0.35 * ht;
+    return [[cx - wd / 2, Y + 0.4 * ht, cx - 0.2 * wd, Y + ht], [cx + 0.2 * wd, Y + 0.4 * ht, cx + wd / 2, Y + ht]]; };
+  const onArchLeg = (legs, n, x, y) => { const w = D.PROP_W[n] || D.PROP_W.chest, h = D.PROP_H[n] || D.PROP_H.chest; return legs.some(([l, t, r, b]) => x + w / 2 > l && x - w / 2 < r && y > t && y - h < b); };
+
   // a magma floor's rewards (TASKS 433): its chests (a cache's own counted as the cache, on the plateau it is dug from), altars and
   // elites (not the stairs' own), each with its room; the rooms on the way from the start to the stairs, the dead ends off it, and
   // those of them holding no reward
@@ -346,9 +355,9 @@
   // k: how much wider the oval is (the player's decision on 1636: arriving on a magma floor shows more of it)
   const FOG_ARRIVE = 2.4, inFogOval = (x, y, fx, fy, k = 1) => ((x + 0.5 - fx) / (8.5 * k)) ** 2 + ((y + 0.5 - fy) / (6.5 * k)) ** 2 <= (0.72 + 0.28 * fogNoise(x, y) + (fogHash(x + 31, y + 17) - 0.5) * 0.2) ** 2;
   const fogReach = (x, y) => 1.6 + 1.6 * fogNoise(x, y) + (fogHash(x + 7, y + 91) - 0.5) * 1.4;
-  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt };
+  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
-  Object.assign(DGX, { FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
+  Object.assign(DGX, { archLegs, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
   if (typeof module !== 'undefined') { for (const f of require('./modules.js').parts.dungeon) require('./' + f); module.exports = root.DUNGEON; }
 })(typeof window !== 'undefined' ? window : globalThis);

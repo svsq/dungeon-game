@@ -2,7 +2,7 @@
 // A stage of tryGen (ARCHITECTURE.md §4.2): it reads the floor's shared values from GF and leaves there what later stages use; null rerolls.
 (function (root) {
   const DGX = root.DGX, {
-    D, ENEMIES, LIGHT_R, NO_SHOP, TILE, inRm, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays } = DGX;
+    D, ENEMIES, LIGHT_R, NO_SHOP, TILE, archLegs, inRm, onArchLeg, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays } = DGX;
   DGX.fill = (GF) => {
     const {
       AR, FM, H, HL, LY, MIX, MX, R, ST, TY, W, arch, at, biome, boss, bossType, cave, cells, chasmUnder, circles, cliff, crossings, crust,
@@ -57,6 +57,11 @@
     // nothing stands in lava or a cell from its shore: no spawn, chest, pot or prop (a chest stood half in a pool, TASKS 186)
     const shore = new Set(); for (const [x, y] of lava) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (!used.has(key(x + i, y + j))) { used.add(key(x + i, y + j)); shore.add(key(x + i, y + j)); }
     const wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2 + 6;
+    // (TASKS 1940: boulders and torches stood over a stone arch's legs on magma_arch) its legs keep the floor before them clear of
+    // anything a chest's size or more, and what still lands on them is taken off before the floor is closed
+    const legsOf = () => crossings.map((c) => archLegs({ W, cells, crust }, c)).filter(Boolean);
+    for (const legs of legsOf()) for (const [l, t, r, b] of legs) for (let y = Math.floor(t / TILE); y <= Math.floor((b + D.PROP_H.chest) / TILE); y++)
+      for (let x = Math.floor((l - D.PROP_W.chest / 2) / TILE); x <= Math.floor((r + D.PROP_W.chest / 2) / TILE); x++) if (onArchLeg(legs, 'chest', wx(x), wy(y))) { used.add(key(x, y)); bulk.add(key(x, y)); }
     const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [...tierDecor], shrines = [], rugs = [];
     // the top wall: what hangs on it (torches, sconces, banners, the shop sign) and the tall props standing against it (columns,
     // statues, racks, shelves) must not overlap across their drawn widths, whichever came first: a prop would hide a sconce that
@@ -1108,6 +1113,12 @@
     for (const list of [chests, pots, torches, decor, decals]) for (const o of list) { const i = secAt(o.x, o.y + (o.wall ? TILE : 0)); if (i >= 0) o.sec = i; }
     for (const c of chests) if (c.sec !== undefined && (secrets[c.sec].pz || secrets[c.sec].inner)) c.tier = 5;
     for (const t of torches) { const i = secrets.findIndex((sc) => sc.room === t.r); if (i >= 0) t.sec = i; }
+    // a stone arch shows only over a river running toward the camera (across the screen its side is a causeway, drawn as slabs: 3 of
+    // a floor's 4 arches read as no arch at all), and its span reaches 3 cells either side: by a bridge it stood on its boards (TASKS 480)
+    const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
+    if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
+    for (const legs of legsOf()) { const off = (list, nm) => { for (let i = list.length - 1; i >= 0; i--) if (nm(list[i]) && onArchLeg(legs, nm(list[i]), list[i].x, list[i].y)) list.splice(i, 1); };
+      off(decor, (d) => d.solid && !d.wall && d.n); off(pots, () => 'pot'); off(torches, (t) => t.kind === 'brazier' && t.kind); }
     // cells taken by solid props: the flow fields route around them
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); if (shop) for (const [x, y] of shop.solid) bl(x, y);
@@ -1124,10 +1135,6 @@
     // came out with its lava past its type's share or a lava cave with one way over its streams)
     if (plat) { const fl = cells.filter((c) => c === 1).length, sh = shareOf, share = lava.length / (fl + lava.length);
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
-    // a stone arch shows only over a river running toward the camera (across the screen its side is a causeway, drawn as slabs: 3 of
-    // a floor's 4 arches read as no arch at all), and its span reaches 3 cells either side: by a bridge it stood on its boards (TASKS 480)
-    const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
-    if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
     if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
