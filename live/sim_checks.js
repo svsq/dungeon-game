@@ -1702,6 +1702,10 @@
         if (R2.shards - s0 !== REWARD.full || !fstat(R2).full.kills) out.push(`completion: the last kill paid ${R2.shards - s0} shards, not ${REWARD.full}`);
         R2.en.push(Object.assign({}, live[0], { id: 9e6 + 1, deadT: -1, hp: 5 })); fstat(R2).foes++; hitEnemy(S2, R2, R2.en.at(-1), 1e9, false, 0, 0);
         if (R2.shards - s0 !== REWARD.full) out.push('completion: a floor paid its kills twice'); }
+      // TASKS 1979: a reward that fell to the town's floor and is picked up later is no floor's loot to complete
+      { const S3 = spawn(0, {}); startRun(S3, 'town'); const R3 = S3.run, f3 = fstat(R3), s0 = R3.shards, m0 = S3.meta.shards; f3.lootN = 1;
+        const it = Object.assign(rollItem(R3, 1, 0, 'ring'), { id: R3.nextId++ }); root.SIMX.takeItem(S3, R3, { item: it, loot: 1, x: R3.hero.x, y: R3.hero.y });
+        if (R3.shards !== s0 || S3.meta.shards !== m0) out.push('completion: a reward picked up in the town paid floor shards'); }
       const L2 = spawn(0, {}); L2.saved = JSON.parse(JSON.stringify(R)); delete L2.saved.stats; L2.run = L2.saved; L2.screen = 'play'; step(L2, { keys: [] });
       if (!L2.run.stats || L2.run.stats[2].foes !== L2.run.en.filter(counted).length) out.push('completion: an old save gets no stats for its floor'); }
     // doors: shut, a doored room stays unseen and its monsters can't see the hero through the door; E opens it; a locked one holds
@@ -3592,9 +3596,22 @@
     return out;
   }
 
+  function heroDeathCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
+    const put = (perk) => { R.en = []; S.ev.length = 0; h.hp = heroSt(S).maxHp; h.deadT = -1; h.ifr = 0; h.dashT = -9; h.revived = 0; h.perks = perk ? { [perk]: 1 } : {}; };
+    const dies = () => S.ev.filter((e) => e.k === 'die').length;
+    put(); hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike');
+    if (!(h.deadT >= 0 && h.hp === 0 && dies() === 1)) out.push(`hero death: a lethal blow leaves deadT ${h.deadT}, hp ${h.hp}, ${dies()} die events`);
+    const t0 = h.deadT; S.t += 1; SIMX.killHero(S, R); if (h.deadT !== t0 || dies() !== 1) out.push('hero death: a second kill restarts the death or doubles the die event');
+    put(); S.t = 0.3; S.t -= 0.8; SIMX.killHero(S, R); S.t += 0.8; SIMX.killHero(S, R);
+    if (dies() !== 1) out.push('hero death: a kill with a negative deadT is let through twice');
+    put('phoenix'); hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike'); if (h.deadT >= 0 || dies()) out.push('hero death: a phoenix gift does not save the hero from the first lethal blow');
+    return out;
+  }
+
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
-  const PARTS = { menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { heroDeathCheck, menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

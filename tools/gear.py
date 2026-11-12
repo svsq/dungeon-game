@@ -26,6 +26,8 @@ SETS = {
     'leather': ('le', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']], [['shinL', 'shinL'], ['footL', 'footL']]]),
     'hood': ('hd', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]]),
     'gauntlet': ('pl', 6, [[['farmL', 'farmL']]]),
+    # the plate warmed (TASKS 1791): the same pieces as the plate, gauntlet and iron greave, browned steel instead of the cold blue-grey
+    'plate': ('pw', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['farmL', 'farmL_pl']], [['thighL', 'thighL'], ['shinL', 'shinL']]]),
     'helm_le': ('hle', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]]),
     'helm_kn': ('hkn', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]]),
     'mage': ('', 3, [[['body', 'body']], [['body_back', 'body_back']], [['cape', 'cape']], [['uarmL', 'uarmL'], ['farmL', 'farmL']], [['thighL', 'thighL'], ['shinL', 'shinL'], ['footL', 'footL']]],

@@ -235,11 +235,16 @@
     e.stepI = i;
   }
   // a crack runs over the floor and the lava alike and stops at rock
-  function colossusCrack(S, R, e, M) {
-    const p = D.colossusContact(e), m = R.map, c = Math.cos(e.aimA), sn = Math.sin(e.aimA); let len = M.len;
+  // (the wind-up's hairlines read the same span, so the crack that runs is the one that was shown)
+  function crackSpan(m, e, M) {
+    const p = D.colossusContact(e), c = Math.cos(e.aimA), sn = Math.sin(e.aimA); let len = M.len;
     for (let l = E0; l <= M.len; l += 8) if (cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)) !== 1 && cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)) !== 3) { len = l; break; }
-    (R.cracks = R.cracks || []).push({ id: R.nextId++, owner: e.id, who: who(e), x: p.x, y: p.y, a: e.aimA, len, w: M.w, speed: M.speed, linger: M.linger, t0: S.t, dmg: e.dmg * M.dmg, hit: 0 });
-    ev(S, { k: 'colcrack', x: p.x, y: p.y, a: e.aimA, len, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4);
+    return { x: p.x, y: p.y, a: e.aimA, len };
+  }
+  function colossusCrack(S, R, e, M) {
+    const { x, y, a, len } = crackSpan(R.map, e, M);
+    (R.cracks = R.cracks || []).push({ id: R.nextId++, owner: e.id, who: who(e), x, y, a, len, w: M.w, speed: M.speed, linger: M.linger, t0: S.t, dmg: e.dmg * M.dmg, hit: 0 });
+    ev(S, { k: 'colcrack', x, y, a, len, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4);
   }
   const E0 = 30;
   // where a pool of lava may lie: on the arena's floor, off the lake's shore, off the ways in, the crossing and the other pools, so
@@ -325,7 +330,7 @@
       if (e.mv === 'charge' && u > w && u < w + M.time) {
         const x = e.x, y = e.y, dist = Math.min(M.speed * DT, Math.max(0, e.targetD - M.stop - e.travel));
         move(m, e, Math.cos(e.aimA) * dist, Math.sin(e.aimA) * dist, ENEMIES[e.type].r, true);
-        const moved = Math.hypot(e.x - x, e.y - y); e.dist += moved; e.travel += moved;
+        const moved = Math.hypot(e.x - x, e.y - y); e.dist += moved; e.travel += moved; e.chargeD = (e.chargeD || 0) + moved;
         if (e.type === 'boss_colossus') { e.vx = (e.x - x) / DT; e.vy = (e.y - y) / DT; }
         if (!e.hitDone && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(m, e.x, e.y, h.x, h.y)) { e.hitDone = 1; hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e); }
         if (M.next && (e.hitDone || e.travel >= Math.max(0, e.targetD - M.stop) - 0.01 || moved < 0.01)) finished = true;
@@ -382,5 +387,5 @@
 
   Object.assign(SIMX, {
     holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, bossGate, regate, gateNear, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
-    beginBossMove, bossThink, roar, bossSummon, wideClear, colossusRise, colossusStep, poolOk, colossusBoulder, colossusRain, stepBossMove });
+    beginBossMove, bossThink, roar, bossSummon, wideClear, colossusRise, colossusStep, poolOk, colossusBoulder, colossusRain, stepBossMove, crackSpan });
 })(typeof window !== 'undefined' ? window : globalThis);

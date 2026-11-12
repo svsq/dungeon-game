@@ -74,6 +74,9 @@ void main(){ vec2 p = artPoint(), q = (p - u_center) * vec2(1.0, 1.3), v = q / u
   float al = stepped(max(wave, wake) * (1.0 - smoothstep(0.02, 0.6, u_age))) * 0.6;
   o = vec4(mix(vec3(1.0, 0.35, 0.05), vec3(1.0, 0.88, 0.4), wave) * al, al); }
 `;
+  const OCCGLOW = `
+uniform sampler2D u_occ; uniform vec3 u_col; uniform float u_k, u_amt;
+void main(){ float d = length(fxuv() * 2.0 - 1.0); float g = fxq(exp(-d * d * u_k) * smoothstep(1.0, 0.7, d)) * u_amt * (1.0 - texture(u_occ, scr(v_px)).a); o = vec4(u_col * g, 0.0); }`;
   const FLAME = `
 uniform float u_seed, u_amt; uniform vec3 u_col;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y = -q.y;                    // y up, base at q.y = -1
@@ -134,7 +137,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   if (e < 0.2) discard;
   float d = (e - 0.5) / max(length(vec2(dFdx(mk), dFdy(mk))), 0.002);   // px inside the shore (negative outside): bands keep their width in any pool
   vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;
-  vec3 f = field(w - fl * 12.0 * u_t - vec2(u_t * 3.0, u_t * 2.0));
+  vec3 f = field(floor(w / 2.0) * 2.0 + 1.0 - floor((fl * 12.0 * u_t + vec2(u_t * 3.0, u_t * 2.0)) / 2.0) * 2.0);   // (the flow in whole art px, TASKS 1795: a fractional shift laid cell edges on the odd px)
   float inside = smoothstep(-0.8, 0.8, d), lip = step(0.0, d) * step(d, 2.0) * step(0.35, fbm(w / 12.0 + vec2(0.0, u_t * 0.3)));
   vec3 Y = vec3(1.0, 0.72, 0.16), O = vec3(0.95, 0.33, 0.03), Rd = vec3(0.72, 0.1, 0.02), V = vec3(0.4, 0.05, 0.02);
   vec3 col = f.x < -0.04 ? Y : f.x < 0.0 ? O : f.y > 0.6 ? O : f.y > 0.4 ? Rd : V;
@@ -356,11 +359,12 @@ float hexAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx
   float ry = (w.y - c.y) / hv; if (abs(ry) <= 1.0 && abs(ex) + 0.5 * abs(ry) <= 1.0) return 1.0;
   if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z + hv * min(1.0, 2.0 * (1.0 - abs(ex)))) { f.y = min(1.0, (w.y - c.y) / c.z); return 2.0; }
   return 0.0; }
-vec3 hexCap(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), hv = floor(hw * 0.3) * 2.0, xx = (w.x - c.x) / hw, yy = (w.y - c.y) / hv, e = max(abs(yy), abs(xx) + 0.5 * abs(yy));
+vec3 hexCap(vec2 w, vec4 c, float hw, float dy){ float id = hash(c.xy * 0.37), hv = floor(hw * 0.3) * 2.0, xx = (w.x - c.x) / hw, yy = (w.y - c.y - dy) / hv, e = max(abs(yy), abs(xx) + 0.5 * abs(yy));
   vec3 col = vec3(0.24, 0.22, 0.26) * (0.72 + 0.45 * id) * (0.85 + 0.3 * step(0.55, vnoise(w / 5.0 + id * 9.0)));
   if (e > 1.0 - 2.4 / hv) col = yy < 0.0 && xx < 0.35 ? vec3(0.4, 0.37, 0.4) * (0.85 + 0.3 * id) : vec3(0.025, 0.02, 0.025);
   else { float cr = abs(vnoise(w / 7.0 + id * 31.0) - 0.5); if (cr < 0.035) col *= 0.4; else if (hash(floor(w / 2.0) + id) < 0.1) col *= 0.5; else if (cr > 0.42) col *= 1.25; }
   return col; }
+vec3 hexCap(vec2 w, vec4 c, float hw){ return hexCap(w, c, hw, 0.0); }
 vec3 hexFace(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx = f.x / hw, fq = floor(f.y * 9.0) / 9.0, px = 2.0 / hw;
   float t = abs(xx) > 1.0 - px ? 0.12 : abs(abs(xx) - 0.5) < px * 0.6 ? 0.3 : xx < -0.5 ? 1.3 : xx < 0.5 ? 0.82 - 0.2 * (xx + 0.5) : 0.4;
   float streak = vnoise(vec2(w.x / 2.5 + id * 17.0, w.y / 18.0)), grain = step(0.6, vnoise(w / 4.0 + id * 5.0)), rib = hash(vec2(floor(w.x / 2.0), id));
@@ -389,6 +393,11 @@ bool plat(vec2 p){ return isOpen(p) && lavaAt(p) <= 0.5 && textureLod(u_plat, p 
 bool drop(vec2 p){ if (isWall(p)) return false; if (!isOpen(p)) return true;
   return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + min((fbm(p / 64.0 + 3.1) - 0.5) * 0.5, (fbm(p / 64.0 + 3.1) - 0.5) * 1.2) > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
 bool dropRaw(vec2 p){ return textureLod(u_plat, p / u_map, 0.0).r < 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3 && textureLod(u_cliff, p / u_map, 0.0).r < 0.5; }
+// (each edge column its own width, place in its cell and slant of its top, TASKS 1795: a row of them filled their cells edge to
+// edge, one flat cap and one face each, and read as a fence of identical candles; the gaps show the lava or the dark behind)
+float colHW(float i){ return CW * 0.5 - 2.0 * floor(hash(vec2(i, 2.7)) * 3.5); }
+float colShift(float i){ return 2.0 * floor((hash(vec2(i, 8.3)) - 0.5) * (CW * 0.5 - colHW(i))); }
+float colTilt(float i){ return 2.0 * floor(hash(vec2(i, 6.1)) * 5.0) - 4.0; }
 // the south-edge column over w's x: (its centre x, its top's centre y, its face's height, 1 over the lava); y 0 when there is none
 vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y + 12.0;
   if (plat(vec2(cx, y0))) return vec4(cx, 0.0, 0.0, 0.0);
@@ -399,11 +408,11 @@ vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y
   // the face runs down to the lower row)
   float stp = u_step * step(0.5, max(textureLod(u_stepm, vec2(cx, ey + 20.0) / u_map, 0.0).r, textureLod(u_stepm, vec2(cx, ey + 36.0) / u_map, 0.0).r)), cap = u_step > 0.5 ? 180.0 : 80.0;
   float run = 0.0; for (int k = 1; k <= 90; k++) { if (float(k) * 2.0 > cap || !dropRaw(vec2(cx, ey + float(k) * 2.0 - 1.0))) break; run = float(k) * 2.0; }
-  float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 40.0 + floor(hash(vec2(i, 3.1)) * 13.0) * 2.0 + (1.0 - lava) * 24.0;
+  float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 34.0 + floor(hash(vec2(i, 3.1)) * 19.0) * 2.0 + (1.0 - lava) * 24.0;
   if (u_step > 0.5) hgt = stp > 0.5 ? 999.0 : 64.0 + floor(hash(vec2(i, 3.1)) * 17.0) * 2.0;
   float h = min(hgt, run - (lava > 0.5 ? 16.0 : stp > 0.5 ? 0.0 : 4.0)) - lava * 2.0 * floor(hash(vec2(i, 9.1)) * 4.0); if (h < 8.0) h = 0.0;
-  float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0;
-  return vec4(cx, ty, h, stp > 0.5 ? 2.0 : step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava; 2: a step's, on the floor
+  float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0 + (u_step < 0.5 && hash(vec2(i, 4.4)) < 0.22 ? 8.0 + 2.0 * floor(hash(vec2(i, 4.9)) * 4.0) : 0.0);   // (some broken off lower, TASKS 1795)
+  return vec4(cx + colShift(i), ty, h, stp > 0.5 ? 2.0 : step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava; 2: a step's, on the floor
 // the north-edge column's top over w's x (the edge's far side shows only the tops)
 vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
   if (plat(vec2(cx, w.y - 10.0))) return vec4(cx, 0.0, 0.0, 0.0);
@@ -412,7 +421,9 @@ vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
   return vec4(cx, 0.0, 0.0, 0.0); }
 // where w falls on a column (half width hw): 0 off it, 1 its top, 2 its face; f: across, down the face 0..1
 // (TASKS 1924: the plateaus' edge columns are hexagonal as the lake's, 1923; round caps read as a row of cylinders)
-float colAt(vec2 w, vec4 c, out vec2 f, float hw){ return hexAt(w, c, f, hw); }
+// (each top slanted by tl, TASKS 1795: a row of level tops read as one stamp)
+float colDY(vec2 w, vec4 c, float hw, float tl){ return c.y > 0.0 ? 2.0 * floor(tl * (w.x - c.x) / hw) : 0.0; }
+float colAt(vec2 w, vec4 c, out vec2 f, float hw, float tl){ c.y += colDY(w, c, hw, tl); return hexAt(w, c, f, hw); }
 // a cluster of 3–8 columns standing in a lake or a river (TASKS 447: ref_cave_lava's field reads through its columns, 13–18 % basalt
 // against our 0–2), one in most cells of a 96×80 grid, only where the lava under its cap and at its foot is deep: no bank, crust,
 // crossing or source near (u_lake). A cluster may reach over its cell's edge, so w looks into the cells round it; the front-most
@@ -466,7 +477,7 @@ float sunk(vec2 w, out vec4 c, out vec2 f, out float dim){ dim = 0.0; float best
     float ey = -1.0; for (int k = 1; k <= 100; k++) { float y = w.y - float(k) * 2.0; if (plat(vec2(cx, y))) { ey = y + 1.0; break; } }
     if (ey < 0.0) continue; vec2 below = vec2(cx, ey + 8.0); if (isOpen(below) || isWall(below) || lavaAt(below) > 0.5) continue;
     float top = ey + 64.0 + floor(hash(vec2(i, 9.3 + float(r))) * 24.0) * 2.0 + float(r) * 20.0, hw = 11.0 + floor(hash(vec2(i, 4.4 + float(r))) * 4.0);
-    vec4 cj = vec4(cx, top, 90.0, 0.0); vec2 ff; float k = colAt(w, cj, ff, hw);
+    vec4 cj = vec4(cx, top, 90.0, 0.0); vec2 ff; float k = colAt(w, cj, ff, hw, 0.0);
     if (k > 0.5 && top > by) { by = top; best = k; c = cj; f = ff; f.x = ff.x / hw * 15.0; dim = smoothstep(64.0, 140.0, top - ey); } }
   return best; }
 // where the chasm opens in the lava a rim of basalt stones breaks the lava's edge off into it (TASKS 1059: a black pool behind a
@@ -481,7 +492,7 @@ vec3 pitRim(vec2 w, float la, vec3 col){ if (smoothstep(0.02, 0.06, la + (fbm(w 
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y)), c = g + vec2(hash(id + g), hash(id + g + 3.1)) - f; float d = length(c); if (d < d1) { d2 = d1; d1 = d; nid = id + g; off = c; } else if (d < d2) d2 = d; }
   col = gCrust(w + 53.0) * (1.0 + 0.72 * hash(nid)) * (off.y > 0.12 ? 1.5 : off.y < -0.2 ? 0.6 : 1.0);
   return d2 - d1 < 0.1 ? vec3(0.03, 0.022, 0.026) : pitGrain(w, 0.9, col); }
-vec3 capCol(vec2 w, vec4 c, float hw){ return hexCap(w, c, hw); }
+vec3 capCol(vec2 w, vec4 c, float hw, float dy){ return hexCap(w, c, hw, dy); }
 // a face: a lit left facet, a duller middle, a dark right and the ink between columns, rough with vertical streaks and a few
 // joints; over the lava its lower part glows orange in steps, over the chasm it fades into the dark
 vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx = f.x / hw, fq = floor(f.y * 7.0) / 7.0, px = 2.0 / hw;
@@ -492,17 +503,18 @@ vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx
   if (c.w > 1.5) col *= 1.0 - 0.35 * smoothstep(0.55, 1.0, fq);   // a step's face stands on the lower row: only its foot is shaded
   // (only its lower two fifths red, brightening to its foot, TASKS 447, 1053: ref_cave_lava's faces stay dark above; a fifth was too little)
   // (where the red begins moves per column and along its width, TASKS 1715: one band at the same height on every column)
-  else if (c.w > 0.5) { float b0 = 0.55 + 0.18 * hash(vec2(id, 4.1)) + 0.2 * (vnoise(vec2(w.x / 6.0 + id * 13.0, id * 3.0)) - 0.5);
-    float g = smoothstep(b0, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
-    col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.7, 1.0, fq) * step(xx, 0.5)), g * 0.9); }
+  // (and how hot it is and how far its hot foot reaches, TASKS 1795: every column had the same red underside)
+  else if (c.w > 0.5) { float hr = hash(vec2(id, 7.9)), b0 = 0.55 + 0.18 * hash(vec2(id, 4.1)) + 0.2 * (vnoise(vec2(w.x / 6.0 + id * 13.0, id * 3.0)) - 0.5);
+    float g = smoothstep(b0, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0) * (0.45 + 0.55 * hr);
+    col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.62 + 0.3 * hr, 1.0, fq) * step(xx, 0.5 - 0.6 * hash(vec2(id, 2.3)))), g * 0.9); }
   else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
   return col; }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
   // the columns: the edge's only near a plateau (the floor mask over the few cells above), else a lake's
   float nearP = 0.0; for (int k = 0; k <= 6; k++) nearP = max(nearP, textureLod(u_plat, (w - vec2(0.0, float(k) * 16.0)) / u_map, 0.0).r);
-  vec4 c = vec4(0.0); vec2 f = vec2(0.0); float on = 0.0, hw = CW * 0.5, foot = 0.0;
-  if (nearP > 0.02) { c = column(w); on = colAt(w, c, f, hw);
-    if (on < 0.5) { vec4 n = northTop(w); if (colAt(w, n, f, hw) > 0.5) { c = n; on = 1.0; } }
+  vec4 c = vec4(0.0); vec2 f = vec2(0.0); float on = 0.0, hw = CW * 0.5, foot = 0.0, tl = 0.0;
+  if (nearP > 0.02) { c = column(w); float ci = floor(c.x / CW); hw = colHW(ci); tl = colTilt(ci) * 0.5; on = colAt(w, c, f, hw, tl);
+    if (on < 0.5) { vec4 n = northTop(w); hw = CW * 0.5; if (colAt(w, n, f, hw, 0.0) > 0.5) { c = n; on = 1.0; tl = 0.0; } else hw = colHW(ci); }
     if (on < 0.5 && c.y > 0.0 && c.z > 0.0 && c.w > 0.5 && c.w < 1.5 && abs(w.x - c.x) <= hw && w.y >= c.y + c.z) foot = clamp(1.0 - (w.y - c.y - c.z) / 12.0, 0.0, 1.0); }
   else { float hi; on = island(w, c, f, foot, hi); if (on > 0.5) hw = hi; }
   if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, on > 1.5 ? 0.9 * (1.0 - smoothstep(0.55, 0.95, f.y)) : on > 0.5 ? 1.0 : 0.0, 1.0); return; }
@@ -558,7 +570,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     // a terrace's step (TASKS 475) where no column's face reaches: the rock face between the rows, not the chasm
     col = gCol(w) * (0.4 + 0.3 * fbm(w / 40.0));
   } else if (on < 0.5 && sunk(w, sc, sf, sdim) > 0.5) {
-    col = (sf.y > 0.0 ? faceCol(w, sc, sf, 15.0) : capCol(w, sc, 15.0)) * (1.4 - 0.8 * sdim);
+    col = (sf.y > 0.0 ? faceCol(w, sc, sf, 15.0) : capCol(w, sc, 15.0, 0.0)) * (1.4 - 0.8 * sdim);
   } else {
     // the chasm: darkness, a deep red glow coming up where the lava is
     col = vec3(0.006, 0.005, 0.006);
@@ -567,7 +579,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     col = pitRim(w, la, pitGrain(w, smoothstep(0.22, 0.6, far), col));
   }
   if (c.w > 2.5) { if (on > 1.5) col = hexFace(w, c, f, hw); else if (on > 0.5) col = hexCap(w, c, hw); }
-  else if (on > 1.5) col = faceCol(w, c, f, hw); else if (on > 0.5) col = capCol(w, c, hw);
+  else if (on > 1.5) col = faceCol(w, c, f, hw); else if (on > 0.5) col = capCol(w, c, hw, colDY(w, c, hw, tl));
   o = vec4(col, 1.0); }`;
   // a cave's water (TASKS 304): deep water the style bible's dark teal and nearly opaque, shallows clear over the pebbled bed the
   // bake lays under them, darker as they deepen; foam flecks along the bank, a wet rim on the stone. Streams carry streaks down
@@ -768,10 +780,11 @@ void main(){ vec2 p = floor(v_uv * vec2(48.0, 64.0) / 2.0) * 2.0 + 1.0 - vec2(24
     if (length(p - drop) < 1.5 && age < 0.85) { col = vec3(0.4, 0.52, 0.5); a = 0.85; } }
   if (a == 0.0) discard; o = vec4(col * a, a); }`;
   const LIT = `
-uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins, u_water, u_heat, u_face, u_occ, u_far; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb, u_low; uniform vec4 u_vein; uniform float u_seam, u_cave, u_haze;
-// the abyss is black (TASKS 187): the concept's rock past the masonry is a flat near-black, its veins only in the fire depths, faint,
-// and only by the explored masonry and lava (u_veins), so the fog gives nothing of the layout away
-vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock;
+uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins, u_water, u_heat, u_face, u_occ, u_far; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb, u_low; uniform vec4 u_vein; uniform float u_seam, u_cave, u_haze, u_sat;
+// the abyss and the fog take the biome's dark stone tone, not black (TASKS 1795, the player's call over 187: after the lit town the
+// first floor read as a void), mottled slowly in three flat tones (smooth, it read as smoke) so it reads as stone far below; the mottle is the world's, never the layout's
+// Its veins only in the fire depths, faint, and only by the explored masonry and lava (u_veins), so the fog gives nothing away
+vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock * (0.5 + 0.55 * floor(smoothstep(0.25, 0.75, fbm(q * 0.7 + 4.3) + (hash(floor(p / 2.0)) - 0.5) * 0.08) * 2.0 + 0.5));
   float near = texture(u_veins, w).r * smoothstep(0.05, 0.3, texture(u_seen, w).r) * u_vein.a;
   float vein = step(0.965, 1.0 - abs(fbm(q * 0.8 + 21.0) * 2.0 - 1.0)), pulse = 0.55 + 0.45 * sin(u_t * 0.6 + fbm(q * 0.5) * 12.0);
   c += u_vein.rgb * vein * pulse * near;
@@ -838,10 +851,19 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   l = mix(l, min(l, vec3(1.2, 1.08, 1.0)), oc.r * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
   // (in the magma caves the light on an actor is bleached instead, TASKS 479: its own colours stay and the fire is a warm sheen)
   // (a monster's light is bleached everywhere, TASKS 1055: off the lava, boosted, a skeleton went salmon)
-  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(1.6, 0.6, oc.r * max(nearL, oc.b))));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
+  // (TASKS 1791: the hero by the magma too: under its boosted red light taken back by a tint his cloak went grey-brown)
+  float hk = u_haze * (1.0 - oc.b);
+  // (off the magma every actor's light is bleached further, to 0.2, TASKS 1790: a zone's blue or green light kept its tone and its brightness only)
+  float actSatMagma = 0.6, actSatOff = 0.2, actSat = mix(actSatMagma, actSatOff, 1.0 - u_haze);
+  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(u_sat, actSat, oc.r * max(max(nearL, oc.b), max(1.0 - u_haze, hk)))));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
+  { float al = dot(l, vec3(0.3, 0.5, 0.2)), act = oc.r * (1.0 - u_haze); l *= mix(1.0, min(1.0, 1.8 / max(al, 1e-3)), act); }   // (and held under a torch's level: in a hearth's pool a robe went white)
   // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
   // only the light's level, not its hue
-  l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(1.5, 0.9, capB), 1.4), bas);   // (the caps darker: L 35 against the concept's 21)
+  // (TASKS 1793: a basalt block by the lava keeps a share of its warm light on its faces, as the bank does: grey to its foot by a
+  // river it read as plastic; the caps stay the cold stone)
+  vec3 basL = vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(1.5, 0.9, capB), 1.4);   // (the caps darker: L 35 against the concept's 21)
+  float lw = max(nearL, u_haze * smoothstep(0.03, 0.4, texture(u_heat, w).r));
+  l = mix(l, mix(basL, min(l, vec3(1.6)) * 0.8, 0.45 * lw * (1.0 - capB)), bas);
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
@@ -853,6 +875,8 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   if (u_haze > 0.5 && s < 1.0 && lit.r > lit.b) lit.g *= mix(0.35, 1.0, smoothstep(0.1, 0.9, s));
   // (TASKS 1175: past the light a seam keeps its yellow's ratio and reads olive; it stays yellow only where it burns bright)
   if (u_haze > 0.5 && oc.r < 0.5 && lit.r > 2.5 * lit.b) lit.g = min(lit.g, lit.r * mix(0.5, 1.0, smoothstep(0.45, 0.75, lit.r)));
+  // a seen floor past every light sinks into that same tone rather than to black, the outlines on it kept
+  lit += u_rock * 0.6 * (1.0 - smoothstep(0.04, 0.35, dot(l, vec3(0.3, 0.5, 0.2)))) * (1.0 - em);
   o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), lit, s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
@@ -889,7 +913,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // (drawn over the fog of war, it keeps to the explored cells: u_seen, 0 on an unexplored floor's)
       .replace('float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d);', 'float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d) * smoothstep(0.1, 0.3, texture(u_seen, w / u_map).r);');
     if (SPILL.split('u_fr').length < 3 || !SPILL.includes('u_lv, w / u_map') || !SPILL.includes('vec2 fl = vec2(0.0);') || !SPILL.includes('smoothstep(0.1, 0.3, texture(u_seen')) throw new Error('SPILL: MLAVA changed under its patches');
-    L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
+    L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST, occglow: OCCGLOW }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); G.free(LT.occ); }
     // occ: the silhouettes of the monsters before the lava, which its glow and shimmer leave out (TASKS 407)
     LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }), occ: G.target(L.T.comp.w, L.T.comp.h, false, { view: [VW, VH] }) };
@@ -914,7 +938,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // a cave crossing's boards (TASKS 306): pitch, board to board along the way; up, the fire cup's height on a torch post
   const BRIDGE = { pitch: 12, up: 66 }, WET = new WeakMap();
   const DRIP_FALL = 0.38, dripAge = (q, t) => { const a = (t - q.ph) % q.p; return a < 0 ? a + q.p : a; };
-  const torchCol = (m, tc) =>D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome].torch;
+  // (TASKS 1787, 1788: a biome with a candle keeps its own colour in the braziers and fires and in the wall torches of a room with a
+  // hearth; a room without one is lit by warm candles, as the concept's side rooms are; the QA harness swaps and extends m.torches, so the cache follows the array and its length)
+  const HEARTHS = new WeakMap(), hearthRooms = (m) => { let c = HEARTHS.get(m); if (!c || c.a !== m.torches || c.n !== m.torches.length) { c = { a: m.torches, n: m.torches.length, s: new Set(m.torches.filter((q) => q.kind === 'brazier' || q.kind === 'fire').map((q) => q.r)) }; HEARTHS.set(m, c); } return c.s; };
+  const torchZ = (m, tc) => D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome];
+  const torchColOf = (m, tc) => { const Z = torchZ(m, tc);
+    // (candleP: the share of those lit by candles, picked by place; the crypt's halls keep green sconces among them)
+    const cp = Z.candleP ?? 1, pick = cp >= 1 || (((Math.round(tc.x) * 73856093) ^ (Math.round(tc.y) * 19349663)) >>> 0) % 997 / 997 < cp;
+    return !Z.candle || !pick || tc.kind === 'brazier' || tc.kind === 'fire' || (tc.r !== undefined && hearthRooms(m).has(tc.r)) ? Z.torch : Z.candle; };
+  // (asked 3–4 times per light a frame; keyed as hearthRooms, as a torch's colour hangs on the room's hearths)
+  const TCOL = new WeakMap(), torchCol = (m, tc) => { let c = TCOL.get(m); if (!c || c.a !== m.torches || c.n !== m.torches.length) { c = { a: m.torches, n: m.torches.length, k: new WeakMap() }; TCOL.set(m, c); }
+    let v = c.k.get(tc); if (!v) { v = torchColOf(m, tc); c.k.set(tc, v); } return v; };
+  // a wall sconce in a hearth's colour throws a small pool: at a torch's reach a hall's row of them flooded its floor whole
+  // (and a candle's pool is the biome's candleR of a torch's: the crypt's side rooms are lit by candles, not by a torch's flood, TASKS 1788)
+  const sconceK = (m, tc) => { const Z = torchZ(m, tc); if (!Z.candle || (tc.kind && tc.kind !== 'wall')) return 1; return torchCol(m, tc) === Z.torch ? Z.sconce || 0.6 : Z.candleR || 1; };
 
   // a door's leaf fills its two-cell opening; the arch is squashed to the wall's height, its opening as wide as the leaf
   const DOOR = { w: 62, h: 80, fw: 118, fh: 100 };
@@ -928,6 +965,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
 
   Object.assign(SCX, {
     SC, L, M, D, TILE, SZ, PIX, TRAP_HOLE, TRAP_SPIKE, BAKE, SEEN, VOID, views, rnd, SS, FALL_DROP, zoneAt, GLOW, glowOf, GLOW_COL,
-    glowBeat, BRIDGE, WET, DRIP_FALL, dripAge, torchCol, DOOR, STAND, CANDLE, TABLE_WICKS, DEDGE });
+    glowBeat, BRIDGE, WET, DRIP_FALL, dripAge, torchCol, torchZ, sconceK, DOOR, STAND, CANDLE, TABLE_WICKS, DEDGE });
   Object.defineProperties(SCX, { W: { get: () => W }, H: { get: () => H }, Z: { get: () => Z }, VW: { get: () => VW }, VH: { get: () => VH }, LT: { get: () => LT } });
 })(typeof window !== 'undefined' ? window : globalThis);

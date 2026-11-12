@@ -20,13 +20,17 @@
 
   // ---------------- the biped ----------------
   // o: { id, n, x, y, face, H, dist, vx, vy, lean, crouch, arm(side, base) → [r1, r2], item, shield, wSide, U, Ufar, fallR, lift }
+  const bipedSL = (RG, s, k) => 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s * (k || 1);
   function biped(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.footL[1], fallR = o.fallR || 0, lean = o.lean || 0;
     // a boss move begins by cutting the walk (spd0 + its direction, sim.js): speed and direction ease down together, so neither
     // the stride amplitude nor the swing's side snaps
     const k0 = o.spd0 != null ? SS(0, 0.14, Math.max(0, o.t - o.t0)) : 1;
     const vxE = k0 < 1 ? lerp(o.vxn0 * o.spd0, o.vx, k0) : o.vx, vyE = k0 < 1 ? lerp(o.vyn0 * o.spd0, o.vy, k0) : o.vy;
-    const legL = d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL), sl = 0.4 * legL * s * (o.strideK || 1), u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU;
+    const sl = bipedSL(RG, s, o.strideK), cd = o.chargeK ? Math.min(o.chargeD || 0, o.dist) : 0;
+    // (the distance covered charging is stepped at the charge's stride and the rest at the walk's, so the feet keep their phase as the
+    // charge starts and ends instead of jumping to dist over the new stride)
+    const u0 = ((((o.dist - cd) / (2 * bipedSL(RG, s, o.walkK ?? o.strideK)) + cd / (2 * bipedSL(RG, s, o.chargeK || 1))) % 1) + 1) % 1, ph = u0 * TAU;
     // the stride opens over the first step's distance, not with the speed: a step of a few px in from standing (after a blow, to the
     // hero at its reach's edge) threw the feet a full stride apart in two frames
     const cut = k0 < 1 && o.spd0 > 4, sp = Math.hypot(vxE, vyE), run = SS(4, 30, sp) * (o.gaitK ?? 1) * (cut ? 1 : SS(0, sl, o.walkIn ?? sl));
@@ -40,9 +44,10 @@
       let off, lift = 0;
       const stance = o.stanceTime || 0.5;
       if (u < stance) off = A * (1 - 2 * u / stance); else { const w = (u - stance) / (1 - stance); off = -A + 2 * A * SS(0.12, 0.95, w); lift = Math.pow(Math.sin(Math.PI * w), 0.6) * RG.h * (o.lift || 0.038) * (0.75 + 0.25 * Math.abs(dirx)) * run; }
-      // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch)
+      // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch); a stride lengthened by
+      // strideK tilts it less in depth (TASKS 1802: the goblin's legs stretched 32 % walking down)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
-      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
+      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: (0.6 * off * diry - 0.3 * A * Math.abs(diry)) / Math.pow(Math.max(1, o.strideK || 1), 0.75) };
       if (o.amb) { const B = o.amb, fw = SS(side === 'L' ? 0 : 0.45, side === 'L' ? 0.55 : 1, B.w), dx = B.x0 + (B.x1 - B.x0) * fw - B.x, dy = B.y0 + (B.y1 - B.y0) * fw - B.y;
         const lf = fw > 0 && fw < 1 ? Math.pow(Math.sin(Math.PI * fw), 0.6) * RG.h * (o.lift || 0.038) * 0.8 : 0;
         Object.assign(tg[side], { off: Math.hypot(dx, dy) / s, tx: tg[side].tx + dx * face / s, ty: tg[side].ty - lf, lift: tg[side].lift + lf, dz: tg[side].dz + dy / s }); }
@@ -83,6 +88,8 @@
       // only walking across: walking down it put the hand in step with its own leg
       const lagged = o.armLag ? rs[0] + sg * (side === 'L' ? -1 : 1) * Math.cos(ph - o.armLag * Math.abs(vxn)) * 0.4 * run * (o.swingK ?? 1) * 0.8 : base;
       let r = o.arm ? o.arm(side, base) : [base, lagged + rs[1] - rs[0] + (lagged - rs[0]) * -0.4];
+      if (o.flinch) r = [r[0] + (side === 'L' ? 0.65 : 0.5) * o.flinch, r[1] + 0.8 * o.flinch];   // flung wide by a blow (TASKS 1804)
+      if (o.limp) r = limpArm(r, RG['hand' + side], S0, face, fallR + lean, o.limp);
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
         const rest = R2U(Hd[0], Hd[1] + hipDy), T = o.handTarget(side, rest);
@@ -202,28 +209,42 @@
     const E = [S0[0] + Math.cos(th + sg * a1) * l1, S0[1] + Math.sin(th + sg * a1) * l1], Tc = [S0[0] + Math.cos(th) * d, S0[1] + Math.sin(th) * d];
     return [ang(S0, E) - ang(S0, E0), ang(E, Tc) - ang(E0, H0)]; }
   // one stride (two steps) in view px for a rig drawn H tall: what the sim's distance must cover per gait cycle
-  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
+  // (TASKS 1802) the small walkers stepped 11–15 times a second, their feet a blur: a longer stride by type brings them under 9 a second
+  // and every biped's step to at least 0.15 of its height (the skeletons' was 0.12); the golem and the colossus plod by their weight
+  const STRIDE_K = (MON.STRIDE_K = { goblin: 2, imp: 1.8, skel_ember: 1.3, skeleton: 1.4, skel_archer: 1.3, skel_mage: 1.15, brute: 1.05, boss: 1.05, boss_forge: 1.05 });
+  const CHARGE_K = { boss_colossus: 1.45 };
+  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * bipedSL(RG, s, STRIDE_K[type]) : 0.28 * RG.h * s; };
 
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
   // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
   const STAFF_HEAD = [31, 37];
+  // a dead body's arm goes slack (TASKS 1907): it turns, straight, to hang down the screen from its shoulder, so on a body lying on its
+  // side the arm on top lies on the floor beside it (the cultist's stayed up on the robe, its hand 47 % of its height over the floor).
+  // k 0..1 with the fall; rot: the body's turn on screen
+  function limpArm(r, hand, sh, face, rot, k) { const d = Math.PI / 2 - ang(sh, hand) - face * rot, w = (v) => v - TAU * Math.round(v / TAU);
+    return [r[0] + w(d - r[0]) * k, r[1] + w(d - r[1]) * k]; }
   function robed(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.foot, fallR = o.fallR || 0, root = [o.x, o.y];
     const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), ph = o.dist / (0.28 * RG.h * s) * TAU;
-    const breath = (1 - run) * Math.sin(o.t * 1.7 + (o.seed || 0)), sway = run * 0.045 * Math.sin(ph) + 0.015 * breath, bob = run * 1.6 * Math.abs(Math.sin(ph)) + 1.4 * breath;
-    // (the fire priest's hem swings with the step and it leans into the walk, TASKS 1643: a robe sliding, no step under it)
-    const hemX = o.hem ? o.hem * o.H * run * Math.sin(ph + 1) : 0, lean = (o.lean || 0) + sway + (o.hem ? face * 0.07 * run : 0), rot = fallR + lean, rc = Math.cos(rot), rs = Math.sin(rot), ky = 1 - (o.sink || 0);
+    const breath = (1 - run) * Math.sin(o.t * 1.7 + (o.seed || 0)), sway = run * 0.045 * Math.sin(ph) + 0.03 * breath, bob = run * 2.6 * Math.abs(Math.sin(ph)) + 1.4 * breath;
+    // (the fire priest's hem swings with the step and it leans into the walk, TASKS 1643: a robe sliding, no step under it; TASKS 1801:
+    // every robe does, the cultist's and the necromancer's slid at 6 % of the height)
+    const hem = o.hem ?? 0.06, hemX = hem * o.H * run * Math.sin(ph + 1), lean = (o.lean || 0) + sway + face * 0.07 * run, rot = fallR + lean, rc = Math.cos(rot), rs = Math.sin(rot), ky = 1 - (o.sink || 0);
     // the robe pivots at the hem's centre: everything above leans with it
     const R2U = (px, py) => { const x = face * (px - gx) * s, y = ((py - gy) * s - bob) * ky; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const tx = o.tex || o.n, part = (nm, pv, at, r, u) => L.sprite(tx + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(rot), M.s(face, ky), M.r(r)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u });
-    const swing = run * 0.12 * Math.sin(ph + 1), staffR = (o.staff || 0) + swing * 0.5 + 0.04 * breath;
-    const push = o.push || 0, r1 = -swing - 0.06 * breath + lerp(0, (o.aimR ?? 0) - 0.4, push), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push);
-    const E = rotP(RG.elbowR, RG.shR, r1), Hd = rotP(rotP(RG.handR, RG.shR, r1), E, r2 - r1), HdL = rotP(RG.handL, RG.shL, staffR);
+    // the staff is set down once a stride (TASKS 1801): planted, it tilts back as the body passes it, then is lifted and swung ahead;
+    // at rest it rocks a little with the breath
+    const sq = ((ph / TAU) % 1 + 1) % 1, plant = sq < 0.62 ? lerp(-0.24, 0.24, sq / 0.62) : lerp(0.24, -0.24, SS(0, 1, (sq - 0.62) / 0.38));
+    const swing = run * 0.3 * Math.sin(ph + 1), staffR = (o.staff || 0) + 0.35 * (o.flinch || 0) + run * plant + 0.05 * breath + (1 - run) * 0.04 * Math.sin(o.t * 0.9 + (o.seed || 0));
+    const push = o.push || 0, r1 = 0.8 * (o.flinch || 0) - swing - 0.09 * breath + lerp(0, o.aimR ?? -0.4, push) + (o.back || 0), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push) + 0.8 * (o.back || 0);
+    const [r1L, r2L] = o.limp ? limpArm([r1, r2], RG.handR, RG.shR, face, rot, o.limp) : [r1, r2];
+    const E = rotP(RG.elbowR, RG.shR, r1L), Hd = rotP(rotP(RG.handR, RG.shR, r1L), E, r2L - r1L), HdL = rotP(RG.handL, RG.shL, staffR);
     part('farmL', RG.shL, R2U(...RG.shL), staffR, o.Ufar);
     L.sprite(tx + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, ky)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: hemX ? Object.assign({}, o.U, { lean: [hemX / (RG.w * s), 1] }) : o.U });
-    part('uarmR', RG.shR, R2U(...RG.shR), r1, o.U); part('farmR', RG.elbowR, R2U(...E), r2, o.U);
+    part('uarmR', RG.shR, R2U(...RG.shR), r1L, o.U); part('farmR', RG.elbowR, R2U(...E), r2L, o.U);
     const J = (nm, p) => L.joint(o.id, nm, p);
-    J('ground', root); J('top', R2U(...RG.top)); J('head', R2U(RG.top[0], RG.top[1] + 0.12 * RG.h)); J('hip', R2U(gx, gy - 0.45 * RG.h)); if (o.hem) J('hem', [root[0] + hemX * 0.72, root[1]]);
+    J('ground', root); J('top', R2U(...RG.top)); J('head', R2U(RG.top[0], RG.top[1] + 0.12 * RG.h)); J('hip', R2U(gx, gy - 0.45 * RG.h)); if (hem) J('hem', [root[0] + hemX * 0.72, root[1]]);
     J('shL', R2U(...RG.shL)); J('handL', R2U(...HdL)); J('shR', R2U(...RG.shR)); J('elbowR', R2U(...E)); J('handR', R2U(...Hd));
     // the ring in the staff's forked head (drawing px of the cultist's staff), where the fire priest's flame burns
     const head = R2U(...rotP(STAFF_HEAD, RG.shL, staffR)); J('staffHead', head);
@@ -592,6 +613,8 @@
       base.y -= z + tuck * H / RG.h; base.crouch += tuck + 0.14 * RG.h * cr; base.lean = (base.lean || 0) + face * (0.35 * air * (1 - 1.5 * SS(0.2, 0.85, fl)) * (Math.cos(e.aimA) * face >= 0 ? 1 : -0.6) - 0.12 * cr);   // (a spring back leans back)
       base.arm = (side, b) => { const armAir = SS(0, 0.42, fl) * (1 - SS(0.35, 1, fl)), r = lerp(lerp(b, b + 0.22, Math.min(1, cr)), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), armAir), k = Math.min(1, Math.max(cr, armAir)); return [r, r + lerp(0.18, 0.3 + 0.4 * armAir, k)]; }; return; }
     if (e.st === 'wind' || e.st === 'strike') { const E2 = e.claw ? E : { wind: E.spark.wind }, CO = e.claw ? IMP_CLAW : IMP_THROW, pose = (b) => chop(e, E2, GT, face, H, b, CO), p0 = pose(0);
+      // (TASKS 1800) the throw is thrown with the body: it rocks back as the hand winds behind the head and pitches forward on the release
+      if (p0 && !e.claw) base.lean = (base.lean || 0) + face * p0.k * (e.st === 'wind' ? lerp(-0.14, 0.16, SS(DATA.windOf(e, E2.wind) - CO.chopT, DATA.windOf(e, E2.wind), u)) : 0.16);
       if (p0) { base.crouch += 12 * p0.k; base.arm = (side, b) => { if (side === 'R') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } return [b + 0.5 * p0.k, b + 0.2 + 0.3 * p0.k]; }; } }
   }
   // the magma golem (TASKS 409) heaves both fists over its head through the long wind-up and brings them down on the floor in
@@ -648,7 +671,7 @@
     if (e.mv === 'charge') {
       const end = w + Math.max(M.time, M.duration), k = SS(0, Math.min(0.3, w), u) * (1 - SS(end - 0.25, end, u));
       base.lean = (base.lean || 0) + face * 0.22 * k; base.crouch += 14 * k;
-      base.strideK = 1.45; base.lift = 0.065;
+      base.strideK = base.chargeK; base.charge = 1; base.lift = 0.065;
       base.gaitK = SS(w, w + 0.12, u) * (1 - SS(end - 0.12, end, u));
       return (side, b) => [lerp(b, 0.7, k * 0.65), lerp(b + 0.18, 1.1, k * 0.65)];
     }
@@ -664,7 +687,7 @@
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
   MON.draw = (e, E, x, y, GT, o) => {
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
-    const base = { item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
+    const base = { strideK: STRIDE_K[e.type], walkK: STRIDE_K[e.type] ?? 1, chargeK: CHARGE_K[e.type], chargeD: e.chargeD, lift: e.type === 'goblin' ? 0.055 : undefined, item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, flinch: o.flinch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
     if (live && e.st === 'idle' && e.amb && GT - e.amb.t < DATA.AMB_T) base.amb = { w: (GT - e.amb.t) / DATA.AMB_T, x0: e.amb.x0, y0: e.amb.y0, x1: e.amb.x1, y1: e.amb.y1, x: e.x, y: e.y };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
     if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
@@ -726,6 +749,7 @@
     if (n === 'drowned') {
       // a shamble: hunched forward, short dragging steps; it climbs out of the water arms first (o.rise 0..1)
       base.lean += 0.12 * face; base.lift = 0.042;
+      if (!live && o.death) base.limp = SS(o.death.dl, o.death.dl + o.death.dur, GT - e.deadT);
       const u = GT - e.t0, G0 = E.grab;
       if (live && e.grab && (e.st === 'wind' || e.st === 'strike')) {
         // the grab: the near arm cocks back with the elbow folded, shoots out along the aim, holds, then hauls back clenched if it
@@ -785,15 +809,21 @@
       spider(base); return true; }
     if (n === 'cultist') {
       const ew = DATA.BOSSES[e.type] ? DATA.bossMove(e).wind : DATA.windOf(e, E.wind), u = GT - e.t0, wind = live && (e.st === 'wind' || e.st === 'bwind'), str = live && e.st === 'strike';
-      // the staff tips forward through the wind-up; the free hand thrusts at the aim, fully out on the shot frame (the strike's first)
-      const settle = DATA.BOSSES[e.type] && e.st === 'bwind' ? 1 - SS(ew, ew + DATA.bossMove(e).duration, u) : 1;
-      base.staff = wind ? -0.35 * SS(0, ew * 0.8, u) * settle : str ? -0.35 * (1 - SS(0.1, 0.32, u)) : 0;
-      base.push = wind ? SS(ew - 0.14, ew, u) * settle : str ? 1 - SS(0.08, 0.32, u) : 0; base.aimR = aimRig(e, face, H) - 0.1;
+      // (TASKS 1801) a cast in three beats: over 0.25 s the staff's head is drawn back and the free hand too, the body leaning back; on the
+      // shot frame (the strike's first) the hand is thrown out at the aim, the staff's head whipped down at it and the body pitched forward; then
+      // it comes back. The necromancer calls with both arms: raised over the head through the wind-up, flung down at the hero, and it sinks
+      const boss = !!DATA.BOSSES[e.type], RG = RIGS[n], settle = boss && e.st === 'bwind' ? 1 - SS(ew, ew + DATA.bossMove(e).duration, u) : 1;
+      const prep = wind ? SS(0, Math.min(0.25, ew * 0.45), u) * settle : 0, rel = wind ? SS(ew - (boss ? 0.28 : 0.12), ew, u) * settle : 0, out = str ? 1 - SS(0.1, 0.35, u) : 0, aimR = aimRig(e, face, H) - ang(RG.shR, RG.handR);
+      if (boss) { base.staff = lerp(-0.45 * prep, 0.6, rel) + 0.6 * out; base.push = Math.max(prep, out); base.aimR = lerp(-2.75, aimR, Math.max(rel, out));
+        base.lean = (base.lean || 0) + face * (-0.11 * prep * (1 - rel) + 0.1 * Math.max(rel, out)); if (live) base.sink = 0.07 * Math.max(rel, out) * SS(0, 0.15, u - ew); }
+      else { base.staff = lerp(-0.4 * prep, 0.8, rel) + 0.8 * out; base.push = Math.max(rel, out); base.aimR = aimR; base.back = 0.55 * prep * (1 - rel);
+        base.lean = (base.lean || 0) + face * (-0.09 * prep * (1 - rel) + 0.12 * Math.max(rel, out)); }
       // the fire priest (TASKS 410) wears its own crimson; lighting its allies' weapons it raises the staff and its open hand high
       if (e.type === 'fire_priest') { base.tex = 'priest'; const kw = DATA.windOf(e, E.kindle.wind), kin = live && e.kin && e.st === 'wind' ? SS(0, kw * 0.7, u) : live && e.st === 'strike' && e.kinS ? 1 - SS(0.1, 0.32, u) : 0;
-        if (kin > 0) { base.staff = lerp(base.staff, -0.55, kin); base.push = Math.max(base.push, kin); base.aimR = lerp(base.aimR, -Math.PI / 2 - 0.3, kin); } }
+        if (kin > 0) { base.staff = lerp(base.staff, -0.55, kin); base.push = Math.max(base.push, kin); base.aimR = lerp(base.aimR, -Math.PI / 2 - 0.7, kin); base.back *= 1 - kin; } }
       // the robe sinks onto the hem first (dl s), then the body lies down, half filling out again
       if (!live && o.death && o.death.sink) { const dd = GT - e.deadT, D0 = o.death; base.sink = 0.55 * SS(0, D0.dl, dd) * (1 - 0.5 * SS(D0.dl, D0.dl + D0.dur, dd)); }
+      if (!live && o.death) base.limp = SS(o.death.dl, o.death.dl + o.death.dur, GT - e.deadT);
       if (e.type === 'fire_priest') base.hem = 0.06; const r = robed(base); if (e.type === 'fire_priest' && live) r.priest = 1; return r; }
     if (n === 'brute') {
       const boss = !!DATA.BOSSES[e.type], move = boss ? DATA.bossMove(e) : null, w = move ? move.wind : 0;
@@ -804,6 +834,11 @@
       const cast = boss && e.mv !== 'slam' && e.mv !== 'charge';
       const CO = { raise: -2.6, chopT: boss ? Math.min(0.26, w) : 0.26, recover: 0.32, over: 0.15, hold: 0.14, top: cast ? 0 : 0.12, bossW: w, dur: boss ? move.duration : 0.4 };
       const CO2 = Object.assign({}, CO, { hold: 0.02 });   // the chained slam springs back at once: its follow-through overshoots deeper, and the recovery needs that room
+      // (TASKS 1805) the two chapter lords strike their own blow, not the brute's: the demon lord swings both fists from far behind its head,
+      // the forge lord brings them straight down from overhead like a hammer
+      const own = live && boss && e.mv === 'slam' && !e.chain && (e.type === 'boss' || e.type === 'boss_forge') && e.st === 'bwind';
+      const OWN = e.type === 'boss_forge' ? { raise: -3.1, chopT: Math.min(0.22, w), recover: 0.3, over: 0.12, hold: 0.08, top: 0.14, bendUp: 0.35, bendHit: 0.3, bend0: 0.18, bossW: w, dur: boss ? move.duration : 0.4 }
+        : { raise: -2.95, chopT: Math.min(0.24, w), recover: 0.36, over: 0.22, hold: 0.1, top: 0.18, bendUp: 1.35, bendHit: 0.08, bend0: 0.18, bossW: w, dur: boss ? move.duration : 0.4 };
       const top = (b) => chop(Object.assign({}, e, { st: 'bwind' }), E, e.t0 + w - CO.chopT, face, H, b, CO);   // the frozen pose at the top of the raise
       const pose = (b) => { if (!live) return null;
         if (ready) { const q = top(b), k = SS(0, w, GT - e.t0); return { r1: lerp(b, q.r1, k), bend: lerp(0.18, q.bend, k), k }; }
@@ -813,10 +848,17 @@
         if (linked && e.st === 'chase') { const out = SS(0, 0.3, GT - (e.cdT - (DATA.bossPhase(e).rest || 0))), q = top(b);
           if (q && out < 1) return { r1: lerp(q.r1, b, out), bend: lerp(q.bend, 0.18 - 0.4 * b, out), k: 1 - out };
           return null; }
-        return chop(e, E, GT, face, H, b, boss && e.chain && e.mv === 'slam' ? CO2 : CO);
+        return chop(e, E, GT, face, H, b, own ? OWN : boss && e.chain && e.mv === 'slam' ? CO2 : CO);
       };
       const p = pose(0);
-      if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
+      if (p && own) { const u = GT - e.t0, RH = RIGS[n].h, forge = e.type === 'boss_forge', hit = e.st === 'bwind' ? u - w : -1, back = hit >= 0 ? SS(0.12, move.duration, hit) : 0;
+        // up on its toes and a breath into the shoulders through the first 0.4 s, down into a squat just before the blow, the weight
+        // thrown forward on it and taken back after
+        const toes = SS(0, 0.25, u) * (1 - SS(w - 0.32, w - 0.16, u)), squat = SS(w - 0.3, w - 0.06, u) * (1 - back), blow = hit >= 0 ? SS(0, 0.06, hit) * (1 - back) : 0;
+        base.crouch -= 0.04 * RH * toes; base.crouch += (forge ? 0.12 : 0.08) * RH * squat + (forge ? 0.05 : 0.03) * RH * blow;
+        base.lean = (base.lean || 0) + face * (-0.12 * toes + (forge ? 0.32 : 0.22) * blow - 0.06 * back * (1 - SS(move.duration * 0.6, move.duration, hit)));
+        base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? (forge ? 0.08 : 0) * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+      else if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.12 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       biped(base); return true; }
     if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.armLag = 0.55; base.rest = { L: [-0.6, -0.42], R: [0.5, 0.68] }; return biped(base); }
@@ -845,7 +887,7 @@
       const arm = colossusPose(pose, E, clock, face, H, base); if (arm) base.arm = arm;
       if (!live) { base.crumble = { t: Math.max(0, GT - e.deadT - 0.55) / 2.4, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       // (a body of 230 px sinks at each step by more than the walkers' 2.2 px, or its stride reads as a glide)
-      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.hipFloor = 0.14; base.stanceTime = base.strideK ? 0.5 : 0.64; base.settle = base.strideK ? 0 : 4; const r = biped(base);
+      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.hipFloor = 0.14; base.stanceTime = base.charge ? 0.5 : 0.64; base.settle = base.charge ? 0 : 4; const r = biped(base);
       // the boulder in both hands over the head while it is lifted, gone from them on the throw (sim R.rocks takes it on)
       if (base.rock && r) {
         const at = [x + face * base.rockAt[0] * H, y + base.rockAt[1] * H + base.rockBuried], bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;

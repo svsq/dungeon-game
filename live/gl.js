@@ -50,6 +50,16 @@
   G.canvas = () => document.createElement('canvas');
   G.params = new URLSearchParams(location.search);   // the render's dev switches (?fx=0, ?only=…)
   G.canvasUpdate = (rec, cv) => { dropBinds(); gl.bindTexture(gl.TEXTURE_2D, rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); };
+  // filled on the CPU already premultiplied, so a dark colour at low alpha keeps its 8 bits; sampled texel for texel
+  G.dataTex = (name, w, h, data) => { dropBinds(); let r = texs[name];
+    if (!r) { r = texs[name] = { t: gl.createTexture(), w: 0, h: 0 }; gl.bindTexture(gl.TEXTURE_2D, r.t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); }
+    else gl.bindTexture(gl.TEXTURE_2D, r.t);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    if (r.w === w && r.h === h) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    else { r.w = w; r.h = h; gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data); }
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); return r; };
   G.tex = (n) => { const t = texs[n]; if (!t) throw new Error('no texture ' + n); return t; };
 
   const VS = `#version 300 es
@@ -62,6 +72,11 @@ precision highp float;
 in vec2 v_uv; in vec2 v_px; out vec4 o;
 uniform vec2 u_res; uniform float u_t;
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+// soft effects on the art grid (TASKS 1792): u_fxpx > 0 samples a quad once per u_fxpx view px and lays its level in four steps,
+// grained where two steps meet, as the world's pixel art is; 0 keeps it smooth (the HUD, the light map)
+uniform float u_fxpx; uniform vec4 u_fxq;
+vec2 fxuv(){ if (u_fxpx <= 0.0 || u_fxq.z <= 0.0) return v_uv; return ((floor(v_px / u_fxpx) + 0.5) * u_fxpx - u_fxq.xy) / u_fxq.zw; }
+float fxq(float g){ if (u_fxpx <= 0.0) return g; return floor(clamp(g, 0.0, 1.0) * 4.0 + 0.25 + 0.5 * hash(floor(v_px / u_fxpx))) / 4.0; }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1,0)), u.x), mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x), u.y); }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a * vnoise(p); p = p * 2.03 + vec2(17.1, 9.7); a *= 0.5; } return s; }
