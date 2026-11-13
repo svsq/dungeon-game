@@ -301,7 +301,7 @@
     'POWERS.fire_split.name': 'Три искры',
     'POWERS.fire_split.desc': 'Шар летит тройкой. Боковые слабее, зато их двое.',
     'POWERS.fire_pierce.name': 'Осколочный шар',
-    'POWERS.fire_pierce.desc': 'Шар рвётся на первом враге чуть слабее. Три осколка летят дальше.',
+    'POWERS.fire_pierce.desc': 'Шар рвётся на первом враге чуть слабее. Три осколка летят дальше и тоже взрываются.',
     'POWERS.shield_burst.name': 'Последний довод',
     'POWERS.shield_burst.desc': 'Уцелевший щит в конце взрывается своим остатком.',
     'POWERS.shield_feed.name': 'Сытый щит',
