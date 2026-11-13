@@ -9,7 +9,7 @@
   const recent = {};
   let waterAmb = null, lavaAmb = null, echo = null, dripT = -1;
 
-  // The graph is built ahead, suspended, when the browser is idle after the live loop's first frame (TASKS 2012): built on the first
+  // The graph is built ahead, suspended, when the browser is idle after the live loop's first frame (TASKS 2033): built on the first
   // key, the context and the reverb's two seconds of noise took 150–370 ms on the Steam Deck, and that frame swallowed the key's
   // own answer (a pad's press opening the journal fell into it). The first key or click only resumes it; until then nothing plays
   let live = false, asked = false;

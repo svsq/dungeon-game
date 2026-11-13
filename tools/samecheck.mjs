@@ -1,7 +1,7 @@
 // proof that a pure move of code (R-38: 501–503, 1142, 1141) changed nothing (ARCHITECTURE.md §6)
 //   node tools/samecheck.mjs --save [--only sim,gen,frames]   take the reference on the branch before the move
 //   node tools/samecheck.mjs [--only ...]                      compare with it; exit 2 on any difference
-//   --query k=v[&k=v]: added to the page's URL (a render switch, e.g. batch=0 for the picture before the draw batches, TASKS 2010–2011)
+//   --query k=v[&k=v]: added to the page's URL (a render switch, e.g. batch=0 for the picture before the draw batches, TASKS 2031–2032)
 // sim: the bot's runs in every mode, the whole state hashed on each floor it reaches and at the end, plus tune.cjs's output;
 // gen: genFloor over modes × run seeds × floors, genTown; frames: every SCENE.QA() state rendered, pixels hashed.
 import fs from 'node:fs';
