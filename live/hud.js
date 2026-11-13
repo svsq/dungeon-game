@@ -1209,7 +1209,8 @@
     const R = SIM.Q.slotRun(S, sel), px = B.R.x, pw = B.R.w, mx = px + pw / 2;
     if (R) { const Cl = D.clsOf(R.hero); KIT.nine('cell', mx - 110, U.B.y + 120, 220, 190); L.sprite(portraitOf(R.hero), mx - 100, U.B.y + 128, { w: 200, h: 200 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
       KIT.ink('ld_dn', D.heroName(R.hero), mx, U.B.y + 346, { size: 44, fit: pw - 60, al: 0.5, col: KIT.INK.r, bold: true }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
-      const lines = [[TXT('hud.load.d.cls'), Cl.name], [TXT('hud.load.d.lvl'), String(R.hero.lvl)], [TXT('hud.load.d.where'), D.placeName(R.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map)], [TXT('hud.load.d.diff'), (D.DIFF[R.diff] || D.DIFF.normal).name],
+      // a test's place is its test and floor (TASKS 2003): with the floor's own name after them the row ran out of room
+      const lines = [[TXT('hud.load.d.cls'), Cl.name], [TXT('hud.load.d.lvl'), String(R.hero.lvl)], [TXT('hud.load.d.where'), R.test ? whereOf(R) : D.placeName(R.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map)], [TXT('hud.load.d.diff'), (D.DIFF[R.diff] || D.DIFF.normal).name],
         [TXT('hud.load.d.time'), hrs(R.play)], [TXT('hud.load.d.saved'), stamp(R.at)]];
       lines.forEach(([k, v], i) => { const y = U.B.y + 412 + i * 36, tw = KIT.ink('ld_dk' + i, k, px + 40, y, { size: 24, col: KIT.INK.d }), vw = KIT.ink('ld_dv' + i, v, px + pw - 40, y, { size: 24, fit: pw - 120 - tw, al: 1 }); KIT.leader(px + 40 + tw + 14, px + pw - 40 - vw - 10, y + 6); }); }
     else { KIT.ink('ld_none', TXT('hud.load.none'), mx, U.B.y + 300, { size: 30, al: 0.5, col: KIT.INK.d }); const s = TXT('hud.load.none.2'); halves(s).forEach((v, i) => KIT.ink('ld_none2' + i, v, mx, U.B.y + 350 + i * 30, { size: 22, fit: pw - 60, al: 0.5, col: KIT.INK.d })); }
@@ -1615,7 +1616,7 @@
       if (line) lines.push(line);
       lines.forEach((v, i) => lab(id + i, v, x, y + i * (size + 7), { size, col, al })); return lines.length * (size + 7);
     };
-    lab('e_story_t', win ? TXT('hud.end.8') : r.abandoned ? TXT('hud.end.9') : TXT('hud.end.10'), 410, 258, { size: 23, al: 0.5, col: C.gold });
+    lab('e_story_t', win ? TXT('hud.end.8') : quit ? TXT('hud.end.test.3') : r.abandoned ? TXT('hud.end.9') : TXT('hud.end.10'), 410, 258, { size: 23, al: 0.5, col: C.gold });
     G.blend('add'); L.glow(410, 400, 180, win ? [0.75, 0.5, 0.2] : [0.55, 0.08, 0.06], 0.25); G.blend();
     // a portrait that fails must not take the rest of the screen with it: the buttons are the only way to save the run's log (TASKS 1335)
     if (!r.abandoned) try { SCENE.endActors(r, win, t, 410, 490); } catch (e) { if (!endErr) { endErr = e; console.error(e); } L.pre = L.sp = null; G.blend(); }
@@ -1629,7 +1630,8 @@
         const src = SIM.Q.damageName(d.src), size = Math.min(20, Math.floor(20 * 280 / Math.max(280, lw('e_src_m' + i, src, { size: 20 }))));
         lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + Math.round(d.n), 588, 724 + i * 38, { size: 21, al: 1, col: '#ffb49a', out: '#2a0d08' });
       });
-    } else wrap('e_flavor', win ? (D.runOf(r.mode).wonText || TXT('hud.end.13')) : TXT('hud.end.14'), 234, 674, 350, 25, C.dim);
+    // an ended test (TASKS 2003) names which test it was: the fire's shards and the run remembered were the line of a real run
+    } else wrap('e_flavor', win ? (D.runOf(r.mode).wonText || TXT('hud.end.13')) : quit ? TXT('hud.load.test', { name: D.runOf(r.mode).name }) : TXT('hud.end.14'), 234, 674, 350, 25, C.dim);
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
     const runRows = [r.record ? [TXT('hud.end.runRows'), (r.deepest || r.floor) + (r.record.fresh ? TXT('hud.end.runRows.2') : TXT('hud.end.runRows.3', { best: r.record.best }))] : [TXT('hud.end.runRows.4'), r.deepest || r.floor], ...(r.campaignWon ? [[TXT('hud.end.runRows.5'), TXT('hud.end.runRows.6')]] : []), [TXT('hud.end.runRows.7'), r.lvl], [TXT('hud.end.runRows.8'), fmtT(r.time || 0)], [TXT('hud.end.runRows.9'), r.gold], [TXT('hud.end.runRows.10'), r.kills]];
     const doneRows = [[TXT('hud.end.doneRows'), C2.foes ? C2.kills + '/' + C2.foes + ' · ' + pc(C2.kills, C2.foes) : '—'], [TXT('hud.end.doneRows.2'), C2.lootN ? C2.loot + '/' + C2.lootN + ' · ' + pc(C2.loot, C2.lootN) : '—'],

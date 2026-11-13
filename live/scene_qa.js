@@ -90,6 +90,7 @@
         return [['load_empty', mk((S) => { S.screen = 'load'; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
           ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
+          ['load_test', mk((S) => { fill(S, 5); S.saved.test = 1; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
           ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'yes'; S.hover = 'yes'; })],
           ['load_ask_rest', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })],
@@ -164,6 +165,7 @@
     }
     { const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.log = { fl: [] }; S.hover = 'log'; states.push(['dead_log_tip', S]); }
     const abandoned = structuredClone(states.find(([n]) => n === 'dead')[1]); abandoned.result.abandoned = true; states.push(['end_abandoned', abandoned]);
+    { const S = structuredClone(abandoned); Object.assign(S.result, { test: 1, mode: 'magma' }); states.push(['end_test', S]); }
     for (const b of ['longsword', 'axe', 'hammer', 'staff', 'fist']) {
       const S = structuredClone(states.find(([n]) => n === 'win')[1]);
       S.result.hero.eq.weapon = b === 'fist' ? null : { b, rar: 4, lvl: 8, mods: {} }; S.result.heroStats = SIM.stats(S.result.hero, S.meta);

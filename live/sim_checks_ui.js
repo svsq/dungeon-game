@@ -315,6 +315,7 @@
   function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
     const ab = UI.pause(S.meta.zoom, false, true).find((b) => b.id === 'abandon');
     if (!R.test) out.push('test end: a run from the tests screen is not marked a test');
+    { const S2 = SIMX.spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S)))); if (!(S2.saved || S2.saves.find(Boolean) || {}).test) out.push('test end: a saved test run loads without its test mark, so the load screen names it a plain run (TASKS 2003)'); }
     if (!ab || ab.label !== TXT('UI.pause.test')) out.push(`test end: the pause's end button of a test run reads ${ab && ab.label}`);
     press(S, ab); if (!S.pauseAsk) { out.push('test end: the end button asks nothing'); return; }
     press(S, UI.pauseAsk(false, true).r.find((b) => b.id === 'yes'));
