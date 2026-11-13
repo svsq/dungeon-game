@@ -692,6 +692,14 @@
         pips.forEach((n, i) => { const dx = X + 6 + i * 16, dy = top - 4 + i * 4; L.rrect(dx - 7, dy - 7, 14, 14, 2, [0.93, 0.88, 0.76], [0.74, 0.68, 0.56]);
           const P = { 1: [[0, 0]], 2: [[-3, -3], [3, 3]], 3: [[-3, -3], [0, 0], [3, 3]], 4: [[-3, -3], [3, -3], [-3, 3], [3, 3]], 5: [[-3, -3], [3, -3], [0, 0], [-3, 3], [3, 3]], 6: [[-3, -3], [3, -3], [-3, 0], [3, 0], [-3, 3], [3, 3]] }[n];
           for (const [px, py] of P) L.solid(dx + px - 1, dy + py - 1, 2, 2, n === 1 ? [0.6, 0.08, 0.06] : [0.12, 0.08, 0.06]); }); }]); }
+    // the captive (TASKS 366): the story captives' cage (1328) with a wayfarer in it, the townsfolk rig (his own art is TASKS 2006);
+    // unlocked, the cage stands open and he walks behind the hero, crouched while monsters are about; gone once home or fled
+    for (const E of R.events || []) { if (E.id !== 'captive') continue; const P = D.EVENTS.pool.captive, open = E.st !== 'idle';
+      if (vis(E.x, E.y)) { const X = sx(E.x), Y0 = sy(E.y) + 14, look = h.x < E.x ? -1 : 1;
+        if (!open) drawFolkRig({ i: 95, y: E.y + 13, dist: 0, vx: 0, vy: 0 }, null, P.rig, X + 5, Y0 - 6, 64, look, GT, Y, {});
+        Y.push([E.y + 14, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); drawProp(open ? 'cage_big_open' : 'cage_big', X, Y0, { dy: open ? 8 : 0 }); }]); }
+      if (E.st === 'on' && vis(E.px, E.py)) { const sp = Math.hypot(E.vx, E.vy), face = sp > 8 ? (E.vx < 0 ? -1 : 1) : h.x < E.px ? -1 : 1, scared = sp < 8 && R.en.some((e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'home' && Math.hypot(e.x - E.px, e.y - E.py) < P.fear);
+        drawFolkRig({ i: 95, y: E.py, dist: E.dist, vx: E.vx, vy: E.vy }, null, P.rig, sx(E.px), sy(E.py), 64, face, GT, Y, { crouch: scared ? 12 : 0, headR: scared ? 0.12 : 0 }); } }
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in

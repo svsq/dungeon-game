@@ -197,7 +197,15 @@
       if (r.zone || m.enemies.filter((e) => e.room === r.id).length < D.EVENTS.pool.dark.pack) return null;
       const lamp = (d) => /^candle/.test(d.n) && !d.solid && d.pz === undefined && d.secret === undefined && inside(d);
       if (m.torches.some((t) => mine(t) && (t.kind !== 'wall' || t.lever !== undefined || t.sec !== undefined)) || m.decor.some((d) => /candle|crystal|brazier|forge/.test(d.n) && inside(d) && !lamp(d))) return null;
-      const at = eventSpot(m, r); if (at) { for (const t of m.torches) if (mine(t)) t.dark = 1; for (const d of m.decor) if (lamp(d)) d.dark = 1; } return at; } };
+      const at = eventSpot(m, r); if (at) { for (const t of m.torches) if (mine(t)) t.dark = 1; for (const d of m.decor) if (lamp(d)) d.dark = 1; } return at; },
+    // the captive's cage (TASKS 366): the room's elite keeps its key, or else its first plain monster that walks the floor (a key
+    // with a lake's, a ford's or a deep one's never comes to hand); a room with no such keeper is not one. The cage is three cells
+    // wide: none within three cells of a way into the room or four of a door, where it would crowd the doorway
+    captive: (m, r) => { const pack = m.enemies.filter((e) => e.room === r.id && e.key === undefined && !e.guard && !e.exit && !e.lake && !e.ford && !D.ENEMIES[e.type].deep && !D.BOSSES[e.type]);
+      const keeper = pack.find((e) => e.elite) || pack[0], at = keeper && eventSpot(m, r); if (!at) return null;
+      const tx = Math.floor(at[0] / TILE), ty = Math.floor(at[1] / TILE); if ((m.doors || []).some((d) => d.cells.some(([x, y]) => Math.abs(x - tx) <= 4 && Math.abs(y - ty) <= 4))) return null;
+      for (let y = ty - 3; y <= ty + 3; y++) for (let x = tx - 3; x <= tx + 3; x++) if (!inRm(r, x, y) && m.cells[y * m.W + x] !== 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => inRm(r, x + a, y + b))) return null;
+      keeper.key = 'cage'; return at; } };
   const evOk = (E, depth, mode) => depth >= (E.minF || 1) && depth <= (E.maxF ?? 1e9) && (!E.modes || E.modes.includes(mode));
   function markEvents(m, ST, opts, seed) {
     const EV = D.EVENTS, pool = EV.pool, mode = opts.mode || 'campaign', force = (opts.events || []).filter((id) => pool[id]);

@@ -518,6 +518,9 @@
         L.glow(ex, ey, 50, [0.4, 0.65, 1], 1 - q, 2.2); }
       if (e.k === 'power' && a < 0.35) { const q = a / 0.35; L.ring(ex, ey - 8, 22 + 46 * q, 12 + 26 * q, e.fx === 'pull' ? [0.6, 0.8, 1] : [1, 0.7, 0.3], 0.8 * (1 - q), 0.12); }
       if (e.k === 'spring' && a < 1) { const q = a; L.glow(ex, ey - 20, 80, [0.4, 0.85, 0.95], 1.1 * (1 - q)); for (let j = 0; j < 8; j++) { const an = j / 8 * 6.28; L.star(ex + Math.cos(an) * (16 + 30 * q), ey - 14 - 50 * q * (0.5 + rnd(j, 3)), 7, [0.6, 0.95, 1], 1 - q); } }
+      // the captive (TASKS 366): struck, a red spark at his head; gone (home, or fled), a puff of dust where he stood
+      if (e.k === 'captive' && e.hurt && a < 0.4) { const q = a / 0.4; L.glow(ex, ey, 30, [1, 0.25, 0.15], 0.9 * (1 - q), 2.4); for (let j = 0; j < 5; j++) { const an = rnd(e.t, j) * 6.28; L.star(ex + Math.cos(an) * 26 * q, ey + Math.sin(an) * 18 * q, 6, [1, 0.45, 0.3], 1 - q); } }
+      if (e.k === 'captive' && e.gone && a < 0.9) { const q = a / 0.9; for (let j = 0; j < 4; j++) L.puff(ex + (j - 1.5) * 12, ey - 16 - 26 * q, 12 + 16 * q, [0.42, 0.36, 0.3], 0.45 * (1 - q), 41 + j); }
       if (e.k === 'dice' && a < 1) { const q = a, big = e.fate === 'jack' ? 1.6 : 1;
         if (e.fate === 'lose') L.puff(ex, ey - 30 - 20 * q, 14 + 18 * q, [0.2, 0.17, 0.15], 0.5 * (1 - q), 31);
         else { L.glow(ex, ey - 30, 60 * big, [1, 0.8, 0.3], 1.1 * (1 - q)); for (let j = 0; j < 6 * big; j++) { const an = j / (6 * big) * 6.28 + 0.4; L.star(ex + Math.cos(an) * (12 + 34 * q * big), ey - 34 - 40 * q * (0.4 + rnd(j, 5)), 6, [1, 0.85, 0.35], 1 - q); } } }

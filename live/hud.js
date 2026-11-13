@@ -35,7 +35,7 @@
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
   const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
   // an event of the floor not done yet (TASKS 2002, R-12, R-35) has its mark once seen, and its line while one is seen
-  const EVENT_LEG = ['event', TXT('EVENT_LEG')], evSeen = (R) => (R.events || []).filter((E) => E.st !== 'done' && !D.EVENTS.pool[E.id].hide && R.seen[Math.floor(E.y / TILE) * R.map.W + Math.floor(E.x / TILE)]);
+  const EVENT_LEG = ['event', TXT('EVENT_LEG')], evSeen = (R) => (R.events || []).filter((E) => E.st !== 'done' && !D.EVENTS.pool[E.id].hide && !(D.EVENTS.pool[E.id].lead && E.st === 'on') && R.seen[Math.floor(E.y / TILE) * R.map.W + Math.floor(E.x / TILE)]);
   // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
   // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1863 з)

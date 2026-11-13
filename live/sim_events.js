@@ -65,7 +65,35 @@
   const DARK = {
     start(S, R, E) { R.msg = { s: TXT('EVENTS.dark.enter'), t: S.t, d: 4 }; ev(S, { k: 'dark', x: E.x, y: E.y }); },
     step(S, R, E) { if (!darkFoes(R, E).length) eventDone(S, R, E); } };
-  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD, hex: HEX, fountain: FOUNTAIN, dice: DICE, dark: DARK };
+  // the captive (TASKS 366): his goal is fixed as he walks out, so a save or a floor left and come back to never sends him elsewhere.
+  // He paths by the monsters' way field to the hero's cell, never straight at him (a straight line takes no account of his cage), so he walks only where a monster could (never lava, a shut door or a
+  // grate); out of its reach he waits. The floor left, he stays where he stood (no leave rule) and goes on when the hero is back
+  const awake = (e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'home';
+  const CAPTIVE = {
+    // the cage's cells are blocked as a story captive's are (1328): the way fields then lead round it, not into its bars
+    setup(R, E) { const m = R.map, tx = Math.floor(E.x / TILE), ty = Math.floor(E.y / TILE); for (let y = ty - 1; y <= ty; y++) for (let x = tx - 1; x <= tx + 1; x++) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x); },
+    can(S, R, E) { if (R.keys > 0) return true; R.msg = { s: TXT('EVENTS.captive.nokey'), t: S.t, d: 3 }; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y }); return false; },
+    start(S, R, E) { const P = D.EVENTS.pool.captive, m = R.map; R.keys--;
+      E.goal = m.shop && R.shop ? { k: 'shop', x: m.shop.front.x, y: m.shop.front.y } : { k: 'up', x: m.spawn.x, y: m.spawn.y };
+      Object.assign(E, { px: E.x, py: E.y + 40, vx: 0, vy: 0, dist: 0, hits: P.hits, hurtT: -9 });
+      ev(S, { k: 'unlatch', x: E.x, y: E.y }); R.msg = { s: E.goal.k === 'shop' ? TXT('EVENTS.captive.go.shop') : TXT('EVENTS.captive.go.up'), t: S.t, d: 4 }; },
+    step(S, R, E) { const P = D.EVENTS.pool.captive, m = R.map, h = R.hero, o = { x: E.px, y: E.py, vx: E.vx, vy: E.vy };
+      if (h.deadT >= 0) return;
+      const foes = R.en.filter((e) => awake(e) && Math.hypot(e.x - o.x, e.y - o.y) < P.fear);
+      if (S.t - E.hurtT >= P.cd && foes.some((e) => Math.hypot(e.x - o.x, e.y - o.y) < (D.ENEMIES[e.type].r || 14) + P.r + 8)) {
+        E.hurtT = S.t; E.hits--; ev(S, { k: 'captive', x: o.x, y: o.y - 40, hurt: 1 });
+        if (E.hits <= 0) { E.st = 'done'; E.lost = 1; E.t1 = S.t; R.msg = { s: TXT('EVENTS.captive.lost'), t: S.t, d: 4 }; ev(S, { k: 'captive', x: o.x, y: o.y, gone: 1 }); S.saveN++; return; } }
+      if (Math.hypot(E.goal.x - o.x, E.goal.y - o.y) < P.reach) { eventDone(S, R, E); return; }
+      const dx = h.x - o.x, dy = h.y - o.y, d = Math.hypot(dx, dy), F = SIMX.flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)), here = F[Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)];
+      const go = !foes.length && d > P.gap && here >= 0 ? 1 : 0;
+      SIMX.steer(o, P, m, F, go, dx, dy, 1e9); if (!go) { const k = Math.exp(-14 * SIMX.DT); o.vx *= k; o.vy *= k; }
+      SIMX.move(m, o, o.vx * SIMX.DT, o.vy * SIMX.DT, P.r, true); SIMX.shove(m, o, P.r, true, SIMX.solids(R));
+      E.dist += Math.hypot(o.x - E.px, o.y - E.py); E.px = o.x; E.py = o.y; E.vx = o.vx; E.vy = o.vy; },
+    reward(S, R, E) { const P = D.EVENTS.pool.captive;
+      if (E.goal.k === 'shop' && R.shop) { for (const g of R.shop.goods) g.price = Math.max(1, Math.round(g.price * (1 - P.off))); R.shop.off = P.off; R.msg = { s: TXT('EVENTS.captive.shop'), t: S.t, d: 5 }; ev(S, { k: 'captive', x: E.px, y: E.py, gone: 1, home: 1 }); return; }
+      const n = Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R)); SIMX.giveShards(S, R, n, E.px, E.py - 40, ''); R.msg = { s: TXT('EVENTS.captive.up', { n }), t: S.t, d: 5 };
+      ev(S, { k: 'captive', x: E.px, y: E.py, gone: 1, home: 1 }); } };
+  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD, hex: HEX, fountain: FOUNTAIN, dice: DICE, dark: DARK, captive: CAPTIVE };
   const lootK = (R, e) => { const E = e.room !== undefined && e.room >= 0 && eventsOf(R).find((q) => q.id === 'dark' && q.room === e.room); return E ? D.EVENTS.pool.dark.loot : 1; };
   // the cells the minimap leaves out: the dark rooms' (TASKS 365), their wings too
   function darkMask(R) { const m = R.map, out = new Set();

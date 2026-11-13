@@ -261,7 +261,16 @@
       // give it away). It starts as he steps in and ends with its pack down; every monster of its pack drops its loot `loot` times.
       // walk: it starts on entering, no spot and no question; hide: off the minimap; pack: the least of its monsters
       dark: { w: 3, minF: 2, room: 'combat', walk: 1, hide: 1, loot: 2, pack: 2,
-        name: TXT('EVENTS.dark.name'), done: TXT('EVENTS.dark.done') } } };
+        name: TXT('EVENTS.dark.name'), done: TXT('EVENTS.dark.done') },
+      // the captive (TASKS 366): a wayfarer caged in a room whose pack keeps it, one of the pack carrying its key (`key` 'cage' on him,
+      // dropped as a door's is, TASKS 78; any key of the floor fits, so it may go to the locked door instead). Unlocked, he follows the
+      // hero to the floor's merchant, who takes `off` off his prices, or with no merchant on the floor to the spawn by the stairs up, where
+      // he pays shards[0] + shards[1] × depth. He never fights: he stops while a waking monster is within `fear`, and `hits` blows from
+      // monsters at his side (one each `cd` s) send him running off alone, unpaid. He waits where he stands while the floor is left.
+      // gap: how near he keeps; reach: how near the goal ends it; rig: his figure, a townsfolk rig (his own is TASKS 2006)
+      captive: { w: 2, minF: 1, room: 'combat', ask: 1, goal: 1, near: 84, tag: 130, cage: 1, r: 11, spd: 150, gap: 64, fear: 150, hits: 3, cd: 0.9, reach: 90,
+        off: 0.25, shards: [4, 1], rig: 'town_porter', lead: 1,
+        name: TXT('EVENTS.captive.name'), say: TXT('EVENTS.captive.say'), yes: TXT('EVENTS.captive.yes'), no: TXT('EVENTS.captive.no'), prompt: TXT('EVENTS.captive.prompt') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

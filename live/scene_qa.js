@@ -1801,6 +1801,14 @@
       else SIM.step(S, { keys: [] });
       if (stage === 'map') { R.en = []; S.ev.length = 0; S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; }
       if (stage !== 'in') R.msg = null; R.cam = [(h.x + E.x) / 2 - SCX.VW / 2, (h.y + E.y) / 2 - SCX.VH / 2]; });
+    // the captive (TASKS 366): caged as come upon, told there is no key, asked with one; walking behind the hero out of his room, and
+    // home at the merchant's (or the stairs up) with his thanks
+    for (const [nm, st] of [['captive_room', 0], ['captive_nokey', 'ask'], ['captive_ask', 'ask'], ['captive_lead', 'done'], ['captive_home', 'done']]) {
+      const S = evS('captive', st, (R) => { R.keys = nm === 'captive_nokey' ? 0 : 1; }); const R = S.run, E = R && (R.events || []).find((q) => q.id === 'captive'); if (!E) continue;
+      if (nm === 'captive_lead' && E.st === 'on') { const h = R.hero, m = R.map, dx = [150, -150, 0, 0].find((d) => SIM.Q.cell(m, Math.floor((E.px + d) / 32), Math.floor((E.py + (d ? 20 : 150)) / 32)) === 1) ?? 0; h.x = E.px + dx; h.y = E.py + (dx ? 20 : 150);
+        for (let i = 0; i < 70; i++) SIM.step(S, { keys: [] }); R.msg = null; R.cam = [(h.x + E.px) / 2 - SCX.VW / 2, (h.y + E.py) / 2 - SCX.VH / 2]; }
+      if (nm === 'captive_home' && E.st === 'on') { E.px = E.goal.x + 40; E.py = E.goal.y; R.hero.x = E.goal.x - 40; R.hero.y = E.goal.y + 10; SIM.step(S, { keys: [] }); for (let i = 0; i < 20; i++) SIM.step(S, { keys: [] }); R.cam = [E.goal.x - SCX.VW / 2, E.goal.y - SCX.VH / 2]; }
+      states.push([nm, S]); }
     for (const [nm, st] of [['unlit_door', 'door'], ['unlit_room', 'in'], ['unlit_map', 'map']]) { const S = darkS(st); if (S.run && (S.run.events || []).some((q) => q.id === 'dark')) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
