@@ -26,6 +26,13 @@ require(path.join(LIVE, 'text_names_ru.js'));
 const BAD = /хуй|хуе|пизд|ебан|ебат|бляд|сука|мудак|жоп|говн|дерьм|ублюд/i, NAMES = globalThis.TEXT.names || {};
 for (const [g, v] of Object.entries(NAMES)) for (const [k, L] of [['name', v.names.map((n) => n[0])], ['epithet', v.adj.map((a) => a[0])]]) {
   const seen = new Set(); for (const w of L) { if (seen.has(w)) fails.push(`names ${g}: duplicate ${k} ${w}`); seen.add(w); if (BAD.test(w)) fails.push(`names ${g}: crude ${k} ${w}`); } }
+// TASKS 1985: every giver has 3 to 5 turn-in lines for each kind of quest it can give, and each line's {words} fill from such a quest
+require(path.join(LIVE, 'text.js')); require(path.join(LIVE, 'text_talk_ru.js')); const D = require(path.join(LIVE, 'data.js'));
+const atF = (key) => (D.storyChain('campaign').find((c) => c.key === key) || { f: 3 }).f, sample = (key) => ({ key, f: atF(key), need: D.QUESTS[key].need(atF(key)), title: 'A B', thing: 'T' }), sideKeys = D.QUEST_GIVE.pool;
+for (const role of Object.keys(D.QUEST_SAY)) for (const key of role === 'keeper' ? Object.keys(D.QUESTS) : sideKeys) {
+  const L = (D.QUEST_SAY[role].turnin || {})[D.QUESTS[key].type];
+  if (!L || L.length < 3 || L.length > 5) { fails.push(`turn-in: the ${role} has ${L ? L.length : 'no'} lines for ${D.QUESTS[key].type}, not 3 to 5`); continue; }
+  for (const s of L) { const t = D.turnFill(s, sample(key)); if (/[{}]/.test(t) || /undefined|null/.test(t)) fails.push(`turn-in: ${role}/${key} leaves a word unfilled: ${t.slice(0, 80)}`); } }
 for (const f of fails) console.log('FAIL', f);
 console.log(`textcheck: ${Object.keys(RU).length} texts, ${fails.length ? fails.length + ' failure(s)' : 'ok'}`);
 process.exitCode = fails.length ? 2 : 0;

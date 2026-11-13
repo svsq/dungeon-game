@@ -3191,8 +3191,8 @@
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
     // TASKS 1850: a quest to turn in waits behind an ordinary line with its button; its words, the thanks and the reward come once pressed
-    // a quest's turn-in waits behind one of its giver's lines: every townsman with quests has them (PR 55 review 2)
-    for (const role in D.QUEST_SAY) if (!D.FOLK[role] || !(D.FOLK[role].lines || []).length) out.push(`quest turn-in: the ${role} gives quests but has no lines`);
+    // a quest's turn-in waits behind its giver's words on that kind of quest (PR 55 review 2, TASKS 1985; tools/textcheck.cjs checks every kind)
+    for (const role in D.QUEST_SAY) if (!D.FOLK[role] || !(D.QUEST_SAY[role].turnin || {}).kill) out.push(`quest turn-in: the ${role} gives quests but has no turn-in words`);
     // (PR 55 review 2) with the Keeper's news to tell, the news is the button's page and the reward is told once pressed
     for (const [role, key, news] of [['keeper', 'fetch'], ['smith', 'fetch'], ['porter', 'cull'], ['guard', 'named'], ['keeper', 'fetch', 1]]) { R = run(41); R.offers = []; R.quests = []; const q = takeQuest(S, R, newQuest(R, key, 2, role)); q.st = 'done'; q.n = q.need;
       const SAY = D.QUEST_SAY[role], W = [D.QUESTS[key].name, root.SIMX.rwLine(q.rw), D.QUESTS[key].thanks, ...SAY.done, ...SAY.thanks].filter(Boolean), said = () => S.talk.pages.some((p) => W.some((v) => p.includes(v)));
