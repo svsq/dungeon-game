@@ -173,9 +173,9 @@
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0] + hipDx, Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
     // the face is painted on the world's art grid (one texture cell, RIGS.hero.h / 42 px, is one world pixel): the cell of the near
     // eye is kept on a world pixel through the torso's lean, or the one-cell eye lands across two pixels and drops out of the snap.
-    // Arms ride on hipS and move with it. Off the world's grid (the menu's arch, scaled ×3 on the smooth HUD, TASKS 1874; the
-    // victory screen's hero, ×1.5, TASKS 1896) the snap only jerked the body by 2 world px off the unsnapped legs
-    if (du < 0 && !o.hud) { const C = RG.h / 42, EY = D.clsOf(h).look.eye || [13.5, 6.5], ex = fX * ((EY[0] * C) - Hc[0]) * s, ey = (EY[1] * C - Hc[1]) * s, r = fallR + bodyR;
+    // Arms ride on hipS and move with it. Under a pre-transform (L.pre: the menu's arch, scaled ×3 on the smooth HUD, TASKS 1874; the
+    // victory screen's hero, ×1.5, TASKS 1896) there is no world grid to snap to, and the snap only jerked the body off the legs
+    if (du < 0 && !L.pre) { const C = RG.h / 42, EY = D.clsOf(h).look.eye || [13.5, 6.5], ex = fX * ((EY[0] * C) - Hc[0]) * s, ey = (EY[1] * C - Hc[1]) * s, r = fallR + bodyR;
       const qx = hipS[0] + ex * Math.cos(r) - ey * Math.sin(r), qy = hipS[1] + ex * Math.sin(r) + ey * Math.cos(r);
       hipS[0] += 2 * Math.round((qx - 1) / 2) + 1 - qx; hipS[1] += 2 * Math.round((qy - 1) / 2) + 1 - qy; }
     const R2U = (px, py, dy = 0) => { const p = R2S(px + hipDx, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };

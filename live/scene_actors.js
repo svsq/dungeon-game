@@ -361,17 +361,17 @@
     // the mimic (TASKS 367, 1670) wears the chest it hid as: that chest's own painting cut along its lid line, so waking changes neither size nor rank. It squats and gapes
     // through the wind-up, flies with its mouth open and bites shut as it lands; between the leaps it claps its lid in step
     function drawMimic() {
-      const J = E.jump, u = GT - e.t0, ewM = D.windOf(e, E.wind), lerp = (a, b, q) => a + (b - a) * q, crawl = SS(4, 30, sp), step = Math.abs(Math.sin(e.dist / 7));
+      const J = E.jump, look = mimicLook(e.tier), u = GT - e.t0, ewM = D.windOf(e, E.wind), lerp = (a, b, q) => a + (b - a) * q, crawl = SS(4, 30, sp), step = Math.abs(Math.sin(e.dist / 7));
       let a = 0.1 + 0.03 * Math.sin(t * 3.1 + e.id) + 0.16 * crawl * step, z = 2.5 * crawl * step, sq = 1 + 0.02 * Math.sin(t * 2.3 + e.id), tilt = 0.05 * crawl * Math.sin(e.dist / 7), wag = Math.sin(t * 7 + e.id) * 0.25;
       if (e.st === 'rise') { const q = SS(0, E.rise, u); a = lerp(0, 0.6, SS(0.1, 0.55, q)) * (1 - SS(0.7, 1, q)) + 0.1 * SS(0.7, 1, q); z = 14 * Math.sin(Math.PI * SS(0.2, 0.9, q)); sq = 1 - 0.14 * Math.sin(Math.PI * q) ** 2; tilt = 0.1 * Math.sin(u * 38) * (1 - q); }
       else if (e.st === 'wind') { const q = SS(0, ewM, u); a = lerp(a, 0.62, q); sq = lerp(sq, 0.8, q); tilt = lerp(tilt, -0.12, q); }
       else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * (Math.sin(Math.PI * q) + Math.sin(Math.PI * q) ** 2) / 2; a = lerp(0.62, 0.68, SS(0, 0.5, q)) * (1 - SS(0.3, 0.98, q)); sq = 0.8 + 0.34 * SS(0, 0.6, q) - 0.1 * SS(0.6, 1, q); tilt = lerp(-0.12, 0.16, q); }
       // it falls on at half the speed of a plain arc and the squash takes that speed on in the lid, then the spring sets it level
       // (TASKS 1869: it snapped from stretched to squashed in one frame, the lid jumped 17 px and the base stopped dead from full speed)
-      else if (e.st === 'strike') { const v = u - J.t, km = 0.84, k0 = 1.04, tq = 4 * (k0 - km) * mimicLook(e.tier).H * J.t / (Math.PI * J.h), w = 30, tau = 0.07;
+      else if (e.st === 'strike') { const v = u - J.t, km = 0.84, k0 = 1.04, tq = 4 * (k0 - km) * look.H * J.t / (Math.PI * J.h), w = 30, tau = 0.07;
         a = 0.1 * SS(0, J.land, v); sq = v < tq ? km + (k0 - km) * (1 - v / tq) ** 2 : 1 - (1 - km) * Math.exp(-(v - tq) / tau) * (Math.cos(w * (v - tq)) + Math.sin(w * (v - tq)) / (w * tau)); tilt = 0.16 * (1 - SS(0, 0.16, v)); }
       const hA = GT - e.hitT; if (hA >= 0 && hA < 0.3) { tilt -= 0.1 * (1 - hA / 0.3); a += 0.14 * (1 - hA / 0.3); }
-      const look = mimicLook(e.tier), u1 = { alpha, grade: hit ? grade : look.grade };
+      const u1 = { alpha, grade: hit ? grade : look.grade };
       const J2 = mimicBody({ look, x, y: y + 4, a, face: e.face, z, tilt, sq, wag, tongue: 1, eyes: a > 0.3 && !L.sp, u: u1, id: 'en' + e.id, frame: (parts) => { halo(parts); if (edge) rimFlash(parts); L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }); } });
       J2('ground', [x, y]);
     }
@@ -423,7 +423,7 @@
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
     const h = Object.assign({}, hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9, read: null, pull: null });
     L.pre = M.of(M.t(x, y), M.s(k, k), M.t(-x, -y));
-    try { drawHero(h, x, y, t, st, { id: 'menu', menu: 1, hud: 1 }); } finally { L.pre = null; }
+    try { drawHero(h, x, y, t, st, { id: 'menu', menu: 1 }); } finally { L.pre = null; }
   };
   SC.endActors = (r, win, t, x, y) => {
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
@@ -443,7 +443,7 @@
         const hx = x + 35, hy = y + 70;
         G.blend('add'); L.glow(hx, hy - 70, 120, [0.95, 0.7, 0.35], 0.28); G.blend(); L.shadow(hx, hy + 2, 46, 9, 0.6);
         L.pre = M.of(M.t(hx, hy), M.s(1.5, 1.5), M.t(-hx, -hy));
-        try { drawHero(h, hx, hy, t, r.heroStats, { id: 'victor', victory: true, hud: 1 }); } finally { L.pre = null; }
+        try { drawHero(h, hx, hy, t, r.heroStats, { id: 'victor', victory: true }); } finally { L.pre = null; }
       }
     } else {
       const last = (r.damage || []).slice(-1)[0]; if (last && last.actor) enemy(last.actor, x, y, false);

@@ -36,7 +36,7 @@
   }
   // (deadT is -1 while alive and may go negative when a QA state kills at S.t - 0.8, so only -1 itself means alive)
   // deadRun: his own speed as he fell, before the killing blow's shove, so a hero killed standing does not fall as from a run (TASKS 1991)
-  function killHero(S, R, vx = R.hero.vx, vy = R.hero.vy) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; h.deadRun = [vx, vy]; ev(S, { k: 'die', x: h.x, y: h.y }); }
+  function killHero(S, R, vx = R.hero.vx, vy = R.hero.vy) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; h.volleyT = null; h.deadRun = [vx, vy]; ev(S, { k: 'die', x: h.x, y: h.y }); }
   function hurtHero(S, R, dmg, sx, sy, kind, src, actor) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr || R.town) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
@@ -314,7 +314,7 @@
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, D.clsOf(h).abs[inp.slot - 1].id, inp);
-    if (h.volleyT != null && t >= h.volleyT) { if (h.deadT < 0) SIMX.looseVolley(S, R); else h.volleyT = null; }
+    if (h.volleyT != null && t >= h.volleyT) SIMX.looseVolley(S, R);
     // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
     if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
       S.meta.tipScroll = 1; R.msg = { s: TXT('sim_hero.stepPlay.msg.s'), t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }

@@ -740,7 +740,7 @@
       L.rrect(bx, by, bw, 28, 14, n ? [0.2, 0.13, 0.09] : [0.62, 0.14, 0.08], n ? [0.12, 0.08, 0.05] : [0.42, 0.08, 0.05], 0.95);
       lab(id + '_f' + q.tab, s, bx + bw / 2, by + 14, { size: 20, al: 0.5, col: n ? '#e8d6b0' : '#fff2e0' }); L.uiBox(id + '_fb' + q.tab, bx, by, bw, 28, 0);
       tipAt(bx - 4, by - 4, bw + 8, 36, TXT('hud.inv.free'), TXT('hud.inv.free.l')); } const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
-  const nf = (v, d = 1, fixed = false) => (fixed ? v.toFixed(d) : String(Math.round(v * 10 ** d) / 10 ** d)).replace('.', ',');
+  const nf = TXT.num;
   // what one point of a stat gives, from the stats' own formula with the point and without it (TASKS 1857)
   const GAIN = [['atk', (v) => TXT('hud.stat.atk', { v })], ['def', (v) => TXT('hud.stat.def', { v })], ['maxHp', (v) => TXT('hud.stat.maxHp', { v })], ['maxMp', (v) => TXT('hud.stat.maxMp', { v })],
     ['crit', (v) => TXT('hud.stat.crit', { v })], ['dodge', (v) => TXT('hud.stat.dodge', { v })], ['aspd', (v) => TXT('hud.stat.aspd', { v })], ['mspd', (v) => TXT('hud.stat.mspd', { v })], ['poise', (v) => TXT('hud.stat.poise', { v })]];

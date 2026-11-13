@@ -211,7 +211,7 @@
     const wasd = !typing, arV = keys.ArrowDown || keys.ArrowUp, arH = keys.ArrowLeft || keys.ArrowRight;
     const mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
     const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r + ':' + cls);
-    // a key that changes neither the focus nor a choice stays silent (TASKS 1905): ← in the field, A on the die, an edge row
+    // a sound for a key that changed nothing told the player it had done something (TASKS 1905)
     const was = () => JSON.stringify([S.focus, S.meta.diff, S.meta.cls, S.meta.kit]), w0 = was(), tick = () => { if (was() !== w0) ev(S, { k: 'ui', x, y }); };
     if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); tick(); return; }
     if (!st) return;

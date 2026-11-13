@@ -364,14 +364,23 @@
         for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
       if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
     { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
-  // the scene is browser code with no node entry, so its source is read (TASKS 1896): a hero drawn scaled on the smooth HUD
-  // (the menu's arch, the victory screen) passes hud and the face's world-pixel snap stays off for it
-  function checkHudHero(out) { const src = (f) => require('fs').readFileSync(require('path').join(__dirname, f), 'utf8');
-    if (!/if \(du < 0 && !o\.hud\)/.test(src('scene_hero.js'))) out.push('hud hero: the face snap is not gated by o.hud');
-    let n = 0;
-    for (const f of require('fs').readdirSync(__dirname).filter((q) => /^(scene|hud).*\.js$/.test(q))) {
-      const t = src(f), re = /L\.pre = M\.of\([^;]*M\.s\([^;]*;\s*try \{ drawHero\(([^\n]*?)\{([^}]*)\}\)/g; let m;
-      while ((m = re.exec(t))) { n++; if (!/\bhud: 1\b/.test(m[2])) out.push(`hud hero: ${f} draws a scaled hero {${m[2].trim()}} on the world's pixel snap`); } }
-    if (n < 2) out.push(`hud hero: found ${n} scaled heroes, the menu's and the victory's expected`); }
+  // the scene has no node entry, so the hero's drawing runs in a sandbox with L and G stubbed and its sprites' placements recorded
+  // (TASKS 1896): on the world's grid the face snap holds the body still through a sub-pixel step, under L.pre (the menu's arch,
+  // the victory screen) it must move with him, or a scaled hero jerks by whole world pixels
+  function checkHudHero(out) { const fs = require('fs'), vm = require('vm'), path = require('path'), src = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
+    const M = { mul: (A, B) => [A[0] * B[0] + A[2] * B[1], A[1] * B[0] + A[3] * B[1], A[0] * B[2] + A[2] * B[3], A[1] * B[2] + A[3] * B[3], A[0] * B[4] + A[2] * B[5] + A[4], A[1] * B[4] + A[3] * B[5] + A[5]],
+      t: (x, y) => [1, 0, 0, 1, x, y], s: (x, y) => [x, 0, 0, y, 0, 0], r: (a) => [Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0], ap: (A, p) => [A[0] * p[0] + A[2] * p[1] + A[4], A[1] * p[0] + A[3] * p[1] + A[5]] };
+    M.of = (...Ls) => Ls.reduce((a, b) => M.mul(a, b));
+    const calls = [], size = { w: 10, h: 10 }, L = new Proxy({ M, SS: (e0, e1, x) => { const q = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return q * q * (3 - 2 * q); }, SNAP: 0, pre: null, sp: null,
+      sprite: (n, x, y, o) => { calls.push(o && o.m ? o.m[4] : x); return size; } }, { get: (t, k) => (k in t ? t[k] : () => size) });
+    const box = { Math, Object, Array, JSON, Number, String, Set, Map, WeakMap, Float32Array, Float64Array, console, SIM: root.SIM, G: { w: 1920, h: 1080, tex: () => size }, ASSETS: new Proxy({}, { get: () => size }) };
+    box.window = box; box.SCX = { D, L, M, SC: {}, SS: L.SS }; vm.createContext(box); vm.runInContext(src('rigs.js'), box); vm.runInContext(src('scene_hero.js'), box);
+    const S = spawn(0, {}), R = newRun(S, 'campaign', 5, {}); S.run = R;
+    const h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: 1, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = SIMX.heroSt(S);
+    const draw = (x, pre) => { calls.length = 0; L.pre = pre; try { box.SCX.drawHero(h, x, 300, 10, st, {}); } finally { L.pre = null; } return calls.slice(); };
+    const lag = (pre) => { const a = draw(100.1, pre), b = draw(100.45, pre); return a.length && a.length === b.length ? Math.max(...a.map((x, i) => Math.abs(b[i] - x - 0.35))) : NaN; };
+    const world = lag(null), hud = lag([1, 0, 0, 1, 0, 0]);
+    if (!(world > 0.3)) out.push(`hud hero: on the world's grid the face snap does not hold the body (lag ${world})`);
+    if (!(hud < 1e-6)) out.push(`hud hero: under L.pre the body snaps to the world's pixels (lag ${hud})`); }
   Object.assign(SIMX, { checkHudHero, checkStrUse, checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);

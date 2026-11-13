@@ -8,8 +8,10 @@
   const FEM = { ru: (w) => w.replace(/(ый|ой|ий)$/, 'ая') };
   const get = (key) => { const L = TEXT[TEXT.lang], s = L && key in L ? L[key] : TEXT.ru[key]; if (s === undefined) throw new Error('text.js: no text ' + key); return typeof s === 'string' ? s.replace(/\{@(\w+)\}/g, (m, k) => get('NAME.' + k)) : s; };
   // a fractional number goes into a text with its language's decimal mark, never JavaScript's dot (TASKS 1900: «+1.5» in Russian)
-  const DEC = { ru: ',' }, val = (x) => (typeof x === 'number' && !Number.isInteger(x) ? String(Math.round(x * 100) / 100).replace('.', DEC[TEXT.lang] || '.') : String(x));
+  const DEC = { ru: ',' }, num = (v, d = 1, fixed = false) => (fixed ? v.toFixed(d) : String(Math.round(v * 10 ** d) / 10 ** d)).replace('.', DEC[TEXT.lang] || '.');
+  const val = (x) => (typeof x === 'number' ? num(x, 2) : String(x));
   const TXT = (key, p) => { const s = get(key); return p ? s.replace(/\{(\w+)\}/g, (m, k) => (k in p ? val(p[k]) : m)) : s; };
+  TXT.num = num;
   TXT.n = (key, n) => get(key)[(RULES[TEXT.lang] || RULES.ru)(n)];
   const fill = (v) => (typeof v === 'string' ? v.replace(/\{@(\w+)\}/g, (m, k) => get('NAME.' + k)) : Array.isArray(v) ? v.map(fill) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fill(x)])) : v);
   TXT.talk = (role) => fill((TEXT.talk || {})[role] || {});

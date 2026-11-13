@@ -164,7 +164,7 @@
     { id: 'phoenix', flat: 1, tier: 3, name: TXT('GIFTS.phoenix.name'), icon: 'bf_burn', v: 50, tag: '×{n}' },
     { id: 'execute', tier: 3, name: TXT('GIFTS.execute.name'), icon: 'it_hammer', v: 60 },
   ];
-  // the number lives in v alone and the text only takes it in (TASKS 1900): n gifts of a kind read v × n, in the language's decimals
+  // a number written into the text as well as in v drifted from it: the HUD had to find it there to sum the altars' gifts, and kept its dot (TASKS 1900)
   const giftDesc = (G, n = 1) => TXT('GIFTS.' + G.id + '.desc', { v: G.v * n });
   for (const G of GIFTS) G.desc = giftDesc(G);
   // an altar stands on every second floor, so it is paid from two floors' takings: a bot reaches the floor-2 altar with ~12 shards,

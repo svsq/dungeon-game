@@ -224,7 +224,7 @@
       const gap = 20, w = Math.min(290, Math.floor((P.w - 340 - gap * (ids.length - 1)) / ids.length)), label = { craft: TXT('UI.talk.label'), talk: TXT('UI.talk.talk') };
       const r = ids.map((id, i) => ({ id, label: label[id] || '', on: true, x: P.x + P.w - 40 - w - i * (w + gap), y: P.y + P.h - 92, w, h: 64 }));
       if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 }));
-      // the likeness stands on its frame's floor, 230 tall where the frame lets it, and shrinks to keep a 10 px margin on every side (TASKS 1994)
+      // placed by its own size alone, a likeness ran out of its frame at the feet, and a wide one at the side (TASKS 1994)
       const F = { x: P.x + 34, y: P.y + 44, w: 232, h: P.h - 88 }, pad = 10,
         face = (sw, sh) => { const k = Math.min(230 / sh, (F.w - 2 * pad) / sw, (F.h - 2 * pad) / sh), w = sw * k, h = sh * k; return { x: F.x + F.w / 2 - w / 2, y: F.y + F.h - pad - h, w, h }; };
       return { P, r, F, face }; },
