@@ -269,9 +269,10 @@
     // a strand of moss hanging from the lip of a rock face, one art pixel wide: dark at its root, yellow-green at its tip, a leaf
     // pixel now and then to either side; it sways more the lower it hangs. Painted strands drawn this small melted into the rock
     const MOSS = [[0.12, 0.27, 0.2], [0.25, 0.47, 0.19], [0.45, 0.66, 0.2], [0.68, 0.84, 0.28]];
-    const mossStrand = (o, sd) => { const n = Math.round(9 + 16 * o.s), top = o.y - 34 - 2 * Math.floor(3 * rnd(o.x, 2)), x0 = ev2(sx(o.x));
+    // (TASKS 1372: below the high graphics a strand goes in steps of two pixels down, half its draws; its leaves stay where they were)
+    const mossStrand = (o, sd) => { const n = Math.round(9 + 16 * o.s), top = o.y - 34 - 2 * Math.floor(3 * rnd(o.x, 2)), x0 = ev2(sx(o.x)), st = L.GFX < 2 ? 2 : 1;
       for (let k = 0; k < n; k++) { const q = k / n, dx = ev2(Math.sin(t * 0.7 + sd + k * 0.18) * 3.2 * q * q), col = MOSS[Math.min(3, Math.floor(q * 3.6))], Y = ev2(sy(top)) + 2 * k;
-        L.solid(x0 + dx, Y, 2, 2, col); if (k > 2 && rnd(sd, k) < 0.22) L.solid(x0 + dx + (rnd(sd, k + 50) < 0.5 ? -2 : 2), Y, 2, 2, MOSS[Math.min(3, Math.floor(q * 3.6) + 1)]); } };
+        if (k % st === 0) L.solid(x0 + dx, Y, 2, 2 * Math.min(st, n - k), col); if (k > 2 && rnd(sd, k) < 0.22) L.solid(x0 + dx + (rnd(sd, k + 50) < 0.5 ? -2 : 2), Y, 2, 2, MOSS[Math.min(3, Math.floor(q * 3.6) + 1)]); } };
     // the cave's flora: lilies float on the calm water, moss hangs from the rock faces (water weed stands in the band)
     for (const o of m.flora || []) { if (!vis(o.x, o.y) || o.n === 'weed_cv') continue; const sd = o.x * 0.37 + o.y * 0.11;
       if (o.n === 'lily_cv') { const [w0, h0] = SZ(o.n), w = w0 * o.s, hh = h0 * o.s, dx = Math.round(Math.sin(t * 0.35 + sd)) * 2; L.sprite('lily_cv', sx(o.x) - w / 2 + dx, sy(o.y) - hh / 2, { w, h: hh, flip: !!o.f, u: { grade: [0.9, 0.85, 0, 1] } }); }

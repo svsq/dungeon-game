@@ -92,6 +92,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
+    if (c === 'F2') { devOn = !devOn; e.preventDefault(); return; }                          // the dev line without editing the address
     // the dev keys sit on letters of the Russian layout (з х ъ ю), so in the hero's name field they are letters (review of PR 63);
     // not while paused: a pause that reached the field, by a step or a reload, would otherwise have no key to lift it
     if (paused || !(play && SIM.Q.typing && SIM.Q.typing(play))) {
@@ -100,6 +101,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
       if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; } }
     keys[c] = 1; if (play) (e.repeat ? pend.rep : pend.keys).push(c);
+    // the Steam Deck in desktop mode sends Enter from A (TASKS 252): in play it acts, as E does
+    if (c === 'Enter' && play && play.screen === 'play' && !e.repeat) pend.keys.push('KeyE');
     if (play && e.key.length === 1 && !e.ctrlKey && !e.metaKey) pend.chars.push(e.key);   // e.key, not e.code: the name takes the letters of the player's layout (TASKS 1879)
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay(); else fullSync(true);
@@ -139,10 +142,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // the pointer is kept where it is on the page and put into view px on every frame (review of PR 57): a resize moves the canvas
   // and changes the view's height under a still pointer, and px kept from the last move would point at the old layout
   let cx = null, cy = null;
-  const toView = (e) => { cx = e.clientX; cy = e.clientY; ptr.moved = 1; viewPtr(); };
+  // while the pad leads, the mouse's position is kept but not applied: a trackpad's drift under pad.js's 12 px moved its pointer off
+  // a button (re-review of PR 62); a click (force) is always the mouse's own
+  const toView = (e, force) => { cx = e.clientX; cy = e.clientY; if (!force && pad && pad.state.active) return; ptr.moved = 1; viewPtr(); };
   const viewPtr = () => { if (cx === null) return; const r = cv.getBoundingClientRect(); ptr.x = (cx - r.left) / r.width * SIM.VIEW.W; ptr.y = (cy - r.top) / r.height * SIM.VIEW.H; };
   addEventListener('pointermove', toView);
-  addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
+  addEventListener('pointerdown', (e) => { toView(e, true); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
     fullSync(true);
     if (e.button !== 2 && window.HUD && HUD.trkFoldAt && HUD.trkFoldAt(ptr.x, ptr.y)) { pend.keys.push('TrkFold'); return; }
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
@@ -152,18 +157,23 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   addEventListener('blur', away);
   document.addEventListener('visibilitychange', () => { if (document.hidden) away(); });
   if (desk && desk.onAway) desk.onAway(away);
+  // the gamepad (pad.js, R-08): writes keys, ptr and pend as the listeners above do; R3 or F2 toggle the dev line
+  let devOn = q.has('dev') || /dev/.test(location.hash), padCursor = false;
+  const pad = window.PADIN ? PADIN.create({ keys, ptr, pend, VW, VH, play: () => play, start: () => { if (!play) startPlay(); }, dev: () => { devOn = !devOn; } }) : null;
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
     fpsAcc += wall; fpsN++; if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
+    if (pad) pad.poll(wall);                           // in real time, not scaled by the dev speed
+    if (pad && !!pad.state.active !== padCursor) { padCursor = !!pad.state.active; cv.style.cursor = padCursor ? 'none' : 'crosshair'; }   // the HUD draws the pad's pointer
     const dt = paused ? (stepOnce ? 1 / 60 : 0) : wall * speed; stepOnce = false;
     simT += dt;
     if (play) {
-      acc += dt; viewPtr();
+      acc += dt; if (!padCursor) viewPtr();   // (the pad's pointer is its own while the pad leads, pad.js)
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
         jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, shift: !!(keys.ShiftLeft || keys.ShiftRight), slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
         now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away, upd };
-      while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
+      while (acc >= SIM.DT) { if (pad) pad.stepBegin(); SIM.step(play, inp); if (pad) pad.stepEnd(); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       // «Выход» (TASKS 1877): the save is written just above, then the desktop build closes its window
@@ -177,8 +187,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     } else SCENE.state = null;
     try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
-    if (!STATIC) dev.style.display = (paused || speed !== 1 || q.has('dev')) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
-    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  `;
+    const devShown = !STATIC && (paused || speed !== 1 || devOn);
+    if (!STATIC) dev.style.display = devShown ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
+    if (devShown) { const raw = pad && pad.state.raw; dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (raw ? `\nPAD ${pad.state.n} «${raw.id}» ${pad.state.map}  ax ${raw.ax.join(' ')}  b[${raw.b.join(' ')}]  ${pad.state.mode}` : ''); }
     requestAnimationFrame(loop);
   };
   loop(); bootStep(20); mark('frame', 'the first one, menu or demo'); bootLog(`ready in ${performance.now().toFixed(0)} ms`); bootEnd();

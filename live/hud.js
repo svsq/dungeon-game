@@ -7,6 +7,11 @@
   // line kept off the bottom by H stays on the screen's bottom edge; VH is always the view's
   let W = SIM.VIEW.W, H = SIM.VIEW.H, VH = H;
   const framed = (oy, fn) => { const o = G.oy, h = H; G.oy = oy; H = VH - oy; try { fn(); } finally { G.oy = o; H = h; } };
+  // the gamepad (R-08, live/pad.js): while it speaks, a text with a «key@pad» twin shows the twin (the pad's buttons for the keys)
+  const onPad = () => !!(window.PAD && window.PAD.active), TX0 = globalThis.TXT;
+  const PADK = new Map(Object.keys(TEXT.ru).filter((k) => k.endsWith('@pad')).map((k) => [k.slice(0, -4), k]));   // key → its pad twin, once
+  const TXT = Object.assign((k, p) => { const kp = onPad() && PADK.get(k); return kp ? TX0(kp, p) : TX0(k, p); }, TX0);
+  const PAD_AB = ['Y', 'R1', 'L1'], PAD_POT = { hp_potion: '\u2191', mp_potion: '\u2193', scroll: '\u2190' };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const dotHalves = (str, size) => { const p = str.split(' · '), w = (q) => L.labelW(0, q.join(' · '), { size }); let k = 1, b = Infinity; for (let i = 1; i < p.length; i++) { const m = Math.max(w(p.slice(0, i)), w(p.slice(i))); if (m < b) { b = m; k = i; } } return [p.slice(0, k).join(' · '), p.slice(k).join(' · ')].filter(Boolean); };
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
@@ -42,6 +47,11 @@
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
   let MMB = null, TRK = null;
+  // an elite's label slot (TASKS 2011, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
+  // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
+  const ELS = new Map(), elSlot = (id) => { let s = ELS.get(id);
+    if (s === undefined) { if (ELS.size < 32) s = ELS.size; else { const [old, os] = ELS.entries().next().value; ELS.delete(old); s = os; } } else ELS.delete(id);
+    ELS.set(id, s); return s; };
   const WAY_LEG = ['way', TXT('WAY_LEG')];
   // the town's own legend (TASKS 1023): its services instead of the dungeon's rooms, bosses and altars
   const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')], ['board', TXT('TOWN_LEG.9')]];
@@ -119,6 +129,7 @@
     framed(D.uiDy(S.screen, VH), () => windows(S, R, t, V));
     if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
     if (!S.demo) muteNote(S);
+    if (onPad()) padCursor(S);
     drawTip(S);
   };
   function windows(S, R, t) {
@@ -160,6 +171,13 @@
   function speakerOff(x, y) { plate('mute_ic', x - 26, y - 22, 52, 44, { a: 0.85 }); const c = [0.85, 0.78, 0.66];
     L.solid(x - 14, y - 5, 7, 10, c); for (let i = 0; i < 7; i++) L.solid(x - 7 + i, y - 5 - i, 1, 10 + i * 2, c);
     for (let i = 0; i < 13; i++) { L.solid(x + 3 + i * 0.9, y - 6 + i, 3, 2, [0.95, 0.42, 0.35]); L.solid(x + 3 + i * 0.9, y + 6 - i, 3, 2, [0.95, 0.42, 0.35]); } }
+  // the pad's pointer (pad.js): a ring on the screens it points on, the aim mark in play; none on the keyboard-walked menus
+  function padCursor(S) {
+    const P = window.PAD, x = P.px, y = P.py, play = S.screen === 'play'; if (x == null || S.demo || P.focusScreen) return;
+    if (play && !S.run) return; const r = play ? 12 : 10, gold = [1, 0.84, 0.42];
+    L.ring(x, y, r + 2, r + 2, [0.05, 0.03, 0.02], 0.8, 0.2); L.ring(x, y, r, r, gold, 0.95, play ? 0.12 : 0.16);
+    if (!play) L.solid(x - 2, y - 2, 4, 4, gold, 0, 0, 0, 0.95);
+  }
 
   // ---------------- attract title over the demo ----------------
   function title(S, t) {
@@ -282,9 +300,9 @@
       // group's top as their anchor and fold their powers away until the pointer is over one
       const near = plated(e) ? plates.filter((o) => Math.hypot(V.sx(o.x) - x, V.sy(o.y) - V.sy(e.y)) < 60) : [], crowd = near.length > 1;
       const hov = crowd && !!S.ptr && Math.abs(S.ptr[0] - x) < 30 && S.ptr[1] > y && S.ptr[1] < V.sy(e.y);
-      if (plated(e)) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4;
+      if (plated(e)) { const sl = elSlot(e.id), c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + sl, s, { size: 18 }) / 2 + 4;
         const ly = (crowd ? Math.min(...near.map((o) => V.sy(o.y) - (SZ(D.ENEMIES[o.type].tex || 'en_' + o.type)[1] * 1.3 + 16) * (V.k || 1))) : y) - 24;
-        const sub = e.nm && e.mods && e.mods.length && (!crowd || hov) ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + (e.id % 40), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
+        const sub = e.nm && e.mods && e.mods.length && (!crowd || hov) ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + sl, sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
         // the plate's whole box against the HUD: tested at its corners, a two-line plate wider than the key hints sat on them (TASKS 1887 о)
         if (x - ow > 0 && x + ow < W && ly > 30 && !boxUnderHud(x - ow, ly - 24, ow * 2, oy - ly + 30)) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
@@ -294,9 +312,9 @@
             // a plate: on lava the name's own colour was 1.1:1; at 0.62 it was still 2.5–2.9:1 for the dark reds and blues (TASKS 487),
             // so it is near solid and the name a quarter toward white: 4.5:1 and over on the brightest lava
             L.rrect(cx - hw, b.y - 2, hw * 2, 24, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.9);
-            lab('el' + (e.id % 40), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.25)) });
+            lab('el' + sl, s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.25)) });
             capsule(cx, b.y + 39, 80, e.hp / e.max, true);
-            if (sub) { const sw = lw('els' + (e.id % 40), sub, { size: 20 }) / 2 + 6; L.rrect(cx - sw, b.y + 49, sw * 2, 22, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.85); lab('els' + (e.id % 40), sub, cx, b.y + 60, { size: 20, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.4)) }); }
+            if (sub) { const sw = lw('els' + sl, sub, { size: 20 }) / 2 + 6; L.rrect(cx - sw, b.y + 49, sw * 2, 22, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.85); lab('els' + sl, sub, cx, b.y + 60, { size: 20, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.4)) }); }
             nameZones.push({ x: cx - hw - 20, y: b.y - 20, w: hw * 2 + 40, h: 70 });
             named = true;
           }
@@ -456,11 +474,11 @@
     D.clsOf(h).abs.forEach((A, i) => { const x = B.sx + i * (B.CS + 12), y = B.y + 6, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
       skillCell('sk_' + A.id, x, y, B.CS, A, r, cd, A.cd, h.mp < A.mp, rage);
       if (r && cd > 0) lab('skc_' + A.id, nf(cd, 1, true), x + B.CS / 2, y + B.CS / 2, { size: 24, al: 0.5 });
-      keycap('skk_' + A.id, A.key, x + B.CS / 2, y + B.CS - 18); });
+      keycap('skk_' + A.id, onPad() ? PAD_AB[i] : A.key, x + B.CS / 2, y + B.CS - 18); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
     potsOf(R).forEach(([b, ic, k], i) => { const x = B.px + i * (B.PS + 12), y = B.y + 16;
-      K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 11, y + 9, 42); keycap('potk_' + b, k, x + 12, y - 10); keycap('potn_' + b, pot(b), x + B.PS - 14, y + B.PS - 16); });
+      K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 11, y + 9, 42); keycap('potk_' + b, onPad() ? PAD_POT[b] : k, x + 12, y - 10); keycap('potn_' + b, pot(b), x + B.PS - 14, y + B.PS - 16); });
     // the gold on its own plate as on the ref, the soul shards and a floor's key under it the same way: icon first, the count on its own plate (TASKS 1908)
     icon('it_gold', B.mx, B.y + 14, 36); K.nine('btn', B.mx + 44, B.y + 10, B.gw, 44); K.ink('gold_count', B.gold, B.goldC[0], B.goldC[1], { size: 26, al: 0.5 }); L.uiBox('gold_b', B.mx + 58, B.y + 10, B.gw - 28, 44, 0);
     tipAt(B.mx, B.y + 10, B.gw + 44, 44, TXT('hud.altar.6', { gold: B.gold }), TXT('hud.tip.gold'), B.y);
@@ -626,7 +644,7 @@
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
     const hid = SIM.Q.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
-    if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
+    if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d', { willReadFrequently: true }); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
       const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };

@@ -27,6 +27,7 @@
       if (T.meta.zoom !== D.ZOOMS[0]) out.push('settings: a click at the slider\'s left end does not set ×0,5');
       step(T, { keys: [], press: 0 }); step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.bright !== 1.2) out.push('settings: → on the brightness row does not brighten one step');
       step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowLeft'] }); if (T.meta.vol !== 0.75) out.push(`settings: ← on the volume row does not step it down (${T.meta.vol})`);
+      step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowLeft'] }); if (T.meta.gfx !== 1) out.push('settings: ← on the graphics row does not step from high to middle (TASKS 1372)');
       // TASKS 1864: the fullscreen row is a checkbox, a click or Enter on it flips the wish kept in the meta
       const fr = UI.settings().r.find((q) => q.id === 'full'), n1 = T.saveN; step(T, { keys: [], press: 0 }); step(T, { keys: [], click: 1, press: 1, px: fr.x + fr.w / 2, py: fr.y + fr.h / 2 }); step(T, { keys: [], press: 0 });
       if (T.meta.full !== 1 || T.saveN === n1) out.push('settings: a click on «Полный экран» does not ask for the full screen, or the wish is not kept');

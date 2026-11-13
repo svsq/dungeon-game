@@ -8,6 +8,9 @@
   const L = (window.LIB = {});
   const Q = G.params;
   L.NOFX = Q.get('fx') === '0';
+  // the graphics setting (TASKS 1372, S.meta.gfx): 2 the full picture, 1 middle, 0 low; the scene sets it each frame, ?gfx=0|1|2 overrides
+  // (review of PR 62: +'low' was NaN, which ?? keeps, and no setting drew that way)
+  L.GFX = 2; L.GFX_Q = ({ 0: 0, 1: 1, 2: 2, low: 0, mid: 1, high: 2 })[(Q.get('gfx') || '').toLowerCase()] ?? null;
   L.ONLY = (Q.get('only') || '').split(',').filter(Boolean);
 
   // ---------------- shaders (GLSL ES 3.00 bodies; gl.js prepends COMMON: hash, vnoise, fbm, scr) ----------------
@@ -41,8 +44,11 @@ uniform sampler2D u_clipm; uniform vec4 u_clipb; uniform float u_clipk; uniform 
 // keeps honest where the samples would sweep its whole length) and painted in its most common colour. No darkest-on-the-edge rule:
 // a rig is many parts, and each part's own edge would draw dark seams inside the figure; the ink pass gives the outer contour
 uniform float u_snap;           // 1: snap to the target's pixel grid, 2: the same from the full-size texture
+// a flat ink copy (u_grade 0, 0, 1: no saturation, no brightness, all haze) keeps none of the texture's colour, only that it covers:
+// the vote is skipped and the pixel comes out the same (TASKS 2010: an outline's 8 copies ran it on every pixel of every part)
 vec4 snapTex(vec2 tuv, vec2 jx, vec2 jy, float lod, float a0){
   if (a0 < 0.5) return vec4(0.0);
+  if (u_grade.x == 0.0 && u_grade.y == 0.0 && u_grade.z == 1.0) return vec4(0.0, 0.0, 0.0, 1.0);
   vec4 tp[16]; float cov = 0.0;
   for (int k = 0; k < 16; k++) { vec2 f = (vec2(float(k % 4), float(k / 4)) + 0.5) / 4.0 - 0.5; vec4 t = textureLod(u_tex, tuv + jx * f.x + jy * f.y, lod);
     tp[k] = vec4(t.rgb / max(t.a, 1e-3), t.a); cov += step(0.5, t.a); }
@@ -293,6 +299,8 @@ void main(){ vec3 lt = texture(u_light, scr(v_px)).rgb;
       + streaks(p + u_cam * 0.8, 13.0, 160.0, 1150.0, 0.3, 2.0, 0.55 * u_amt) * 0.35 + streaks(p + u_cam * 0.6, 8.0, 110.0, 850.0, 0.26, 3.0, 0.6 * u_amt) * 0.22;
     vec3 c = vec3(0.6, 0.66, 0.78) * (0.32 + 1.1 * lum(lt)) + lt * 0.5; a *= u_amt; o = vec4(c * a, a * 0.7); } }`;
   const SOLID = `uniform vec3 u_col; uniform float u_a; void main(){ o = vec4(u_col * u_a, u_a); }`;
+  // the same flat colour for G.solid's batch, each rectangle's colour and alpha from the vertex shader (TASKS 2011)
+  const SOLIDN = `flat in vec4 v_rc; void main(){ o = vec4(v_rc.rgb * v_rc.a, v_rc.a); }`;
   const JOINT = `
 uniform vec3 u_col; uniform float u_dark;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float d = length(q);
@@ -382,14 +390,15 @@ uniform sampler2D u_src; uniform vec2 u_dir; uniform vec3 u_col;
 float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }
 void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2.0) > 0.5) discard;
   for (int k = 2; k <= 12; k++) if (at(u_dir * float(2 * k)) > 0.5) discard; o = vec4(u_col, 1.0); }`;
-  const SH = { RIMOUT, RIMIN, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
+  const SH = { RIMOUT, RIMIN, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, SOLIDN, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
   L.SH = SH;
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
   // in W×H view px) that finish upscales with nearest: crisp pixel art (pair with SCENE.NEAREST, positions snapped to k px)
   L.init = (w, h, extra = {}, { pixel = 1, view = [w, h] } = {}) => {
     W = L.W = w; H = L.H = h; P = L.P = {}; L.PIXEL = Math.max(1, pixel);
-    for (const k in SH) P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
+    for (const k in SH) if (k !== 'SOLIDN') P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
+    P.spriten = G.program('spriten', SPRITE, 'off'); P.solidn = G.program('solidn', SOLIDN, 'rect');   // the batched (TASKS 2010, 2011)
     for (const k in extra) P[k] = G.program(k, extra[k]);
     const px = L.PIXEL, lo = { view, nearest: px > 1 };
     for (const k in T) G.free(T[k]);
@@ -422,6 +431,11 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
     rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, reveal: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   const UNAME = {};
+  // a sprite's uniforms under the shader's names in one fixed shape, the defaults set in the constructor: a plain object merged
+  // key by key from ~35 fields left V8's fast properties and cost a sixth of the Deck's frame (TASKS 1372)
+  const SU = new Function('D', 'return function SU() {' + Object.keys(DEF).map((k) => `this.u_${k} = D.${k};`).join(' ') + ' this.u_tex = null; this.u_snap = undefined; this.u_pad = null; };')(DEF);
+  for (const k in DEF) UNAME[k] = 'u_' + k;
+  const SP_INK = [0, 0, 1, 1], SP_SOFT = [0, 0, 0, 1], SP_RIM = [0, 0, 0, 0], SP_TINT = [1, 1, 1, 0];
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.FXPX = 0;   // > 0: L.glow, L.puff, L.ring and L.star drawn now sit on this art grid in stepped levels (TASKS 1792)
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
@@ -442,10 +456,12 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
     if (o.m) { const F = M.mul(L.pre ? M.mul(L.pre, o.m) : o.m, [w + 2 * pw, 0, 0, h + 2 * ph, -pw - piv[0], -ph - piv[1]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; }
     else { X = G.xf(x - pw, y - ph, w + 2 * pw, h + 2 * ph, rot, piv[0] + pw, piv[1] + ph);
       if (L.pre) { const F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; } }
+    if (!G.rec) LAST.draw = null;
     if (!G.rec && G.outside(X)) return { w, h };
-    const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx }); if (U.snap === undefined) U.snap = L.SNAP;
-    if (sp) Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
-    const uni = {}; for (const k in U) uni[UNAME[k] || (UNAME[k] = k.startsWith('u_') ? k : 'u_' + k)] = U[k];
+    const uni = new SU(), ou = o.u;
+    if (ou) for (const k in ou) uni[UNAME[k] || (UNAME[k] = k.startsWith('u_') ? k : 'u_' + k)] = ou[k];
+    uni.u_tex = tx; if (uni.u_snap === undefined) uni.u_snap = L.SNAP;
+    if (sp) { uni.u_grade = sp.ink ? SP_INK : SP_SOFT; uni.u_haze = sp.ink || uni.u_haze; uni.u_alpha = sp.a * (uni.u_alpha === undefined ? 1 : uni.u_alpha); uni.u_lod = sp.lod || 0; uni.u_rim = SP_RIM; uni.u_tint = SP_TINT; uni.u_pale = 0; }
     uni.u_pad = [pad / (1 + 2 * pad), pad / (1 + 2 * pad)];
     uni.u_src = src;
     if (G.rec && sp === REC_SP) { const pr = L.pre || M_ID; G.rec.push({ U: uni, X, flip: [o.flip ? 1 : 0, 0], x: X[6], y: X[7], al: uni.u_alpha, pre: pr }); return { w, h }; }
@@ -459,11 +475,41 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
     if (typeof e === 'string') G.blend(e || undefined);
     else if (Array.isArray(e)) G.draw(e[0], e[1], e[2], e[3]);
     else { e.U.u_haze = sp.ink; e.U.u_alpha = sp.a * e.al; e.U.u_lod = sp.lod || 0; e.X[6] = e.x + e.pre[0] * sp.dx + e.pre[2] * sp.dy; e.X[7] = e.y + e.pre[1] * sp.dx + e.pre[3] * sp.dy; G.draw(P.sprite, e.U, e.X, e.flip); } } };
+  // Copies that differ only by their shift go out part by part, every copy of a part in one instanced call (TASKS 2010): an outline was
+  // 8 copies of every part of a rig, 84 % of a big floor's draws. The copies are cut into runs of one flat colour, alpha and lod (an
+  // aura's three rings are three runs), the runs drawn in their order. Within a run "over" of one colour gives the same pixel in any
+  // order, so parts first or copies first draw the same picture. A rig that changes blend or draws anything but sprites inside the
+  // silhouette keeps the copy-by-copy replay
+  const OFF = new Float32Array(2 * G.N_OFF);
+  const sameSp = (p, q) => p.a === q.a && (p.lod || 0) === (q.lod || 0) && (p.ink === q.ink || (!!p.ink && !!q.ink && p.ink[0] === q.ink[0] && p.ink[1] === q.ink[1] && p.ink[2] === q.ink[2]));
+  const stampable = (list) => { if (!L.STAMP_ONE) return false; for (const e of list) if (typeof e === 'string' || Array.isArray(e)) return false; return true; };
+  const replayN = (list, sps, i0, n) => { const s0 = sps[i0];
+    for (const e of list) {
+      e.U.u_haze = s0.ink; e.U.u_alpha = s0.a * e.al; e.U.u_lod = s0.lod || 0; e.X[6] = e.x; e.X[7] = e.y;
+      const pr = e.pre; let m = 0; for (let k = 0; k < n; k++) { const sp = sps[i0 + k], ox = pr[0] * sp.dx + pr[2] * sp.dy, oy = pr[1] * sp.dx + pr[3] * sp.dy; OFF[2 * k] = ox; OFF[2 * k + 1] = oy; m = Math.max(m, Math.abs(ox), Math.abs(oy)); }
+      if (G.outside(e.X, m)) continue;
+      G.drawN(P.spriten, e.U, e.X, e.flip, OFF, n); } };
+  const replayRuns = (list, sps) => { for (let i = 0; i < sps.length;) { let j = i + 1; while (j < sps.length && j - i < G.N_OFF && sameSp(sps[i], sps[j])) j++;
+    if (j - i === 1) replay(list, sps[i]); else replayN(list, sps, i, j - i); i = j; } };
+  // ?batch=0: every batch off, the picture before 2010–2011 (samecheck's reference): copies one by one, the pose recorded for each
+  // stamp, flat rectangles drawn one by one. ?stamp1=0 (older name) turns off the copies and the pose only
+  L.STAMP_ONE = G.params.get('stamp1') !== '0' && G.params.get('batch') !== '0';
+  L.SOLIDS = G.params.get('batch') !== '0';
+  // A rig's silhouette is posed once for the stamps that follow one another with the same draw (TASKS 2011): an elite's aura, its
+  // hit flash, its rim and its ink outline were four poses of one rig in one frame. The record is dropped by any sprite drawn for
+  // real (the body itself, the next actor), by another L.pre and at the frame's start
+  // (L.SNAP is set once per pass, never between the stamps of one rig: it is not part of the key; a target bound between them
+  // is replayed into in the same view px, see L.inked's rim.box)
+  const LAST = { draw: null, pre: null, list: null };
   L.stamp = (draw, sps) => {
     if (G.rec) { for (const sp of sps) { L.sp = sp; draw(); } L.sp = null; return; }
-    const list = G.rec = []; L.sp = REC_SP;
-    try { draw(); } finally { G.rec = null; L.sp = null; }
-    for (const sp of sps) replay(list, sp);
+    let list;
+    if (L.STAMP_ONE && LAST.draw === draw && LAST.pre === L.pre) list = LAST.list;
+    else { list = G.rec = []; L.sp = REC_SP;
+      try { draw(); } finally { G.rec = null; L.sp = null; }
+      LAST.draw = draw; LAST.pre = L.pre; LAST.list = list; }
+    if (stampable(list)) replayRuns(list, sps);
+    else for (const sp of sps) replay(list, sp);
   };
   // rig joint trace for qa.mjs (animation.md §14): while L.TRACE is an object, rigs report screen points per actor instance
   L.TRACE = null;
@@ -474,6 +520,8 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // emit: the ink is an emitter, so no light lifts it; rim { dx, dy, col }: one more flat copy shifted toward the light over the ink,
   // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
   let rimLast = null;
+  // (rim.box: the silhouette is recorded and replayed into T.rim, then the same record is replayed into the frame's target; that
+  // holds because T.rim has the same view as bg and comp, L.init. A rim target with another view would need its own record)
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
     const rimMask = (rs) => { const back = G.cur(); G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(...rim.box); rimLast = rim.box; G.blend(); L.stamp(draw, rs); G.bind(back); };
     if (rim && rim.box && !rim.inside) { const [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1;
@@ -494,7 +542,7 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
-  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py));   // a: opacity (premultiplied)
+  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (rot || G.rec || !L.SOLIDS ? G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
   L.rrect = (x, y, w, h, r, c0, c1 = c0, a = 1) => G.draw(P.rrect, { u_sz: [w, h], u_r: r, u_a: a, u_c0: c0, u_c1: c1 }, G.xf(x, y, w, h));
   L.puff = (x, y, r, col, amt, seed) => G.draw(P.puff, { u_col: col, u_amt: amt, u_seed: seed, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r));
   L.star = (x, y, r, col, amt) => { G.blend('add'); G.draw(P.star, { u_col: col, u_amt: amt, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
@@ -567,7 +615,8 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   const setFont = (g, f, bold) => { g.font = f.font; g.letterSpacing = bold ? f.unit + 'px' : '0px'; };
   const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315', bold = false } = {}) => {
     const f = fit(size, bold), { font, px, unit } = f; let r = LBL[slot]; const key = [str, font, col, out, bold].join('|'); if (r && r.key === key) return r;
-    const cv = G.canvas(), g = cv.getContext('2d'), pad = Math.ceil(px * 0.3) + unit;
+    // (TASKS 2012: a CPU canvas; a GPU one made every upload a round trip through the GPU process, a new screen's labels 0.3–0.6 s on the Deck)
+    const cv = G.canvas(), g = cv.getContext('2d', { willReadFrequently: true }), pad = Math.ceil(px * 0.3) + unit;
     setFont(g, f, bold); const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
     cv.width = Math.max(1, w); cv.height = h; setFont(g, f, bold); g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
     const stamp = (dx, dy, c) => { g.fillStyle = c; for (let b = 0; b <= (bold ? 1 : 0); b++) g.fillText(str, pad + (dx + b) * unit, base + dy * unit); };
@@ -615,7 +664,7 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   };
 
   // ---------------- frame pipeline ----------------
-  L.beginBG = (clear = [0.08, 0.1, 0.06, 1]) => { L.qaReset(); G.bind(T.bg, clear); G.blend(); };     // first call of every frame
+  L.beginBG = (clear = [0.08, 0.1, 0.06, 1]) => { LAST.draw = null; LAST.list = null; L.qaReset(); G.bind(T.bg, clear); G.blend(); };     // first call of every frame
   // god rays: bright, warm, sky-ish pixels of the background near the sun, radially blurred, screened back onto it
   L.godRays = (t, { sun = L.SUN, amt = 0.42, col = [1.0, 0.80, 0.55] } = {}) => {
     G.blend('none'); G.bind(T.mask); G.full(P.rmask, { u_t: t, u_src: T.bg, u_sun: [sun[0] / 2, sun[1] / 2] });
