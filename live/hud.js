@@ -741,7 +741,8 @@
     const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
     dim(0.45);
     KIT.panel('inv', Lp.x, Lp.y, Lp.w, Lp.h, 'leather'); KIT.panel('inv_r', Rp.x, Rp.y, Rp.w, Rp.h, 'torn', { pad: 0 });
-    KIT.banner('inv_t', cx, Lp.y + 16, 340, TXT('hud.inv'), { h: 72, size: 34 });
+    // the name typed on the class screen heads the page (TASKS 1912); a nameless hero keeps the page's own title
+    { const nm = (h.name || '').trim() || TXT('hud.inv'); KIT.banner('inv_t', cx, Lp.y + 16, Math.min(Lp.w - 80, Math.max(340, lw('inv_tm', nm, { size: 34 }) + 140)), nm, { h: 72, size: 34 }); }
     // portrait and level between the two columns of gear
     L.solid(cx - 121, Lp.y + 106, 242, 206, [0.05, 0.035, 0.03]); L.sprite(portraitOf(h), cx - 115, Lp.y + 112, { w: 230, h: 194, src: [0.04, 0.0, 0.96, 0.77] }); edge(cx - 121, Lp.y + 106, 242, 206, BRASS, 3);
     L.uiBox('inv_por', cx - 121, Lp.y + 106, 242, 206);
