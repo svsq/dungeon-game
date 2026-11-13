@@ -33,7 +33,7 @@
       spell('whirl', e.x, y, radius + 32, radius + 32, { u_center: [e.x, y], u_origin: [e.x, e.y], u_radius: radius, u_age: a, u_angle: angle, u_col: weaponCol(e.rar || 0), u_mode: mode });
     };
     const blastFx = (e, a, mode) => {
-      const x = e.gx ?? e.x, y = e.gy ?? e.y + 24, radius = e.big ? 140 : 88;
+      const x = e.gx ?? e.x, y = e.gy ?? e.y + 24, radius = e.vr ?? (e.big ? 140 : 88);
       spell('blast', x, y, radius + 12, radius + 12, { u_center: [x, y], u_origin: [x, y], u_radius: radius, u_age: a, u_seed: e.t * 13, u_mode: mode });
     };
     const fireFx = (p) => {

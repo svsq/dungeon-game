@@ -5,6 +5,11 @@
   const stage = (cls = 'warrior', seed = 91) => { const S = spawn(0, {}), R = newRun(S, 'campaign', seed, { cls }); S.run = R; S.screen = 'play'; S.t = R.t = 10; S.meta.open = allOpen(); const h = R.hero, m = R.map, cx = m.W >> 1, cy = m.H >> 1; for (let y = cy - 7; y <= cy + 7; y++) for (let x = cx - 9; x <= cx + 9; x++) m.cells[y * m.W + x] = 1; h.x = cx * TILE + 16; h.y = cy * TILE + 18; R.en = []; R.proj = []; R.fires = []; h.hp = 1e4; for (const a of D.clsOf(h).abs) { h.ab[a.id] = 1; h.cd[a.id] = 0; } h.mp = 1e3; return { S, R, h }; };
   const foe = (R, h, dx = 60, dy = 0, type = 'skeleton') => { const e = { id: R.nextId++, type, x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, hp: 1e5, max: 1e5, dmg: 1, elite: 0, room: -1, st: 'chase', t0: 0, face: 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, phase: 0, summ: 0, hx: h.x, hy: h.y, seenT: 0, ft: -9 }; R.en.push(e); return e; };
   function grant(h, id, P) { D.POWERS[id] = P; (h.powers = h.powers || {})[id] = 1; }
+  // a fireball thrown right into a pack of eight: every ball, blast and shard flies out and the damage the pack took is summed
+  const crowdFire = (ids) => { const c = stage('mage'), h = c.h; h.powers = Object.fromEntries(ids.map((i) => [i, 1])); h.aim = 0; const pack = [];
+    for (let i = 0; i < 8; i++) pack.push(foe(c.R, h, 90 + (i >> 1) * 45, (i & 1 ? 1 : -1) * 22 + 20));
+    c.S.ev = []; castAbility(c.S, c.R, 'fireball', {}); for (let i = 0; i < 120 && c.R.proj.length; i++) { c.S.t += SIMX.DT; SIMX.stepProjectiles(c.S, c.R); }
+    return { dmg: pack.reduce((n, e) => n + e.max - e.hp, 0), shards: c.S.ev.filter((e) => e.k === 'boom' && e.vr).length }; };
   const hits = (S, id) => S.ev.filter((e) => e.k === 'power' && e.id === id).length;
   function checkPowerGifts(out) {
     for (const cl of ['warrior', 'mage', 'archer']) { const c = stage(cl), C = D.CLASSES[cl], seen = new Set();
@@ -33,7 +38,8 @@
       c.h.powers = { [g.needs[0]]: 1 }; if (D.evosReady(c.h).some((q) => q.id === g.id)) out.push(`evo: ${g.id} ready with one of two`); c.h.powers[g.needs[1]] = 1; if (!D.evosReady(c.h).some((q) => q.id === g.id)) out.push(`evo: ${g.id} not ready with both`);
       const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; if (sh.gifts[2].id !== g.id) out.push(`evo: the altar's dear card is ${sh.gifts[2].id}, not ${g.id}`);
       c.h.powers[g.id] = 1; if (D.evosReady(c.h).some((q) => q.id === g.id)) out.push(`evo: ${g.id} offered twice`); }
-    { const c = stage('mage'); c.h.powers = { fire_split: 1, ev_comet: 1 }; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.length !== 5) out.push(`evo: the comet is ${c.R.proj.length} balls`); }
+    { const c = stage('mage'); c.h.powers = { fire_split: 1, fire_pierce: 1, ev_comet: 1 }; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.length !== 3 || c.R.proj.some((p) => !p.frag || p.frag.n !== 5)) out.push(`evo: the comet is ${c.R.proj.length} balls of ${c.R.proj.map((p) => p.frag && p.frag.n)} shards`);
+      const one = crowdFire(['fire_pierce', 'ev_comet']); if (one.shards !== 5) out.push(`evo: the comet's ball broke into ${one.shards} shards`); }
   }
   function checkAltarExtras(out) {
     { const c = stage('warrior'), sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; c.S.meta.shards = 100; const c0 = D.rerollCost(0, 1), c1 = D.rerollCost(1, 1); if (c1 <= c0) out.push('reroll: not dearer the second time');
@@ -89,7 +95,7 @@
       if (f.S.screen !== 'inv' || fh.draft || !D.hasPower(fh, 'f_fireball_3b')) out.push('draft: a fork taken does not keep the rank under it'); }
     { const c = stage('mage'); c.h.powers = { f_fireball_3a: 1 }; const d0 = 100; const p = { dmg: d0, vx: 10, vy: 0, life: 1, pierce: 0 }; SIMX.firePowers(c.S, c.R, 'cast:fireball', { projs: [p] }); if (p.dmg !== 125 || Math.abs(p.vx - 8) > 1e-9) out.push(`fork: the heavy ball is ${p.dmg}, ${p.vx}`); }
     { const c = stage('mage'); c.h.powers = { f_shield_3a: 1 }; c.h.ab.shield = 1; castAbility(c.S, c.R, 'shield', {}); const n = D.shieldHp(SIMX.heroSt(c.S).int, 1, 1); if (c.h.shield !== Math.round(n * 1.3)) out.push(`fork: the shield holds ${c.h.shield}, not ${Math.round(n * 1.3)}`); }
-    { const c = stage('mage'); c.h.powers = { th_mage: 1 }; c.h.base.int = 1; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj[0].pierce) out.push('threshold: the ball pierces below INT 25'); const d = stage('mage'); d.h.powers = { th_mage: 1 }; d.h.base.int = 30; castAbility(d.S, d.R, 'fireball', {}); if (!d.R.proj[0].pierce) out.push('threshold: no pierce at INT 25'); }
+    { const c = stage('mage'); c.h.powers = { th_mage: 1 }; c.h.base.int = 1; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj[0].frag) out.push('threshold: the ball shatters below INT 25'); const d = stage('mage'); d.h.powers = { th_mage: 1 }; d.h.base.int = 30; castAbility(d.S, d.R, 'fireball', {}); if (!d.R.proj[0].frag) out.push('threshold: no shatter at INT 25'); }
     { const c = stage('archer'), h = c.h; h.base.agi = 30; h.cd.dash = 0; SIMX.step(c.S, { keys: ['Space'], px: 960, py: 540 }); const d1 = h.cd.dash; if (!(d1 > c.S.t)) out.push('threshold: the dash did not spend'); h.dashT = -9; SIMX.step(c.S, { keys: ['Space'], px: 960, py: 540 }); if (!(h.cd.dash2 > c.S.t)) out.push('threshold: no second dash at AGI 20'); }
     { const c = stage('archer'), h = c.h; h.base.agi = 1; h.cd.dash = 1e9; h.dashT = -9; SIMX.step(c.S, { keys: ['Space'], px: 960, py: 540 }); if (h.dashT >= 0) out.push('threshold: a second dash below AGI 20'); }
     { const c = stage('warrior'); c.h.base.str = 30; c.h.thTip = 0; SIMX.thresholdTip(c.S, c.R); if (!c.R.msg || !c.h.thTip) out.push('threshold: no word of it'); }
@@ -110,9 +116,9 @@
     { const c = stage('mage'), e = foe(c.R, c.h, 200); c.h.powers = { f_frost_3a: 1, kit_long: 1 }; e.cdT = 1e9; SIMX.firePowers(c.S, c.R, 'cast:frost', { x: e.x, y: e.y }); for (let i = 0; i < 5; i++) SIMX.step(c.S, { keys: [], px: 960, py: 540 }); if (e.slowK !== 0.45) out.push(`slow: the deep frost slows to ${e.slowK} a step on`);
       SIMX.POWER_FX.slow(c.S, c.R, D.POWERS.kit_long, { e }); for (let i = 0; i < 5; i++) SIMX.step(c.S, { keys: [], px: 960, py: 540 }); if (e.slowK !== 0.45) out.push(`slow: a weaker chill thinned a stronger one to ${e.slowK}`);
       e.chillT = c.S.t; for (let i = 0; i < 5; i++) SIMX.step(c.S, { keys: [], px: 960, py: 540 }); if (e.slowK !== 1) out.push(`slow: the chill does not thaw (${e.slowK})`); }
-    const cast = (ids) => { const c = stage('mage'); c.h.powers = Object.fromEntries(ids.map((i) => [i, 1])); castAbility(c.S, c.R, 'fireball', {}); return c.R.proj.map((p) => [p.dmg, p.pierce || 0, Math.round(p.vx * 1e3), Math.round(p.vy * 1e3), Math.round(p.life * 1e3)].join()).sort().join(' '); };
+    const cast = (ids) => { const c = stage('mage'); c.h.powers = Object.fromEntries(ids.map((i) => [i, 1])); castAbility(c.S, c.R, 'fireball', {}); return c.R.proj.map((p) => [p.dmg, p.pierce || 0, p.frag ? p.frag.n : 0, Math.round(p.vx * 1e3), Math.round(p.vy * 1e3), Math.round(p.life * 1e3)].join()).sort().join(' '); };
     for (const pair of [['fire_split', 'fire_pierce'], ['fire_split', 'f_fireball_3a'], ['ev_comet', 'f_fireball_3b'], ['fire_split', 'ev_comet']]) { const A = cast(pair), B = cast(pair.slice().reverse()); if (A !== B) out.push(`order: ${pair} gives ${A}, the other way ${B}`); }
-    { const c = stage('mage'); c.h.powers = { fire_split: 1, fire_pierce: 1 }; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.some((p) => p.pierce !== 1)) out.push('order: a side ball does not pierce'); }
+    { const c = stage('mage'); c.h.powers = { fire_split: 1, fire_pierce: 1 }; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.some((p) => !p.frag)) out.push('order: a side ball does not shatter'); }
   }
   function checkPowerPack(out) {
     const T = 'POWERS', own = (c, id) => { (c.h.powers = c.h.powers || {})[id] = 1; };
@@ -121,7 +127,11 @@
     { const c = stage('warrior'); own(c, 'whirl_pull'); const e = foe(c.R, c.h, 70); castAbility(c.S, c.R, 'whirl', {}); if (!(e.kbx < 0)) out.push(`power: the whirl does not pull (kbx ${e.kbx})`); }
     { const c = stage('warrior'); own(c, 'whirl_ring'); castAbility(c.S, c.R, 'whirl', {}); if (c.R.fires.filter((f) => f.own === 'hero').length < 4) out.push('power: no ring of fire after the whirl'); }
     { const c = stage('mage'); own(c, 'fire_split'); castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.length !== 3) out.push(`power: the split ball is ${c.R.proj.length} balls`); }
-    { const c = stage('mage'); own(c, 'fire_pierce'); castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj[0].pierce !== 1) out.push('power: the ball does not pierce'); }
+    { const c = stage('mage'); own(c, 'fire_pierce'); castAbility(c.S, c.R, 'fireball', {}); if (!c.R.proj[0].frag) out.push('power: the ball does not shatter'); }
+    // TASKS 1982: the pierce once traded the blast for a pass through and did less against a pack than the plain ball
+    { const plain = crowdFire([]), shat = crowdFire(['fire_pierce']); if (shat.shards !== D.SHARDS.n) out.push(`power: the ball broke into ${shat.shards} shards, not ${D.SHARDS.n}`);
+      if (!(plain.dmg > 0) || shat.dmg < plain.dmg) out.push(`power: the shattering ball dealt the pack ${shat.dmg}, the plain one ${plain.dmg}`);
+      const S2 = crowdFire(['fire_split', 'fire_pierce']); if (S2.shards > 3 * D.SHARDS.n) out.push(`power: shards shatter again (${S2.shards} from three balls)`); }
     { const c = stage('mage'); own(c, 'shield_burst'); const e = foe(c.R, c.h, 50), hp = e.hp; SIMX.firePowers(c.S, c.R, 'shieldEnd', { x: c.h.x, y: c.h.y, left: 40 }); if (hp - e.hp < 40) out.push(`power: the shield's end took ${hp - e.hp}`); }
     { const c = stage('mage'); own(c, 'shield_feed'); castAbility(c.S, c.R, 'shield', {}); const u = c.h.shieldUntil; killEnemy(c.S, c.R, foe(c.R, c.h)); if (Math.abs(c.h.shieldUntil - u - 1) > 1e-6) out.push('power: a kill does not feed the shield'); c.h.shield = 0; const u2 = c.h.shieldUntil; killEnemy(c.S, c.R, foe(c.R, c.h)); if (c.h.shieldUntil !== u2) out.push('power: a kill feeds a shield that is down'); }
     { const c = stage('archer'); own(c, 'volley_pierce'); castAbility(c.S, c.R, 'volley', {}); if (c.R.proj.length !== D.VOLLEY.n || c.R.proj.some((p) => p.pierce < 1)) out.push('power: the volley does not pierce'); }

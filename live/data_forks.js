@@ -40,7 +40,7 @@
     f_leap_6a: { id: 'f_leap_6a', ab: 'leap', name: TXT('POWERS.f_leap_6a.name'), desc: TXT('POWERS.f_leap_6a.desc'), trig: 'cast:leap', fx: 'burnGround', k: 0.25, t: 2, per: 0.5 },
     f_leap_6b: { id: 'f_leap_6b', ab: 'leap', name: TXT('POWERS.f_leap_6b.name'), desc: TXT('POWERS.f_leap_6b.desc'), trig: 'cast:leap', fx: 'nova', k: 0.5, r: 90, kb: 1 },
     th_warrior: { id: 'th_warrior', trig: 'hit', if: 'str25', fx: 'stun', t: 0.4, boss: 0.1, icd: 1.5 },
-    th_mage: { id: 'th_mage', trig: 'cast:fireball', if: 'int25', fx: 'pierce', n: 1 },
+    th_mage: { id: 'th_mage', trig: 'cast:fireball', if: 'int25', ...D.SHARDS },
   });
   const FORKS = {
     whirl: { 3: ['f_whirl_3a', 'f_whirl_3b'], 6: ['f_whirl_6a', 'f_whirl_6b'] },
