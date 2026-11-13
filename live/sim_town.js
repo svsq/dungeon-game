@@ -384,12 +384,16 @@
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
     return m.rooms.filter((r) => r.type === 'combat' && !r.pocket && !r.isle && !(m.shop && m.shop.room === r.id)).sort((a, b) => Math.hypot(b.cx * TILE - sp.x, b.cy * TILE - sp.y) - Math.hypot(a.cx * TILE - sp.x, a.cy * TILE - sp.y)); }
+  const titleKin = (title, type) => { const G = D.ELITE_NAMES[D.ELITE_GROUP[type]]; return !!G && G.names.some((n) => G.adj.some((a) => title === n[0] + ' ' + a[n[1] === 'f' ? 1 : 0])); };
+  const retype = (e, type) => { const A = ENEMIES[e.type], B = ENEMIES[type]; e.hp = e.max = Math.max(1, Math.round(e.max * B.hp / A.hp)); e.dmg = e.dmg * B.dmg / A.dmg; e.type = type; delete e.fa; };
   const plainFoe = (e) => e.deadT < 0 && counted(e) && !D.BOSSES[e.type] && !e.elite && !e.guard && !e.exit && !ENEMIES[e.type].lurk && !ENEMIES[e.type].deep && !ENEMIES[e.type].lake && e.room >= 0;
   function questPlace(S, R) { const f = R.floor, m = R.map;
     for (const q of R.quests || []) { const Q = D.QUESTS[q.key]; if (q.st !== 'taken' || q.f !== f || !Q.fresh || q.placed) continue; q.placed = 1; const rooms = questRooms(R);
-      if (Q.type === 'named') { const kin = (e) => D.ELITE_GROUP[e.type] === D.ELITE_GROUP[q.foe], pickIn = (ok) => { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && ok(e) && e.room === r2.id)); return r && R.en.find((o) => plainFoe(o) && ok(o) && o.room === r.id); };
-        const e = pickIn(kin) || pickIn((o) => D.ELITE_GROUP[o.type]);
-        if (!e) { q.lost = 1; continue; } if (!q.title || !kin(e)) { q.foe = e.type; q.title = nickOf(e.type, nickHash(R, e)); } const stg = STAGE(R, f), mob = stg.mob || 1;
+      if (Q.type === 'named') { if (!q.foe && q.title) q.foe = namedPool(R, f).find((t) => titleKin(q.title, t));
+        const kin = (e) => (q.foe ? D.ELITE_GROUP[e.type] === D.ELITE_GROUP[q.foe] : !!D.ELITE_GROUP[e.type]), pickIn = (ok) => { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && ok(e) && e.room === r2.id)); return r && R.en.find((o) => plainFoe(o) && ok(o) && o.room === r.id); };
+        // the townsman has already said the name, so a floor without the family gets one of it in place of a plain foe (TASKS 1998)
+        let e = pickIn(kin); if (!e && q.foe && (e = pickIn(() => true))) retype(e, q.foe);
+        if (!e) { q.lost = 1; continue; } if (!q.title) { q.foe = e.type; q.title = nickOf(e.type, nickHash(R, e)); } const stg = STAGE(R, f), mob = stg.mob || 1;
         e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
         if (!r) { q.lost = 1; continue; } q.room = r.id; }
@@ -560,7 +564,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    nameElites, nickOf, titleKin, namedPool, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

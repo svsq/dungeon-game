@@ -3215,6 +3215,19 @@
     for (const sd of [51, 52, 53, 54, 55, 56]) { const R1 = run(sd); R1.offers = [{ key: 'named', from: 'guard', q: 0 }]; const o = offerOf(R1, 'guard'), q1 = o && o.q;
       if (!q1 || !q1.foe || !SIMX.namedPool(R1, q1.f).includes(q1.foe) || !ofKin(q1.title, q1.foe)) out.push(`quest named: seed ${sd} offers a name off the elites' generator (${q1 && q1.title})`);
       else if (!SIMX.questLine(q1, R1).startsWith(q1.title + ' ')) out.push('quest named: the quest line does not show the name'); }
+    // TASKS 1998: the name said in the quest line is the one the elite on the floor bears, on every seed, a floor without the
+    // family and an old save's quest without q.foe included
+    { const X = SIMX, said = (q2) => SIMX.questLine(q2, S.run).slice(0, q2.title.length), fam = (t) => D.ELITE_GROUP[t];
+      for (let sd = 51; sd <= 74; sd++) { const R1 = run(sd); R1.offers = [{ key: 'named', from: 'guard', q: 0 }]; const q1 = X.giveQuest(S, R1, 'guard'); if (!q1 || !q1.title) { out.push(`quest named 1998: seed ${sd} gives no named quest`); continue; }
+        const t0 = q1.title, f0 = q1.foe; for (let f = 1; f <= q1.f; f++) enterFloor(S, R1, f); const e = R1.en.find((o) => o.quest === q1.id);
+        if (!e || e.title !== t0 || q1.title !== t0 || said(q1) !== t0 || D.eliteName(e) !== t0 || fam(e.type) !== fam(f0)) out.push(`quest named 1998: seed ${sd}: «${t0}» (${f0}) said, ${e ? '«' + e.title + '» ' + e.type : 'nobody'} on the floor`); }
+      const place = (sd, old) => { const R1 = run(sd); enterFloor(S, R1, 1); const on = new Set(R1.en.filter(X.plainFoe).map((o) => fam(o.type)));
+        const foe = Object.keys(D.ELITE_GROUP).find((t) => !on.has(fam(t)) && D.ELITE_NAMES[fam(t)] && !D.BOSSES[t] && ENEMIES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake);
+        const title = X.nickOf(foe, sd), q1 = { id: R1.nextId++, key: 'named', f: 1, need: 1, n: 0, st: 'taken', from: 'guard', rw: {}, title }; if (!old) q1.foe = foe;
+        R1.quests = [q1]; X.questPlace(S, R1); const e = R1.en.find((o) => o.quest === q1.id);
+        if (!e || e.title !== title || q1.title !== title || said(q1) !== title || (!old && fam(e.type) !== fam(foe))) out.push(`quest named 1998: seed ${sd}${old ? ' (old save, no foe)' : ''}: «${title}» of ${fam(foe)} said, ${e ? '«' + e.title + '» ' + e.type : 'nobody'} placed`);
+        else if (!old && (e.hp !== e.max || !(e.max > 0) || !(e.dmg > 0))) out.push(`quest named 1998: seed ${sd}: the retyped foe has broken stats`); };
+      for (const sd of [51, 52, 53]) { place(sd, 0); place(sd, 1); } }
     let q = takeKind(51, 'named'); R = S.run; const offered = q && q.title, offeredFoe = q && q.foe;
     if (q) { for (let f = 1; f <= q.f; f++) enterFloor(S, R, f); const e = R.en.find((o) => o.quest === q.id);
       const lost = e && (D.ELITE_GROUP[e.type] === D.ELITE_GROUP[offeredFoe] ? q.title !== offered : R.en.some((o) => SIMX.plainFoe(o) && D.ELITE_GROUP[o.type] === D.ELITE_GROUP[offeredFoe]));
