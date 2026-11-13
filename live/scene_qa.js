@@ -29,6 +29,17 @@
       ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'stats'; S.hover = 'settings'; })],
       // the desktop build's menu (TASKS 1877): «Выход» last, in focus
       ['menu_quit', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.focus = 'quit'; })],
+      // the update (TASKS 1870): the desktop item quiet, focused, and with its mark for a version found, its download and the restart;
+      // the browser's item; the window in every state, the longest notes the changelog's menu lines may make (five of 80 characters)
+      ...(() => { const U = (o) => Object.assign({ can: 1, st: 'idle', n: 1, v: '0.5.0' }, o), long = Array.from({ length: 5 }, (_, i) => TXT('QA.states.newsMain').slice(0, 80 - i));
+        const menu = (n, u, f) => [n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.upd = u; S.focus = f || ''; })];
+        const win = (n, u, f) => [n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.upd = u; S.updOpen = 1; S.focus = f || ''; })];
+        return [menu('menu_upd', U(), 'update'), menu('menu_upd_avail', U({ st: 'avail' })), menu('menu_upd_down', U({ st: 'down', pct: 42 }), 'update'), menu('menu_upd_ready', U({ st: 'ready' })),
+          ['menu_upd_web', mk((S) => { S.saved = null; S.upd = { web: 1, st: 'web', v: '0.5.0', n: 1 }; S.focus = 'update'; })],
+          win('upd_check', U({ st: 'check' })), win('upd_none', U({ st: 'none', v: DATA.VERSION })), win('upd_avail', U({ st: 'avail', notes: (DATA.CHANGES[0] || {}).main || [] })),
+          win('upd_avail_long', U({ st: 'avail', notes: long }), 'later'), win('upd_avail_bare', U({ st: 'avail' })), win('upd_down', U({ st: 'down', pct: 42 })), win('upd_down_0', U({ st: 'down', pct: 0 })),
+          win('upd_ready', U({ st: 'ready' })), win('upd_err_net', U({ st: 'err', err: 'net' })), win('upd_err_other', U({ st: 'err', err: 'other' }), 'close'), win('upd_err_down', U({ st: 'err', err: 'down' })),
+          ['upd_web', mk((S) => { S.saved = null; S.upd = { web: 1, st: 'web', v: '0.5.0', n: 1, notes: long }; S.updOpen = 1; })]]; })(),
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
       // the news frame on the menu (TASKS 1305): the longest it may get (five lines of 80 characters), none at all, the link hovered
@@ -90,6 +101,7 @@
         return [['load_empty', mk((S) => { S.screen = 'load'; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
           ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
+          ['load_test', mk((S) => { fill(S, 5); S.saved.test = 1; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
           ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'yes'; S.hover = 'yes'; })],
           ['load_ask_rest', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })],
@@ -102,6 +114,9 @@
       ['play_bright_lo', play((S) => { S.meta.bright = DATA.SETTINGS.find((q) => q.id === 'bright').stops[0]; })],
       ['play_bright_hi', play((S) => { const q = DATA.SETTINGS.find((o) => o.id === 'bright'); S.meta.bright = q.stops[q.stops.length - 1]; })],
       ['settings_bright', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'bright'; S.meta.bright = 1.4; })],
+      ['settings_gfx', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'gfx'; S.meta.gfx = 0; })],   // (TASKS 1372)
+      ['play_gfx_lo', play((S) => { S.meta.gfx = 0; })],
+      ['play_gfx_mid', play((S) => { S.meta.gfx = 1; })],
       ['settings_vol', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'vol'; S.meta.vol = 0.25; })],
       ['settings_full', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'full'; S.hover = 'full'; S.meta.full = 1; })],
       ['play_zoom15', play((S) => { S.meta.zoom = 1.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
@@ -164,6 +179,7 @@
     }
     { const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.log = { fl: [] }; S.hover = 'log'; states.push(['dead_log_tip', S]); }
     const abandoned = structuredClone(states.find(([n]) => n === 'dead')[1]); abandoned.result.abandoned = true; states.push(['end_abandoned', abandoned]);
+    { const S = structuredClone(abandoned); Object.assign(S.result, { test: 1, mode: 'magma' }); states.push(['end_test', S]); }
     for (const b of ['longsword', 'axe', 'hammer', 'staff', 'fist']) {
       const S = structuredClone(states.find(([n]) => n === 'win')[1]);
       S.result.hero.eq.weapon = b === 'fist' ? null : { b, rar: 4, lvl: 8, mods: {} }; S.result.heroStats = SIM.stats(S.result.hero, S.meta);
@@ -1270,7 +1286,8 @@
       }
     }
     const eventT = (prep, kill, ty) => { const fr = []; let S = playOf(ty)(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
-    const heroDies = (S) => SIMX.killHero(S, S.run);
+    // a real death comes with the killing blow's shove on top of his own speed (TASKS 1991): the pose must read the speed, not the shove
+    const heroDies = (S) => { const h = S.run.hero; SIMX.killHero(S, S.run); h.vx -= 260 * h.face; };
     transitions.hero_death = eventT((S) => { S.run.en = []; S.run.msg = null; }, heroDies);
     // (killed mid-run, the run held to the kill: set only at the start he was braked to a stop before it and fell as from standing, TASKS 1803)
     transitions.hero_death_run = (() => { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; const h = S.run.hero; h.vx = SIM.K.RUN; h.gp = 1.3; });
@@ -1729,6 +1746,9 @@
     states.push(['long_names_tracker', keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
       .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; })]);
     states.push(['long_names_craft', craftS('forge', (S, R, h, it) => { Object.assign(it, legend(R, 950)); h.bag[4] = it; S.hover = 'do'; })]);
+    // TASKS 1818: a boss's unique, the longest of name, power text and lore together, its power and lore wrapped under the affixes
+    const uniqL = Object.values(D.UNIQUES).sort((a, b) => (b.name + b.lore + D.POWERS[b.power].desc).length - (a.name + a.lore + D.POWERS[a.power].desc).length)[0];
+    states.push(['unique_card', play((S) => { worst(S); const h = S.run.hero; h.bag[23] = Object.assign(SIM.uniqueItem(S.run, uniqL.id, 12), { id: 3103 }); S.screen = 'inv'; S.hover = 'bag:23'; })]);
     states.push(['long_names_card', play((S) => { worst(S); const h = S.run.hero; h.bag[23] = legend(S.run, 3101); h.eq[D.BASES[legendB].slot] = legend(S.run, 3102); S.screen = 'inv'; S.hover = 'bag:23'; })]);
     // the town's loop for the player (TASKS 1033): the notice board full (every giver with an offer, the longest names) and empty;
     // a townsman answering a blow; the minimap's ! and ?; the scroll slot and its hint at low health on a floor
@@ -1753,6 +1773,70 @@
     // what clampCam gives the town at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [-64, 52]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [-64, 52]; })]);
+    // an event room (TASKS 361): the probe, asked for on the 1st floor; its prompt at the spot, its question with «Нет» in focus and «Да» lit
+    for (const [nm, scr, fo] of [['event_prompt', 'play', ''], ['event_ask', 'event', 'evNo'], ['event_ask_yes', 'event', 'evYes']]) { const S = play((S) => { const R = S.run; SIM.enterFloor(S, R, 1, { events: ['probe'] }); const E = R.events[0]; if (!E) return;
+      R.en = []; R.msg = null; R.hero.x = E.x; R.hero.y = E.y + 20; R.seen = R.seen.map(() => 1); R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; R.evAsk = 0; S.screen = scr; S.focus = fo; S.hover = fo; }); if (S.run.events && S.run.events.length) states.push([nm, S]); }
+    // the skull door (TASKS 362): a way in seen from the corridor, the room as it is come upon (bones, the prompt), mid-fight with its
+    // grates down and the first wave up, and won (the grates lifted, the chest on the spot); the fight in a cave and in the magma too
+    const trialS = (mode, stage) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, mode, 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+      for (let f = 1; f <= 4 && !E; f++) { SIM.enterFloor(S, R, f, { events: ['trial'] }); E = (R.events || []).find((q) => q.id === 'trial'); } if (!E) return;
+      const go = (k) => { R.enteredT = -9; SIM.step(S, { keys: k ? [k] : [] }); }, run = (n) => { for (let i = 0; i < n; i++) { h.hp = 1e6; go(); } };
+      const hp0 = h.hp; R.en = []; R.msg = null; h.x = E.x + 55; h.y = E.y + 10; R.seen = R.seen.map(() => 1);
+      if (stage >= 1) { for (const k of ['KeyE', '', 'ArrowLeft', '', 'Enter', '']) go(k); run(140); h.x = E.x + 70; h.y = E.y + 30; }
+      if (stage >= 2) { for (let i = 0; i < 4000 && E.st === 'on'; i++) { run(1); for (const e of R.en) if (e.summ === 'trial' && e.deadT < 0) { e.hp = 0; SIM.killEnemy(S, R, e); } } R.en = R.en.filter((e) => e.deadT < 0); run(80); h.x = E.x + 70; }
+      R.msg = null; h.hp = hp0; R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2];
+      if (stage < 0) { const g = E.gates[0], [vx, vy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[g.dir], [cx, cy] = g.cells[0]; h.x = (cx + 0.5 + vx * 2) * TILE; h.y = (cy + 0.5 + vy * 2) * TILE; R.cam = [g.x - SCX.VW / 2, g.y - SCX.VH / 2]; } });
+    for (const [nm, mode, st] of [['trial_door', 'campaign', -1], ['trial_room', 'campaign', 0], ['trial_fight', 'campaign', 1], ['trial_won', 'campaign', 2], ['trial_fight_cave', 'cave', 1], ['trial_fight_magma', 'magma', 1]]) { const S = trialS(mode, st); if (S.run && (S.run.events || []).some((q) => q.id === 'trial')) states.push([nm, S]); }
+    // (TASKS 2021) its mark on the map and the legend's line, the legend opened by the pointer over the map in the pause
+    { const S = trialS('campaign', 0); if (S.run && (S.run.events || []).length) { S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; states.push(['trial_map', S]); } }
+    // an event of the pool on its own (TASKS 363, 364): the room as it is come upon (its prop, the prompt), its question, and after «yes»
+    // (pre(R, E) sets what the event needs first, a fountain's fate)
+    const evS = (id, stage, pre) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+      for (let f = 1; f <= 4 && !E; f++) { SIM.enterFloor(S, R, f, { events: [id] }); E = (R.events || []).find((q) => q.id === id); } if (!E) return;
+      const go = (k) => { R.enteredT = -9; SIM.step(S, { keys: k ? [k] : [] }); };
+      R.en = []; R.msg = null; h.x = E.x + 40; h.y = E.y + 26; R.seen = R.seen.map(() => 1); R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; if (pre) pre(R, E);
+      if (stage === 'ask') { go('KeyE'); go(''); }
+      if (stage === 'done') { for (const k of ['KeyE', '', 'ArrowLeft', '', 'Enter', '']) go(k); for (let i = 0; i < 90; i++) go(); h.x = E.x + 70; }
+      R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; });
+    for (const [nm, id, st, fate] of [['trial_ask', 'trial', 'ask'], ['blood_room', 'blood', 0], ['blood_ask', 'blood', 'ask'], ['blood_done', 'blood', 'done'], ['hex_room', 'hex', 0], ['hex_ask', 'hex', 'ask'], ['hex_done', 'hex', 'done'],
+      ['fountain_room', 'fountain', 0], ['fountain_ask', 'fountain', 'ask'], ['fountain_heal', 'fountain', 'done', 'heal'], ['fountain_bless', 'fountain', 'done', 'bless'], ['fountain_hex', 'fountain', 'done', 'hex']]) { const S = evS(id, st, fate && ((R, E) => { E.fate = fate; R.hero.hp = 20; })); if (S.run && (S.run.events || []).some((q) => q.id === id)) states.push([nm, S]); }
+    // the goblin's table (TASKS 365): the table and its goblin as come upon, the question naming the stake, each of the three throws;
+    // and a hero short of the stake told so
+    for (const [nm, st, fate, gold] of [['dice_room', 0], ['dice_ask', 'ask'], ['dice_lose', 'done', 'lose'], ['dice_win', 'done', 'win'], ['dice_jack', 'done', 'jack'], ['dice_broke', 'ask', 0, 3]]) {
+      const S = evS('dice', st, (R, E) => { R.hero.gold = gold ?? 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.fate = fate; });
+      // (past the winnings' flight into the gold counter: caught on its way in, a number of three wide stood over the counter's edge)
+      if (st === 'done' && S.run) for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); if (S.run && (S.run.events || []).some((q) => q.id === 'dice')) states.push([nm, S]); }
+    // the dark room (TASKS 365), its pack kept: from just outside its way in, inside it with the pack round the hero's lamp, and the
+    // minimap in the pause with the floor all seen and the room left off it
+    const darkS = (stage) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+      for (let f = 2; f <= 5 && !E; f++) { SIM.enterFloor(S, R, f, { events: ['dark'] }); E = (R.events || []).find((q) => q.id === 'dark'); } if (!E) return;
+      const m = R.map, r = m.rooms[E.room]; R.msg = null; h.ifr = 1e9; R.seen = R.seen.map(() => 1); for (const e of R.en) if (e.room === E.room) { e.st = 'idle'; } else { e.hp = 0; e.deadT = -99; }
+      R.en = R.en.filter((e) => e.room === E.room); h.x = E.x + 50; h.y = E.y + 30;
+      if (stage === 'door') { let best = null, bd = 1e9; for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (DUNGEON.inRm(r, x, y) || m.cells[y * m.W + x] !== 1) continue;
+          const d = Math.min(...[[r.x - 1, y], [r.x + r.w, y], [x, r.y - 1], [x, r.y + r.h]].map(([a, b]) => Math.abs(a - x) + Math.abs(b - y))); const dd = Math.hypot(x * TILE - E.x, y * TILE - E.y) + (d > 1 ? 1e4 : 0); if (dd < bd) { bd = dd; best = [x, y]; } }
+        if (best) { h.x = best[0] * TILE + 16; h.y = best[1] * TILE + 16; } }
+      else SIM.step(S, { keys: [] });
+      if (stage === 'map') { R.en = []; S.ev.length = 0; S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; }
+      if (stage !== 'in') R.msg = null; R.cam = [(h.x + E.x) / 2 - SCX.VW / 2, (h.y + E.y) / 2 - SCX.VH / 2]; });
+    // the captive (TASKS 366): caged as come upon, told there is no key, asked with one; walking behind the hero out of his room, and
+    // home at the merchant's (or the stairs up) with his thanks
+    for (const [nm, st] of [['captive_room', 0], ['captive_nokey', 'ask'], ['captive_ask', 'ask'], ['captive_lead', 'done'], ['captive_home', 'done']]) {
+      const S = evS('captive', st, (R) => { R.keys = nm === 'captive_nokey' ? 0 : 1; }); const R = S.run, E = R && (R.events || []).find((q) => q.id === 'captive'); if (!E) continue;
+      if (nm === 'captive_lead' && E.st === 'on') { const h = R.hero, m = R.map, dx = [150, -150, 0, 0].find((d) => SIM.Q.cell(m, Math.floor((E.px + d) / 32), Math.floor((E.py + (d ? 20 : 150)) / 32)) === 1) ?? 0; h.x = E.px + dx; h.y = E.py + (dx ? 20 : 150);
+        for (let i = 0; i < 70; i++) SIM.step(S, { keys: [] }); R.msg = null; R.cam = [(h.x + E.px) / 2 - SCX.VW / 2, (h.y + E.py) / 2 - SCX.VH / 2]; }
+      if (nm === 'captive_home' && E.st === 'on') { E.px = E.goal.x + 40; E.py = E.goal.y; R.hero.x = E.goal.x - 40; R.hero.y = E.goal.y + 10; SIM.step(S, { keys: [] }); for (let i = 0; i < 20; i++) SIM.step(S, { keys: [] }); R.cam = [E.goal.x - SCX.VW / 2, E.goal.y - SCX.VH / 2]; }
+      states.push([nm, S]); }
+    // the library (TASKS 368) in the town's run: its shelves and lectern as come upon with the prompt, its note open, and after with the
+    // lesson's line and the motes off the pages
+    for (const [nm, st] of [['library_room', 0], ['library_read', 'read'], ['library_done', 'done']]) {
+      const S = mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+        for (let f = 1; f <= 8 && !E; f++) { SIM.enterFloor(S, R, f, { events: ['library'] }); E = (R.events || []).find((q) => q.id === 'library'); } if (!E) return;
+        R.en = []; R.msg = null; h.x = E.x + 40; h.y = E.y + 26; R.seen = R.seen.map(() => 1);
+        if (st) { R.enteredT = -9; SIM.step(S, { keys: ['KeyE'] }); SIM.step(S, { keys: [] }); }
+        if (st === 'done') { S.screen = 'play'; for (let i = 0; i < 40; i++) SIM.step(S, { keys: [] }); }
+        R.cam = [E.x - SCX.VW / 2, E.y - 60 - SCX.VH / 2]; });
+      if (S.run && (S.run.events || []).some((q) => q.id === 'library')) states.push([nm, S]); }
+    for (const [nm, st] of [['unlit_door', 'door'], ['unlit_room', 'in'], ['unlit_map', 'map']]) { const S = darkS(st); if (S.run && (S.run.events || []).some((q) => q.id === 'dark')) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
     states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; S.focus = 'stay'; })]);
@@ -1808,6 +1892,9 @@
         if (name === 'cave_water') { m.water = []; m.waterBridges = []; m.crossings = []; m.cells = m.cells.map((c) => (c === 6 ? 1 : c)); } off.push(clean); }
       anim[name] = { on, off, box: name === 'cave_water' ? [400, 200, 1120, 680] : [880, 420, 160, 180], min: 0.003 };
     }
+    // the low and middle graphics (TASKS 1372) where they differ: the lava's light and embers, the cave's moss, an elite's aura
+    for (const name of ['magma_lava', 'cave_bridge', 'elite_brawl']) { const base = states.find(([n]) => n === name)?.[1]; if (!base) continue;
+      for (const g of [1, 0]) { const S = structuredClone(base); S.meta.gfx = g; states.push([name + '_gfx' + g, S]); } }
     // the magma caves' lava flows, bubbles and shimmers, its fall pours and steams (TASKS 403): without them the frame goes still
     for (const name of ['magma_lava', 'magma_fall']) {
       const base = states.find(([n]) => n === name)?.[1]; if (!base) continue;
@@ -1929,7 +2016,7 @@
     // (TASKS 1153: the pointer turned in the wind-up; a wand's shots 0.36 s apart with the aim flipped)
     transitions.hero_mage_shoot_turn = mageT(0, null, 1, [7, 1.2]); transitions.hero_mage_wand_flip = mageT(0, (S, h) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'wand' }); }, [5, 30], [20, Math.PI]);
     transitions.hero_mage_hurt = mageT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; });
-    transitions.hero_mage_death = mageT(0, (S) => SIMX.killHero(S, S.run));
+    transitions.hero_mage_death = mageT(0, heroDies);
     // the archer (TASKS 1125): the same sequences with his bow; the volley and the leap through the sim
     const asArcher = (S, b = 'shortbow') => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
     const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__') || /^it_(bow_[sl]|crossbow)(_h)?$/.test(a)).concat(['skel_arrow']);
@@ -1954,7 +2041,7 @@
     // hero_charge_strike: the charge up to the press that starts the swing; the swing, pull and strike, stays sharp (the player's call,
     // TASKS 1774: no eased blow fits the 0.13 s to the hit: the strike popped the grip 12.9 px, the pull 5.4), its path the attack checks' to judge
     transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28, 30); transitions.hero_cry = warT(0, 3);
-    transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S) => SIMX.killHero(S, S.run));
+    transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, heroDies);
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
     Object.assign(out.subject, doorSubj);
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);

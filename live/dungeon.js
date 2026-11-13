@@ -165,7 +165,126 @@
     const m = DGX.fill(GF);
     // a modifier only raises a cap or a chance, so a floor may have no room for it; the banner must never name one the floor lacks
     if (m && m.mod && MOD_HELD[m.mod] && !MOD_HELD[m.mod](m)) { if (strict) return null; m.mod = null; }
+    if (m) markEvents(m, ST, opts, seed);
     return m;
+  }
+
+  // the event rooms (TASKS 361, data.js EVENTS): marked once the floor is laid and checked, so they never move a wall or a way.
+  // EVENT_PLACE[id](m, r, rnd) → [x, y, more?] (world px; more joins the event's record) or null puts an event's own things in its room; with none, its spot is the open
+  // cell nearest the room's middle
+  const EVENT_PLACE = {
+    // the skull door's grates (TASKS 362): one in each run of open cells just past the room's box, the way the boss's arena takes its
+    // doors, so they shut every way in whatever its width (a cave's mouths are seldom two cells). Not a room a secret opens into,
+    // nor one whose ways in are another room's floor or a door's
+    trial: (m, r) => { if (r.wings) return null;
+      const W = m.W, inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, mouth = new Map();
+      if ((m.secrets || []).some((q) => q.host === r.id || q.wall.concat(q.front || []).some(([x, y]) => inRm(r, x, y, 1)))) return null;
+      const doorC = new Set((m.doors || []).flatMap((d) => d.cells.map(([x, y]) => y * W + x)));
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) for (const [dx, dy, dir] of [[0, -1, 'u'], [0, 1, 'd'], [-1, 0, 'l'], [1, 0, 'r']]) {
+        const ox = x + dx, oy = y + dy, k = oy * W + ox; if (inR(ox, oy) || m.cells[k] !== 1) continue;
+        if (doorC.has(k) || m.rooms.some((q) => q !== r && inRm(q, ox, oy))) return null; mouth.set(k, { x: ox, y: oy, dir }); }
+      const gates = [], took = new Set();
+      for (const [k0, p] of mouth) { if (took.has(k0)) continue; const side = p.dir === 'l' || p.dir === 'r', st = side ? W : 1, run = [];
+        let k = k0; while (mouth.has(k - st) && mouth.get(k - st).dir === p.dir) k -= st;
+        for (; mouth.has(k) && mouth.get(k).dir === p.dir && !took.has(k); k += st) { took.add(k); run.push([k % W, Math.floor(k / W)]); }
+        const a = run[0], n = run.length, ex = p.dir === 'l' ? r.x : p.dir === 'r' ? r.x + r.w : 0, ey = p.dir === 'u' ? r.y : p.dir === 'd' ? r.y + r.h : 0;
+        gates.push({ dir: p.dir, cells: run, x: side ? ex * TILE : (a[0] + n / 2) * TILE, y: side ? (a[1] + n / 2) * TILE : ey * TILE }); }
+      const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; },
+    // the dark room (TASKS 365): a room with a pack to fight in the dark. Its wall torches and loose candles are put out (`dark`: the
+    // render neither draws nor lights them; the lists keep their order, as a lever's sconce is found by its index); a room with a fire
+    // on its floor (a brazier, a crystal, a forge), a secret's sconce or candles, or a zone's own light is not one
+    dark: (m, r) => { const inside = (o) => inRm(r, Math.floor(o.x / TILE), Math.floor(o.y / TILE), 1), mine = (t) => t.r === r.id || inside(t);
+      if (r.zone || m.enemies.filter((e) => e.room === r.id).length < D.EVENTS.pool.dark.pack) return null;
+      const lamp = (d) => /^candle/.test(d.n) && !d.solid && d.pz === undefined && d.secret === undefined && inside(d);
+      if (m.torches.some((t) => mine(t) && (t.kind !== 'wall' || t.lever !== undefined || t.sec !== undefined)) || m.decor.some((d) => /candle|crystal|brazier|forge/.test(d.n) && inside(d) && !lamp(d))) return null;
+      const at = eventSpot(m, r); if (at) { for (const t of m.torches) if (mine(t)) t.dark = 1; for (const d of m.decor) if (lamp(d)) d.dark = 1; } return at; },
+    // the captive's cage (TASKS 366): the room's elite keeps its key, or else its first plain monster that walks the floor (a key
+    // with a lake's, a ford's or a deep one's never comes to hand); a room with no such keeper is not one. The cage is three cells
+    // wide: none within three cells of a way into the room or four of a door, where it would crowd the doorway
+    captive: (m, r) => { const pack = m.enemies.filter((e) => e.room === r.id && e.key === undefined && !e.guard && !e.exit && !e.lake && !e.ford && !D.ENEMIES[e.type].deep && !D.BOSSES[e.type]);
+      const keeper = pack.find((e) => e.elite) || pack[0], at = keeper && eventSpot(m, r); if (!at) return null;
+      const tx = Math.floor(at[0] / TILE), ty = Math.floor(at[1] / TILE); if ((m.doors || []).some((d) => d.cells.some(([x, y]) => Math.abs(x - tx) <= 4 && Math.abs(y - ty) <= 4))) return null;
+      for (let y = ty - 3; y <= ty + 3; y++) for (let x = tx - 3; x <= tx + 3; x++) if (!inRm(r, x, y) && m.cells[y * m.W + x] !== 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => inRm(r, x + a, y + b))) return null;
+      keeper.key = 'cage'; return at; },
+    // the library (TASKS 368): its lectern on the spot, and up to `shelves` bookshelves against the back wall where the wall above is
+    // whole (no way in or secret behind them), nothing hangs or stands there, and they keep clear of the lectern. A room with none of
+    // them and none of its own is no library. Each shelf's cell is blocked, as a furnished one's is, so the way fields lead round it
+    library: (m, r) => { const W = m.W, at = eventSpot(m, r), P = D.EVENTS.pool.library; if (!at) return null;
+      const hide = new Set((m.secrets || []).flatMap((q) => q.wall.concat(q.front || []).map(([x, y]) => y * W + x)));
+      const sx = Math.floor(at[0] / TILE), sy = Math.floor(at[1] / TILE), y0 = r.y * TILE + 22, half = D.PROP_W.bookshelf / 2, busy = new Set(m.block || []);
+      for (const o of [...m.chests, ...m.pots, ...m.shrines, ...(m.webs || []), ...(m.ambush || []), ...m.traps]) busy.add(Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE));
+      const own = m.decor.filter((d) => d.n === 'bookshelf' && d.secret === undefined && inRm(r, Math.floor(d.x / TILE), Math.floor(d.y / TILE))), put = [];
+      // (a secret's wall or the floor before it is never hidden behind a shelf)
+      const clear = (X, self, Y = y0, wall = 1) => { const x = Math.floor(X / TILE), y = Math.floor(Y / TILE); if (x - 1 < r.x || x + 1 > r.x + r.w - 1 || (wall && Math.abs(x - sx) <= 3 && sy - r.y < 3)) return false;
+        for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) if (hide.has((y + j) * W + x + i)) return false;
+        if (wall) for (let i = -1; i <= 1; i++) if (m.cells[(r.y - 1) * W + x + i] !== 0) return false;
+        if (m.torches.some((t) => Math.abs(t.x - X) < half + 8 && Math.abs(t.y - Y) < 70)) return false;
+        return !m.decor.concat(put).some((d) => d !== self && Math.abs(d.x - X) < half + (D.PROP_W[d.n] || 40) / 2 + 8 && Math.abs(d.y - Y) < 60); };
+      const fits = (x, y = r.y, wall = 1) => { if (x - 1 < r.x || x + 1 > r.x + r.w - 1) return false;
+        for (let i = -1; i <= 1; i++) { const k = y * W + x + i; if (m.cells[k] !== 1 || busy.has(k) || m.cells[k + W] !== 1 || !inRm(r, x + i, y)) return false; }
+        return clear(x * TILE + TILE / 2, null, y * TILE + 22, wall); };
+      // the open floor of the room stays one piece with these cells taken (a free-standing shelf must not wall off a corner)
+      const whole = (ks) => { const blk = new Set([...busy, ...ks, Math.floor(at[1] / TILE) * W + Math.floor(at[0] / TILE)]), ok = (k) => inRm(r, k % W, Math.floor(k / W)) && m.cells[k] === 1 && !blk.has(k);
+        let n = 0, k0 = -1; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (ok(y * W + x)) { n++; if (k0 < 0) k0 = y * W + x; }
+        const seen = new Set([k0]), st = [k0]; while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) if (ok(k + d) && !seen.has(k + d)) { seen.add(k + d); st.push(k + d); } } return seen.size === n; };
+      // a room furnished against its back wall already (racks, statues, cages) has no wall left: the library takes that furniture's
+      // place, its shelves where the room's own pieces stood, when a shelf's width fits there
+      const back = m.decor.filter((d) => d.solid && d.secret === undefined && Math.abs(d.y - y0) < 4 && /^(rack|statue|cage|pillar|crystal)$/.test(d.n) && inRm(r, Math.floor(d.x / TILE), r.y)), swap = [];
+      const xs = []; for (let x = r.x + 2; x <= r.x + r.w - 3; x++) xs.push(x); xs.sort((a, b) => Math.abs(a - sx) - Math.abs(b - sx) || a - b);
+      for (const x of xs) { if (put.length >= P.shelves) break; if (fits(x)) put.push({ x: x * TILE + TILE / 2, y: y0, n: 'bookshelf', solid: 1, r: r.id, lib: 1 }); }
+      back.sort((a, b) => Math.abs(a.x - at[0]) - Math.abs(b.x - at[0]));
+      for (const d of back) { if (put.length + swap.length >= P.shelves) break; if (clear(d.x, d) && !swap.some((o) => Math.abs(o.x - d.x) < 2 * half + 8)) swap.push(d); }
+      // a room with no back wall to spare: two shelves stand free on the floor either side of the lectern, a reading corner
+      // (or, short of room for two, one behind it)
+      const stand = (L) => { if (put.length || swap.length || own.length || !L.every(([x, y]) => fits(x, y, 0)) || !whole(L.map(([x, y]) => y * W + x))) return;
+        for (const [x, y] of L) put.push({ x: x * TILE + TILE / 2, y: y * TILE + 22, n: 'bookshelf', solid: 1, r: r.id, lib: 1 }); };
+      for (const dy of [-1, 0]) stand([[sx - 3, sy + dy], [sx + 3, sy + dy]]); stand([[sx, sy - 2]]);
+      if (!put.length && !swap.length && !own.length) return null;
+      for (const d of swap) { d.n = 'bookshelf'; d.lib = 1; }
+      for (const d of put) { m.decor.push(d); const k = Math.floor(d.y / TILE) * W + Math.floor(d.x / TILE); if (!m.block.includes(k)) m.block.push(k); }
+      return at; } };
+  const evOk = (E, ST, mode, opts) => ST.depth >= (E.minF || 1) && ST.depth <= (E.maxF ?? 1e9) && (!E.modes || E.modes.includes(mode)) && (!E.town || !!opts.town) && (!E.biomes || E.biomes.includes(ST.biome));
+  function markEvents(m, ST, opts, seed) {
+    const EV = D.EVENTS, pool = EV.pool, mode = opts.mode || 'campaign', force = (opts.events || []).filter((id) => pool[id]);
+    const draw = Object.entries(pool).filter(([id, E]) => E.w > 0 && evOk(E, ST, mode, opts) && !force.includes(id));
+    if (!force.length && !draw.length) return;
+    const Er = mul32((seed ^ 0x3610) >>> 0), taken = specials(m).length;
+    let want = Math.min(EV.n[0] + (Er() < EV.two ? 1 : 0), Math.max(0, EV.cap - taken)); want = Math.max(want, force.length);
+    const ids = force.slice();
+    while (ids.length < want) { const left = draw.filter(([id]) => !ids.includes(id)); if (!left.length) break;
+      let roll = Er() * left.reduce((a, [, E]) => a + E.w, 0), pk = left[0][0]; for (const [id, E] of left) if ((roll -= E.w) < 0) { pk = id; break; } ids.push(pk); }
+    const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx);
+    const rooms = m.rooms.filter((r) => r.type === 'combat' && !r.hall && !r.locked && !r.pocket && !r.isle && !r.event && r.w * r.h >= EV.area && !way.has(r.id));
+    const big = (r, E) => r.w * r.h >= (E.area || EV.area);
+    for (let i = rooms.length - 1; i > 0; i--) { const j = Math.floor(Er() * (i + 1)); [rooms[i], rooms[j]] = [rooms[j], rooms[i]]; }
+    const out = [];
+    for (const id of ids) { const E = pool[id];
+      for (const r of rooms) { if (r.event || !big(r, E)) continue;
+        // (an elite is a room's reward, TASKS 433: a dead end off the way would be left with none, and a lair floor short of its own)
+        if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit || e.elite))) continue;
+        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er) : eventSpot(m, r); if (!at) continue;
+        r.event = id; if (E.room === 'treasure') { m.enemies = m.enemies.filter((e) => e.room !== r.id); if (m.webs) m.webs = m.webs.filter((w) => roomAt(m, w.x, w.y) !== r.id); }
+        out.push(Object.assign({ id, room: r.id, x: at[0], y: at[1] }, at[2])); break; } }
+    if (out.length) m.events = out;
+  }
+  // the open cell nearest a room's middle with its eight round it open too: no prop, chest, plate, web, water or doorway on it
+  function eventSpot(m, r) {
+    const W = m.W, busy = new Set(m.block || []), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE);
+    for (const o of [...m.chests, ...m.pots, ...m.shrines, ...(m.webs || []), ...(m.ambush || [])]) busy.add(cellOf(o));
+    for (const t of m.traps) for (let j = -1; j <= 0; j++) for (let i = -1; i <= 0; i++) busy.add(cellOf(t) + j * W + i);
+    for (const d of m.doors || []) for (const [x, y] of d.cells) busy.add(y * W + x);
+    for (const k of m.water || []) busy.add(k);
+    let best = null, bd = 1e9;
+    for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) {
+      let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1; i++) { const k = (y + j) * W + x + i; if (m.cells[k] !== 1 || busy.has(k) || !inRm(r, x + i, y + j)) { ok = false; break; } }
+      const d = Math.hypot(x - r.cx, y - r.cy); if (ok && d < bd) { bd = d; best = [x, y]; } }
+    return best && [best[0] * TILE + TILE / 2, best[1] * TILE + TILE / 2];
+  }
+  // a floor's special rooms (TASKS 1817), one list for the lair quest and the vows: { src: 'event' | 'hall' | 'altar', id, room }
+  function specials(m) {
+    const out = [];
+    for (const r of m.rooms) { if (r.event) out.push({ src: 'event', id: r.event, room: r.id }); if (r.hall) out.push({ src: 'hall', id: r.hall, room: r.id }); if (r.type === 'shrine') out.push({ src: 'altar', id: 'altar', room: r.id }); }
+    return out;
   }
   const MOD_HELD = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
 
@@ -355,7 +474,7 @@
   // k: how much wider the oval is (the player's decision on 1636: arriving on a magma floor shows more of it)
   const FOG_ARRIVE = 2.4, inFogOval = (x, y, fx, fy, k = 1) => ((x + 0.5 - fx) / (8.5 * k)) ** 2 + ((y + 0.5 - fy) / (6.5 * k)) ** 2 <= (0.72 + 0.28 * fogNoise(x, y) + (fogHash(x + 31, y + 17) - 0.5) * 0.2) ** 2;
   const fogReach = (x, y) => 1.6 + 1.6 * fogNoise(x, y) + (fogHash(x + 7, y + 91) - 0.5) * 1.4;
-  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, eventSpot, EVENT_PLACE, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { archLegs, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });

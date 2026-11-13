@@ -35,16 +35,19 @@
     const n = Math.min(o.shield, dmg); o.shield -= n; ev(S, Object.assign({ k: 'absorb', x: o.x, y: o.y, n }, extra)); if (o.shield <= 0) ev(S, { k: 'shield_break', x: o.x, y: o.y }); return dmg - n;
   }
   // (deadT is -1 while alive and may go negative when a QA state kills at S.t - 0.8, so only -1 itself means alive)
-  function killHero(S, R) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
+  // deadRun: his own speed as he fell, before the killing blow's shove, so a hero killed standing does not fall as from a run (TASKS 1991)
+  function killHero(S, R, vx = R.hero.vx, vy = R.hero.vy) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; h.volleyT = null; h.deadRun = [vx, vy]; ev(S, { k: 'die', x: h.x, y: h.y }); }
   function hurtHero(S, R, dmg, sx, sy, kind, src, actor) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr || R.town) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
     if (kind !== 'spike' && src !== 'lava' && rnd(R) * 100 < heroSt(S).dodge + (dashing ? BAL.dodge.dash : 0)) { ev(S, { k: 'dodge', x: h.x, y: h.y, dash: dashing ? 1 : 0 }); return; }
-    if (h.read) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.hurtHero.s') }); }
+    if (h.read) { const P = heroSt(S).poise; if (!(P && rnd(R) * 100 < P)) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.hurtHero.s') }); } }
     // a weapon a fire priest set alight (TASKS 410): a harder blow that sets the hero burning
     if (actor && actor.fireT > S.t && kind === undefined && !/ (bolt|blast|pillar)$/.test(src || '')) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
     // a monster the war cry shook hits softer (TASKS 1130)
     if (actor && actor.weakT > S.t) dmg *= D.CRY.weak;
+    // a cursed floor's monsters hit harder (TASKS 364): every blow but a trap's or the lava's
+    if (kind !== 'spike' && src !== 'lava' && R.events) dmg *= 1 + D.EVENTS.hex * SIMX.hexN(R);
     const st = heroSt(S), KD = 20 + 12 * D.deepEnd(dep(R)); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (kind !== 'spike' && src !== 'lava' && D.clsOf(h).res === 'rage') dmg = Math.max(1, Math.round(dmg * (1 - h.mp / D.RAGE.max * D.RAGE.guard)));
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : D.deepAxis(dep(R), 'blow'))));
@@ -54,23 +57,23 @@
     // shield takes is no part of it)
     const capped = actor && ((ENEMIES[actor.type] || {}).boom || {}).capped && / blast$/.test(src || '');
     if (capped) { const C = BAL.cap.blast, win = (R.blastWin || []).filter(([t]) => S.t - t < C.t), room = Math.round(st.maxHp * C.share) - win.reduce((n, [, v]) => n + v, 0);
-      dmg = Math.min(dmg, room); R.blastWin = win; if (dmg <= 0) { const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260; R.trauma = Math.min(1, R.trauma + 0.35); return; } }   // (a blast past the cap still throws and shakes: no action without an answer)
+      dmg = Math.min(dmg, room); R.blastWin = win; if (dmg <= 0) { const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1, shove = 260 * (1 - st.poise / 100); h.vx += dx / d * shove; h.vy += dy / d * shove; R.trauma = Math.min(1, R.trauma + 0.35); return; } }   // (a blast past the cap still throws and shakes: no action without an answer)
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
     const blow = dmg;
     const shielded = h.shield > 0 && S.t < h.shieldUntil; dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (shielded) SIMX.firePowers(S, R, 'shieldHit', { x: h.x, y: h.y }); if (shielded && h.shield <= 0) SIMX.firePowers(S, R, 'shieldBreak', { x: h.x, y: h.y }); if (capped && dmg > 0) R.blastWin.push([S.t, dmg]); if (dmg <= 0) return;
     if (D.clsOf(h).res === 'rage') { h.mp = Math.min(D.RAGE.max, h.mp + dmg / st.maxHp * 100 * D.RAGE.hurt); h.fightT = S.t; }
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
-    const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
+    const ownV = [h.vx, h.vy], dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1, shove = 260 * (1 - st.poise / 100); h.vx += dx / d * shove; h.vy += dy / d * shove;
     if (kind === 'poison') h.poison = S.t + 3;
     if (kind === 'fire') { if (h.burn <= S.t) ev(S, { k: 'ignite', x: h.x, y: h.y }); h.burn = Math.max(h.burn, S.t + 3); }
     if (kind === 'water') { h.slowT = S.t + ORB.t; ev(S, { k: 'soak', x: h.x, y: h.y - 38 }); }
     ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: dmg, blow, side: h.hurtX || -1, src: src || kind || '?',
       actor: actor ? { type: actor.type, elite: actor.elite, mods: (actor.mods || []).slice() } : null });
-    if (h.hp > 0 && h.powers) SIMX.powersHurt(S, R, dmg, st.maxHp);
+    if (h.hp > 0 && SIMX.heroPowers(h)) SIMX.powersHurt(S, R, dmg, st.maxHp);
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
     if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
       ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: TXT('sim_hero.hurtHero.msg.s'), t: S.t }; return; }
-    if (h.hp <= 0) killHero(S, R);
+    if (h.hp <= 0) killHero(S, R, ownV[0], ownV[1]);
   }
   // (ax, ay): where the blow came from on the floor, when not its source (a bolt bursts at the height of the body it hit)
   // the hero's own blows (a swing, the whirl, a fireball's burst): what a reflecting or cursing elite answers (TASKS 387)
@@ -87,6 +90,7 @@
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     if (D.BOSSES[e.type] && e.openUntil > S.t) dmg *= e.type === 'boss_serpent' ? 1.4 : D.BOSSES[e.type].moves.fists.open;
     let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ((e.elite && ENEMIES[e.type].armor.elite) || ENEMIES[e.type].armor.k))); e.armT = S.t; }
+    if (e.st === 'rise' && ENEMIES[e.type].riseGuard) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].riseGuard)); e.armT = S.t; arm = true; }
     // a golem's crust takes the blow and a plate of it comes off (TASKS 409); its fire doesn't
     const CR0 = ENEMIES[e.type].crust; if (CR0 && kind !== 'burn' && kind !== 'thorns' && crustOf(e, ENEMIES[e.type]) > 0) { dmg = Math.max(1, Math.round(dmg * CR0.k)); const n0 = crustOf(e, ENEMIES[e.type]); e.crust = n0 - 1; e.growT = S.t; e.armT = S.t; arm = true;
       (e.plateT = e.plateT || {})[n0] = S.t; (e.plateA = e.plateA || {})[n0] = Math.atan2(e.y - sy, e.x - sx); }   // (which plate went when, and which way: the render throws it off)
@@ -105,7 +109,7 @@
     const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
     if (fromHero && has(e, 'reflect') && kind !== 'burn') { const h = R.hero, n = Math.min(Math.round(dmg * MOD.reflect.k), Math.max(0, Math.ceil(h.hp) - 1));
       if (n > 0 && h.deadT < 0) { h.hp -= n; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, blow: n, side: h.x > e.x ? 1 : -1, src: e.type + ' reflect', reflect: 1 }); } }
-    if (fromHero && R.hero.powers && kind !== 'burn' && kind !== 'thorns') { const ctx = { e, x: e.x, y: e.y, hit: dmg }; SIMX.firePowers(S, R, 'hit', ctx); if (crit) SIMX.firePowers(S, R, 'crit', ctx); }
+    if (fromHero && SIMX.heroPowers(R.hero) && kind !== 'burn' && kind !== 'thorns') { const ctx = { e, x: e.x, y: e.y, hit: dmg }; SIMX.firePowers(S, R, 'hit', ctx); if (crit) SIMX.firePowers(S, R, 'crit', ctx); }
     if (e.hp <= 0 && e.deadT < 0) { e.dieA = Math.atan2(dy, dx); killEnemy(S, R, e); }   // the killing blow's direction: bones fly that way
   }
   function aggroRoom(R, e) { for (const o of R.en) if (o.deadT < 0 && (!D.BOSSES[o.type] || !R.map.bossType || R.arena) && (o === e || o.st === 'idle') && (o.room === e.room || (Math.hypot(o.x - e.x, o.y - e.y) < 220 && losClear(R.map, o.x, o.y - 10, e.x, e.y - 10)))) { o.st = 'chase'; o.t0 = o.seenT = R.t; }
@@ -156,22 +160,24 @@
     ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id, elite: e.elite && !D.BOSSES[e.type] ? 1 : 0, boss: D.BOSSES[e.type] ? 1 : 0 }, e.quest ? { quest: e.quest } : {}, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // the last monster of a room down: the room is cleared (TASKS 1017, a quest's goal)
     if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) ev(S, { k: 'clear', x: e.x, y: e.y, room: e.room });
-    if (R.hero.powers && R.hero.deadT < 0) { SIMX.firePowers(S, R, 'kill', { e, x: e.x, y: e.y }); if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) SIMX.firePowers(S, R, 'roomClear', { x: e.x, y: e.y }); }
+    if (SIMX.heroPowers(R.hero) && R.hero.deadT < 0) { SIMX.firePowers(S, R, 'kill', { e, x: e.x, y: e.y }); if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) SIMX.firePowers(S, R, 'roomClear', { x: e.x, y: e.y }); }
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
     if (e.type === 'mimic') SIMX.mimicLoot(S, R, e);
     if (e.summ) return;
     const [lx, ly] = landOf(R.map, e.x, e.y), ox = e.x, oy = e.y; e.x = lx; e.y = ly;
     if (e.key !== undefined) drop(R, e.x, e.y, { kind: 'key', lock: e.key });
     const gb = 1 + 0.15 * ((S.meta.up || {}).gold || 0);
-    if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + dep(R) * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
-    const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
-    if (!D.BOSSES[e.type] && (e.elite ? rnd(R) < (LT.p ?? 1) : rnd(R) < LT.p * BAL.reward * LOOT.thin(dep(R)))) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
-    if (rnd(R) < POT.kill * BAL.reward) dropPotion(R, e.x, e.y, 0.65);
+    // a dark room's pack (TASKS 365) pays its gold, finds and potions twice over, each thrown on its own
+    for (let k = SIMX.lootK(R, e); k > 0; k--) {
+      if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + dep(R) * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
+      const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
+      if (!D.BOSSES[e.type] && (e.elite ? rnd(R) < (LT.p ?? 1) : rnd(R) < LT.p * BAL.reward * LOOT.thin(dep(R)))) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
+      if (rnd(R) < POT.kill * BAL.reward) dropPotion(R, e.x, e.y, 0.65); }
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
     const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || SIMX.chapterEnd(R, e)), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (D.BOSSES[e.type]) { SIMX.captiveBoss(S, R, e); SIMX.finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); } }
-    if (big && !R.chests.some((c) => c.boss)) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
+    if (big && !R.chests.some((c) => c.boss)) LOOT.boss.forEach((o, i) => { const it = rollItem(R, dep(R), o.q, undefined, o); drop(R, e.x, e.y, { kind: 'item', item: i ? it : SIMX.bossPrize(R, e, it) }); });
     if (fin) { R.bossDead = 1; R.msg = { s: TXT('sim_hero.killEnemy.msg.s', { name: ENEMIES[e.type].name }), t: S.t }; }
     e.x = ox; e.y = oy;
   }
@@ -251,10 +257,10 @@
     const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : h.leapV && h.leapV[0] === h.dashT ? h.leapV[1] : K.DASH, slide = stag ? 1 - (t - stag.t0) / (stag.t - stag.t0) : 0, mvx = held || (dashing && halted) ? 0 : stag ? stag.vx * slide : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : stag ? stag.vy * slide : dashing ? h.dashY * dashV : h.vy;
     if (charging) { const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - h.x, (o.y - h.y) * 1.25) < ENEMIES[o.type].r + K.R + 18);
       if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.mp = Math.min(D.RAGE.max, h.mp + D.RAGE.charge); h.dashHalt = h.dashT; R.freeze = Math.max(R.freeze, 0.06); R.trauma = Math.min(1, R.trauma + 0.3);
-        e.rootT = t + stun; e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
-        heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); } }
+        e.rootT = Math.max(e.rootT || 0, t + stun); e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
+        heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); SIMX.firePowers(S, R, 'chargeHit', { e, x: e.x, y: e.y }); } }
     else if (h.charge && t - h.dashT >= CH.t) { h.charge = null; h.cd.charge = Math.min(h.cd.charge, t + CH.miss); ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.charge.miss') }); }
-    if (leap && h.powers) SIMX.dashTouch(S, R);
+    if (leap && SIMX.heroPowers(h)) SIMX.dashTouch(S, R);
     // (the throw never carries him onto the lava: a knock-back shoves monsters in, the hero never, TASKS 406)
     if (stag && onLava(m, { x: h.x + mvx * DT * 3, y: h.y + mvy * DT * 3 })) stag.vx = stag.vy = 0;
     // a hero whose box the ground closed over (a railed bank's edge under his heels, TASKS 1833) could not take a step any way: back to
@@ -312,6 +318,7 @@
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, D.clsOf(h).abs[inp.slot - 1].id, inp);
+    if (h.volleyT != null && t >= h.volleyT) SIMX.looseVolley(S, R);
     // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
     if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
       S.meta.tipScroll = 1; R.msg = { s: TXT('sim_hero.stepPlay.msg.s'), t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }
@@ -360,6 +367,7 @@
     // is blessed for the floor, as by the altar's gift, and the circle goes dark
     for (const q of m.circles || []) if (q.bless && !q.used && h.hp > 0 && Math.hypot(h.x - q.x, (h.y - q.y) * 1.6) < 1.6 * TILE && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) {
       q.used = 1; h.bless = 1; h.blessTo = R.floor + 1; ev(S, { k: 'bless', x: q.x, y: q.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); R.msg = { s: TXT('sim_hero.sanctum.msg'), t: S.t }; }
+    if (R.events && R.events.length) SIMX.stepEvents(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
     if (R.chests.length) SIMX.stepChestTraps(S, R);

@@ -7,13 +7,22 @@ import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const seed = +opt('seed', 3), frames = +opt('frames', 60), out = opt('out', 'frames/frameprof');
+// --runs run1,cave,magma,run2 (TASKS 1373): which runs to measure; the whole set takes over 25 minutes on the Steam Deck
+const seed = +opt('seed', 3), frames = +opt('frames', 60), runs = opt('runs', 'run1,cave,magma,run2').split(','), out = opt('out', 'frames/frameprof');
+{ const bad = runs.filter((r) => !['run1', 'cave', 'magma', 'run2'].includes(r)); if (bad.length) { console.error('frameprof: unknown --runs ' + bad.join(', ') + ' (run1, cave, magma, run2)'); process.exit(2); } }
 fs.mkdirSync(out, { recursive: true });
 const server = http.createServer((q, r) => { const file = path.join(process.cwd(), decodeURIComponent(q.url.split('?')[0]));
   fs.readFile(file, (err, bytes) => { if (err) { r.writeHead(404); r.end(); return; } r.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.png') ? 'image/png' : 'text/html'); r.end(bytes); }); });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--expose-gc', '--enable-precise-memory-info'] });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+// --cdp http://127.0.0.1:9333: a Chrome already running with --remote-debugging-port (TASKS 1373: on the Steam Deck the Flatpak
+// Chrome, the browser the game is played in; start it with --js-flags=--expose-gc --enable-precise-memory-info). Without it, Playwright's own Chromium
+const cdp = opt('cdp', ''), vw = +opt('w', 1920), vh = +opt('h', 1080);
+// thru: frames back to back, one finish at the end (CPU and GPU overlap as in play): the frame time a player gets.
+// --query k=v[&k=v]: added to the page's URL (a render switch, e.g. batch=0 or gfx=low)
+// --angle vulkan|gl|default (TASKS 1373): ANGLE's backend; on the Deck the OpenGL one costs far more CPU per draw than Vulkan
+const angle = opt('angle', process.platform === 'darwin' ? 'metal' : 'default'), vk = angle === 'vulkan' ? ['--enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE'] : [];
+const browser = cdp ? await chromium.connectOverCDP(cdp) : await chromium.launch({ args: ['--use-angle=' + angle, ...vk, '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--expose-gc', '--enable-precise-memory-info'] });
+const page = cdp ? await (await browser.newContext({ viewport: { width: vw, height: vh } })).newPage() : await browser.newPage({ viewport: { width: vw, height: vh } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 // hooked on the prototype before the page runs: the assets and first targets are created before __ready and would go uncounted
 await page.addInitScript(() => {
@@ -28,10 +37,11 @@ await page.addInitScript(() => {
   hook('createFramebuffer', function (o, a) { C.fbs++; return o.apply(this, a); });
   hook('deleteFramebuffer', function (o, a) { C.fbs--; return o.apply(this, a); });
   hook('drawArrays', function (o, a) { if (C.onDraw) C.onDraw(); return o.apply(this, a); });
+  hook('drawArraysInstanced', function (o, a) { if (C.onDraw) C.onDraw(a[3]); return o.apply(this, a); });   // G.drawN (TASKS 2031): one call, a[3] copies
 });
 let result;
 try {
-  await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
+  await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1${opt('query', '') ? '&' + opt('query', '') : ''}`);
   await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
   if (args.includes('--colossus')) {
     const rows = await page.evaluate(() => {
@@ -51,20 +61,29 @@ try {
     if (errors.length) { console.log('page errors:\n' + errors.slice(0, 5).join('\n')); process.exitCode = 2; }
     await browser.close(); server.close(); process.exit(process.exitCode || 0);
   }
-  result = await page.evaluate(([seed, frames]) => {
-    const gl = G.gl, X = window.SCX, base = SCENE.QA().states.find(([n]) => n === 'zone_magma')[1];
+  result = await page.evaluate(([seed, frames, runs]) => {
+    // the base is QA's play() (scene_qa.js), not SCENE.QA() itself: that builds every QA state, minutes on the Steam Deck (TASKS 1373),
+    // and each run below replaces the base's run anyway
+    const gl = G.gl, X = window.SCX, base = SIM.spawn(0, {}); base.meta.shards = 9999; SIM.step(base, { keys: [] }); base.run = SIM.newRun(base, 'campaign', 1234); base.screen = 'play';
+    for (let i = 0; i < 30; i++) SIM.step(base, { px: 960, py: 540, keys: [] });
     const C = window.__gpu, live = C.live; let cur = 'other', tg = null, fin = false, drawP = null, drawXf = null;
     const gBind = G.bind; G.bind = (t, c) => { tg = t; gBind(t, c); };
     let pass = {}, prog = {};
     const gDraw = G.draw; G.draw = (P, U, xf, flip) => { drawP = P; drawXf = xf; gDraw(P, U, xf, flip); };
-    C.onDraw = () => { const P = drawP, xf = drawXf; if (!P) return;
+    const gDrawN = G.drawN; G.drawN = (P, U, xf, flip, off, n) => { drawP = P; drawXf = xf; gDrawN(P, U, xf, flip, off, n); };
+    // a batch of flat rectangles (G.solid, TASKS 2032) goes out from G.flush, not from a G.draw: its own program and summed area
+    // (review of PR 62: it was booked to the last G.draw's program and quad)
+    let batch = null; G.onFlush = (P, R, n) => { let a = 0; for (let i = 0; i < n; i++) a += Math.abs(R[4 * i + 2] * R[4 * i + 3]); batch = { P, a }; };
+    C.onDraw = (copies = 1) => { if (batch) { const { P, a } = batch; batch = null; const k = tg ? tg.w * tg.h / (tg.vw * tg.vh) : 1, q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 });
+        q.n++; q.px += a * k; (pass[cur] || (pass[cur] = { ms: 0, n: 0 })).n++; return; }
+      const P = drawP, xf = drawXf; if (!P) return;
       const vw = tg ? tg.vw : G.W, vh = tg ? tg.vh : G.H, k = tg ? tg.w * tg.h / (tg.vw * tg.vh) : 1;
       const xs = [xf[6], xf[6] + xf[0], xf[6] + xf[3], xf[6] + xf[0] + xf[3]], ys = [xf[7], xf[7] + xf[1], xf[7] + xf[4], xf[7] + xf[1] + xf[4]];
       const area = Math.abs(xf[0] * xf[4] - xf[1] * xf[3]), box = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)) || 1;
       const cw = Math.max(0, Math.min(vw, Math.max(...xs)) - Math.max(0, Math.min(...xs))), ch = Math.max(0, Math.min(vh, Math.max(...ys)) - Math.max(0, Math.min(...ys)));
-      const q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 }); q.n++; q.px += area * (cw * ch / box) * k;
+      const q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 }); q.n++; q.px += area * (cw * ch / box) * k * copies;
       (pass[cur] || (pass[cur] = { ms: 0, n: 0 })).n++; };
-    const wrap = (obj, k, name) => { const f = obj[k]; obj[k] = (...a) => { const was = cur; cur = name; if (fin) gl.finish(); const t0 = performance.now(); try { return f(...a); } finally { if (fin) gl.finish(); (pass[name] || (pass[name] = { ms: 0, n: 0 })).ms += performance.now() - t0; cur = was; } }; };
+    const wrap = (obj, k, name) => { const f = obj[k]; obj[k] = (...a) => { const was = cur; cur = name; if (fin) gl.finish(); const t0 = performance.now(); try { return f(...a); } finally { G.flush(); if (fin) gl.finish(); (pass[name] || (pass[name] = { ms: 0, n: 0 })).ms += performance.now() - t0; cur = was; } }; };
     wrap(X, 'worldPass', 'world'); wrap(X, 'lightPass', 'light'); wrap(X, 'fxPass', 'fx'); wrap(X.L, 'finish', 'post'); wrap(window.HUD, 'draw', 'hud');
     const VW = SIM.VIEW.W, VH = SIM.VIEW.H, T = DATA.TILE, round = (v, d = 2) => +v.toFixed(d);
     const mem = () => { if (window.gc) gc(); return { tex: live.size, texMB: round([...live.values()].reduce((a, b) => a + b, 0) / 1048576, 1), fbs: C.fbs, heapMB: round(performance.memory.usedJSHeapSize / 1048576, 1) }; };
@@ -78,13 +97,15 @@ try {
       for (let i = 0; i < 20; i++) SCENE.render(S.t + 0.01 + i / 60); gl.finish();
       lookAt(S, R); for (let i = 0; i < 10; i++) SCENE.render(S.t + 0.02 + i / 60); gl.finish();
       const cpu = []; for (let i = 0; i < frames; i++) { const a = performance.now(); SCENE.render(S.t + 0.1 + i / 60); cpu.push(performance.now() - a); } gl.finish();
+      // thru (TASKS 2031): frames drawn back to back with one finish at the end, CPU and GPU overlapping as in play: the frame time a player gets
+      { const a = performance.now(); for (let i = 0; i < frames; i++) SCENE.render(S.t + 0.1 + i / 60); gl.finish(); var thruMs = (performance.now() - a) / frames; }
       pass = {}; prog = {}; fin = true; const full = [];
       for (let i = 0; i < frames; i++) { const a = performance.now(); SCENE.render(S.t + 0.1 + i / 60); gl.finish(); full.push(performance.now() - a); } fin = false;
       const passes = Object.fromEntries(Object.entries(pass).map(([k, v]) => [k, { ms: round(v.ms / frames), draws: Math.round(v.n / frames) }]));
       const shaders = Object.entries(prog).map(([k, v]) => ({ name: k, draws: Math.round(v.n / frames), mpx: round(v.px / frames / 1e6) })).sort((a, b) => b.mpx - a.mpx).slice(0, 10);
       const inp = { keys: [], px: 0, py: 0 }, simMs = []; let simErr = null;
       try { for (let i = 0; i < 90; i++) { const a = performance.now(); SIM.step(S, inp); simMs.push(performance.now() - a); } } catch (e) { simErr = e.message; }
-      return { label, biome: R.map.biome, size: R.map.W + '×' + R.map.H, foes: R.en.length, torches: R.map.torches.length, decor: R.map.decor.length, firstMs: round(firstMs, 1), cpuMs: round(cpu.reduce((a, b) => a + b, 0) / frames), cpuP95: round(pct(cpu, 0.95)), fullMs: round(full.reduce((a, b) => a + b, 0) / frames), fullP95: round(pct(full, 0.95)),
+      return { label, biome: R.map.biome, size: R.map.W + '×' + R.map.H, foes: R.en.length, torches: R.map.torches.length, decor: R.map.decor.length, firstMs: round(firstMs, 1), cpuMs: round(cpu.reduce((a, b) => a + b, 0) / frames), cpuP95: round(pct(cpu, 0.95)), thruMs: round(thruMs), fullMs: round(full.reduce((a, b) => a + b, 0) / frames), fullP95: round(pct(full, 0.95)),
         passes, shaders, simMs: simMs.length ? round(simMs.reduce((a, b) => a + b, 0) / simMs.length) : null, simMax: simMs.length ? round(Math.max(...simMs)) : null, simErr, mem: mem() };
     };
     const rows = [], mems = [];
@@ -92,18 +113,17 @@ try {
       for (const f of list) { const a = performance.now(); if (f !== null) SIM.enterFloor(S, S.run, f); const enterMs = round(performance.now() - a, 1); const row = measure(S, S.run, `${tag} f${f === null ? 0 : f}`); row.enterMs = enterMs; rows.push(row); mems.push({ at: row.label, ...row.mem }); } };
     const seq = [null, ...Array.from({ length: DATA.RUNS.campaign.floors }, (_, i) => i + 1)];
     mems.push({ at: 'start', ...mem() });
-    floorRun('campaign', { town: 1 }, seq, 'run1');
-    floorRun('cave', {}, [1, 2, 3, 4], 'cave');
-    floorRun('magma', {}, [1, 2, 3, 4], 'magma');
-    floorRun('campaign', { town: 1 }, seq, 'run2');
-    return { rows, mems, renderer: gl.getParameter(gl.RENDERER), canvas: [gl.drawingBufferWidth, gl.drawingBufferHeight] };
-  }, [seed, frames]);
+    const plan = { run1: ['campaign', { town: 1 }, seq], cave: ['cave', {}, [1, 2, 3, 4]], magma: ['magma', {}, [1, 2, 3, 4]], run2: ['campaign', { town: 1 }, seq] };
+    for (const k of runs) floorRun(...plan[k], k);
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    return { rows, mems, renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), canvas: [gl.drawingBufferWidth, gl.drawingBufferHeight] };
+  }, [seed, frames, runs]);
 } finally { await browser.close(); server.close(); }
 fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify(result, null, 1));
 const P = ['world', 'light', 'fx', 'post', 'hud'];
 console.log(`${result.renderer} ${result.canvas.join('×')}`);
-console.log('scene | biome | size | foes | enter | 1st | cpu p95 | full p95 | ' + P.join(' ') + ' | GPU draws | sim max | top shaders Mpx');
-for (const r of result.rows) console.log(`${r.label} | ${r.biome} | ${r.size} | ${r.foes} | ${r.enterMs} | ${r.firstMs} | ${r.cpuMs} ${r.cpuP95} | ${r.fullMs} ${r.fullP95} | ${P.map((k) => r.passes[k]?.ms ?? '-').join(' ')} | ${P.reduce((a, k) => a + (r.passes[k]?.draws || 0), 0)} | ${r.simMs} ${r.simMax}${r.simErr ? ' ERR ' + r.simErr : ''} | ${r.shaders.slice(0, 4).map((s) => `${s.name}:${s.mpx}`).join(' ')}`);
+console.log('scene | biome | size | foes | enter | 1st | cpu p95 | thru | full p95 | ' + P.join(' ') + ' | GPU draws | sim max | top shaders Mpx');
+for (const r of result.rows) console.log(`${r.label} | ${r.biome} | ${r.size} | ${r.foes} | ${r.enterMs} | ${r.firstMs} | ${r.cpuMs} ${r.cpuP95} | ${r.thruMs} | ${r.fullMs} ${r.fullP95} | ${P.map((k) => r.passes[k]?.ms ?? '-').join(' ')} | ${P.reduce((a, k) => a + (r.passes[k]?.draws || 0), 0)} | ${r.simMs} ${r.simMax}${r.simErr ? ' ERR ' + r.simErr : ''} | ${r.shaders.slice(0, 4).map((s) => `${s.name}:${s.mpx}`).join(' ')}`);
 console.log('\nmemory: at | textures | tex MB | framebuffers | heap MB');
 for (const m of result.mems) console.log(`${m.at} | ${m.tex} | ${m.texMB} | ${m.fbs} | ${m.heapMB}`);
 if (errors.length) { console.log('page errors:\n' + errors.slice(0, 5).join('\n')); process.exitCode = 2; }

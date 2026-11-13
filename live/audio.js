@@ -2,15 +2,20 @@
 // oscillators and filtered noise, panned and attenuated by where it happens on screen, through one shared dungeon reverb.
 // The ambience is a per-biome bed (a low drone, air, drips / embers / shimmer) and a heartbeat on low health.
 // AUDIO.update(S) runs once a frame from the live loop; the volume and M's mute are the sim's (S.meta.vol, S.meta.mute). Sound starts on the first key or click,
-// as browsers require, and stays silent in the attract demo.
+// as browsers require (the context is made ahead, suspended), and stays silent in the attract demo.
 (function () {
   const W = 1920, H = 1080;
   let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, gainNow = 0, amb = null, beatT = 0;
   const recent = {};
   let waterAmb = null, lavaAmb = null, echo = null, dripT = -1;
 
-  function init() {
-    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  // The graph is built ahead, suspended, when the browser is idle after the live loop's first frame (TASKS 2033): built on the first
+  // key, the context and the reverb's two seconds of noise took 150–370 ms on the Steam Deck, and that frame swallowed the key's
+  // own answer (a pad's press opening the journal fell into it). The first key or click only resumes it; until then nothing plays
+  let live = false, asked = false;
+  function init() { live = true; if (!ctx) prepare(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+  function prepare() {
+    if (ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     ctx = new AC();
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.connect(ctx.destination);
@@ -226,6 +231,10 @@
     lvl: (o) => [523, 659, 784, 1047].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.09, d: 0.6, v: 0.12 })),
     unseal: (o) => { tone(o, { type: 'square', f0: 110, f1: 70, d: 0.14, v: 0.16 }); noise(o, { t: now() + 0.05, d: 0.18, v: 0.2, type: 'lowpass', f0: 1400, f1: 400 }); [660, 988].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.18 + i * 0.1, d: 0.9, v: 0.1 })); },
     unlock: (o) => [784, 1175].forEach((f, i) => tone(o, { f0: f, t: now() + i * 0.12, d: 0.8, v: 0.12 })),
+    dice: (o, e) => { for (let i = 0; i < 4; i++) noise(o, { t: now() + i * 0.07 + rr(0, 0.02), d: 0.04, v: 0.16, type: 'bandpass', f0: rr(1800, 2600), f1: 1200, q: 3 }); if (e.fate !== 'lose') [784, 988, 1319].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.32 + i * 0.08, d: 0.5, v: 0.08 })); },
+    captive: (o, e) => { if (e.hurt) tone(o, { type: 'triangle', f0: 620, f1: 410, d: 0.18, v: 0.12 }); else if (e.home) [523, 659, 784].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.1, d: 0.5, v: 0.09 })); else noise(o, { d: 0.3, v: 0.12, type: 'lowpass', f0: 900, f1: 300 }); },
+    dark: (o) => { tone(o, { f0: 92, f1: 61, a: 0.2, d: 1.6, v: 0.12 }); tone(o, { f0: 138, f1: 92, a: 0.3, d: 1.4, v: 0.05, det: 6 }); },
+    spring: (o) => { for (let i = 0; i < 5; i++) tone(o, { f0: rr(500, 700), f1: rr(900, 1200), t: now() + i * 0.09, d: 0.07, v: 0.09 }); },
     drink: (o) => { for (let i = 0; i < 3; i++) tone(o, { f0: rr(260, 340), f1: rr(450, 560), t: now() + i * 0.11, d: 0.08, v: 0.14 }); },
     shield: (o) => { tone(o, { f0: 520, f1: 1040, a: 0.05, d: 0.5, v: 0.1 }); tone(o, { f0: 780, f1: 1560, a: 0.05, d: 0.5, v: 0.07, det: 8 }); },
     dodge: (o) => noise(o, { d: 0.14, v: 0.18, type: 'bandpass', f0: 2400, f1: 900, q: 1.5 }),
@@ -371,7 +380,10 @@
   }
 
   function update(S) {
-    if (!ctx || !S || S.demo) { if (S) lastT = S.t; return; }
+    // (re-review of PR 62) idle time may never come at 60 fps on the Deck: built within a second anyway; and nothing is played
+    // until the context runs: sounds queued on a suspended one all went off at once when it resumed
+    if (!ctx && !asked) { asked = true; if (window.requestIdleCallback) requestIdleCallback(prepare, { timeout: 1000 }); else setTimeout(prepare, 0); }
+    if (!ctx || !live || ctx.state !== 'running' || !S || S.demo) { if (S) lastT = S.t; return; }
     const M = S.meta || {}, g = M.mute ? 0 : 0.7 * (M.vol ?? 1); muted = !!M.mute;
     if (g !== gainNow) { master.gain.setTargetAtTime(g, ctx.currentTime, 0.05); gainNow = g; }
     if (S.run !== lastRun && S.run && lastRun && S.t < lastT) lastT = -1;
@@ -382,5 +394,5 @@
     ambience(S);
   }
 
-  window.AUDIO = { update, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
+  window.AUDIO = { update, start: init, get live() { return live; }, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();

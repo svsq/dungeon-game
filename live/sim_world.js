@@ -73,10 +73,10 @@
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, c = rnd(R) * 100 < st.crit, dmg = Math.round(D.fireDmg(st.spellBase, AR.k, st.spell) * (c ? st.critK : 1));
       const p = { id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, crit: c ? 1 : 0, own: 'hero', r: 8 }; R.proj.push(p); fired.projs = [p]; ev(S, { k: 'cast', x: hx, y: hy, a }); }
     // the ice wave (TASKS 1110): everyone in the cone before the mage, in his sight, is hurt and chilled (sim_enemies: slowK)
-    if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell);
+    if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell); fired.cold = [];
       for (const e of R.en) { if (e.deadT >= 0 || under(e)) continue; const dx = e.x - h.x, dy = (e.y - h.y) * 1.3, d = Math.hypot(dx, dy);
         if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
-        SIMX.chill(S, e, F.t, F.slow); const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, c ? Math.round(dmg * st.critK) : dmg, c, h.x, h.y, 0.5, 'frost'); }
+        if (e.chillT > S.t) fired.cold.push(e); SIMX.chill(S, e, F.t, F.slow); const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, c ? Math.round(dmg * st.critK) : dmg, c, h.x, h.y, 0.5, 'frost'); }
       tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
     // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
     // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)
@@ -85,27 +85,30 @@
       ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
     // the archer's (TASKS 1120, 1161): a fan of arrows closing on the cursor; a trap at the cursor (stepTraps springs it); a leap back
     // as a dash with a shot down the aim; each arrow, trap and leap shot may crit
-    const shot = () => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c]; };
-    const [ox, oy] = hand(h), far = Math.hypot((h.mx ?? ox + Math.cos(h.aim) * 200) - ox, (h.my ?? oy + Math.sin(h.aim) * 200) - oy);
-    if (id === 'volley') { const V = D.VOLLEY, arc = Math.max(V.min, Math.min(V.arc, 2 * Math.atan2(V.w / 2, far) * 180 / Math.PI)); fired.projs = [];
-      for (let i = 0; i < V.n; i++) { const [d, c] = shot(); fired.projs.push(heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * AR.k), c, 'arrow', BASES[st.wtype])); }
-      ev(S, { k: 'volley', x: h.x, y: h.y, a: h.aim }); }
+    const shot = () => heroShotRoll(R, h, st);
+    // the fan leaves at the loose, once the bow is up (TASKS 1744: loosed on the key, it flew while the bow still hung at the hip)
+    if (id === 'volley') { h.volleyT = S.t + D.VOLLEY.loose; h.volleyK = AR.k; return; }
     if (id === 'trap') { const T = D.TRAP;
       const gx = h.mx ?? h.x, gy = (h.my ?? h.y) + 30, n = Math.min(T.far, Math.hypot(gx - h.x, gy - h.y)), ux = (gx - h.x) / (Math.hypot(gx - h.x, gy - h.y) || 1), uy = (gy - h.y) / (Math.hypot(gx - h.x, gy - h.y) || 1);
       let tx = h.x, ty = h.y + 4; for (let d = n; d > 0; d -= 8) { const x = h.x + ux * d, y = h.y + uy * d; if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) === 1 && losClear(R.map, h.x, h.y, x, y)) { tx = x; ty = y; break; } }
       const [d, c] = shot(); setTrap(S, R, tx, ty, h.x, h.y + 4, Math.round(d * T.k * AR.k), c); }
-    if (id === 'leap') { h.dashT = S.t; h.leapV = [S.t, D.LEAP.spd]; h.dashX = -Math.cos(h.aim); h.dashY = -Math.sin(h.aim); const [d, c] = shot(); heroShot(R, h, h.aim, Math.round(d * D.LEAP.k * AR.k), c, 'arrow', BASES[st.wtype]);
+    if (id === 'leap') { h.dashT = S.t; h.leapV = [S.t, D.LEAP.spd]; h.dashX = -Math.cos(h.aim); h.dashY = -Math.sin(h.aim); const [d, c] = shot(); fired.projs = [heroShot(R, h, h.aim, Math.round(d * D.LEAP.k * AR.k), c, 'arrow', BASES[st.wtype])];
       ev(S, { k: 'hleap', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); SIMX.firePowers(S, R, 'dash', { x: h.x, y: h.y, dx: h.dashX, dy: h.dashY, len: D.LEAP.spd * K.DASH_T }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
     SIMX.firePowers(S, R, 'cast:' + id, Object.assign({ x: h.x, y: h.y, a: h.aim }, fired));
   }
+  const heroShotRoll = (R, h, st) => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c]; };
+  function looseVolley(S, R) { const h = R.hero, st = heroSt(S), V = D.VOLLEY, [ox, oy] = hand(h), far = Math.hypot((h.mx ?? ox + Math.cos(h.aim) * 200) - ox, (h.my ?? oy + Math.sin(h.aim) * 200) - oy), k = h.volleyK || 1;
+    const arc = Math.max(V.min, Math.min(V.arc, 2 * Math.atan2(V.w / 2, far) * 180 / Math.PI)), projs = []; h.volleyT = null;
+    for (let i = 0; i < V.n; i++) { const [d, c] = heroShotRoll(R, h, st); projs.push(heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * k), c, 'arrow', BASES[st.wtype])); }
+    ev(S, { k: 'volley', x: h.x, y: h.y, a: h.aim }); SIMX.firePowers(S, R, 'cast:volley', { x: h.x, y: h.y, a: h.aim, projs }); }
   function setTrap(S, R, x, y, fx, fy, dmg, crit) { const own = (R.htraps = (R.htraps || []).filter((q) => !q.done)); if (own.length >= D.TRAP.max) own.shift(); own.push({ id: R.nextId++, x, y, fx, fy, t0: S.t, dmg, crit }); ev(S, { k: 'trapset', x, y }); }
   // the archer's traps (TASKS 1120, 1161): armed after TRAP.arm s, the first monster on one is struck and held, its blow put off as
   // the charge's stun (sim_enemies: rootT → slowK 0), a boss briefly; gone after TRAP.life s
   function stepTraps(S, R) { const T = D.TRAP, t = S.t;
     for (const q of R.htraps) { if (q.done) continue; if (t - q.t0 > T.life) { q.done = 1; continue; } if (t - q.t0 < T.arm) continue;
       const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - q.x, (o.y - q.y) * 1.3) < T.r + ENEMIES[o.type].r * 0.6); if (!e) continue;
-      const hold = D.BOSSES[e.type] ? T.boss : T.root; q.done = 1; e.rootT = t + hold; e.slowK = 0; e.cdT = Math.max(e.cdT || 0, t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
+      const hold = D.BOSSES[e.type] ? T.boss : T.root; q.done = 1; e.rootT = Math.max(e.rootT || 0, t + hold); e.slowK = 0; e.cdT = Math.max(e.cdT || 0, t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
       heroHit(S, R, e, q.dmg, !!q.crit, q.x, q.y, 0); ev(S, { k: 'trapsnap', x: q.x, y: q.y, id: e.id }); SIMX.firePowers(S, R, 'trapsnap', { x: q.x, y: q.y, e, dmg: q.dmg }); }
     R.htraps = R.htraps.filter((q) => !q.done); }
   function breakPots(S, R, x, y, rad, ax, arc) {
@@ -238,12 +241,20 @@
   // under it each step is enough), and flies on (TASKS 1706)
   function arrowWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
   function springAmbush(S, R, P) {
-    const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
-    if (!room || P.fired) return false;
+    const m = R.map, h = R.hero;
+    if (!m.rooms[P.room] || P.fired) return false;
     P.fired = 1;
+    if (!summonPack(S, R, P.room, P.n, 'amb')) return false;
+    P.downT = S.t; ev(S, { k: 'ambush', x: h.x, y: h.y });
+    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.springAmbush.msg.s'), t: S.t, d: 2, room: P.room }; return true;
+  }
+  // n of the floor's roster risen in a room round the hero, out of his blade's reach (an ambush; a skull door's wave, TASKS 362):
+  // all or none, or with `some` as many as find a place. → how many rose
+  function summonPack(S, R, ri0, n, summ, some) {
+    const m = R.map, h = R.hero, f = dep(R), room = m.rooms[ri0];
     const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
-    if (!roster.length) return false;
-    const group = Array.from({ length: P.n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = SIMX.solids(R), block = new Set(m.block || []);
+    if (!roster.length) return 0;
+    const group = Array.from({ length: n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = SIMX.solids(R), block = new Set(m.block || []);
     const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;
     const walk = (x, y) => inside(x, y) && cell(m, x, y) === 1 && !block.has(y * m.W + x);
     const seen = new Set(), queue = [[Math.floor(h.x / TILE), Math.floor(h.y / TILE)]];
@@ -262,16 +273,15 @@
     for (let i = candidates.length - 1; i > 0; i--) { const j = ri(R, 0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
     const positions = [];
     for (const p of candidates) if (positions.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= 2 * radius + 4)) { positions.push(p); if (positions.length === group.length) break; }
-    if (positions.length !== group.length) return false;
+    if (positions.length !== group.length && !some) return 0;
     const sc = BAL.hp * dif(R, 'hp') * D.hpAt(f), dc = BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob;
-    for (let i = 0; i < group.length; i++) {
+    for (let i = 0; i < positions.length; i++) {
       const { x, y } = positions[i], type = group[i], E = ENEMIES[type], hp = Math.round(E.hp * sc);
-      R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: P.room, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
-        cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
+      R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: ri0, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
+        cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ, spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
       ev(S, { k: 'summon', x, y });
     }
-    P.downT = S.t; ev(S, { k: 'ambush', x: h.x, y: h.y });
-    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.springAmbush.msg.s'), t: S.t, d: 2, room: P.room }; return true;
+    return positions.length;
   }
   // a door opens to a press of E or a blow (a kick, it flies open), unless it is locked: a key the hero carries opens the lock for
   // good, a lever opens every door of its lock at once
@@ -330,6 +340,7 @@
     if (q.pz.step === n) openSecret(S, R, q); }
   function openChest(S, R, c) {
     if (c.open) return;
+    if (c.hex !== undefined && !c.hexOk) { const E = SIMX.eventsOf(R).find((q) => q.id === 'hex' && q.room === c.hex); if (E && E.st === 'idle') SIMX.eventUse(S, R, E); return; }
     if (c.mimic) { wakeMimic(S, R, c); return; }
     if (c.sealed) { if (S.t - (c.nopeT ?? -9) > 1) { c.nopeT = S.t; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.openChest.sealed') }); } return; }
     const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
@@ -353,25 +364,25 @@
     ev(S, { k: 'mimicwake', x: c.x, y: c.y, id }); R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.mimic.msg'), t: S.t, d: 2 }; }
   function mimicLoot(S, R, e) { const c = R.chests.find((o) => o.woke === e.id); if (!c) return;
     for (const it of c.loot || []) drop(R, e.x, e.y, { kind: 'item', item: it, pre: true }); c.loot = [];
-    drop(R, e.x, e.y, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * 3) }); }
+    drop(R, e.x, e.y, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * 4) }); }
   // a trapped chest's blast, its fuse lit by the opening: it hurts, but it does not end a run on its own
   function stepChestTraps(S, R) { const h = R.hero, T = D.CHEST_TRAP;
     for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; c.bangT = S.t; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); ev(S, { k: 'boom', x: c.x, y: c.y - 20, big: 1, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.5);
       if (Math.hypot(h.x - c.x, h.y - c.y) < T.r && h.hp > 1) { SIMX.hurtHero(S, R, Math.min(SIMX.heroSt(S).maxHp * T.hp, h.hp - 1), c.x, c.y - 10, 'spike'); if (S.t === h.hurtT) R.msg = { s: TXT('sim_world.chestTrap.msg'), t: S.t }; } } }
   // a boss's own chest holds what the boss used to drop (TASKS 1356): the same items in a better place, no new loot
   // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
-  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : LOOT.mini.items.map((o) => rollItem(R, dep(R), o.q, undefined, o)); for (const it of its) it.id = R.nextId++; return its; }
+  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : LOOT.mini.items.map((o) => rollItem(R, dep(R), o.q, undefined, o)); its[0] = SIMX.bossPrize(R, b, its[0]); for (const it of its) it.id = R.nextId++; return its; }
   function chestLoot(R, c) { if (c.boss) return [];
     const LT = c.mimic ? Object.assign({}, LOOT.chest[3], { n: LOOT.chest[c.tier].n }) : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)
     if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], Object.assign({}, LT, { min: Y.forge.min })));
-    else if (LT.p === undefined || rnd(R) < LT.p) for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q, undefined, LT));
+    else if (LT.p === undefined || rnd(R) < LT.p) for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R) + (c.up || 0), i ? LT.q * 0.8 : LT.q, undefined, LT));
     if (Y.stash) for (const [b, n] of Object.entries(Y.stash)) if (!SIMX.useless(R, b)) out.push(potion(b, n));
     if (rnd(R) < POT.chest) out.push(potion('hp_potion')); if (rnd(R) < (R.viaTown ? POT.scrollTown : POT.scroll)) out.push(potion('scroll'));
     for (const it of out) it.id = R.nextId++; return out; }
 
-  Object.assign(SIMX, { setTrap,
+  Object.assign(SIMX, { looseVolley, setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
     leverNear, pullLever, secretUnder, hitShelf, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

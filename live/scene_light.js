@@ -13,15 +13,16 @@
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + SCX.VW + r || y < cy - r || y > cy + SCX.VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt, u_fxpx: 0 }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
-    if (B.cave && !m.cliff) lt(h.x, h.y - 45, 75, [0.35, 0.6, 0.85], 0.18);
     // (a floor without light, TASKS 381, has the lamp reach `light` times as far; TASKS 1364: its ambient is `dim` of a plain floor's and its fixed fires and glows `lit` of theirs)
     const lk = FM.light || 1, ltS = (x, y, r, col, amt, k) => lt(x, y, r, col, amt * (FM.lit || 1), k);
-    lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
-    // (TASKS 1791: on a floor darker than the concept's, L* p50 < 16, a small warm pool at the hero's feet keeps him a figure on a lit
-    // patch of ground instead of the darkest thing in the frame. It is a ring of small lights round his feet and in front of them, none
-    // behind: one light on his feet lit him as much as the ground, and the concept's hero stands darker than the floor round him)
-    if (B.heroGlow && h.deadT < 0) { const [gr, ga, gn, gd] = B.heroGlow;
-      for (let i = 0; i < gn; i++) { const q = -0.25 + (Math.PI + 0.5) * i / Math.max(1, gn - 1); lt(h.x + gd * Math.cos(q), h.y + 4 + 0.55 * gd * Math.sin(q), gr, [1, 0.62, 0.36], ga, 2.0); } }
+    const lamp = () => { if (B.cave && !m.cliff) lt(h.x, h.y - 45, 75, [0.35, 0.6, 0.85], 0.18);
+      lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
+      // (TASKS 1791: on a floor darker than the concept's, L* p50 < 16, a small warm pool at the hero's feet keeps him a figure on a lit
+      // patch of ground instead of the darkest thing in the frame. It is a ring of small lights round his feet and in front of them, none
+      // behind: one light on his feet lit him as much as the ground, and the concept's hero stands darker than the floor round him)
+      if (B.heroGlow && h.deadT < 0) { const [gr, ga, gn, gd] = B.heroGlow;
+        for (let i = 0; i < gn; i++) { const q = -0.25 + (Math.PI + 0.5) * i / Math.max(1, gn - 1); lt(h.x + gd * Math.cos(q), h.y + 4 + 0.55 * gd * Math.sin(q), gr, [1, 0.62, 0.36], ga, 2.0); } } };
+    lamp();
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     // (TASKS 1681: a foe in view keeps a pale glint of its own on a floor without light, else one beyond the lamp's reach is lost)
     if (FM.glint) for (const e of R.en) if (e.deadT < 0 && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 36, 64, [0.78, 0.84, 1], FM.glint);
@@ -46,8 +47,9 @@
       lt(q.x, q.y + L0.dy, L0.r, L0.col, L0.amt * b); if (L0.core) lt(q.x, q.y + L0.dy, L0.core, L0.col.map((v) => 0.5 + 0.5 * v), L0.amt * b, 2.4); }
     // the magma caves' lava is their main light: wider, and its pools beat slowly instead of flickering like a fire (TASKS 404)
     // (a cell the map's edge bit off throws less, TASKS 490: their light lit a straight red band along the edge)
+    // (TASKS 1372: the low graphics keeps the lava's wide pools and leaves out the small bright one over every cell)
     const edgeK = (x, y) => (m.cliff ? Math.min(1, Math.max(0, (Math.min(x, y, m.W - 1 - x, m.H - 1 - y) - 1.5) / 4)) : 1);
-    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) ltS(x * TILE + 16, y * TILE + 16, m.cliff ? 112 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.86 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); ltS(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
+    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) ltS(x * TILE + 16, y * TILE + 16, m.cliff ? 112 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.86 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); if (L.GFX) ltS(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     // a vent heats up over its warning (TASKS 406); its burst flashes from its event
     for (const z of m.hazards || []) { if (z.k !== 'vent') continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w >= 0) lt(z.x, z.y - 10, 110 + 90 * w / H.warn, [1, 0.45, 0.12], 0.25 + 0.95 * w / H.warn); }
@@ -112,6 +114,12 @@
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'trapfuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y - 20, 140 + 70 * q, [1, 0.42, 0.14], (0.35 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (10 + 34 * q)))); } if (e.k === 'trapbang' && a >= 0 && a < 0.7) { const q = 1 - a / 0.7; lt(e.x, e.y - 12, (e.r || 96) * 3.2, [1, 0.62, 0.28], 1.5 * q * q); } }
     // an explosive corpse's fuse: its light swells and beats faster until the burst
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d, [fx, fy] = fuseAt(e); lt(fx, fy, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
+    // a dark room (TASKS 365): whatever light fell into its box is put out and only the hero's lamp is laid again. The box takes the
+    // wall row over it too, so its north wall does not stand lit over a black floor
+    for (const E of R.events || []) { if (E.id !== 'dark') continue; const r = m.rooms[E.room];
+      for (const [bx, by, bw, bh] of [[r.x, r.y, r.w, r.h], ...(r.wings || [])]) { const x0 = sx(bx * TILE), y0 = sy((by - 1) * TILE), x1 = sx((bx + bw) * TILE), y1 = sy((by + bh) * TILE);
+        if (x1 < 0 || y1 < 0 || x0 > SCX.VW || y0 > SCX.VH) continue;
+        G.clip(SCX.LT.light, x0, y0, x1 - x0, y1 - y0); G.blend('none'); L.solid(x0, y0, x1 - x0, y1 - y0, [0.02, 0.02, 0.03]); G.blend('add'); lamp(); G.clip(null); } }
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
     // whoever stands before the lava keeps its glow and its shimmer off them (TASKS 407): the monsters' silhouettes in a mask both

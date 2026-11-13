@@ -2,7 +2,7 @@
 // sim.js requires it, the page never loads it (ARCHITECTURE.md §4.2). It reads the sim's inside through SIMX.
 (function (root) {
   const SIMX = root.SIMX;
-  if (typeof module !== 'undefined') { require('./sim_checks_powers.js'); require('./sim_checks_ui.js'); }
+  if (typeof module !== 'undefined') { require('./sim_checks_powers.js'); require('./sim_checks_ui.js'); require('./sim_checks_events.js'); }
   const {
     ABILITIES, ARROW_Y, BAL, BASES, CRUST, D, DG, DOOM, DT, ENEMIES, FROM, K, LOOT, MOD, RARITY, REWARD, STAGE, TILE, UI, WADE, addFire,
     aggroRoom, angDiff, bagAdd, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
@@ -27,6 +27,7 @@
       if (T.meta.zoom !== D.ZOOMS[0]) out.push('settings: a click at the slider\'s left end does not set ×0,5');
       step(T, { keys: [], press: 0 }); step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.bright !== 1.2) out.push('settings: → on the brightness row does not brighten one step');
       step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowLeft'] }); if (T.meta.vol !== 0.75) out.push(`settings: ← on the volume row does not step it down (${T.meta.vol})`);
+      step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowLeft'] }); if (T.meta.gfx !== 1) out.push('settings: ← on the graphics row does not step from high to middle (TASKS 1372)');
       // TASKS 1864: the fullscreen row is a checkbox, a click or Enter on it flips the wish kept in the meta
       const fr = UI.settings().r.find((q) => q.id === 'full'), n1 = T.saveN; step(T, { keys: [], press: 0 }); step(T, { keys: [], click: 1, press: 1, px: fr.x + fr.w / 2, py: fr.y + fr.h / 2 }); step(T, { keys: [], press: 0 });
       if (T.meta.full !== 1 || T.saveN === n1) out.push('settings: a click on «Полный экран» does not ask for the full screen, or the wish is not kept');
@@ -150,6 +151,32 @@
         k2(Q, 'ArrowUp'); k2(Q, 'ArrowUp'); if (Q.focus !== 'quit') out.push('menu: ↑ does not reach «Выход»');
         const R = Q.run = newRun(Q, 'campaign', 46); k2(Q, 'Enter'); if (Q.quitReq !== 1 || Q.run || Q.saved !== R) out.push('menu: «Выход» does not save the run in play and ask the page to quit');
         const B = spawn(0, {}); B.screen = 'menu'; B.focus = 'quit'; step(B, { keys: ['Enter'] }); if (B.quitReq) out.push('menu: «Выход» asks to quit where the page cannot'); }
+      // TASKS 1870: the update's item and window. No state from the page, no item; the desktop's item stands before «Выход», a press
+      // asks for a check and opens the window; its buttons ask the page for the download, the restart (saving a run in play first)
+      // and a new try, by what failed; Escape closes it back onto the item. The browser's item shows only a newer version and its page
+      { if (UI.menu(true, 0, 0, false, true).some((b) => b.id === 'update')) out.push('update: the item shows with no state from the page');
+        const n = { v: 0 }, upd = (o) => Object.assign({ can: 1, st: 'idle', n: ++n.v }, o);
+        const U = spawn(0, {}); U.screen = 'menu'; U.focus = ''; step(U, { keys: [], quit: 1, upd: upd() }); const ids = UI.menu(false, 0, 0, false, true, U.upd).map((b) => b.id);
+        if (ids.indexOf('update') < 0 || ids.indexOf('update') !== ids.indexOf('quit') - 1) out.push('update: the desktop menu has no «Проверить обновления» right before «Выход»');
+        const ask = () => (U.updReq ? U.updReq.k : ''), was = () => (U.updReq ? U.updReq.n : 0);
+        U.focus = 'update'; k2(U, 'Enter'); if (!U.updOpen || ask() !== 'check') out.push('update: the item does not open its window and ask for a check');
+        let w = was(); step(U, { keys: [], upd: upd({ st: 'check' }) }); k2(U, 'Enter'); if (U.updOpen || U.focus !== 'update' || was() !== w) out.push('update: «Закрыть» over a check does not close back onto the item');
+        step(U, { keys: [], upd: upd({ st: 'avail', v: '9.9.9', notes: D.relNotes('### A\n\n- one\n  two\n- three\n\n### B\n\n- four') }) });
+        if (U.upd.notes.join('|') !== 'one two|three') out.push('update: a release\'s notes are not its first section\'s points: ' + U.upd.notes.join('|'));
+        if (!D.updMark(U.upd)) out.push('update: a version found leaves no mark on the menu');
+        { const long = 'Доспехи складываются аккуратнее, а запасная броня в сумке больше не мешает носить оружие и щит вместе со всем остальным добром', Z = UI.upd({ st: 'avail', v: '9.9.9', notes: [long] }).rows.filter((r) => r.k === 'note');
+          if (Z.length !== 2 || !Z[1].s.endsWith('…') || Z[1].s.length > 48) out.push('update: a long «Что нового» point is not two lines ending in «…» within the width: ' + Z.map((r) => r.s).join('|'));
+          else if (!long.split(' ').includes(Z[1].s.slice(0, -1).split(' ').pop())) out.push('update: a long «Что нового» point is cut inside a word: ' + Z[1].s); }
+        U.focus = 'update'; w = was(); k2(U, 'Enter'); if (was() !== w) out.push('update: the item asks for a new check over a version already found');
+        k2(U, 'Enter'); if (ask() !== 'get') out.push('update: «Скачать и обновить» does not ask for the download');
+        step(U, { keys: [], upd: upd({ st: 'err', err: 'down', v: '9.9.9' }) }); k2(U, 'Enter'); if (ask() !== 'get') out.push('update: a new try after a broken download does not download again');
+        step(U, { keys: [], upd: upd({ st: 'err', err: 'net' }) }); k2(U, 'Enter'); if (ask() !== 'check') out.push('update: a new try offline does not check again');
+        const R = U.run = newRun(U, 'campaign', 47); step(U, { keys: [], upd: upd({ st: 'ready', v: '9.9.9' }) }); k2(U, 'ArrowRight'); k2(U, 'ArrowLeft'); k2(U, 'Enter');
+        if (ask() !== 'run' || U.run || U.saved !== R) out.push('update: «Перезапустить» does not save the run in play and ask for the restart');
+        k2(U, 'Escape'); if (U.updOpen || U.screen !== 'menu') out.push('update: Escape does not close the window');
+        const B = spawn(0, {}); B.screen = 'menu'; step(B, { keys: [], upd: { web: 1, st: 'none', n: 1 } }); if (UI.menu(false, 0, 0, false, false, B.upd).some((b) => b.id === 'update')) out.push('update: the browser shows the item with no newer version');
+        step(B, { keys: [], upd: { web: 1, st: 'web', v: '9.9.9', n: 2 } }); B.focus = 'update'; k2(B, 'Enter'); k2(B, 'Enter'); if (!B.updOpen || !B.updReq || B.updReq.k !== 'open') out.push('update: the browser\'s window does not open the release page');
+        if (!D.verNewer('0.10.0', '0.9.9') || D.verNewer('v0.4.1', '0.4.1') || D.verNewer('0.4.0', '0.4.1')) out.push('update: versions compare wrong'); }
       K.screen = 'menu'; K.uiWas = 'menu'; K.focus = ''; k2(K, 'Enter'); if (K.screen !== 'play' || !K.run || K.run.seed !== 45) out.push('menu: Enter with no focus does not continue the saved run'); }
     { const { loadSlot, slotRun } = SIMX, J = (o) => JSON.parse(JSON.stringify(o)), play = (S, n) => { S.screen = 'play'; for (let i = 0; i < n; i++) step(S, { keys: [] }); };
       const save = (S) => { const b = UI.pause(S.meta.zoom).find((q) => q.id === 'save'); S.screen = 'pause'; step(S, { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }); step(S, { keys: [], press: 0 }); };
@@ -518,10 +545,11 @@
           // each secret has its cover or its mechanism, and a mechanism is found and worked from the open floor
           for (const e of cacheIssues(m, q, i, shut)) out.push(`seed ${seed} f${f}: secret ${i} (${q.kind}) ${e}`); }); }
       // every floor cell of every room lies within reach of a light: a torch, a brazier, candles, a crystal, an altar, the bonfire or a shop lamp
-      { const LR = DG.LIGHT_R, lights = m.torches.map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n]).map((d) => [d.x, d.y, LR[d.n]]),
+      // (but a dark room, TASKS 365, whose torches and candles are put out)
+      { const LR = DG.LIGHT_R, lights = m.torches.filter((t) => !t.dark).map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n] && !d.dark).map((d) => [d.x, d.y, LR[d.n]]),
           m.shrines.map((s) => [s.x, s.y, LR.shrine]), m.shop.lanterns.map((q) => [q.x, q.y, LR.wall]), [[m.shop.x, m.shop.y, LR.fire]]);
         for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) lights.push([(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE + 6, LR.lava]);   // lava glows
-        for (const r of m.rooms) { let dark = 0;
+        for (const r of m.rooms) { let dark = 0; if (r.event === 'dark') continue;
           for (const [bx, by, bw, bh] of DG.rectsOf(r)) for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) if (cell(m, x, y) === 1 && !lights.some(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE - 6) / 0.8) <= lr * TILE)) dark++;
           if (dark) out.push(`seed ${seed} f${f}: ${dark} dark cells in ${r.type} room ${r.id} (${r.w}×${r.h})`); } } }
     // the cave's water comes in every kind over the floors checked: falls, breaches, springs, isthmuses, fords and bridges
@@ -1511,7 +1539,7 @@
     let mims = 0;
     for (let sd = 1; sd <= 80 && !mims; sd++) for (let f = 3; f <= 8 && !mims; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 3670 + sd); enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, c = R.chests.find((o) => o.mimic); if (!c) continue; mims++;
       R.en = []; const h = R.hero, spot = [[0, 80], [80, 0], [-80, 0], [0, -80], [60, 60], [-60, 60]].find(([dx, dy]) => cell(R.map, Math.floor((c.x + dx) / TILE), Math.floor((c.y + dy) / TILE)) === 1 && losClear(R.map, c.x, c.y - 6, c.x + dx, c.y + dy - 6)); if (!spot) { mims--; continue; } h.x = c.x + spot[0]; h.y = c.y + spot[1]; h.ifr = 1e9; const items = c.loot.length, n0 = R.drops.length, A0 = lootAudit(R).off; openChest(S, R, c); const e = R.en.find((o) => o.type === 'mimic');
-      if (!e || e.st !== 'rise' || R.drops.length !== n0 || c.loot.length !== items) out.push('mimic: did not wake holding its loot'); if (solids(R).some((o) => o.x === c.x && o.y === c.y)) out.push('mimic: its chest still stands in the way');
+      if (!e || e.st !== 'rise' || R.drops.length !== n0 || c.loot.length !== items) out.push('mimic: did not wake holding its loot'); else { const hp0 = e.hp; hitEnemy(S, R, e, 100, false, h.x, h.y); if (hp0 - e.hp !== Math.round(100 * ENEMIES.mimic.riseGuard)) out.push(`mimic: a blow while it rises takes ${hp0 - e.hp} of 100, not ${100 * ENEMIES.mimic.riseGuard}`); e.hp = hp0; } if (solids(R).some((o) => o.x === c.x && o.y === c.y)) out.push('mimic: its chest still stands in the way');
       if (lootAudit(R).off !== A0) out.push('mimic: loot books off while it lives'); for (let k = 0; k < 300 && !R.en.some((o) => o.st === 'strike' && o.type === 'mimic'); k++) step(S, { keys: [] }); if (!R.en.some((o) => o.st === 'strike')) out.push('mimic: never bites');
       e.hp = 0; killEnemy(S, R, e); if (R.drops.filter((d) => d.kind === 'item').length < items || c.loot.length) out.push('mimic: its loot did not fall'); if (lootAudit(R).off !== A0) out.push('mimic: loot books off after it dies'); if (R.stats[f] && R.stats[f].kills > R.stats[f].foes + 1) out.push('mimic: counted among the floor\'s monsters'); }
     if (!mims) out.push('mimic: none on 80 seeds');
@@ -1625,11 +1653,11 @@
         else for (let k = 0; k < 4 && !q.open; k++) { standAt(R, q); if (q.trig && q.trig.k === 'plate') step(S, { keys: [], px: 960, py: 540 }); else pressE(S); }
         if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${q.trig ? ' ' + q.trig.k : ''}, ${q.dir}) does not open by its way`); }); }
     // loot: open every chest of a few floors (secret ones too, each after its secret, as in play: TASKS 1868, the loot of a chest opened
-    // in a shut 3×5 cache had no cell out of its props' shade), let the items fall and pick up half of them; the floor's books
+    // in a shut 3×5 cache had no cell out of its props' shade; a cursed chest as if its question had been answered «yes», TASKS 364), let the items fall and pick up half of them; the floor's books
     // balance at every stage and no item comes to rest where the hero cannot get to it
     for (const sd of [11, 222]) for (const f of [1, 4, 8]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; const check = (when) => { const A = lootAudit(R); if (A.off) out.push(`seed ${sd} f${f}: loot books off by ${A.off} ${when}`); if (A.stuck) out.push(`seed ${sd} f${f}: ${A.stuck} loot out of reach ${when}`); };
-      check('on arrival'); for (const c of R.chests) { const line = []; for (let q = c.sec !== undefined ? R.map.secrets[c.sec] : null; q; q = q.parent !== undefined ? R.map.secrets[q.parent] : null) line.unshift(q); for (const q of line) if (!q.open) openSecret(S, R, q, true); openChest(S, R, c); } h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
+      check('on arrival'); for (const c of R.chests) { if (c.hex !== undefined) c.hexOk = 1; const line = []; for (let q = c.sec !== undefined ? R.map.secrets[c.sec] : null; q; q = q.parent !== undefined ? R.map.secrets[q.parent] : null) line.unshift(q); for (const q of line) if (!q.open) openSecret(S, R, q, true); openChest(S, R, c); } h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
       const pick = R.drops.filter((o) => o.loot && !o.got).slice(0, 6); for (const d of pick) for (let k = 0; k < 3; k++) { h.x = d.x; h.y = d.y; step(S, { keys: [] }); }
       if (pick.some((d) => !d.got)) out.push(`seed ${sd} f${f}: loot could not be picked up`); check('after picking some up'); }
     // debug: the button opens every secret without counting it, and the second press seals exactly those again
@@ -1953,7 +1981,8 @@
         { const e = crab({ cdT: 99, rushT: 99 }); h.x = x0 - 120; for (let i = 0; i < 60; i++) step(S, quiet); const turned = Math.abs(e.fa);
           if (!(turned > 0.2 && turned <= E.turn * 0.5 + 0.02)) out.push(`crab: turns ${turned.toFixed(2)} rad in 0.5 s, not up to ${E.turn * 0.5}`); }
         // the pinch: a hero before it is hurt; one behind it is not, for the second it takes to turn even half way
-        { const e = crab({}); h.x = x0 + E.r + K.R + 14; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
+        // (a pinch the hero dodges is a pinch too: the run's RNG decides the dodge, TASKS 362 moved it so the first one was dodged)
+        { const e = crab({}); h.x = x0 + E.r + K.R + 14; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => (v.k === 'hurt' || v.k === 'dodge') && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
           if (!hurt || !S.ev.some((v) => v.k === 'pinch' && v.id === e.id)) out.push('crab: never pinches a hero before it'); }
         { const e = crab({ rushT: 99 }); h.x = x0 - E.r - K.R - 14; let hurt = 0; for (let i = 0; i < 120; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 - E.r - K.R - 14; h.y = y0; e.x = x0; e.y = y0; }
           if (hurt) out.push('crab: pinches a hero behind it'); }
@@ -3189,6 +3218,75 @@
     for (const sd of [51, 52, 53, 54, 55, 56]) { const R1 = run(sd); R1.offers = [{ key: 'named', from: 'guard', q: 0 }]; const o = offerOf(R1, 'guard'), q1 = o && o.q;
       if (!q1 || !q1.foe || !SIMX.namedPool(R1, q1.f).includes(q1.foe) || !ofKin(q1.title, q1.foe)) out.push(`quest named: seed ${sd} offers a name off the elites' generator (${q1 && q1.title})`);
       else if (!SIMX.questLine(q1, R1).startsWith(q1.title + ' ')) out.push('quest named: the quest line does not show the name'); }
+    // TASKS 1998: the name said in the quest line is the one the elite on the floor bears, on every seed and on a floor without the family
+    { const X = SIMX, said = (q2) => SIMX.questLine(q2, S.run).slice(0, q2.title.length), fam = (t) => D.ELITE_GROUP[t];
+      for (let sd = 51; sd <= 74; sd++) { const R1 = run(sd); R1.offers = [{ key: 'named', from: 'guard', q: 0 }]; const q1 = X.giveQuest(S, R1, 'guard'); if (!q1 || !q1.title) { out.push(`quest named 1998: seed ${sd} gives no named quest`); continue; }
+        const t0 = q1.title, f0 = q1.foe; for (let f = 1; f <= q1.f; f++) enterFloor(S, R1, f); const e = R1.en.find((o) => o.quest === q1.id);
+        if (!e || e.title !== t0 || q1.title !== t0 || said(q1) !== t0 || D.eliteName(e) !== t0 || fam(e.type) !== fam(f0)) out.push(`quest named 1998: seed ${sd}: «${t0}» (${f0}) said, ${e ? '«' + e.title + '» ' + e.type : 'nobody'} on the floor`); }
+      const place = (sd) => { const R1 = run(sd); enterFloor(S, R1, 1); const on = new Set(R1.en.filter(X.plainFoe).map((o) => fam(o.type)));
+        // a family named by hand, not by questPlace's own rule: a ghost walks the crypt, not the first floor
+        const foe = 'ghost'; if (on.has(fam(foe))) { out.push(`quest named 1998: seed ${sd} has ghosts on its first floor, the off-roster case is not tried`); return; }
+        const title = X.nickOf(foe, sd), q1 = { id: R1.nextId++, key: 'named', f: 1, need: 1, n: 0, st: 'taken', from: 'guard', rw: {}, title, foe };
+        R1.quests = [q1]; X.questPlace(S, R1); const e = R1.en.find((o) => o.quest === q1.id);
+        if (!e || e.title !== title || q1.title !== title || said(q1) !== title || fam(e.type) !== fam(foe)) out.push(`quest named 1998: seed ${sd}: «${title}» of ${fam(foe)} said, ${e ? '«' + e.title + '» ' + e.type : 'nobody'} placed`);
+        else if ((e.hp !== e.max || !(e.max > 0) || !(e.dmg > 0))) out.push(`quest named 1998: seed ${sd}: the retyped foe has broken stats`);
+        else if (boxHit(R1.map, e.x, e.y, ENEMIES[e.type].r, true, false) || e.hx !== e.x || e.hy !== e.y) out.push(`quest named 1998: seed ${sd}: the retyped ${e.type} stands in a wall or off its post`); };
+      for (const sd of [51, 52, 53]) place(sd);
+      // an old save's quest without its family: the townsman has said the name, and a floor built again must find the same family (review of PR 75)
+      const oldSave = (q0) => { const R1 = run(51); enterFloor(S, R1, 1); const qr = new Set(X.questRooms(R1).map((r) => r.id)), was = new Map(R1.en.map((o) => [o.id, o.type]));
+        const q1 = Object.assign({ id: R1.nextId++, key: 'named', f: 1, need: 1, n: 0, st: 'taken', from: 'guard', rw: {}, title: 'Свекровь Прозрачная' }, q0); R1.quests = [q1]; X.questPlace(S, R1);
+        const e = R1.en.find((o) => o.quest === q1.id); if (!e || e.title !== q1.title || q1.title !== 'Свекровь Прозрачная' || was.get(e.id) !== e.type || e.type === 'salamander' || q1.foe !== e.type || !qr.has(e.room))
+          out.push(`quest named 1998: an old save (${q0.foe || 'no family'}) names ${e ? (was.get(e.id) || '?') + '→' + e.type + ' «' + e.title + '» in room ' + e.room + ', recorded ' + q1.foe : 'nobody'}`); };
+      oldSave({});
+      // behind a secret wall or at the merchant's the quest would hide where the hero has no reason to look (review of PR 75)
+      { const R1 = run(51); enterFloor(S, R1, 1); const m = R1.map, qr = new Set(X.questRooms(R1).map((r) => r.id)), off = m.rooms.find((r) => !qr.has(r.id)), o = R1.en.find((q2) => X.plainFoe(q2) && qr.has(q2.room));
+        if (!off || !o) out.push('quest named 1998: seed 51 has no room off the fighting rooms or no plain foe to hide there');
+        else { Object.assign(o, { type: 'goblin', room: off.id, x: (off.cx + 0.5) * TILE, y: (off.cy + 0.5) * TILE }); R1.en = R1.en.filter((q2) => q2 === o || !X.plainFoe(q2) || fam(q2.type) !== 'goblin');
+          const q1 = { id: R1.nextId++, key: 'named', f: 1, need: 1, n: 0, st: 'taken', from: 'guard', rw: {}, foe: 'goblin', title: X.nickOf('goblin', 51) }; R1.quests = [q1]; X.questPlace(S, R1); const e = R1.en.find((q2) => q2.quest === q1.id);
+          if (!e || e === o || !qr.has(e.room) || fam(e.type) !== 'goblin') out.push(`quest named 1998: a goblin quest names ${e === o ? 'the goblin in room ' + off.id + ' (' + off.type + '), off the fighting rooms' : e ? 'a ' + e.type + ' in room ' + e.room : 'nobody'}`); } } }
+    // (review of PR 75) a plain foe retyped to a bigger family is moved to where its new body fits, not left grazing a wall
+    { const X = SIMX, big = Object.keys(D.ELITE_GROUP).filter((t) => D.ELITE_NAMES[D.ELITE_GROUP[t]] && !D.BOSSES[t] && ENEMIES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake).sort((a, b) => ENEMIES[b].r - ENEMIES[a].r)[0], rB = ENEMIES[big].r;
+      let tried = 0; for (let sd = 1; sd <= 60 && !tried; sd++) { const R1 = run(sd); enterFloor(S, R1, 1); const rooms = new Set(X.questRooms(R1).map((r) => r.id));
+        const e0 = R1.en.find((o) => X.plainFoe(o) && rooms.has(o.room) && D.ELITE_GROUP[o.type] !== D.ELITE_GROUP[big] && boxHit(R1.map, o.x, o.y, rB, true, false)); if (!e0) continue; tried = 1;
+        R1.en = R1.en.filter((o) => o === e0 || !X.plainFoe(o)); const q1 = { id: R1.nextId++, key: 'named', f: 1, need: 1, n: 0, st: 'taken', from: 'guard', rw: {}, foe: big, title: X.nickOf(big, sd) };
+        R1.quests = [q1]; X.questPlace(S, R1); const e = R1.en.find((o) => o.quest === q1.id);
+        if (!e || e.type !== big || boxHit(R1.map, e.x, e.y, rB, true, false) || e.hx !== e.x || e.hy !== e.y) out.push(`quest named: seed ${sd}: a foe retyped to ${big} is left in a wall or off its post`); }
+      if (!tried) out.push('quest named: no seed in 1–60 has a plain foe too cramped for a bigger family'); }
+    // (review of PR 75) a retyped foe is seated in its own room, the one its quest points at: by hand, a foe in the right-hand column
+    // of a narrow room with a shrine at its left side is shoved out to the right, and the nearest spot where a golem fits lies past the
+    // room's edge; a foe boxed in all over its room within reach of the ring takes the room's nearest free cell
+    { let cutErr = 0; const X = SIMX, T = TILE, cut = (sd) => { const R1 = run(sd); enterFloor(S, R1, 1); const rooms = new Set(X.questRooms(R1).map((r) => r.id)), m = R1.map,
+          inMap = (o) => { const x = Math.floor(o.x / T), y = Math.floor(o.y / T); return x >= 10 && x + 6 < m.W && y >= 4 && y + 4 < m.H; },
+          e0 = R1.en.find((o) => X.plainFoe(o) && rooms.has(o.room) && D.ELITE_GROUP[o.type] !== 'golem' && inMap(o));
+        if (!e0) { if (!cutErr++) out.push(`quest named: seed ${sd} floor 1 has no plain foe in a quest room clear of the map's edge for the hand-made seat cases`); return null; }
+        const tx = Math.floor(e0.x / T), ty = Math.floor(e0.y / T); for (let y = ty - 4; y <= ty + 4; y++) for (let x = tx - 9; x <= tx + 6; x++) m.cells[y * m.W + x] = 1;
+        R1.en = R1.en.filter((o) => o === e0 || !X.plainFoe(o)); R1.pots = []; R1.chests = []; R1.shrines = []; R1.captives = {}; m.torches = []; m.decor = []; e0.x = (tx + 0.5) * T; e0.y = (ty + 0.5) * T; return { R1, e0, m, tx, ty }; };
+      const inRoom = (m, room, o) => DG.inRm(m.rooms[room], Math.floor(o.x / T), Math.floor(o.y / T));
+      for (const c of [cut(51)].filter(Boolean)) { const { R1, e0, m, tx, ty } = c, room = e0.room, x0 = e0.x, y0 = e0.y; Object.assign(m.rooms[room], { x: tx - 3, y: ty - 2, w: 4, h: 5, wings: [] }); R1.shrines = [{ x: x0 - 14, y: y0 }];
+        const q1 = { id: R1.nextId++, key: 'named', f: 1, need: 1, n: 0, st: 'taken', from: 'guard', rw: {}, foe: 'golem', title: X.nickOf('golem', 51) }; R1.quests = [q1]; X.questPlace(S, R1); const e = R1.en.find((o) => o.quest === q1.id);
+        if (!e || e.type !== 'golem' || !inRoom(m, room, e) || boxHit(m, e.x, e.y, ENEMIES.golem.r, true, false) || Math.hypot(e.x - (x0 - 14), (e.y - y0) * 1.6) < 18 + ENEMIES.golem.r)
+          out.push(`quest named: a foe retyped by a doorway leaves its room ${room} for (${e && Math.round(e.x - x0)}, ${e && Math.round(e.y - y0)}) px`); }
+      for (const c of [cut(51)].filter(Boolean)) { const { R1, e0, m, tx, ty } = c, room = e0.room, x0 = e0.x, y0 = e0.y, r = ENEMIES.golem.r, sol = [{ x: x0, y: y0, r: 200 }]; Object.assign(m.rooms[room], { x: tx - 8, y: ty - 2, w: 9, h: 5, wings: [] });
+        const e = { type: 'golem', x: x0, y: y0 }; SIMX.seatFoe(R1, e, sol, room);
+        // measured from where the push left it, a prop dead on the post sent the foe to the far side of its room (review of PR 75)
+        { const r1 = m.rooms[room], fit = (x, y) => !boxHit(m, x, y, r, true, false) && Math.hypot(x - x0, (y - y0) * 1.6) >= 200 + r, far = (x, y) => Math.hypot(x - x0, (y - y0) * 1.6); let best = Infinity;
+          for (let y = r1.y; y < r1.y + r1.h; y++) for (let x = r1.x; x < r1.x + r1.w; x++) if (fit((x + 0.5) * T, (y + 0.5) * T)) best = Math.min(best, far((x + 0.5) * T, (y + 0.5) * T));
+          if (far(e.x, e.y) > best + 1e-6) out.push(`quest named: a boxed-in foe takes a cell ${Math.round(far(e.x, e.y))} px from its post, the nearest free is ${Math.round(best)}`); }
+        if (!inRoom(m, room, e) || boxHit(m, e.x, e.y, r, true, false) || Math.hypot(e.x - x0, (e.y - y0) * 1.6) < 200 + r) out.push(`quest named: a foe boxed in all over its room's ring is left at (${Math.round(e.x - x0)}, ${Math.round(e.y - y0)}) px`); }
+      for (const c of [cut(51)].filter(Boolean)) { const { R1, e0, m, tx, ty } = c, room = e0.room, x0 = e0.x, y0 = e0.y; Object.assign(m.rooms[room], { x: tx - 2, y: ty - 1, w: 3, h: 3, wings: [] });
+        const e = { type: 'golem', x: x0, y: y0 }; SIMX.seatFoe(R1, e, [{ x: x0, y: y0, r: 400 }], room); if (e.x !== x0 || e.y !== y0) out.push(`quest named: a foe with no free cell in its room is left off its post at (${Math.round(e.x - x0)}, ${Math.round(e.y - y0)}) px`); } }
+    // (review of PR 75) a lava-tied family is never offered: no foe can be made one, and few stand where a quest names
+    { const X = SIMX, T4 = spawn(0, {}), R4 = newRun(T4, 'magma', 1, { town: 1, allFree: 1 }); T4.run = R4; for (const f of [1, 2, 3]) if (X.namedPool(R4, f).some((t) => ENEMIES[t].tether)) out.push(`quest named: magma 1 f${f} offers a lava-tied family`);
+      // a salamander in the first fighting room and one skeleton in the last: a salamander quest of an old save, and a spider quest
+      // the floor has no spider for, leave the salamander as it is (made a walker, it was dragged out of its lava)
+      enterFloor(T4, R4, 1); const qrs = X.questRooms(R4), plain = R4.en.filter((o) => X.plainFoe(o) && qrs.some((r) => r.id === o.room));
+      if (qrs.length < 2 || plain.length < 2) out.push('quest named: magma 1 f1 has under two fighting rooms or plain foes for the lava-tied cases');
+      else { const [a, b] = plain, at = (o, r, type) => Object.assign(o, { type, room: r.id, x: (r.cx + 0.5) * TILE, y: (r.cy + 0.5) * TILE }); at(a, qrs[0], 'salamander'); at(b, qrs[qrs.length - 1], 'skeleton');
+        R4.en = R4.en.filter((o) => o === a || o === b || !X.plainFoe(o)); const en0 = structuredClone(R4.en);
+        for (const q0 of [{ foe: 'salamander' }, { foe: 'spider' }]) { R4.en = structuredClone(en0); const sal = R4.en.find((o) => o.id === a.id), q1 = Object.assign({ id: R4.nextId++, key: 'named', f: 1, need: 1, n: 0, st: 'taken', from: 'guard', rw: {}, title: 'Свекровь Прозрачная' }, q0);
+          R4.quests = [q1]; X.questPlace(T4, R4); const e = R4.en.find((o) => o.quest === q1.id), want = q0.foe === 'spider' ? 'spider' : 'skeleton';
+          if (!e || e.id !== b.id || e.type !== want || e.title !== q1.title || q1.foe !== want || sal.type !== 'salamander' || sal.quest !== undefined)
+            out.push(`quest named: magma 1 f1, a ${q0.foe} quest names ${e ? (e.id === a.id ? 'the salamander' : 'foe ' + e.id) + ' as ' + e.type + ', recorded ' + q1.foe : 'nobody'}; the salamander is now ${sal.type}`); } } }
     let q = takeKind(51, 'named'); R = S.run; const offered = q && q.title, offeredFoe = q && q.foe;
     if (q) { for (let f = 1; f <= q.f; f++) enterFloor(S, R, f); const e = R.en.find((o) => o.quest === q.id);
       const lost = e && (D.ELITE_GROUP[e.type] === D.ELITE_GROUP[offeredFoe] ? q.title !== offered : R.en.some((o) => SIMX.plainFoe(o) && D.ELITE_GROUP[o.type] === D.ELITE_GROUP[offeredFoe]));
@@ -3317,6 +3415,22 @@
     return out;
   }
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
+  // TASKS 1781: along the whole rail the cart shows one painting, kept upright: the 3/4 one turned no more than CART.roll with its
+  // wheel line on the rails, the front one never turned and its axle tilted no more than 18 degrees; one change of view at the bend
+  function cartCheck() {
+    const out = [], C = D.CART, R2D = 180 / Math.PI, m = DG.genTown(31), pts = D.railPts(m);
+    let prev = null, swaps = 0;
+    for (let s = 0; s <= 400; s++) { const v = D.cartView(pts, s);
+      if (v.side) { const line = Math.atan(Math.tan(C.side / R2D) / v.sx) * R2D - v.rot;
+        if (Math.abs(v.rot) > C.roll + 0.5 || v.sx < C.squash - 1e-6 || v.sx > 1) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}° or narrowed to ${v.sx.toFixed(2)}`);
+        if (Math.abs(line - v.th) > 1) out.push(`cart: the 3/4 view's wheel line at ${s} px runs ${line.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`); }
+      else if (v.rot || v.sx !== 1 || Math.abs(v.tilt) > 18 || v.th < 55) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}° or its axle tilts ${v.tilt.toFixed(0)}°`);
+      if (prev && prev.side !== v.side) swaps++;
+      else if (prev && (Math.abs(prev.rot - v.rot) > 2 || Math.abs(prev.tilt - v.tilt) > 2 || Math.abs(prev.sx - v.sx) > 0.02)) out.push(`cart: the view jumps at ${s} px`);
+      prev = v; if (out.length > 4) break; }
+    if (swaps !== 1) out.push(`cart: the view changes ${swaps} times along the rails, not once at the bend`);
+    return out;
+  }
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
     for (let sd = 1; sd <= 8; sd++) { const m = DG.genTown(sd * 977), go = (k) => m.cells[k] === 1, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
@@ -3462,14 +3576,19 @@
         if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
         if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); }
       // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
-      // onto it and lets it go, the leap carries him back from the aim, AGI (not STR) grows his bow's damage, a sword is not his
+      // onto it and lets it go, the leap carries him back from the aim, AGI (and a little STR, TASKS 1913) grows his bow's damage, a sword is not his
       { const { S, R, h, foe, ok } = arena('archer');
         if (h.eq.weapon.b !== 'shortbow' || h.eq.armor.b !== 'leather_armor' || D.clsOf(h).abs.map((a) => a.id).join() !== 'volley,trap,leap') out.push('class archer: not a short bow, leather and volley, trap, leap');
         if (ok) { const e = foe(200); let got = 0; h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); if (h.mp >= D.CLASSES.archer.hitMp.hit) got = 1; }
           if (!(e.hp < e.max)) out.push('class archer: his bow does not hit a foe out of reach');
           if (!got) out.push('class archer: his arrows that hit give no mana');
           R.en = []; R.proj = []; h.lvl = 4; h.ab.trap = 1; h.ab.leap = 1; h.mp = 500; h.aim = 0; for (const k in h.cd) h.cd[k] = 0;
-          h.mx = h.x + 400; h.my = h.y - 30; castAbility(S, R, 'volley', {}); if (R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
+          // (TASKS 1744) the fan leaves at the loose, D.VOLLEY.loose s after the key, when the scene has the bow up
+          const arrows = () => R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length, aimAt = toPx(R, h.x + 400, h.y - 30);
+          h.mx = h.x + 400; h.my = h.y - 30; castAbility(S, R, 'volley', {}); const t0 = S.t; if (arrows()) out.push('class archer: the volley flies on the key, before the bow is up');
+          for (let i = 0; i < 120 && !arrows(); i++) step(S, { keys: [], ...aimAt }); const lt = S.t - t0;
+          if (lt < D.VOLLEY.loose - 1e-9 || lt > D.VOLLEY.loose + 2 * DT) out.push(`class archer: the volley leaves ${lt.toFixed(3)} s after the key, not at the loose (${D.VOLLEY.loose} s)`);
+          if (arrows() !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
           // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w
           { const vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w + 4) out.push('class archer: the volley does not close on a far cursor'); }
           R.proj = []; h.mx = h.x + 150; h.my = h.y - 30; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0);
@@ -3481,7 +3600,7 @@
           h.x += 120; const x0 = h.x; h.aim = 0; h.cd.leap = 0; castAbility(S, R, 'leap', {}); for (let i = 0; i < 30; i++) step(S, { keys: [], ...toPx(R, h.x + 300, h.y - 30) });
           if (!(h.x < x0 - D.LEAP.spd * 0.16 * 0.8)) out.push('class archer: the leap does not carry him back from the aim its length'); }
         const a0 = stats(h, S.meta).atk; h.base.agi += 10; const a1 = stats(h, S.meta).atk; h.base.agi -= 10; h.base.str += 10; const a2 = stats(h, S.meta).atk; h.base.str -= 10;
-        if (!(a1 > a0) || a2 !== a0) out.push('class archer: AGI does not grow his bow\'s damage or STR does');
+        if (!(a1 > a0) || !(a2 > a0) || a2 - a0 >= a1 - a0) out.push('class archer: AGI does not grow his bow\'s damage more than STR (TASKS 1913: STR adds a little)');
         if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword');
         // (TASKS 1155) an arrow into a cultist's wind-up breaks it off; a second at once does not
         if (ok) { R.en = []; R.proj = []; R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0]; h.vx = h.vy = 0; const aimed = () => ({ keys: [], ...toPx(R, h.x + 300, h.y - 30) }); const c = foe(150); Object.assign(c, { type: 'cultist', st: 'wind', t0: S.t, cdT: 0 }); h.aim = 0;
@@ -3497,6 +3616,11 @@
             if (!(Math.hypot(lo.vx, lo.vy) * lo.life > Math.hypot(sh.vx, sh.vy) * sh.life * 1.2)) out.push('class archer: the long bow\'s arrow does not fly farther'); R.proj = []; }
           { const dps = (b) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b, atk: BASES[b].atk }); h.base.agi = 30; const q = stats(h, S.meta); return q.atk / q.wcd; }, d0 = dps('shortbow');
             for (const b of ['longbow', 'crossbow']) if (dps(b) < d0 * 0.97) out.push(`class archer: a ${b} is weaker than a short bow at AGI 30`); } } }
+      // (review of PR 75) a volley cast just before the stairs or a death does not loose on the next floor or from the dead
+      { const { S, R, h } = arena('archer'), arrows = () => R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length;
+        const armed = () => { for (const k in h.cd) h.cd[k] = 0; h.mp = 500; castAbility(S, R, 'volley', {}); if (h.volleyT == null) out.push('class archer: the volley is not cast, so its reset goes unchecked'); };
+        armed(); enterFloor(S, R, R.floor + 1); R.proj = []; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (arrows()) out.push('class archer: a volley cast before the stairs looses on the next floor');
+        h.ifr = 1e9; armed(); root.SIMX.killHero(S, R); if (h.volleyT != null) out.push('class archer: a volley outlives the archer\'s death'); }
       // the warrior (TASKS 1130): rage from his blows and ones he takes, draining once the fight is over; the charge strikes and stuns a
       // monster in its way; the war cry weakens those about him and hardens his blows; mana potions are not his
       { const { S, R, h, foe, ok } = arena('warrior');
@@ -3708,20 +3832,42 @@
     put(); S.t = 0.3; S.t -= 0.8; SIMX.killHero(S, R); S.t += 0.8; SIMX.killHero(S, R);
     if (dies() !== 1) out.push('hero death: a kill with a negative deadT is let through twice');
     put('phoenix'); hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike'); if (h.deadT >= 0 || dies()) out.push('hero death: a phoenix gift does not save the hero from the first lethal blow');
+    const ran = () => Math.hypot(h.deadRun[0], h.deadRun[1]) > 0.5 * K.RUN;
+    put(); h.vx = h.vy = 0; hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike');
+    if (!(Math.hypot(h.vx, h.vy) > 0.5 * K.RUN) || ran()) out.push(`hero death: killed standing he falls as from a run (shove ${Math.hypot(h.vx, h.vy).toFixed(0)}, deadRun ${h.deadRun})`);
+    put(); h.vx = K.RUN; h.vy = 0; hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike');
+    if (!ran() || h.deadRun[0] !== K.RUN) out.push(`hero death: killed running into the blow he does not fall as from a run (deadRun ${h.deadRun})`);
     return out;
   }
 
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
   const splitCheck = () => { const out = []; SIMX.checkSplit(out); return out; };
+  const eventGenCheck = () => { const out = []; SIMX.checkEventGen(out); return out; };
+  const eventPlayCheck = () => { const out = []; SIMX.checkEventPlay(out); return out; };
+  const trialPlayCheck = () => { const out = []; SIMX.checkTrialPlay(out); return out; };
+  const bloodPlayCheck = () => { const out = []; SIMX.checkBloodPlay(out); return out; };
+  const hexPlayCheck = () => { const out = []; SIMX.checkHexPlay(out); return out; };
+  const fountainPlayCheck = () => { const out = []; SIMX.checkFountainPlay(out); return out; };
+  const dicePlayCheck = () => { const out = []; SIMX.checkDicePlay(out); return out; };
+  const darkPlayCheck = () => { const out = []; SIMX.checkDarkPlay(out); return out; };
+  const captivePlayCheck = () => { const out = []; SIMX.checkCaptivePlay(out); return out; };
+  const libraryPlayCheck = () => { const out = []; SIMX.checkLibraryPlay(out); return out; };
+  const stackCheck = () => { const out = []; SIMX.checkStacks(out); return out; };
+  const hudFootCheck = () => { const out = []; SIMX.checkHudFoot(out); return out; };
+  const trkFoldCheck = () => { const out = []; SIMX.checkTrkFold(out); return out; };
+  const testEndCheck = () => { const out = []; SIMX.checkTestEnd(out); return out; };
+  const strCheck = () => { const out = []; SIMX.checkStrUse(out); return out; };
+  const keyWordCheck = () => { const out = []; SIMX.checkKeyWords(out); return out; };
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
-  const GEN_PRINT = { 27: '6536c5f1dd1fc12a' };
+  const GEN_PRINT = { 33: 'b7a355cecbaeeced' };
   function genPrintCheck() { const h = require('crypto').createHash('sha1');
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
     return p === GEN_PRINT[D.GEN_VERSION] ? [] : [`gen print: the generator lays other floors (${p}) under D.GEN_VERSION ${D.GEN_VERSION}: raise the version and put the print in GEN_PRINT`]; }
-  const PARTS = { splitCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const hudHeroCheck = () => { const out = []; SIMX.checkHudHero(out); return out; };
+  const PARTS = { hudHeroCheck, strCheck, eventGenCheck, eventPlayCheck, trialPlayCheck, bloodPlayCheck, hexPlayCheck, fountainPlayCheck, dicePlayCheck, darkPlayCheck, captivePlayCheck, libraryPlayCheck, splitCheck, stackCheck, hudFootCheck, trkFoldCheck, keyWordCheck, testEndCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, cartCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

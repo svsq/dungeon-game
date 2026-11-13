@@ -1,7 +1,7 @@
 {
   "name": "crypt-depths",
   "productName": "The Elder Deep",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "The Elder Deep: Below the Ages, desktop test build",
   "main": "main.js",
   "desktopName": "crypt-depths.desktop",
@@ -11,6 +11,9 @@
     "start": "electron .",
     "release": "./release.sh"
   },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  },
   "devDependencies": {
     "electron": "^45.2.2",
     "electron-builder": "^26.18.0"
@@ -19,11 +22,13 @@
     "appId": "com.svsq.cryptdepths",
     "productName": "The Elder Deep",
     "directories": { "output": "release", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "package.json", "build/icon.png", "game/**/*"],
+    "files": ["main.js", "preload.js", "update.js", "package.json", "build/icon.png", "game/**/*"],
     "asar": true,
     "artifactName": "TheElderDeep-${env.CRYPT_REV}-${os}-${arch}.${ext}",
-    "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "category": "public.app-category.role-playing-games", "icon": "build/icon.icns" },
-    "win": { "target": [{ "target": "zip", "arch": ["x64"] }], "icon": "build/icon.ico" },
+    "publish": { "provider": "github", "owner": "svsq", "repo": "dungeon-game" },
+    "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }, { "target": "zip", "arch": ["universal"] }], "category": "public.app-category.role-playing-games", "icon": "build/icon.icns", "identity": "Slava Bilokur (TGDFAJPSFH)" },
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "build/icon.ico" },
+    "nsis": { "oneClick": true, "perMachine": false, "deleteAppDataOnUninstall": false },
     "linux": { "target": [{ "target": "AppImage", "arch": ["x64"] }], "category": "Game", "icon": "build/icon.png", "syncDesktopName": true }
   }
 }

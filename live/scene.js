@@ -12,9 +12,11 @@
     for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) { const cx = k % m.W, cy = Math.floor(k / m.W); for (let j = Math.max(-6, -cy); j <= Math.min(6, m.H - 1 - cy); j++) for (let i = Math.max(-6, -cx); i <= Math.min(6, m.W - 1 - cx); i++) { const n = (cy + j) * m.W + cx + i, h = Math.hypot(i, j); if (h < d[n]) d[n] = h; } }
     LAVA_D.set(m, { g, d }); return d; };
   SC.render = (t) => {
+    G.drop();   // (third review of PR 62)
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
+    L.GFX = L.GFX_Q ?? (ST.meta && ST.meta.gfx != null ? ST.meta.gfx : 2);
     if ((R && (R.zoom || D.ZOOM || 1) !== SCX.Z) || SIM.VIEW.H !== SCX.H) views(R ? R.zoom || D.ZOOM || 1 : SCX.Z);
-    if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); return; }
+    if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); G.flush(); return; }
     const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.heads = {}, RIM.mages = {}, RIM.embers = {}, RIM.priests = {}, RIM.kindled = {}, RIM.imps = {}, RIM.salams = {}, RIM.folk = []), st = SIM.Q.stats(h, ST.meta);
     // a fuse's ring and light stay on its body: a lit smouldering skeleton knocked back carries them with it (TASKS 411)
     const fuseAt = (q) => { const o = R.en.find((b) => b.id === q.id); return o ? [o.x, o.y] : [q.x, q.y]; };
@@ -51,7 +53,8 @@
       }
       G.blend();
     };
-    const hid = (o) => SIM.Q.hidden(m, o);
+    // (a dark room's torches and candles, TASKS 365, put out: neither drawn nor lit)
+    const hid = (o) => !!o.dark || SIM.Q.hidden(m, o);
     const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
@@ -117,6 +120,7 @@
     const scr = screenFx(ST, R, h, st, GT);
     const comp = L.T.comp; L.T.comp = SCX.LT.lit; L.finish(t, Object.assign({ bloom: [0.18, 0.14], vignette: 0.85, warm: 0.2, roll: 1, dither: 1, bright: (ST.meta && ST.meta.bright) || 1 }, scr)); L.T.comp = comp;
     if (window.HUD) HUD.draw(ST, t, { cx, cy, sx: (x) => (x - cx) * SCX.Z, sy: (y) => (y - cy) * SCX.Z, k: SCX.Z, st });
+    G.flush();   // (TASKS 2032: the last flat rectangles of the frame)
   };
 
   // full-screen responses: pain tints the rim red by the share of health lost, a low health throbs, a roar flashes it,

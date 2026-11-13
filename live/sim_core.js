@@ -18,7 +18,7 @@
   const HINT = TXT('HINT');
   // STEP: a step's length at a run (TASKS 1802: 20 px stepped 8.7 times a second at a quarter of his height; 26 broke his gait's bob and his knees walking down)
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 22 };
-  const DEMO_SEED = 4247;
+  const DEMO_SEED = 4247, CAM_FEET = 18;
   const EEL_MOUTH = [44, 56];   // where the eel's mouth is when it is up: ahead of it and over the water (view px; the scene draws it there)
 
   // ---------------- rng (state lives in the run: deterministic replay) ----------------
@@ -168,7 +168,7 @@
       if (pinch(m, cx, cy, nx, ny)) return false; cx = nx; cy = ny; if (i < n && wall(x, y - 8) && wall(x, y)) return false; } return true; };
   // doors (dungeon.js m.doors, m.locks): a door shut by a lock that is not open yet; the doors' state for the caches' keys
   const doorLock = (m, d) => { const L = d.lock >= 0 && m.locks ? m.locks[d.lock] : null; return L && !L.open ? L : null; };
-  const doorKey = (m) => (m.doors || []).map((d) => (d.open ? 'o' : doorLock(m, d) ? 'l' : 'c')).join('') + ':' + (m.geometry || 0);
+  const doorKey = (m) => (m.doors || []).map((d) => (d.open ? 'o' : doorLock(m, d) ? 'l' : 'c')).join('') + ':' + (m.geometry || 0) + ':' + (m.shut || 0);
   // flow field from a target tile over open floor: derived data, cached by key, never in the state
   // a field per target, a few kept: the bot asks for its own fields between the monsters' each step, and one slot was rebuilt
   // every time (TASKS 467); a secret opened changes the floor without the doors' key
@@ -274,10 +274,12 @@
   // the camera may leave the map by more than the HUD's width, so a room at the edge never sits under the minimap or the bars
   function clampCam(R, c) { const m = R.map, w = WIN(R);
     const fit = (v, a, b, s) => (b - a <= s ? (a + b - s) / 2 : clamp(v, a, b - s));
+    // the window's foot may drop below its bound as far as it takes to keep the hero's feet over the bottom panel (TASKS 1911)
+    const foot = (b) => Math.max(b, R.hero ? R.hero.y + CAM_FEET + (UI.bp.h + UI.bp.foot) / zoomOf(R) : b);
     // the town is one fixed courtyard: past its ruins there is only void, so the view stays on it (TASKS 1612)
-    if (m.town) { c[0] = fit(c[0], 2 * TILE, 54 * TILE, w.W); c[1] = fit(c[1], 2 * TILE, 35 * TILE, w.H); return; }
+    if (m.town) { c[0] = fit(c[0], 2 * TILE, 54 * TILE, w.W); c[1] = fit(c[1], 2 * TILE, foot(35 * TILE), w.H); return; }
     // at ×0,5 the window can be wider than a small floor and its margins: the floor then sits in its middle (TASKS 1302)
-    c[0] = fit(c[0], -620, m.W * TILE + 620, w.W); c[1] = fit(c[1], -380, m.H * TILE + 300, w.H); }
+    c[0] = fit(c[0], -620, m.W * TILE + 620, w.W); c[1] = fit(c[1], -380, foot(m.H * TILE + 300), w.H); }
   function snapCam(R) { const h = R.hero, lk = R.camLook || [0, 0], w = WIN(R); R.cam = [h.x - w.W / 2 + lk[0], h.y - 30 - w.H / 2 + lk[1]]; R.camV = [0, 0]; clampCam(R, R.cam); }
 
   Object.assign(SIMX, {
@@ -285,5 +287,5 @@
     zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, finalFloor, exitKind, campaignDone, dif, who, statsOf, tally,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam });
+    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam, CAM_FEET });
 })(typeof window !== 'undefined' ? window : globalThis);

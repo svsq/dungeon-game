@@ -14,7 +14,7 @@ const server = http.createServer((q, r) => {
   });
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--max-old-space-size=8192'] });   // (SCENE.QA() past V8's default heap stalls on the Steam Deck, TASKS 1373)
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 try {
@@ -24,10 +24,10 @@ try {
     const Q = SCENE.QA(), cv = document.getElementById('c'), read = document.createElement('canvas'); read.width = cv.width; read.height = cv.height;
     const ctx = read.getContext('2d', {willReadFrequently:true}), report = {}, sheets = {};
     const pixels = (S, skip) => {
-      const draw = G.draw;
-      if (skip) G.draw = (p,u,...args) => skip(p,u) ? undefined : draw(p,u,...args);
+      const draw = G.draw, drawN = G.drawN;   // (an outline's copies go through G.drawN, TASKS 2031: skipped with their part)
+      if (skip) { G.draw = (p,u,...args) => skip(p,u) ? undefined : draw(p,u,...args); G.drawN = (p,u,...args) => skip(p,u) ? undefined : drawN(p,u,...args); }
       try { SCENE.state = S; SCENE.render(S.t+.01); ctx.drawImage(cv,0,0); return ctx.getImageData(0,0,cv.width,cv.height).data; }
-      finally { G.draw = draw; }
+      finally { G.draw = draw; G.drawN = drawN; }
     };
     const changed = (a,b,threshold) => {let n=0;for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>=threshold)n++;return n;};
     for (const mv of ['bite','tail','wave','fan']) {

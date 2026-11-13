@@ -27,9 +27,7 @@
     const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
   // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest
 
-  // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1606)
-  const railPts = (m) => { let p = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
-    for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
+  const railPts = D.railPts;
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 8;
@@ -225,7 +223,8 @@
     for (const a of cv0.some((v) => v) ? [ch[0]] : []) for (let pass = 0; pass < passes; pass++) {
       for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * AW + Math.min(AW - 1, Math.max(0, x + d))]; b[y * AW + x] = v / 5; }
       for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(AH - 1, Math.max(0, y + d)) * AW + x]; a[y * AW + x] = v / 5; } }
-    const cv = M.cv || (M.cv = G.canvas()); if (!box) { cv.width = W; cv.height = H; } const g = cv.getContext('2d'), im = box ? M.im : (M.im = g.createImageData(W, H));
+    // (TASKS 2033: the mask canvases here are CPU ones, willReadFrequently: an upload from a GPU canvas went through the GPU process)
+    const cv = M.cv || (M.cv = G.canvas()); if (!box) { cv.width = W; cv.height = H; } const g = cv.getContext('2d', { willReadFrequently: true }), im = box ? M.im : (M.im = g.createImageData(W, H));
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * W + x, s = (y - ay0) * AW + x - ax0, v = Math.round(255 * ch[0][s]); im.data[i * 4] = v; im.data[i * 4 + 3] = 255;
       im.data[i * 4 + 1] = vec ? Math.round(255 * (0.5 + 0.5 * ch[1][s])) : v; im.data[i * 4 + 2] = vec ? Math.round(255 * (0.5 + 0.5 * ch[2][s])) : v; }
     g.putImageData(im, 0, 0, x0, y0, x1 - x0, y1 - y0);
@@ -313,7 +312,7 @@
   function voidTex(m) {
     const key = mapKey(m); if (VOID.key === key) return VOID.rec; VOID.key = key;
     const W = m.W, H = m.H, d = rockDist(m);
-    const cv = VOID.cv || (VOID.cv = G.canvas()); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
+    const cv = VOID.cv || (VOID.cv = G.canvas()); cv.width = W; cv.height = H; const g = cv.getContext('2d', { willReadFrequently: true }), im = g.createImageData(W, H);
     // a lavafall's rock stays in sight up to the map's top row: its face and the pool it pours from stand there (TASKS 452)
     const fallRock = new Set(); if (m.cliff) for (const f of fallsOf(m)) if (f.h) for (let y = Math.max(1, Math.floor((f.y - f.h - 80) / TILE)); y <= f.wallY; y++) for (let x = Math.floor((f.x - f.z - 8) / TILE); x <= Math.floor((f.x + f.z + 8) / TILE); x++) fallRock.add(y * W + x);
     for (let i = 0; i < W * H; i++) { const x = i % W, y = Math.floor(i / W), e = Math.min(x, y, W - 1 - x, H - 1 - y), v = fallRock.has(i) ? 0 : Math.round(255 * Math.max(m.town ? SS(5.25, 7.15, d[i]) : SS(1.25, 2.15, d[i]), 1 - SS(0, 2.5, e))); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
@@ -327,7 +326,7 @@
     const key = m.seed + ':' + m.floor + ':' + n + ':' + R.rseen.join('');
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = G.canvas(); }
-    const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H);
+    const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d', { willReadFrequently: true }), im = g.createImageData(m.W, m.H);
     // (the magma's fog deepens over two seen cells, TASKS 1636: the lit patch on the black was cut out, its edge 13 px)
     const K = m.cliff ? [1, 2, 3, 4, 5, 4, 3, 2, 1] : [1, 2, 3, 2, 1], KR = (K.length - 1) / 2, KS = K.reduce((p, v) => p + v, 0), W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + KR] * R.seen[y * W + u]; } a[y * W + x] = v / KS; }
@@ -356,7 +355,7 @@
     const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
     if (cache.key === key) return cache.rec;
     const cv = cache.cv || (cache.cv = G.canvas()); cv.width = m.W; cv.height = m.H;
-    const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H), hidden = SIM.Q.secretMask(m);
+    const g = cv.getContext('2d', { willReadFrequently: true }), im = g.createImageData(m.W, m.H), hidden = SIM.Q.secretMask(m);
     for (let i = 0; i < m.cells.length; i++) {
       im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3 || water && m.cells[i] === 6) && R.seen[i] && !hidden.has(i) ? 255 : 0;
       im.data[i * 4 + 3] = 255;
