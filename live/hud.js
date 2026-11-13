@@ -12,10 +12,23 @@
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
   const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map(), MARKS = new WeakMap(), MARK_HOLD = 1.2;
   HUD.init = () => {};
-  // a line of text broken into lines of at most `width` px
-  const wrapLab = (id, s0, x, y, width, size, col) => { const lines = []; let line = '';
-    for (const w of String(s0).split(' ')) { const next = line ? line + ' ' + w : w; if (line && lw(id + '_m', next, { size }) > width) { lines.push(line); line = w; } else line = next; }
-    if (line) lines.push(line); lines.forEach((v, i) => lab(id + i, v, x, y + i * (size + 7), { size, col })); return lines.length * (size + 7); };
+  // a line of text broken into lines of at most `width` px. **…** in it is a key word (TASKS 1995: a name, a quest's title, its
+  // reward), drawn bold and in the key colour; such a line is laid out as runs of one style each, measured run by run. Below 26 the
+  // plain face is the smaller one and a bold run would stand taller than its line, so there the key word takes the colour alone
+  const wrapLab = (id, s0, x, y, width, size, col, key = col) => { const str = String(s0), lines = []; let line = '';
+    if (!str.includes('**')) {
+      for (const w of str.split(' ')) { const next = line ? line + ' ' + w : w; if (line && lw(id + '_m', next, { size }) > width) { lines.push(line); line = w; } else line = next; }
+      if (line) lines.push(line); lines.forEach((v, i) => lab(id + i, v, x, y + i * (size + 7), { size, col })); return lines.length * (size + 7); }
+    const words = [], bold = L.facePx(size, true) === L.facePx(size); let b = false;
+    for (const w of str.split(' ')) { const runs = []; w.split('**').forEach((p, i) => { if (i) b = !b; if (p) runs.push({ s: p, b }); }); words.push(runs); }
+    // the runs of a line, a word's space going with the style of the word it ends, merged where the style holds
+    const merge = (L0) => { const out = []; L0.forEach((runs, i) => runs.forEach((r, j) => { const s = (i && !j ? ' ' : '') + r.s, o = out[out.length - 1]; if (o && o.b === r.b) o.s += s; else out.push({ s, b: r.b }); })); return out; };
+    const wOf = (L0) => merge(L0).reduce((a, r) => a + lw(id + '_m', r.s, { size, bold: bold && r.b }), 0);
+    let cur = []; const rows = [];
+    for (const w of words) { if (!w.length) continue; if (cur.length && wOf(cur.concat([w])) > width) { rows.push(cur); cur = [w]; } else cur.push(w); }
+    if (cur.length) rows.push(cur);
+    rows.forEach((L0, i) => { let cx = x; merge(L0).forEach((r, k) => { cx += lab(id + i + '_' + k, r.s, cx, y + i * (size + 7), { size, col: r.b ? key : col, bold: bold && r.b }); }); });
+    return rows.length * (size + 7); };
   // a C window's key hint sits on the scorched rim of its parchment: a pale backing keeps it at 4.5:1 and over (TASKS 1861)
   const hintC = (id, s, y) => { const w = lw(id, s, { size: 26 }) + 36; L.rrect(W / 2 - w / 2, y - 19, w, 38, 8, [0.89, 0.81, 0.65], [0.84, 0.75, 0.58], 0.92);
     lab(id, s, W / 2, y, { size: 26, al: 0.5, col: INK.t }); };
@@ -1423,13 +1436,13 @@
     const [sw, sh] = SZ(nm), k = 230 / sh; L.sprite(nm, P.x + 150 - sw * k / 2, P.y + P.h - 30 - sh * k, { w: sw * k, h: sh * k });
     lab('tk_n', FD.name, P.x + 300, P.y + 46, { size: 32, col: INK.r });
     lab('tk_j', FD.job, P.x + 300, P.y + 82, { size: 19, col: INK.d });
-    wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 122, P.w - 360, 28, INK.t);
+    wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 122, P.w - 360, 28, INK.t, INK.r);
     const act = at('act');
     // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
     // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030); a turn-in shows its reward only once pressed (TASKS 1850)
     if (act) { const rs = TXT('hud.talk.rs', { p1: SIM.Q.rwLine(T.act.rw) }), ic = SIM.Q.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
       if (ic) { panel('tk_ic', P.x + 300, P.y + P.h - 160, 44, 44, { r: 6 }); icon(ic, P.x + 304, P.y + P.h - 156, 36); }
-      if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) lab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, { size: 22, col: INK.g }); }
+      if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) wrapLab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, P.w - 340 - dx, 26, INK.g); }
     if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: INK.d });
     const last = T.p + 1 >= T.pages.length, lb = { next: T.menu ? TXT('hud.talk.label.3') : !last ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3'),
       act: act && (T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5')) };
@@ -1460,7 +1473,7 @@
       const X = P.x + (ic ? 124 : 50);
       lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: gone ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 56, { size: 20, col: C.dim });
-      wrapLab('bd_x' + i, Q.text(q), P.x + 700, y + 18, P.w - 970, 20, C.text);
+      wrapLab('bd_x' + i, Q.text(q), P.x + 700, y + 18, P.w - 970, 20, C.text, C.gold);
       lab('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 80, { size: 20, col: '#d8b870' });
       button('bd_take' + i, Object.assign({}, b, gone ? { label: TXT('hud.board.took'), on: false } : { label: TXT('hud.board.label') }), S.hover); });
   }
@@ -1489,7 +1502,7 @@
     if (sel.ic) { panel('jr_ic', X, y - 30, 48, 48, { r: 6 }); icon(sel.ic, X + 4, y - 26, 40); }
     lab('jr_dn', Q.name, X + (sel.ic ? 60 : 0), y, { size: 32, col: INK.r }); y += 40;
     lab('jr_dk', TXT('hud.journal.6', { p1: Q.kind === 'story' ? TXT('hud.journal.7') : '', p2: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—' }), X, y, { size: 20, col: INK.d }); y += 44;
-    y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 24, INK.t) + 18;
+    y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 26, INK.t, INK.r) + 18;
     lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '' }) : ''), X, y, { size: 22, col: INK.g }); y += 48;
     lab('jr_rw0', sel.st === 'turned' ? TXT('hud.journal.9') : TXT('hud.journal.10'), X, y, { size: 22, col: INK.d }); y += 32;
     wrapLab('jr_rw', SIM.Q.rwLine(sel.rw), X, y, Wd, 22, INK.g);

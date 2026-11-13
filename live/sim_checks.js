@@ -3733,6 +3733,7 @@
   const stackCheck = () => { const out = []; SIMX.checkStacks(out); return out; };
   const hudFootCheck = () => { const out = []; SIMX.checkHudFoot(out); return out; };
   const trkFoldCheck = () => { const out = []; SIMX.checkTrkFold(out); return out; };
+  const keyWordCheck = () => { const out = []; SIMX.checkKeyWords(out); return out; };
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
   const GEN_PRINT = { 27: '6536c5f1dd1fc12a' };
@@ -3740,7 +3741,7 @@
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
     return p === GEN_PRINT[D.GEN_VERSION] ? [] : [`gen print: the generator lays other floors (${p}) under D.GEN_VERSION ${D.GEN_VERSION}: raise the version and put the print in GEN_PRINT`]; }
-  const PARTS = { splitCheck, stackCheck, hudFootCheck, trkFoldCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, cartCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { splitCheck, stackCheck, hudFootCheck, trkFoldCheck, keyWordCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, cartCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

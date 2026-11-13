@@ -311,5 +311,15 @@
   function checkTrkFold(out) { const { S } = playing('warrior'), f0 = S.meta.trkFold ? 1 : 0;
     step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) === f0) out.push('tracker: the fold key does not fold the done quests in play');
     S.screen = 'pause'; step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) !== f0) out.push('tracker: the fold key does not unfold them on the pause'); }
-  Object.assign(SIMX, { checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
+  // an offer's key words (TASKS 1995): every page of every giver's offer opens and shuts its **…** marks, the giver's name in it is
+  // marked whole, and a name never marks a longer word it starts
+  function checkKeyWords(out) { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { town: 1 }); S.run = R;
+    const own = R.offers; for (const [role, key] of own.map((o) => [o.from, o.key]).concat(...Object.keys(D.QUEST_SAY).map((r) => Object.keys(D.QUESTS).filter((k) => D.QUESTS[k].kind === 'side').map((k) => [r, k])))) {
+      R.offers = own.some((o) => o.from === role && o.key === key) ? own : [{ key, from: role, q: 0 }]; const qt = SIMX.questTalk(R, role); if (!qt || !qt.act || qt.act.k !== 'take') continue;
+      for (const p of qt.pages) { const n = (p.match(/\*\*/g) || []).length;
+        if (n % 2 || /\*/.test(p.replace(/\*\*/g, ''))) out.push(`key words: ${role}/${key} leaves a mark open: ${p.slice(0, 80)}`);
+        for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
+      if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
+    { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
+  Object.assign(SIMX, { checkKeyWords, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);

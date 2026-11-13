@@ -580,6 +580,8 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // measuring never touches the slot's texture: label() and labelW() on one slot with different styles would re-render and
   // re-upload it twice a frame
   let MEASURE = null;
+  // the face's pixel size a size takes, plain or bold: a bold run sits in a plain line only where the two are one size (TASKS 1995)
+  L.facePx = (size, bold = false) => fit(size, bold).px;
   L.labelW = (slot, str, { size = 30, bold = false } = {}) => {
     const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); setFont(g, fit(size, bold), bold); return g.measureText(String(str)).width; };
   // a label that must stay inside a box steps down the font's grid sizes; scaling a size by a width ratio can land on a step that is still too wide
