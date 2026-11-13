@@ -1537,6 +1537,7 @@
     states.push(['codex_items', mk((S) => { S.meta.codex = { it: Object.fromEntries(Object.keys(D.BASES).map((k) => [k, 1])) }; S.screen = 'codex'; S.codexTab = 'it'; })]);
     states.push(['meta_unlocks', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 55; S.meta.open = { g_whirl_ring: 1, k_w_axe: 1 }; S.meta.ach = { a_elites: 13 }; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:1'; })]);
     states.push(['meta_unlocks_poor', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 0; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:2'; })]);
+    states.push(['meta_mage', mk((S) => { S.meta.cls = 'mage'; S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = { hp: 3, gear: 1, pouch: 1 }; S.hover = 'gear'; })]);
     states.push(['meta_tab_hover', mk((S) => { S.meta.shards = 35; S.screen = 'meta'; S.hover = 'tab:open'; })]);
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
     // TASKS 1887 б: the altar opened with no shards says so in shards, not in the gold it does not take

@@ -1314,7 +1314,10 @@
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) halves(TXT('hud.meta.3')).forEach((q, i) => KIT.ink('mt_run' + i, q, W / 2, 237 + i * 24, { size: 20, al: 0.5, col: I.d }));
     // a row lights under the pointer whether or not it can be bought; one the shards do not reach is dimmed (TASKS 1858)
-    const strip = (id, b, st, can, poor) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: poor ? (st.hover ? POOR_HOT : POOR) : st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox(id, b.x + 26, b.y, b.w - 52, b.h, 2); };
+    // the strip's light field spans rows 43–208 of the 251-row art and stretches with the row: two lines sit at fixed shares of it,
+    // so a shorter row (six rows of eleven upgrades for a mage or an archer) still keeps them off its rims (TASKS 1986)
+    const strip = (id, b, st, can, poor) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: poor ? (st.hover ? POOR_HOT : POOR) : st.hover ? HOT : [1, 1, 0, 1] } });
+      const f = { y: b.y + b.h * 0.171, h: b.h * 0.658 }; L.uiBox(id, b.x + 26, f.y, b.w - 52, f.h, 2); return [f.y + f.h * 0.33, f.y + f.h * 0.79]; };
     const bs = D.UI.meta(S.meta.cls, S.metaTab);
     KIT.tabs('mt_tb', bs.filter((b) => b.tab), 'tab:' + (S.metaTab === 'open' ? 'open' : 'up'), S);
     for (const b of bs) {
@@ -1323,17 +1326,17 @@
       if (b.id === 'back' || b.id === 'codex') { KIT.button('mt_' + b.id, b.id === 'back' && S.metaRun ? Object.assign({}, b, { label: TXT('UI.altar.r.leave.label') }) : b, stN(S, b.id)); continue; }
       const st = stN(S, b.id);
       if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), poor = !open && !U.ach && S.meta.shards < U.cost;
-        strip('un_' + b.un, b, st, !poor, poor);
-        KIT.ink('un_c' + b.un, open ? TXT('hud.unlock.done') : U.ach ? A.name : TXT('hud.unlock.cost', { c: U.cost }), b.x + b.w - 44, b.y + 23, { size: 20, al: 1, col: open ? I.g : poor ? I.off : I.r });
+        const [y1, y2] = strip('un_' + b.un, b, st, !poor, poor);
+        KIT.ink('un_c' + b.un, open ? TXT('hud.unlock.done') : U.ach ? A.name : TXT('hud.unlock.cost', { c: U.cost }), b.x + b.w - 44, y1, { size: 20, al: 1, col: open ? I.g : poor ? I.off : I.r });
         const ds = A && !open ? TXT('hud.unlock.ach', { p1: A.desc, p2: Math.min((S.meta.ach || {})[A.id] || 0, A.need), p3: A.need }) : Th.desc;
-        KIT.ink('un_n' + b.un, Th.name, b.x + 44, b.y + 22, { size: 22, col: open ? I.g : poor ? I.d : st.hover ? I.r : I.t });
-        KIT.ink('un_d' + b.un, ds, b.x + 44, b.y + 46, { size: 18, fit: b.w - 88, col: poor ? I.off : I.d }); continue; }
+        KIT.ink('un_n' + b.un, Th.name, b.x + 44, y1, { size: 22, col: open ? I.g : poor ? I.d : st.hover ? I.r : I.t });
+        KIT.ink('un_d' + b.un, ds, b.x + 44, y2, { size: 18, fit: b.w - 88, col: poor ? I.off : I.d }); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, poor = !max && S.meta.shards < c;
-      strip('mt_' + b.id, b, st, !poor, poor);
-      const tw = KIT.ink('mt_n' + b.id, M.name, b.x + 44, b.y + 32, { size: 28, col: poor ? I.d : st.hover && !max ? I.r : I.t });
-      KIT.ink('mt_d' + b.id, D.metaLine(M, r), b.x + 44, b.y + 68, { size: 20, col: r ? I.g : poor ? I.off : I.d });
-      for (let i = 0; i < M.max; i++) pip(b.x + 58 + tw + i * 24, b.y + 24, i < r);
-      KIT.ink('mt_c' + b.id, max ? TXT('hud.meta.4') : TXT('hud.meta.5', { c }), b.x + b.w - 44, b.y + b.h / 2, { size: 24, al: 1, col: max ? I.g : poor ? I.off : I.r }); }
+      const [y1, y2] = strip('mt_' + b.id, b, st, !poor, poor);
+      const tw = KIT.ink('mt_n' + b.id, M.name, b.x + 44, y1, { size: 28, col: poor ? I.d : st.hover && !max ? I.r : I.t });
+      KIT.ink('mt_d' + b.id, D.metaLine(M, r), b.x + 44, y2, { size: 20, col: r ? I.g : poor ? I.off : I.d });
+      for (let i = 0; i < M.max; i++) pip(b.x + 58 + tw + i * 24, y1 - 7, i < r);
+      KIT.ink('mt_c' + b.id, max ? TXT('hud.meta.4') : TXT('hud.meta.5', { c }), b.x + b.w - 44, y1, { size: 24, al: 1, col: max ? I.g : poor ? I.off : I.r }); }
     refusal(S, W / 2, 868, I.r);
   }
   // the latest refusal on a full-screen menu, where the in-game feed is hidden
