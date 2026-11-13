@@ -223,5 +223,41 @@
     if (!S.run || S.screen === 'win') out.push('finish: Enter under the pointer on the finish button ends the run');
     else if (lit === 'next' && S.screen !== 'play') out.push(`finish: Enter does not press the lit ${lit} (${S.screen})`); }
   function checkReview57(out) { checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
-  Object.assign(SIMX, { checkReview57, checkResize, checkMapCut });
+  // TASKS 1988: Shift+click asks how many of a stack and the part rides the pointer to the next click, Shift+right click takes half; the
+  // total never changes, no stack goes past its limit, a save keeps both parts; the merchant sells and buys the number asked, at its price
+  function checkSplit(out) {
+    const hp = (h, T) => h.bag.concat(T ? T.items : []).reduce((a, q) => a + (q && q.b === 'hp_potion' ? q.n : 0), 0), cap = D.CONSUMABLES.hp_potion.stack;
+    const over = (L0) => L0.some((q) => q && SIMX.isCons(q) && q.n > D.CONSUMABLES[q.b].stack);
+    const go = (S, U, id, o = {}) => { const b = U.r.find((q) => q.id === id), p = mid(S, b); step(S, Object.assign({ keys: [] }, p, o)); step(S, Object.assign({ keys: [] }, p)); };
+    const pot = (R, n) => Object.assign(SIMX.potion('hp_potion', n), { id: R.nextId++ });
+    { const { S, R, h } = playing('warrior'); S.screen = 'inv'; h.bag.fill(null); h.bag[0] = pot(R, 9); h.bag[1] = pot(R, cap); const U = () => UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab);
+      go(S, U(), 'bag:0', { click: 1, press: 1, shift: 1 }); if (!S.split || S.split.n !== 5 || S.split.hi !== 8) out.push(`split: Shift+click on a stack of 9 does not ask how many (${JSON.stringify(S.split)})`);
+      step(S, { keys: [], wheel: -1 }); step(S, { keys: [], wheel: 1 }); step(S, { keys: [], wheel: -9 }); if (S.split && S.split.n !== 8) out.push('split: the wheel does not hold the count to the stack less one');
+      step(S, { keys: [], wheel: 3 }); step(S, { keys: ['Enter'] }); if (!S.drag || S.drag.n !== 5 || !S.drag.carry) out.push('split: Enter does not put the part on the pointer');
+      if (h.bag[0].n !== 9) out.push('split: the part leaves its stack before it is laid down');
+      go(S, U(), 'bag:5', { click: 1, press: 1 }); if (!h.bag[5] || h.bag[5].n !== 5 || h.bag[0].n !== 4 || h.bag[5].id === h.bag[0].id || S.drag) out.push('split: the part does not land in a free cell');
+      go(S, U(), 'bag:5', { rclick: 1, shift: 1 }); if (!S.drag || S.drag.n !== 3) out.push('split: Shift+right click does not take half');
+      go(S, U(), 'bag:1', { click: 1, press: 1 }); if (h.bag[1].n !== cap || h.bag[5].n !== 5) out.push('split: a part goes onto a full stack');
+      go(S, U(), 'bag:5', { rclick: 1, shift: 1 }); go(S, U(), 'bag:0', { click: 1, press: 1 }); if (h.bag[0].n !== 7 || h.bag[5].n !== 2) out.push(`split: a part does not join a stack of its kind (${h.bag[0].n}, ${h.bag[5].n})`);
+      go(S, U(), 'bag:0', { click: 1, press: 1, shift: 1 }); step(S, { keys: ['Escape'] }); if (S.split || S.screen !== 'inv') out.push('split: Esc does not just close the question');
+      if (hp(h) !== 9 + cap || over(h.bag)) out.push(`split: the bag holds ${hp(h)} potions, not ${9 + cap}, or a stack past its limit`);
+      const P = JSON.parse(JSON.stringify(SIMX.persist(S))), T = spawn(1, P), B = (T.saved || T.run).hero.bag;
+      if (!B[0] || B[0].n !== 7 || !B[5] || B[5].n !== 2) out.push('split: a save and load do not keep both parts'); }
+    { const S = townRun(), R = S.run, h = R.hero; S.screen = 'stash'; h.bag.fill(null); h.bag[0] = pot(R, 9); const T = SIMX.stashOf(S); T.items = []; const U = () => UI.stash(h.bag.length, S.bagTab);
+      go(S, U(), 'bag:0', { click: 1, press: 1, shift: 1 }); step(S, { keys: [], wheel: 1 }); step(S, { keys: ['Enter'] }); go(S, U(), 'stash:3', { click: 1, press: 1 });
+      if (!T.items[3] || T.items[3].n !== 4 || h.bag[0].n !== 5 || hp(h, T) !== 9) out.push('split: a part does not go into the chest');
+      go(S, U(), 'stash:3', { rclick: 1, shift: 1 }); go(S, U(), 'bag:2', { click: 1, press: 1 }); if (!h.bag[2] || h.bag[2].n !== 2 || T.items[3].n !== 2 || hp(h, T) !== 9) out.push('split: half of a chest stack does not come out'); }
+    { const S = spawn(0, {}); SIMX.begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
+      const R = S.run, h = R.hero, sh = R.map.shop; R.en = []; h.x = sh.front.x; h.y = sh.front.y; step(S, { keys: ['KeyE'] });
+      if (S.screen !== 'shop') { out.push('split: the shop does not open'); return; }
+      h.bag.fill(null); h.bag[0] = pot(R, 9); h.gold = 0; const U = () => UI.shop(R.shop.goods.length, h.bag.length, S.bagTab), unit = D.sellPrice(h.bag[0], SIMX.tradeDepth(R));
+      go(S, U(), 'sell:0', { click: 1, shift: 1 }); step(S, { keys: [], wheel: -3 }); step(S, { keys: ['Enter'] });
+      const lot = R.shop.back[R.shop.back.length - 1]; if (h.gold !== 4 * unit || h.bag[0].n !== 5 || !lot || lot.it.n !== 4 || lot.price !== 4 * unit) out.push(`split: selling 4 of 9 pays ${h.gold}, not ${4 * unit}, or leaves ${h.bag[0] && h.bag[0].n}`);
+      const gi = R.shop.goods.findIndex((q) => q.n && q.it.b === 'hp_potion'), g = R.shop.goods[gi];
+      if (g) { g.n = Math.max(g.n, 5); h.gold = g.price * 3 + 7; const n0 = g.n, c0 = hp(h); go(S, U(), 'buy:' + gi, { click: 1, shift: 1 }); step(S, { keys: ['ArrowRight'] }); step(S, { keys: ['ArrowRight'] }); step(S, { keys: [], wheel: -5 }); step(S, { keys: ['Enter'] });
+        if (h.gold !== 7 || hp(h) !== c0 + 3 || (R.shop.goods.includes(g) ? g.n : 0) !== n0 - 3 || over(h.bag)) out.push(`split: buying 3 at the merchant leaves ${h.gold} gold (7) and ${hp(h) - c0} potions`); }
+      else out.push('split: the merchant sells no potions');
+      if (g) { h.bag.fill(null); g.n = cap * 2 + 3; h.gold = g.price * g.n; const n = g.n; SIMX.buy(S, R, g, false, n);
+        if (hp(h) !== n || over(h.bag) || h.bag.filter(Boolean).length !== 3) out.push(`split: buying ${n} into an empty bag gives ${hp(h)} potions in ${h.bag.filter(Boolean).length} cells, or a stack past its limit`); } } }
+  Object.assign(SIMX, { checkReview57, checkResize, checkMapCut, checkSplit });
 })(typeof window !== 'undefined' ? window : globalThis);

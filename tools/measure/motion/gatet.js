@@ -1,0 +1,6 @@
+const Q=SCENE.QA();const base=Q.states.find(q=>q[0]==='magma_gate_rest')[1];const S=structuredClone(typeof base==='function'?base():base);const R=S.run;const g=(R.map.hazards||[]).filter(z=>z.gate);
+if(!g.length)return{none:1,keys:Object.keys(R.map)};const H=DATA.HAZ.vent;const z=g[0],per=z.per;const cv=document.getElementById('c');const o=document.createElement('canvas');o.width=o.height=120;const gc=o.getContext('2d',{willReadFrequently:true});
+const rows=[];const t0=Math.ceil(R.t/per+3)*per;const N=Math.round(per*60)+30;
+const strip=document.createElement('canvas');strip.width=120*12;strip.height=120;const sc=strip.getContext('2d');let si=0;
+for(let i=0;i<N;i++){const t=t0+i/60;S.t=R.t=t;S.ev=[];const clk=DATA.hazClock(z,t);SCENE.state=S;SCENE.render(t);const sx=(z.x-R.cam[0])*(cv.width/SCX.VW),sy=(z.y-R.cam[1])*(cv.height/SCX.VH);gc.drawImage(cv,sx-60,sy-80,120,120,0,0,120,120);const d=gc.getImageData(0,0,120,120).data;const L=[];for(let k=0;k<d.length;k+=4)L.push(0.2126*d[k]+0.7152*d[k+1]+0.0722*d[k+2]);L.sort((a,b)=>a-b);rows.push([i,+L[Math.floor(L.length*0.95)].toFixed(1),typeof clk==='object'?JSON.stringify(clk).slice(0,60):clk]);if(i%Math.round(N/12)===0&&si<12){sc.drawImage(o,si*120,0);si++;}}
+return{per,warn:H.warn,burst:H.burst,n:g.length,rows,png:{gate_strip:strip.toDataURL()}};

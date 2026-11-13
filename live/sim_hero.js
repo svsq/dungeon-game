@@ -12,11 +12,12 @@
   // where the hero's weapon hand / spells come from (shared with the rig: SIM.RIG.shoulder above the feet)
   const RIG = { shoulder: 51, arm: 28 };
   // one step's travel: shorter when walking toward / away from the camera, so planted feet keep pace with the ground
-  const stepLen = (ux) => K.STEP * (0.82 + 0.18 * Math.min(1, ux));
+  const stepLen = (ux) => K.STEP * (0.9 + 0.1 * Math.min(1, ux));   // (TASKS 1802: at 0.82 walking down he stepped 10.7 times a second)
   const hand = (h) => [h.x + Math.cos(h.aim) * 23, h.y - RIG.shoulder + 8 + Math.sin(h.aim) * 15];
   function bagAdd(R, it) {
     const h = R.hero;
-    if (isCons(it)) { let n = it.n || 1; const cap = CONSUMABLES[it.b].stack; for (const st of h.bag) { if (!st || st.b !== it.b || st.n >= cap) continue; const q = Math.min(n, cap - st.n); st.n += q; n -= q; if (!n) return true; } it.n = n; }
+    if (isCons(it)) { let n = it.n || 1; const cap = CONSUMABLES[it.b].stack; for (const st of h.bag) { if (!st || st.b !== it.b || st.n >= cap) continue; const q = Math.min(n, cap - st.n); st.n += q; n -= q; if (!n) return true; }
+      for (let j; n > cap && (j = h.bag.indexOf(null)) >= 0; n -= cap) h.bag[j] = Object.assign({}, it, { id: R.nextId++, n: cap }); it.n = n; if (n > cap) return false; }
     const i = h.bag.indexOf(null); if (i < 0) return false; if (!it.id) it.id = R.nextId++; h.bag[i] = it; return true;
   }
   function gainXp(S, R, n) {
@@ -33,6 +34,8 @@
     if (!(o.shield > 0 && S.t < o.shieldUntil)) return dmg;
     const n = Math.min(o.shield, dmg); o.shield -= n; ev(S, Object.assign({ k: 'absorb', x: o.x, y: o.y, n }, extra)); if (o.shield <= 0) ev(S, { k: 'shield_break', x: o.x, y: o.y }); return dmg - n;
   }
+  // (deadT is -1 while alive and may go negative when a QA state kills at S.t - 0.8, so only -1 itself means alive)
+  function killHero(S, R) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
   function hurtHero(S, R, dmg, sx, sy, kind, src, actor) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr || R.town) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
@@ -67,7 +70,7 @@
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
     if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
       ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: TXT('sim_hero.hurtHero.msg.s'), t: S.t }; return; }
-    if (h.hp <= 0) { h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
+    if (h.hp <= 0) killHero(S, R);
   }
   // (ax, ay): where the blow came from on the floor, when not its source (a bolt bursts at the height of the body it hit)
   // the hero's own blows (a swing, the whirl, a fireball's burst): what a reflecting or cursing elite answers (TASKS 387)
@@ -348,7 +351,7 @@
     if (h.shield > 0 && t > h.shieldUntil) { const left = h.shield; h.shield = 0; SIMX.firePowers(S, R, 'shieldEnd', { x: h.x, y: h.y, left }); }
     // spikes: up for 0.7 s of every 2.4 s; a plate is 2×2 cells, feet a little inside its edge count
     for (const tr of m.traps) { const ph = ((t / 2.4 + tr.ph) % 1 + 1) % 1, up = ph < 0.29;
-      if (up && onPlate(h, tr) && !dashing && t - h.spikeT > 0.7) { h.spikeT = t; hurtHero(S, R, heroSt(S).maxHp * BAL.spike, h.x, h.y - 20, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); }
+      if (up && onPlate(h, tr) && !dashing && t - h.spikeT > 0.7) { h.spikeT = t; hurtHero(S, R, heroSt(S).maxHp * (m.biome === 'magma' ? D.ARCH.plateau.guard.hit : BAL.spike), h.x, h.y - 20, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); }
       // the spikes don't care whose feet are on them: lure or knock monsters onto a plate
       if (up) for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onPlate(e, tr) && t - (e.spikeT ?? -9) > 0.7) {
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (dep(R) - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
@@ -398,6 +401,6 @@
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
 
   Object.assign(SIMX, {
-    heroSt, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
+    heroSt, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, killHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
     stepPlay });
 })(typeof window !== 'undefined' ? window : globalThis);

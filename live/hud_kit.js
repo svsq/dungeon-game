@@ -19,9 +19,6 @@
     rod: { tex: 'ui_b_scroll_rod', art: [240, 24], cut: [24, 0, 24, 0] },
     ribbon: { tex: 'ui_b_ribbon', art: [24, 120], cut: [0, 12, 0, 28] },
     gutter: { tex: 'ui_b_book_gutter', art: [40, 160], cut: [0, 16, 0, 16] },
-    // the main menu's leaf (TASKS 1755): a vertical 3-slice, its plain band y 120–169 takes the two heights of D.UI.menuSheet; box:
-    // the inside its texts are checked against, as the torn sheet's
-    menu: { tex: 'ui_b_menu_leaf', art: [310, 289], cut: [0, 120, 0, 120], box: [13, 13, 13, 13] },
   };
   K.PART = PART;
   const has = (n) => !!(window.ASSETS && window.ASSETS[n]);
