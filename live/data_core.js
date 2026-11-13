@@ -12,7 +12,7 @@
   const ZOOM = 1, ZOOMS = [0.5, 0.75, 1, 1.25, 1.5];
   // a saved zoom off the slider's steps (the old ×2) takes the nearest one
   const zoomFix = (z) => ZOOMS.reduce((a, b) => (Math.abs(b - (z || ZOOM)) < Math.abs(a - (z || ZOOM)) ? b : a), ZOOM);
-  const zoomName = (z) => '×' + (z || ZOOM).toFixed((z || ZOOM) * 4 % 2 ? 2 : 1).replace('.', ',');
+  const zoomName = (z) => '×' + TXT.num(z || ZOOM, (z || ZOOM) * 4 % 2 ? 2 : 1, true);
 
   const mix32 = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
 

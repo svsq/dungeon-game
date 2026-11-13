@@ -69,8 +69,8 @@
   // `stun` s (a boss `boss` s); the war cry: monsters within `r` deal `weak` of their damage, the warrior `buff` more, for `t` s
   const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4, miss: 3, prep: 0.06 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };
   // the volley's fan closes on the cursor (TASKS 1161): `w` px across where it points, at most `arc`°, at least `min`°; the trap is set at
-  // the cursor within `far` px and holds the monster's blow as well as its feet; the leap carries him `spd` × the dash's time
-  const VOLLEY = { n: 5, arc: 50, min: 4, w: 36, k: 0.7 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };
+  // the cursor within `far` px and holds the monster's blow as well as its feet; the leap carries him `spd` × the dash's time; the fan leaves `loose` s after the key
+  const VOLLEY = { n: 5, arc: 50, min: 4, w: 36, k: 0.7, loose: 0.13 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
   // right click's ability, `shoots`: the weapons it fires from instead of swinging, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
@@ -144,26 +144,29 @@
   // run (the blessing only for the floor), then goes dark. v is the bonus per gift taken
   // tag: the HUD chip's text when the desc does not start with the number ({v} the total value, {n} how many taken)
   const GIFTS = [
-    { id: 'bless', tier: 1, name: TXT('GIFTS.bless.name'), icon: 'bf_bless', v: 20, desc: TXT('GIFTS.bless.desc') },
-    { id: 'vigor', tier: 1, name: TXT('GIFTS.vigor.name'), icon: 'it_armor_p', v: 20, desc: TXT('GIFTS.vigor.desc') },
-    { id: 'wisdom', tier: 1, name: TXT('GIFTS.wisdom.name'), icon: 'it_mp', v: 20, desc: TXT('GIFTS.wisdom.desc') },
-    { id: 'alert', tier: 1, name: TXT('GIFTS.alert.name'), icon: 'it_ring', v: 5, desc: TXT('GIFTS.alert.desc') },
-    { id: 'reach', tier: 1, name: TXT('GIFTS.reach.name'), icon: 'it_longsword', v: 12, desc: TXT('GIFTS.reach.desc') },
-    { id: 'thrift', tier: 1, name: TXT('GIFTS.thrift.name'), icon: 'it_hp', v: 30, desc: TXT('GIFTS.thrift.desc'), tag: '+{v}%' },
-    { id: 'swift', tier: 2, name: TXT('GIFTS.swift.name'), icon: 'it_boots', v: 10, desc: TXT('GIFTS.swift.desc') },
-    { id: 'haste', tier: 2, name: TXT('GIFTS.haste.name'), icon: 'it_gloves', v: 6, desc: TXT('GIFTS.haste.desc') },
-    { id: 'ward', tier: 2, name: TXT('GIFTS.ward.name'), icon: 'it_shield', v: 6, desc: TXT('GIFTS.ward.desc') },
-    { id: 'crit', tier: 2, name: TXT('GIFTS.crit.name'), icon: 'it_ring', v: 8, desc: TXT('GIFTS.crit.desc') },
-    { id: 'cleave', tier: 2, name: TXT('GIFTS.cleave.name'), icon: 'ab_whirl', v: 25, desc: TXT('GIFTS.cleave.desc') },
-    { id: 'feast', tier: 2, name: TXT('GIFTS.feast.name'), icon: 'it_axe', v: 3, desc: TXT('GIFTS.feast.desc'), tag: '{v}%' },
-    { id: 'thorns', tier: 2, name: TXT('GIFTS.thorns.name'), icon: 'it_buckler', v: 30, desc: TXT('GIFTS.thorns.desc') },
-    { id: 'fury', tier: 3, name: TXT('GIFTS.fury.name'), icon: 'it_sword', v: 15, desc: TXT('GIFTS.fury.desc') },
-    { id: 'leech', tier: 3, name: TXT('GIFTS.leech.name'), icon: 'it_amulet', v: 4, desc: TXT('GIFTS.leech.desc') },
-    { id: 'arcane', tier: 3, name: TXT('GIFTS.arcane.name'), icon: 'ab_fire', v: 25, desc: TXT('GIFTS.arcane.desc') },
-    { id: 'life', tier: 3, name: TXT('GIFTS.life.name'), icon: 'crystal', v: 1.5, desc: TXT('GIFTS.life.desc') },
-    { id: 'phoenix', flat: 1, tier: 3, name: TXT('GIFTS.phoenix.name'), icon: 'bf_burn', v: 50, desc: TXT('GIFTS.phoenix.desc'), tag: '×{n}' },
-    { id: 'execute', tier: 3, name: TXT('GIFTS.execute.name'), icon: 'it_hammer', v: 60, desc: TXT('GIFTS.execute.desc') },
+    { id: 'bless', tier: 1, name: TXT('GIFTS.bless.name'), icon: 'bf_bless', v: 20 },
+    { id: 'vigor', tier: 1, name: TXT('GIFTS.vigor.name'), icon: 'it_armor_p', v: 20 },
+    { id: 'wisdom', tier: 1, name: TXT('GIFTS.wisdom.name'), icon: 'it_mp', v: 20 },
+    { id: 'alert', tier: 1, name: TXT('GIFTS.alert.name'), icon: 'it_ring', v: 5 },
+    { id: 'reach', tier: 1, name: TXT('GIFTS.reach.name'), icon: 'it_longsword', v: 12 },
+    { id: 'thrift', tier: 1, name: TXT('GIFTS.thrift.name'), icon: 'it_hp', v: 30, tag: '+{v}%' },
+    { id: 'swift', tier: 2, name: TXT('GIFTS.swift.name'), icon: 'it_boots', v: 10 },
+    { id: 'haste', tier: 2, name: TXT('GIFTS.haste.name'), icon: 'it_gloves', v: 6 },
+    { id: 'ward', tier: 2, name: TXT('GIFTS.ward.name'), icon: 'it_shield', v: 6 },
+    { id: 'crit', tier: 2, name: TXT('GIFTS.crit.name'), icon: 'it_ring', v: 8 },
+    { id: 'cleave', tier: 2, name: TXT('GIFTS.cleave.name'), icon: 'ab_whirl', v: 25 },
+    { id: 'feast', tier: 2, name: TXT('GIFTS.feast.name'), icon: 'it_axe', v: 3, tag: '{v}%' },
+    { id: 'thorns', tier: 2, name: TXT('GIFTS.thorns.name'), icon: 'it_buckler', v: 30 },
+    { id: 'fury', tier: 3, name: TXT('GIFTS.fury.name'), icon: 'it_sword', v: 15 },
+    { id: 'leech', tier: 3, name: TXT('GIFTS.leech.name'), icon: 'it_amulet', v: 4 },
+    { id: 'arcane', tier: 3, name: TXT('GIFTS.arcane.name'), icon: 'ab_fire', v: 25 },
+    { id: 'life', tier: 3, name: TXT('GIFTS.life.name'), icon: 'crystal', v: 1.5 },
+    { id: 'phoenix', flat: 1, tier: 3, name: TXT('GIFTS.phoenix.name'), icon: 'bf_burn', v: 50, tag: '×{n}' },
+    { id: 'execute', tier: 3, name: TXT('GIFTS.execute.name'), icon: 'it_hammer', v: 60 },
   ];
+  // a number written into the text as well as in v drifted from it: the HUD had to find it there to sum the altars' gifts, and kept its dot (TASKS 1900)
+  const giftDesc = (G, n = 1) => TXT('GIFTS.' + G.id + '.desc', { v: G.v * n });
+  for (const G of GIFTS) G.desc = giftDesc(G);
   // an altar stands on every second floor, so it is paid from two floors' takings: a bot reaches the floor-2 altar with ~12 shards,
   // so the middle gift is within reach at every altar (TASKS 183), the dear one takes three floors or more
   const giftCost = (tier, f) => Math.round([0, 4, 9, 16, 40][tier] * (1 + 0.15 * (f - 1)));
@@ -178,5 +181,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftCost, rerollCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, giftCost, rerollCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

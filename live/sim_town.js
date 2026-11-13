@@ -312,7 +312,8 @@
   const nickHash = (R, e) => qhash((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811);
   function nameElites(R) { for (const e of R.en) { if (!e.elite || e.title || e.nm || D.BOSSES[e.type]) continue; const s = nickOf(e.type, nickHash(R, e)); if (s) e.nm = s; } }
   // the named quest's foe is drawn off its floor's roster when offered, so the townsman can name it before the floor exists
-  const namedPool = (R, f) => D.rosterAt(STAGE(R, f).biome, f).filter((t) => D.ELITE_GROUP[t] && !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake);
+  // (none tied to the lava: no foe can be made one, and on near a third of the magma floors none stands where a quest may name it)
+  const namedPool = (R, f) => D.rosterAt(STAGE(R, f).biome, f).filter((t) => D.ELITE_GROUP[t] && !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake && !ENEMIES[t].tether);
   const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
   function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
   const isFree = (R, w) => !!(R.freed && R.freed[w]), capOf = (R, w) => (R.captives || {})[w];
@@ -384,12 +385,18 @@
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
     return m.rooms.filter((r) => r.type === 'combat' && !r.pocket && !r.isle && !(m.shop && m.shop.room === r.id)).sort((a, b) => Math.hypot(b.cx * TILE - sp.x, b.cy * TILE - sp.y) - Math.hypot(a.cx * TILE - sp.x, a.cy * TILE - sp.y)); }
+  const retype = (e, type) => { const A = ENEMIES[e.type], B = ENEMIES[type]; e.hp = e.max = Math.max(1, Math.round(e.max * B.hp / A.hp)); e.dmg = e.dmg * B.dmg / A.dmg; e.type = type; delete e.fa; };
   const plainFoe = (e) => e.deadT < 0 && counted(e) && !D.BOSSES[e.type] && !e.elite && !e.guard && !e.exit && !ENEMIES[e.type].lurk && !ENEMIES[e.type].deep && !ENEMIES[e.type].lake && e.room >= 0;
   function questPlace(S, R) { const f = R.floor, m = R.map;
     for (const q of R.quests || []) { const Q = D.QUESTS[q.key]; if (q.st !== 'taken' || q.f !== f || !Q.fresh || q.placed) continue; q.placed = 1; const rooms = questRooms(R);
-      if (Q.type === 'named') { const kin = (e) => D.ELITE_GROUP[e.type] === D.ELITE_GROUP[q.foe], pickIn = (ok) => { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && ok(e) && e.room === r2.id)); return r && R.en.find((o) => plainFoe(o) && ok(o) && o.room === r.id); };
-        const e = pickIn(kin) || pickIn((o) => D.ELITE_GROUP[o.type]);
-        if (!e) { q.lost = 1; continue; } if (!q.title || !kin(e)) { q.foe = e.type; q.title = nickOf(e.type, nickHash(R, e)); } const stg = STAGE(R, f), mob = stg.mob || 1;
+      if (Q.type === 'named') { const pickIn = (ok) => { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && ok(e) && e.room === r2.id)); return r && R.en.find((o) => plainFoe(o) && ok(o) && o.room === r.id); };
+        // the townsman has already said the name, so a floor without the family gets one of it in place of a plain foe (TASKS 1998)
+        const foe = q.foe && ENEMIES[q.foe] && D.ELITE_GROUP[q.foe] && !ENEMIES[q.foe].tether ? q.foe : null;
+        let e = foe ? pickIn((o) => D.ELITE_GROUP[o.type] === D.ELITE_GROUP[foe]) : null;
+        if (!e && foe && (e = pickIn((o) => !ENEMIES[o.type].tether))) { retype(e, foe); SIMX.seatFoe(R, e, undefined, e.room); }
+        // an old save's family may be unknown, or tied to the lava where no foe on stone can be made one (review of PR 75)
+        if (!foe) { e = pickIn((o) => !!D.ELITE_GROUP[o.type] && !ENEMIES[o.type].tether); if (e) q.foe = e.type; }
+        if (!e) { q.lost = 1; continue; } if (!q.title) q.title = nickOf(e.type, nickHash(R, e)); const stg = STAGE(R, f), mob = stg.mob || 1;
         e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
         if (!r) { q.lost = 1; continue; } q.room = r.id; }

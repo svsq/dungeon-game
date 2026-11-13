@@ -527,7 +527,7 @@
   // timed ones drain clockwise; debuffs sit on a red rim
   // a gift taken at several altars: its tooltip names the summed value, as its cell does, and how many times it was given
   const giftTip = (G, n) => { if (n < 2) return G.desc; const times = TXT.n('hud.tip.times', n);
-    const d = G.flat ? TXT('GIFTS.phoenix.descN', { n, times }) : G.desc.replace(String(G.v), nf(G.v * n));
+    const d = G.flat ? TXT('GIFTS.phoenix.descN', { n, times, v: G.v }) : D.giftDesc(G, n);
     return G.flat ? d : TXT('hud.tip.giftN', { d, n, times }); };
   function buffList(R, GT) {
     const h = R.hero, list = [], gift = (id) => D.GIFTS.find((g) => g.id === id);
@@ -535,7 +535,7 @@
     if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff', gift: 1, name: TXT('hud.tip.greed') });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
     for (const G of D.GIFTS) if (G.power && D.hasPower(h, G.id)) list.push({ id: 'g_' + G.id, ic: G.icon, v: '', col: '#ffd27a', gift: 1, name: G.name, desc: G.desc });
-    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', nf(G.v * n)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, nf(G.v * n)), col: '#9cc8ff', gift: 1, name: G.name, desc: giftTip(G, n) }); }
+    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', nf(G.v * n)).replace('{n}', n) : D.giftDesc(G, n).split(' ')[0], col: '#9cc8ff', gift: 1, name: G.name, desc: giftTip(G, n) }); }
     if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T, name: D.ABILITIES.find((A) => A.id === 'shield').name, desc: TXT('hud.tip.shield', { n: Math.ceil(h.shield) }) });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.burn'), desc: TXT('hud.tip.burn') });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
@@ -758,7 +758,7 @@
       L.rrect(bx, by, bw, 28, 14, n ? [0.2, 0.13, 0.09] : [0.62, 0.14, 0.08], n ? [0.12, 0.08, 0.05] : [0.42, 0.08, 0.05], 0.95);
       lab(id + '_f' + q.tab, s, bx + bw / 2, by + 14, { size: 20, al: 0.5, col: n ? '#e8d6b0' : '#fff2e0' }); L.uiBox(id + '_fb' + q.tab, bx, by, bw, 28, 0);
       tipAt(bx - 4, by - 4, bw + 8, 36, TXT('hud.inv.free'), TXT('hud.inv.free.l')); } const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
-  const nf = (v, d = 1, fixed = false) => (fixed ? v.toFixed(d) : String(Math.round(v * 10 ** d) / 10 ** d)).replace('.', ',');
+  const nf = TXT.num;
   // what one point of a stat gives, from the stats' own formula with the point and without it (TASKS 1857)
   const GAIN = [['atk', (v) => TXT('hud.stat.atk', { v })], ['def', (v) => TXT('hud.stat.def', { v })], ['maxHp', (v) => TXT('hud.stat.maxHp', { v })], ['maxMp', (v) => TXT('hud.stat.maxMp', { v })],
     ['crit', (v) => TXT('hud.stat.crit', { v })], ['dodge', (v) => TXT('hud.stat.dodge', { v })], ['aspd', (v) => TXT('hud.stat.aspd', { v })], ['mspd', (v) => TXT('hud.stat.mspd', { v })], ['poise', (v) => TXT('hud.stat.poise', { v })]];
@@ -1460,7 +1460,7 @@
       KIT.cell('al_cl' + i, cx - 64, b.y + 44, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52, 112, can ? undefined : { alpha: 0.5 });
       // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1861)
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
-      const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, nf(Gf.v * (rank + 1))) : Gf.desc;
+      const ds = rank && !Gf.flat ? D.giftDesc(Gf, rank + 1) : Gf.desc;
       // a fourth line would run into the price: a long text drops to the 20 px floor, packs its lines and lifts the name (review of PR 72)
       const w21 = wrapWords(ds, iw, 21), long = w21.length > 3, lines = long ? wrapWords(ds, iw, 20) : w21, ny = long ? -18 : 0;
       KIT.ink('al_n' + i, Gf.name, cx, b.y + 214 + ny, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
@@ -1482,8 +1482,8 @@
   function talk(S, R, t) {
     const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = T.role === 'merchant' ? 'merchant' : 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
     parch('talk', P, true);
-    panel('tk_frame', P.x + 34, P.y + 44, 232, P.h - 88, { r: 4, c0: [0.09, 0.07, 0.07] });
-    const [sw, sh] = SZ(nm), k = 230 / sh; L.sprite(nm, P.x + 150 - sw * k / 2, P.y + P.h - 30 - sh * k, { w: sw * k, h: sh * k });
+    panel('tk_frame', U.F.x, U.F.y, U.F.w, U.F.h, { r: 4, c0: [0.09, 0.07, 0.07] });
+    { const f = U.face(...SZ(nm)); L.sprite(nm, f.x, f.y, { w: f.w, h: f.h }); }
     lab('tk_n', FD.name, P.x + 300, P.y + 46, { size: 32, col: INK.r });
     lab('tk_j', FD.job, P.x + 300, P.y + 82, { size: 19, col: INK.d });
     wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 122, P.w - 360, 28, INK.t, INK.r);

@@ -35,7 +35,8 @@
     const n = Math.min(o.shield, dmg); o.shield -= n; ev(S, Object.assign({ k: 'absorb', x: o.x, y: o.y, n }, extra)); if (o.shield <= 0) ev(S, { k: 'shield_break', x: o.x, y: o.y }); return dmg - n;
   }
   // (deadT is -1 while alive and may go negative when a QA state kills at S.t - 0.8, so only -1 itself means alive)
-  function killHero(S, R) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
+  // deadRun: his own speed as he fell, before the killing blow's shove, so a hero killed standing does not fall as from a run (TASKS 1991)
+  function killHero(S, R, vx = R.hero.vx, vy = R.hero.vy) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; h.volleyT = null; h.deadRun = [vx, vy]; ev(S, { k: 'die', x: h.x, y: h.y }); }
   function hurtHero(S, R, dmg, sx, sy, kind, src, actor) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr || R.town) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
@@ -60,7 +61,7 @@
     const shielded = h.shield > 0 && S.t < h.shieldUntil; dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (shielded) SIMX.firePowers(S, R, 'shieldHit', { x: h.x, y: h.y }); if (shielded && h.shield <= 0) SIMX.firePowers(S, R, 'shieldBreak', { x: h.x, y: h.y }); if (capped && dmg > 0) R.blastWin.push([S.t, dmg]); if (dmg <= 0) return;
     if (D.clsOf(h).res === 'rage') { h.mp = Math.min(D.RAGE.max, h.mp + dmg / st.maxHp * 100 * D.RAGE.hurt); h.fightT = S.t; }
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
-    const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1, shove = 260 * (1 - st.poise / 100); h.vx += dx / d * shove; h.vy += dy / d * shove;
+    const ownV = [h.vx, h.vy], dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1, shove = 260 * (1 - st.poise / 100); h.vx += dx / d * shove; h.vy += dy / d * shove;
     if (kind === 'poison') h.poison = S.t + 3;
     if (kind === 'fire') { if (h.burn <= S.t) ev(S, { k: 'ignite', x: h.x, y: h.y }); h.burn = Math.max(h.burn, S.t + 3); }
     if (kind === 'water') { h.slowT = S.t + ORB.t; ev(S, { k: 'soak', x: h.x, y: h.y - 38 }); }
@@ -70,7 +71,7 @@
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
     if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
       ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: TXT('sim_hero.hurtHero.msg.s'), t: S.t }; return; }
-    if (h.hp <= 0) killHero(S, R);
+    if (h.hp <= 0) killHero(S, R, ownV[0], ownV[1]);
   }
   // (ax, ay): where the blow came from on the floor, when not its source (a bolt bursts at the height of the body it hit)
   // the hero's own blows (a swing, the whirl, a fireball's burst): what a reflecting or cursing elite answers (TASKS 387)
@@ -313,6 +314,7 @@
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, D.clsOf(h).abs[inp.slot - 1].id, inp);
+    if (h.volleyT != null && t >= h.volleyT) SIMX.looseVolley(S, R);
     // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
     if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
       S.meta.tipScroll = 1; R.msg = { s: TXT('sim_hero.stepPlay.msg.s'), t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }

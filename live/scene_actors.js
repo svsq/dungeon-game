@@ -26,7 +26,7 @@
     return { v, dl: 0, dur: 0.35, bounce: 0.025, buckle: 0 }; }
   // a drowned under the shallows (TASKS 307): 1 lying under, 0 standing; it sinks back over 0.9 s when it comes home
   // a monster knocked off a plateau (TASKS 401) goes under the same way: down into the lava as it burns, or dropping into the chasm
-  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0.14, 0.62, (GT - e.coffinT) / D.COFFIN.rise) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
+  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0.14, 0.55, (GT - e.coffinT) / D.COFFIN.rise) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
   // what shows of it then: a dark shape swaying under the surface and bubbles that rise and pop in small rings
   function lurkFx(e, x, y, t, sub, col = [0.42, 0.62, 0.66]) { const k = SS(0.3, 0.9, sub);
     L.shadow(x + 3 * Math.sin(t * 0.7 + e.id), y - 3, 25, 8, 0.4 * k);
@@ -295,8 +295,13 @@
     const INK = [0.024, 0.02, 0.024];
     if (E.kind === 'serpent') return drawSerpent(e, E, x, y, GT, t, { alpha, grade, rim, INK, edgeOf });
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
-    if (e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise) { const q = SS(0.62, 1, (GT - e.coffinT) / D.COFFIN.rise), bx = x + e.coffX - e.x, by = y + e.coffY - e.y - 16; x = bx + (x - bx) * q; y = by + (y - by) * q - 16 * Math.sin(Math.PI * q); }
-    const sub = submerged(e, E, GT), cut = sub > 0 ? { cut: [y + 3, 5, 1] } : {};
+    // out of a coffin he climbs over its front wall: an arc in depth and height that crosses the wall at its top, the wall hiding him
+    // below its rim while he is behind it
+    // (TASKS 1747: he stood on the box with his legs over the wall, then dropped 40 px to the floor with no step)
+    let rimCut = Infinity;
+    if (e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise) { const q = SS(0.55, 1, (GT - e.coffinT) / D.COFFIN.rise), cy = y + e.coffY - e.y, dd = y - cy + 8, f = dd > 8 ? q ** (Math.log(8 / dd) / Math.log(0.5)) : q, dS = cy - 8 + dd * f;
+      x += (e.coffX - e.x) * (1 - f); y = dS - 8 * (1 - q) - 28 * Math.sin(Math.PI * q); if (!(e.y > e.coffY) || dS < cy) rimCut = cy + 4 - SZ('coffin_open')[1] * (1 - COFFIN_RIM); }
+    const sub = submerged(e, E, GT), cutY = Math.min(sub > 0 ? y + 3 : Infinity, rimCut), cut = cutY < Infinity ? { cut: [cutY, cutY === rimCut ? 2 : 5, 1] } : {};
     if (sub > 0 && E.lurk) lurkFx(e, x, y, t, sub);
     if (sub > 0 && E.lake) lurkFx(e, x, y, t, sub, [1, 0.55, 0.18]);
     if (sub > 0.995) { L.joint('en' + e.id, 'ground', [x, y]); return; }
@@ -357,14 +362,17 @@
     // the mimic (TASKS 367, 1670) wears the chest it hid as: that chest's own painting cut along its lid line, so waking changes neither size nor rank. It squats and gapes
     // through the wind-up, flies with its mouth open and bites shut as it lands; between the leaps it claps its lid in step
     function drawMimic() {
-      const J = E.jump, u = GT - e.t0, ewM = D.windOf(e, E.wind), lerp = (a, b, q) => a + (b - a) * q, crawl = SS(4, 30, sp), step = Math.abs(Math.sin(e.dist / 7));
+      const J = E.jump, look = mimicLook(e.tier), u = GT - e.t0, ewM = D.windOf(e, E.wind), lerp = (a, b, q) => a + (b - a) * q, crawl = SS(4, 30, sp), step = Math.abs(Math.sin(e.dist / 7));
       let a = 0.1 + 0.03 * Math.sin(t * 3.1 + e.id) + 0.16 * crawl * step, z = 2.5 * crawl * step, sq = 1 + 0.02 * Math.sin(t * 2.3 + e.id), tilt = 0.05 * crawl * Math.sin(e.dist / 7), wag = Math.sin(t * 7 + e.id) * 0.25;
       if (e.st === 'rise') { const q = SS(0, E.rise, u); a = lerp(0, 0.6, SS(0.1, 0.55, q)) * (1 - SS(0.7, 1, q)) + 0.1 * SS(0.7, 1, q); z = 14 * Math.sin(Math.PI * SS(0.2, 0.9, q)); sq = 1 - 0.14 * Math.sin(Math.PI * q) ** 2; tilt = 0.1 * Math.sin(u * 38) * (1 - q); }
       else if (e.st === 'wind') { const q = SS(0, ewM, u); a = lerp(a, 0.62, q); sq = lerp(sq, 0.8, q); tilt = lerp(tilt, -0.12, q); }
-      else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * Math.sin(Math.PI * q); a = lerp(0.62, 0.68, SS(0, 0.5, q)) * (1 - SS(0.72, 0.98, q)); sq = 0.8 + 0.34 * SS(0, 0.6, q) - 0.1 * SS(0.6, 1, q); tilt = lerp(-0.12, 0.16, q); }
-      else if (e.st === 'strike') { const v = u - J.t; a = 0.1 * SS(0, J.land, v); sq = 1 - 0.16 * Math.exp(-v / 0.07) * Math.cos(30 * v); tilt = 0.16 * (1 - SS(0, 0.16, v)); }
+      else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * (Math.sin(Math.PI * q) + Math.sin(Math.PI * q) ** 2) / 2; a = lerp(0.62, 0.68, SS(0, 0.5, q)) * (1 - SS(0.3, 0.98, q)); sq = 0.8 + 0.34 * SS(0, 0.6, q) - 0.1 * SS(0.6, 1, q); tilt = lerp(-0.12, 0.16, q); }
+      // it falls on at half the speed of a plain arc and the squash takes that speed on in the lid, then the spring sets it level
+      // (TASKS 1869: it snapped from stretched to squashed in one frame, the lid jumped 17 px and the base stopped dead from full speed)
+      else if (e.st === 'strike') { const v = u - J.t, km = 0.84, k0 = 1.04, tq = 4 * (k0 - km) * look.H * J.t / (Math.PI * J.h), w = 30, tau = 0.07;
+        a = 0.1 * SS(0, J.land, v); sq = v < tq ? km + (k0 - km) * (1 - v / tq) ** 2 : 1 - (1 - km) * Math.exp(-(v - tq) / tau) * (Math.cos(w * (v - tq)) + Math.sin(w * (v - tq)) / (w * tau)); tilt = 0.16 * (1 - SS(0, 0.16, v)); }
       const hA = GT - e.hitT; if (hA >= 0 && hA < 0.3) { tilt -= 0.1 * (1 - hA / 0.3); a += 0.14 * (1 - hA / 0.3); }
-      const look = mimicLook(e.tier), u1 = { alpha, grade: hit ? grade : look.grade };
+      const u1 = { alpha, grade: hit ? grade : look.grade };
       const J2 = mimicBody({ look, x, y: y + 4, a, face: e.face, z, tilt, sq, wag, tongue: 1, eyes: a > 0.3 && !L.sp, u: u1, id: 'en' + e.id, frame: (parts) => { halo(parts); if (edge) rimFlash(parts); L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }); } });
       J2('ground', [x, y]);
     }
@@ -494,6 +502,7 @@
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   // a coffin that let its tenant out: the box bared, its lid shoved off to one side and left hanging over the edge
+  const COFFIN_RIM = 280 / 762;
   function coffinOpen(d, x, y, a, j) { drawProp('coffin_open', x, y, { dy: 4, j }); const [w, h] = SZ('coffin'), LID = 100 / 241, lh = h * LID, side = (d.x + d.y) % 64 < 32 ? 1 : -1, p = SS(0.08, 0.5, a), shake = a < 0.14 ? Math.sin(a * 90) * 1.5 : 0, px = x + shake + side * w * 0.56 * p, py = y + 4 - h + lh - 5 * Math.sin(Math.PI * Math.min(1, p * 1.2)) + 7 * p, rot = side * 0.2 * p;
     L.inked(() => L.sprite('coffin', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h: lh, pivot: [w / 2, lh], src: [0, 0, 1, LID] }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }
   const NO_INK = new Set(['bones', 'torch_sconce']);

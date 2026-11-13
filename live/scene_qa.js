@@ -1286,7 +1286,8 @@
       }
     }
     const eventT = (prep, kill, ty) => { const fr = []; let S = playOf(ty)(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
-    const heroDies = (S) => SIMX.killHero(S, S.run);
+    // a real death comes with the killing blow's shove on top of his own speed (TASKS 1991): the pose must read the speed, not the shove
+    const heroDies = (S) => { const h = S.run.hero; SIMX.killHero(S, S.run); h.vx -= 260 * h.face; };
     transitions.hero_death = eventT((S) => { S.run.en = []; S.run.msg = null; }, heroDies);
     // (killed mid-run, the run held to the kill: set only at the start he was braked to a stop before it and fell as from standing, TASKS 1803)
     transitions.hero_death_run = (() => { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; const h = S.run.hero; h.vx = SIM.K.RUN; h.gp = 1.3; });
@@ -1948,7 +1949,7 @@
     // (TASKS 1153: the pointer turned in the wind-up; a wand's shots 0.36 s apart with the aim flipped)
     transitions.hero_mage_shoot_turn = mageT(0, null, 1, [7, 1.2]); transitions.hero_mage_wand_flip = mageT(0, (S, h) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'wand' }); }, [5, 30], [20, Math.PI]);
     transitions.hero_mage_hurt = mageT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; });
-    transitions.hero_mage_death = mageT(0, (S) => SIMX.killHero(S, S.run));
+    transitions.hero_mage_death = mageT(0, heroDies);
     // the archer (TASKS 1125): the same sequences with his bow; the volley and the leap through the sim
     const asArcher = (S, b = 'shortbow') => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
     const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__') || /^it_(bow_[sl]|crossbow)(_h)?$/.test(a)).concat(['skel_arrow']);
@@ -1973,7 +1974,7 @@
     // hero_charge_strike: the charge up to the press that starts the swing; the swing, pull and strike, stays sharp (the player's call,
     // TASKS 1774: no eased blow fits the 0.13 s to the hit: the strike popped the grip 12.9 px, the pull 5.4), its path the attack checks' to judge
     transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28, 30); transitions.hero_cry = warT(0, 3);
-    transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S) => SIMX.killHero(S, S.run));
+    transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, heroDies);
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
     Object.assign(out.subject, doorSubj);
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);

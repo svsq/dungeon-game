@@ -1,5 +1,5 @@
 // node tools/textcheck.cjs — the game's texts live in live/text_<lang>.js (TASKS 1141): no Cyrillic in a string, template or regex
-// of the code outside them, every TXT / TXT.n key is a plain literal that the Russian table holds (a TXT.n key: its three plural
+// of the code outside them, every TXT / TXT.n key is a plain literal (or a family «'A.' + id + '.b'») that the Russian table holds (a TXT.n key: its three plural
 // forms), and the table holds no key the code never asks for. Exit 2 on failure.
 // sim_checks.js is the sim's self-check code (its messages are for the developer) and is not scanned.
 const fs = require('fs'), path = require('path');
@@ -11,6 +11,10 @@ for (const f of fs.readdirSync(LIVE).filter((f) => f.endsWith('.js') && !SKIP.ha
   lines.forEach((l, i) => { if (CY.test(l)) fails.push(`${f}:${i + 1}: Cyrillic in code: ${l.trim().slice(0, 100)}`); });
   for (const m of c.matchAll(/\bTXT(\.n)?\(\s*('([^'\\]*)'|[^'\s)][^,)]*)/g)) {
     if (!m[3]) { fails.push(`${f}: a TXT key that is not a literal: ${m[2].slice(0, 60)}`); continue; }
+    // a family read by one key per item, «'A.' + id + '.b'» (the gifts' descriptions, TASKS 1900): every A.*.b text is the family's
+    { const fam = /^\s*\+\s*[\w$.]+\s*\+\s*'([^'\\]*)'/.exec(c.slice(m.index + m[0].length));
+      if (fam && !m[1]) { const pre = m[3], suf = fam[1], ks = Object.keys(RU).filter((k) => k.startsWith(pre) && k.endsWith(suf) && k.length > pre.length + suf.length && !k.slice(pre.length, -suf.length || undefined).includes('.'));
+        if (!ks.length) fails.push(`${f}: no text for the family ${pre}*${suf}`); for (const k of ks) used.set(k, (used.get(k) || 0) + 1); continue; } }
     const k = m[3], plural = !!m[1], v = RU[k]; used.set(k, (used.get(k) || 0) + 1);
     if (v === undefined) fails.push(`${f}: no text for ${k}`);
     else if (plural && !(Array.isArray(v) && v.length === 3)) fails.push(`${f}: ${k} is used as a plural but is not [one, few, many]`);

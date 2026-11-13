@@ -158,6 +158,14 @@
       if (P.focus === 'name' || P.pendName !== 'Ulf') out.push(`name: A on the die takes the field (${P.focus}, ${P.pendName})`);
       P.focus = above; put(P, ['ArrowDown'], []); if (P.focus !== 'name') out.push(`name: ↓ from the row above does not take the field (${P.focus})`);
       P.focus = 'dice'; put(P, ['ArrowLeft'], []); if (P.focus !== 'name') out.push(`name: ← on the die does not take the field (${P.focus})`); }
+    // a key that changes neither the focus nor a choice makes no interface sound (TASKS 1905)
+    { const P = toStart(), cls = SIMX.clsNow(P), dif = D.DIFF_ORDER, ids = D.classesReady(), ui = (keys, chars = []) => { P.ev = []; put(P, keys, chars); return P.ev.filter((e) => e.k === 'ui').length; };
+      const hush = [['the die, A', () => { P.focus = 'dice'; }, ['KeyA'], ['a']], ['the field, ←', () => { press(P, B(P, 'name')); }, ['ArrowLeft'], []],
+        ['the top row, ↑', () => { P.meta.diff = dif[0]; P.focus = 'dif:' + dif[0]; }, ['ArrowUp'], []], ['the last difficulty, →', () => { P.meta.diff = dif[dif.length - 1]; P.focus = 'dif:' + dif[dif.length - 1]; }, ['ArrowRight'], []],
+        ['the first class, ←', () => { P.meta.cls = ids[0]; P.focus = 'cls:' + ids[0]; }, ['ArrowLeft'], []], ['the go button, →', () => { P.focus = 'go'; }, ['ArrowRight'], []]];
+      for (const [what, set, keys, chars] of hush) { set(); const n = ui(keys, chars); if (n) out.push(`start screen: ${what} changes nothing but sounds ${n} time(s)`); if (P.focus === 'name') put(P, ['Escape'], []); }
+      P.meta.cls = cls; P.focus = 'dice'; if (ui(['ArrowLeft']) !== 1 || P.focus !== 'name') out.push(`start screen: ← from the die into the field does not sound once (${P.focus})`);
+      put(P, ['Escape'], []); P.meta.diff = dif[0]; P.focus = 'dif:' + dif[0]; if (dif.length > 1 && (ui(['ArrowRight']) !== 1 || P.meta.diff !== dif[1])) out.push(`start screen: → on the difficulty does not sound once (${P.meta.diff})`); }
     { const P = toStart(), ids = UI.classes(P.meta).map((q) => q.id); step(P, Object.assign({ keys: [], moved: 1 }, mid(P, B(P, 'name'))));
       const lit = ids.includes(P.focus) ? P.focus : ids.includes(P.hover) ? P.hover : '';
       if (lit !== 'name') out.push(`name: the pointer over the field lights ${lit || 'nothing'}, not the field`); }
@@ -224,6 +232,10 @@
     else if (lit === 'next' && S.screen !== 'play') out.push(`finish: Enter does not press the lit ${lit} (${S.screen})`); }
   // an ability card's rank text, however many lines it wraps to, keeps 22 px clear of the fork line, the fork line of the cost, and
   // all of them stay under the rank's line and inside the card (TASKS 2001)
+  // TASKS 1994: a likeness of any shape, from a narrow child to a squat counter, stays inside the talk window's dark frame
+  function checkTalkFace(out) { const U = UI.talk(null), F = U.F;
+    for (const [sw, sh] of [[292, 620], [719, 864], [1200, 300], [100, 1500]]) { const f = U.face(sw, sh);
+      if (f.x < F.x || f.y < F.y || f.x + f.w > F.x + F.w || f.y + f.h > F.y + F.h) out.push(`talk: a ${sw}×${sh} likeness leaves its frame (${[f.x, f.y, f.w, f.h].map(Math.round)})`); } }
   function checkAbCard(out) {
     const c = UI.inv().r.find((q) => q.id.startsWith('ab:'));
     for (const split of [true, false]) for (const fork of [true, false]) for (let n = 1; n <= 4; n++) { const Y = UI.abCard(c.h, n, split, fork), tag = `ability card: ${n} line(s), ${split ? 'split' : 'whole'}, ${fork ? 'fork' : 'no fork'}`;
@@ -231,7 +243,19 @@
       if (fork && (Y.fork - Y.last < 22 || Y.cost - Y.fork < 22)) out.push(`${tag}: the fork line at ${Y.fork} crowds the text (${Y.last}) or the cost (${Y.cost})`);
       if (!fork && Y.cost - Y.last < 22) out.push(`${tag}: the text (${Y.last}) reaches the cost (${Y.cost})`);
       if (Y.cost > c.h - 20) out.push(`${tag}: the cost leaves the card`); } }
-  function checkReview57(out) { checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
+  // a gift's number reads with the Russian decimal comma wherever it shows: the altar's card, the HUD chip and tip for n gifts, the
+  // message on taking it; the number comes from v, so no text holds one of its own (TASKS 1900)
+  function checkGiftDecimal(out) {
+    const R = root.TEXT.ru, dot = /\d\.\d/, comma = (x) => String(Math.round(x * 100) / 100).replace('.', ',');
+    for (const G of D.GIFTS) { if (G.power) continue;
+      if (!/\{v\}/.test(R['GIFTS.' + G.id + '.desc'] || '')) out.push(`gift ${G.id}: its text holds its number apart from v`);
+      for (let n = 1; n <= 4; n++) { const d = D.giftDesc(G, n); if (dot.test(d) || !d.includes(comma(G.v * n))) out.push(`gift ${G.id} ×${n}: «${d}» does not read ${comma(G.v * n)}`); } }
+    const life = D.GIFTS.find((g) => g.id === 'life'); if (!life.desc.startsWith('+1,5 ') || dot.test(life.desc)) out.push(`gift life: «${life.desc}»`);
+    const tk = TXT('sim_town.takeGift.msg', { name: life.name, desc: life.desc }); if (dot.test(tk)) out.push(`gift life: the message on taking it reads «${tk}»`);
+    if (TXT('GIFTS.phoenix.descN', { n: 2, times: TXT.n('hud.tip.times', 2), v: 50 }).indexOf('50%') < 0) out.push('gift phoenix: the tip for two loses its 50%');
+    for (const [k, v] of Object.entries(R)) for (const s of [].concat(v)) if (typeof s === 'string' && /(^|[^\d.])\d+\.\d+(?![.\d])/.test(s.replace(/\{[^}]*\}/g, ''))) out.push(`text ${k}: a decimal dot in «${s}»`);
+    if (!TXT('GIFTS.life.desc', { v: 4.5 }).startsWith('+4,5 ')) out.push(`text: a fractional value goes in as «${TXT('GIFTS.life.desc', { v: 4.5 })}»`); }
+  function checkReview57(out) { checkGiftDecimal(out); checkTalkFace(out); checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
   // TASKS 1988: Shift+click asks how many of a stack and the part rides the pointer to the next click, Shift+right click takes half; the
   // total never changes, no stack goes past its limit, a save keeps both parts; the merchant sells and buys the number asked, at its price
   function checkSplit(out) {
@@ -340,5 +364,16 @@
         for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
       if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
     { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
-  Object.assign(SIMX, { checkStrUse, checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
+  // the scene has no node entry, so the hero's drawing runs in a sandbox (tools/scenebox.cjs) with its sprites' placements recorded
+  // (TASKS 1896): on the world's grid the face snap holds the body still through a sub-pixel step, under L.pre (the menu's arch,
+  // the victory screen) it must move with him, or a scaled hero jerks by whole world pixels
+  function checkHudHero(out) { const { drawHero, L, calls } = require('../tools/scenebox.cjs').heroBox(D, root.SIM);
+    const S = spawn(0, {}), R = newRun(S, 'campaign', 5, {}); S.run = R;
+    const h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: 1, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = SIMX.heroSt(S);
+    const draw = (x, pre) => { calls.length = 0; L.pre = pre; try { drawHero(h, x, 300, 10, st, {}); } finally { L.pre = null; } return calls.slice(); };
+    const lag = (pre) => { const a = draw(100.1, pre), b = draw(100.45, pre); return a.length && a.length === b.length ? Math.max(...a.map((x, i) => Math.abs(b[i] - x - 0.35))) : NaN; };
+    const world = lag(null), hud = lag([1, 0, 0, 1, 0, 0]);
+    if (!(world > 0.3)) out.push(`hud hero: on the world's grid the face snap does not hold the body (lag ${world})`);
+    if (!(hud < 1e-6)) out.push(`hud hero: under L.pre the body snaps to the world's pixels (lag ${hud})`); }
+  Object.assign(SIMX, { checkHudHero, checkStrUse, checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);
