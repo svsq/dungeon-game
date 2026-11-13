@@ -513,7 +513,7 @@
   // what the merchant pays and asks by: the floor's depth, in the town the deepest floor reached
   const tradeDepth = (R) => (R.town ? dep(R, Math.max(1, R.deepest || 0)) : dep(R));
   const atCounter = (R) => { const s = R.map.shop, h = R.hero; return !!s && Math.abs(h.x - s.front.x) < 64 && h.y > s.counter.y - 4 && h.y - s.front.y < 40; };
-  function openShop(S, R) { S.screen = 'shop'; if (R.town) broke(S, R); R.shop.line = Math.floor(rnd(R) * (R.shop.wander ? D.SHOP.wander.lines : D.SHOP.lines).length); R.shop.tradeT = S.t; S.hover = ''; ev(S, { k: 'shop', x: R.map.shop.x, y: R.map.shop.y }); }
+  function openShop(S, R) { S.screen = 'shop'; S.sellAsk = null; if (R.town) broke(S, R); R.shop.line = Math.floor(rnd(R) * (R.shop.wander ? D.SHOP.wander.lines : D.SHOP.lines).length); R.shop.tradeT = S.t; S.hover = ''; ev(S, { k: 'shop', x: R.map.shop.x, y: R.map.shop.y }); }
   function buy(S, R, g, back) {
     const h = R.hero, sh = R.shop;
     if (h.gold < g.price) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s') }); return; }

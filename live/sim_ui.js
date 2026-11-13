@@ -398,7 +398,11 @@
     return;
   };
   SCREEN.shop = (S, inp, keys, x, y, click) => {
-    const R = S.run, sh = R.shop, U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, sh = R.shop;
+    if (S.sellAsk) { const a = askAnswer(S, UI.sellAsk(), keys, x, y, click, inp.moved), A = S.sellAsk, it = R.hero.bag[A.i];
+      if (a) { S.sellAsk = null; S.focus = ''; S.hover = ''; if (a > 0 && it && it.id === A.id) sell(S, R, A.i); else ev(S, { k: 'ui', x, y }); }
+      return; }
+    const U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (inp.rclick && b && b.id.startsWith('sell:')) { sellAsk(S, R, b.i, x, y); return; }
     if (!click || !b) return;
@@ -409,9 +413,9 @@
     if (b.id.startsWith('sell:')) sellAsk(S, R, b.i, x, y);
     return;
   };
-  // a legendary or better goes on a second press (TASKS 1863 г): the merchant buys it back only while it is among his last few
+  // a legendary or better asks first (TASKS 1863 г, 1978): the merchant buys it back only while it is among his last few
   const sellAsk = (S, R, i, x, y) => { const it = R.hero.bag[i]; if (!it) return;
-    if ((it.rar || 0) < 4 || again(S, 'sell', it)) sell(S, R, i); else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.shop.sellAsk', { p1: SIMX.itemName(it) }) }); };
+    if ((it.rar || 0) < 4) sell(S, R, i); else { S.sellAsk = { i, id: it.id }; S.focus = 'sellNo'; S.hover = ''; ev(S, { k: 'ui', x, y }); } };
   // one way out of every window (TASKS 1863 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
   // the rows stand as the board opened until it closes (TASKS 1885): a taken one stays in place with its button out, so the rows

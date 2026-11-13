@@ -829,10 +829,23 @@
     lab('sh_help', TXT('hud.shop.9'), P.x + P.w / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#b8a48a' });
     const Cd = U.card; L.rrect(Cd.x, Cd.y, Cd.w, Cd.h, 10, [0.1, 0.05, 0.04], [0.07, 0.035, 0.03], 0.3);
     closeBtn('sh_x', U, S);
+    if (S.sellAsk) return sellAsk(S, R, f);
     const hb = U.r.find((q) => q.id === S.hover), idle = () => lab('sh_card0', TXT('hud.shop.card'), Cd.x + Cd.w / 2, Cd.y + Cd.h / 2, { size: 21, al: 0.5, col: '#9a8670' }); if (!hb) return idle();
     const g = hb.id.startsWith('buy:') ? sh.goods[hb.i] : hb.id.startsWith('back:') ? sh.back[hb.i] : null, it = g ? g.it : hb.id.startsWith('sell:') ? h.bag[hb.i] : null;
     // the details sit in a fixed pane: a floating tip would cover the next slots' prices
     if (it) tooltip(S, it, hb, h, g ? [TXT('hud.shop.10', { price: g.price }), h.gold >= g.price ? C.gold : C.red] : [TXT('hud.shop.11', { p1: D.sellPrice(it, f) }), C.gold], [Cd.x, Cd.y], [Cd.x, Cd.y, Cd.x + Cd.w, Cd.bot]); else idle();
+  }
+  // a question on parchment, not a refusal (TASKS 1978): no red, the piece in its own gold-framed cell, drawn last over the whole shop
+  function sellAsk(S, R, f) {
+    const it = R.hero.bag[S.sellAsk.i]; if (!it) return;
+    const U = D.UI.sellAsk(), A = U.A, Q = U.q, keys = TXT('hud.pause.keys.ask'), ky = A.y + A.h + 40, kw = lw('sa_keys_w', keys, { size: 26 }), cx = Math.min(A.x, W / 2 - kw / 2 - 12);
+    dim(0.45); L.uiCover('sa_cover', cx, A.y, W - 2 * cx, ky + 20 - A.y);
+    KIT.panel('sa_ask', A.x, A.y, A.w, A.h, 'torn'); slot(S, U.cell, it);
+    const q = TXT('hud.shop.sellAsk', { p1: SIM.Q.itemName(it), p2: D.sellPrice(it, f) }), ql = lw('sa_q_m', q, { size: 26 }) > Q.w ? halves(q) : [q];
+    ql.forEach((v, i) => KIT.ink('sa_q' + i, v, A.x + A.w / 2, Q.y + Q.h / 2 + (i - (ql.length - 1) / 2) * 34, { size: 26, fit: Q.w, al: 0.5, col: KIT.INK.t, bold: true }));
+    for (const b of U.r) KIT.button('sa_' + b.id, b, askSt(S, U, b.id));
+    L.uiBox('sa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    KIT.light('sa_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // an empty gear slot shows the outline of what goes in it, its name on hover
   const SLOT_SIL = { weapon: 'it_sword', offhand: 'it_shield', helm: 'it_helm_k', armor: 'it_armor_p', gloves: 'it_gloves', boots: 'it_boots', ring: 'it_ring', amulet: 'it_amulet' };

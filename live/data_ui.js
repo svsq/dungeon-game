@@ -245,6 +245,10 @@
       const by = Math.max(...r.filter((q) => q.id.startsWith('sell:')).map((q) => q.y + q.h)) + 40, card = { x: P.x + 700, y: by, w: P.w - 740, h: P.y + P.h - 20 - by, bot: 1036 };
       return { P, r, card };
     },
+    // a legendary's sale asks first (TASKS 1978): a sheet in the middle of the shop, clear of the merchant's button, «Оставить» on the right
+    sellAsk: () => { const A = { x: 660, y: 320, w: 600, h: 380 }, cell = { id: 'sellAsk_it', x: A.x + A.w / 2 - CELL / 2, y: A.y + 56, w: CELL, h: CELL };
+      return { A, cell, q: { x: A.x + 40, y: A.y + 150, w: A.w - 80, h: 90 }, r: [{ id: 'sellYes', label: TXT('UI.shop.sellYes'), on: true, x: A.x + 50, y: A.y + A.h - 100, w: 230, h: 64 },
+        { id: 'sellNo', label: TXT('UI.shop.sellNo'), on: true, x: A.x + A.w - 280, y: A.y + A.h - 100, w: 230, h: 64 }] }; },
   };
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start

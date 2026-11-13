@@ -684,6 +684,9 @@
     const pouches = (S) => { const R = S.run, h = R.hero; S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 });
       for (let i = 24; i < h.bag.length; i++) h.bag[i] = Object.assign(SIM.rollItem(R, 3 + (i % 9), i % 5), { id: 3100 + i }); };
     states.push(['shop_idle', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = ''; })]);
+    // TASKS 1978: a legendary's sale asks on a sheet over the whole shop, the longest legendary name, either answer in focus
+    for (const [n, f] of [['shop_sell_ask', 'sellNo'], ['shop_sell_ask_yes', 'sellYes']]) states.push([n, shopS((S) => { worst(S); const h = S.run.hero, lb = Object.keys(D.BASES).filter((b) => D.LEGEND_NAMES[b]).sort((a, b) => D.LEGEND_NAMES[b].length - D.LEGEND_NAMES[a].length)[0];
+      h.bag[5] = Object.assign(SIM.rollItem(S.run, 12, 4, D.BASES[lb].slot), { id: 4000, b: lb, rar: 4 }); S.screen = 'shop'; S.sellAsk = { i: 5, id: 4000 }; S.focus = f; S.hover = f === 'sellYes' ? f : ''; })]);
     states.push(['shop_pouch', shopS((S) => { worst(S); pouches(S); S.screen = 'shop'; S.bagTab = 1; S.hover = 'sell:30'; })]);
     states.push(['small_props', play((S) => {
       const R = S.run, m = R.map, r = m.rooms.filter((q) => q.type === 'combat').reduce((a, b) => a.w * a.h > b.w * b.h ? a : b), h = R.hero;

@@ -847,9 +847,19 @@
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
         const cg = R.shop.goods.find((q) => q.n); h.gold = 1e6; const c0 = cg.n; step(S, at('buy:' + R.shop.goods.indexOf(cg)));
         if (h.gold !== 1e6 || cg.n !== c0) out.push('a buy into a full bag took the gold');
-        // TASKS 1863 г, в, д: a legendary goes on a second press, the right button sells as the left does, I leaves the shop open
+        // TASKS 1863 г, в, д, 1978: a legendary asks first; «Оставить» and Esc keep it with the shop open, «Продать» sells it; the right
+        // button sells as the left does, I leaves the shop open
+        const SA = UI.sellAsk(), sa = (id) => { const b = SA.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
         h.bag[0] = Object.assign(rollItem(R, 1, 0), { id: 71000, rar: 4 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: a legendary is sold on one press');
-        step(S, at('sell:0')); if (h.bag[0] && h.bag[0].id === 71000) out.push('shop: a second press does not sell the legendary');
+        if (!S.sellAsk) out.push('shop: a legendary\'s sale does not ask');
+        step(S, sa('sellNo')); if (S.sellAsk || !h.bag[0] || h.gold !== g0) out.push('shop: «Оставить» does not keep the legendary');
+        step(S, at('sell:0')); step(S, { keys: ['Escape'] }); if (S.sellAsk || S.screen !== 'shop' || !h.bag[0]) out.push('shop: Esc on the sale\'s question does not just close the question');
+        step(S, at('sell:0')); step(S, sa('sellYes')); if (S.sellAsk || (h.bag[0] && h.bag[0].id === 71000)) out.push('shop: «Продать» does not sell the legendary');
+        { const U2 = UI.shop(R.shop.goods.length, h.bag.length), A = SA.A, inA = (b) => b.x >= A.x && b.y >= A.y && b.x + b.w <= A.x + A.w && b.y + b.h <= A.y + A.h;
+          const hit = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y), parts = [SA.cell, SA.q, ...SA.r];
+          if (!parts.every(inA)) out.push('shop: the sale\'s question leaves its sheet');
+          if (parts.some((a, i) => parts.some((b, j) => j > i && hit(a, b)))) out.push('shop: the sale\'s question, its cell or its buttons overlap');
+          if (U2.r.some((b) => (b.id === 'talk' || b.id === 'close') && hit(b, A))) out.push('shop: the sale\'s question sits over the merchant\'s buttons'); }
         h.bag[1] = Object.assign(rollItem(R, 1, 0), { id: 71001, rar: 1 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell');
         step(S, { keys: ['KeyI'] }); if (S.screen !== 'shop') out.push('shop: I closes it, only E and Esc should');
         step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('Esc does not close the shop'); } }
