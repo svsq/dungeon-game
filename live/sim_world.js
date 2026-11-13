@@ -73,10 +73,10 @@
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, c = rnd(R) * 100 < st.crit, dmg = Math.round(D.fireDmg(st.spellBase, AR.k, st.spell) * (c ? st.critK : 1));
       const p = { id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, crit: c ? 1 : 0, own: 'hero', r: 8 }; R.proj.push(p); fired.projs = [p]; ev(S, { k: 'cast', x: hx, y: hy, a }); }
     // the ice wave (TASKS 1110): everyone in the cone before the mage, in his sight, is hurt and chilled (sim_enemies: slowK)
-    if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell);
+    if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell); fired.cold = [];
       for (const e of R.en) { if (e.deadT >= 0 || under(e)) continue; const dx = e.x - h.x, dy = (e.y - h.y) * 1.3, d = Math.hypot(dx, dy);
         if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
-        SIMX.chill(S, e, F.t, F.slow); const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, c ? Math.round(dmg * st.critK) : dmg, c, h.x, h.y, 0.5, 'frost'); }
+        if (e.chillT > S.t) fired.cold.push(e); SIMX.chill(S, e, F.t, F.slow); const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, c ? Math.round(dmg * st.critK) : dmg, c, h.x, h.y, 0.5, 'frost'); }
       tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
     // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
     // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)

@@ -1,7 +1,7 @@
 // live/data_powers.js — the powers (R-21, TASKS 356): what changes how an ability or a blow plays, as data; live/sim_powers.js runs them.
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data, no state; data.js checks the set.
 // A power: trig — what fires it (hit, crit, kill, hurt, lowHp, cast:<ability>, dash, dashTouch, potion, scroll, roomClear, trapsnap,
-// shieldEnd, shieldHit, shieldBreak, every:N for each N-th blow), if? — 'shield' while the hero's shield is up, each? — every each-th trigger, p? — the
+// shieldEnd, shieldHit, shieldBreak, chargeHit, every:N for each N-th blow), if? — 'shield' while the hero's shield is up, 'chilled' when the one it fired on is chilled, each? — every each-th trigger, p? — the
 // chance, icd? — seconds between firings, fx — what it does (sim_powers FX) with its numbers; cls or ab — whom it is for.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
@@ -21,12 +21,22 @@
     leap_trap: { id: 'leap_trap', name: TXT('POWERS.leap_trap.name'), desc: TXT('POWERS.leap_trap.desc'), ab: 'leap', trig: 'cast:leap', fx: 'dropTrap', k: 1.5 },
     dash_trail: { id: 'dash_trail', name: TXT('POWERS.dash_trail.name'), desc: TXT('POWERS.dash_trail.desc'), trig: 'dash', fx: 'burnGround', shape: 'line', gap: 40, k: 0.15, t: 1.5, per: 0.4, icd: 0.5 },
     dash_strike: { id: 'dash_strike', name: TXT('POWERS.dash_strike.name'), desc: TXT('POWERS.dash_strike.desc'), trig: 'dashTouch', fx: 'strike', k: 0.5 },
+    // the charge's, the cry's and the ice wave's (TASKS 1819)
+    charge_quake: { id: 'charge_quake', name: TXT('POWERS.charge_quake.name'), desc: TXT('POWERS.charge_quake.desc'), ab: 'charge', trig: 'chargeHit', fx: 'stun', r: 110, t: 0.8, boss: 0.2 },
+    charge_rend: { id: 'charge_rend', name: TXT('POWERS.charge_rend.name'), desc: TXT('POWERS.charge_rend.desc'), ab: 'charge', trig: 'chargeHit', fx: 'nova', k: 0.5, r: 90, kb: 1.2 },
+    cry_mirror: { id: 'cry_mirror', name: TXT('POWERS.cry_mirror.name'), desc: TXT('POWERS.cry_mirror.desc'), ab: 'cry', trig: 'cast:cry', fx: 'mirror', t: 3, k: 0.6 },
+    cry_push: { id: 'cry_push', name: TXT('POWERS.cry_push.name'), desc: TXT('POWERS.cry_push.desc'), ab: 'cry', trig: 'cast:cry', fx: 'shieldBurst', k: 0, r: 200, kb: 1 },
+    frost_freeze: { id: 'frost_freeze', name: TXT('POWERS.frost_freeze.name'), desc: TXT('POWERS.frost_freeze.desc'), ab: 'frost', trig: 'cast:frost', fx: 'freeze', t: 1.5, boss: 0.3 },
+    frost_brittle: { id: 'frost_brittle', name: TXT('POWERS.frost_brittle.name'), desc: TXT('POWERS.frost_brittle.desc'), ab: 'frost', trig: 'kill', if: 'chilled', fx: 'slow', r: 110, t: 3, slow: 0.5 },
     // the evolutions (TASKS 392): two powers held, the altar's dear card is this one
     ev_storm: { id: 'ev_storm', name: TXT('POWERS.ev_storm.name'), desc: TXT('POWERS.ev_storm.desc'), ab: 'whirl', trig: 'cast:whirl', fx: 'nova', k: 0.8, r: 150, fire: 1 },
     ev_comet: { id: 'ev_comet', name: TXT('POWERS.ev_comet.name'), desc: TXT('POWERS.ev_comet.desc'), ab: 'fireball', trig: 'cast:fireball', ...SHARDS, n: 5, a: 0.9 },
     ev_bulwark: { id: 'ev_bulwark', name: TXT('POWERS.ev_bulwark.name'), desc: TXT('POWERS.ev_bulwark.desc'), ab: 'shield', trig: 'shieldBreak', fx: 'nova', k: 1, spell: 1, r: 130, fire: 1 },
     ev_mines: { id: 'ev_mines', name: TXT('POWERS.ev_mines.name'), desc: TXT('POWERS.ev_mines.desc'), ab: 'trap', trig: 'trapsnap', fx: 'dropTrap', k: 1, icd: 2 },
     ev_shoulder: { id: 'ev_shoulder', name: TXT('POWERS.ev_shoulder.name'), desc: TXT('POWERS.ev_shoulder.desc'), trig: 'dashTouch', fx: 'nova', k: 0.5, r: 70, fire: 1 },
+    ev_ram: { id: 'ev_ram', name: TXT('POWERS.ev_ram.name'), desc: TXT('POWERS.ev_ram.desc'), ab: 'charge', trig: 'chargeHit', fx: 'nova', k: 1, r: 140, kb: 2 },
+    ev_roar: { id: 'ev_roar', name: TXT('POWERS.ev_roar.name'), desc: TXT('POWERS.ev_roar.desc'), ab: 'cry', trig: 'cast:cry', fx: 'stun', r: 200, t: 1.2, boss: 0.3 },
+    ev_glacier: { id: 'ev_glacier', name: TXT('POWERS.ev_glacier.name'), desc: TXT('POWERS.ev_glacier.desc'), ab: 'frost', trig: 'kill', if: 'chilled', fx: 'nova', k: 0.6, spell: 1, r: 110, kb: 0.5 },
     // the kits' passives (TASKS 393): the same engine, carried from the first step of the run
     kit_axe: { id: 'kit_axe', trig: 'crit', fx: 'stun', t: 0.6, boss: 0.2, icd: 1 },
     kit_hammer: { id: 'kit_hammer', trig: 'every:4', fx: 'nova', k: 0.6, r: 90, kb: 1 },
@@ -44,10 +54,12 @@
   };
   // a power is taken at an altar as a gift of its tier; `ab` keeps it to the class that has the ability (TASKS 391)
   const GIFT_OF = { whirl_pull: [2, 'ab_whirl'], whirl_ring: [3, 'ab_whirl'], fire_split: [3, 'ab_fire'], fire_pierce: [2, 'ab_fire'], shield_burst: [2, 'ab_shield'], shield_feed: [2, 'ab_shield'],
-    volley_pierce: [2, 'ab_volley'], trap_burst: [2, 'ab_trap'], leap_trap: [3, 'ab_leap'], dash_trail: [3, 'it_boots'], dash_strike: [2, 'ab_charge'] };
+    volley_pierce: [2, 'ab_volley'], trap_burst: [2, 'ab_trap'], leap_trap: [3, 'ab_leap'], dash_trail: [3, 'it_boots'], dash_strike: [2, 'ab_charge'],
+    charge_quake: [2, 'ab_charge'], charge_rend: [3, 'ab_charge'], cry_mirror: [3, 'ab_cry'], cry_push: [2, 'ab_cry'], frost_freeze: [2, 'ab_frost'], frost_brittle: [3, 'ab_frost'] };
   for (const [id, [tier, icon]] of Object.entries(GIFT_OF)) { const P = POWERS[id]; D.GIFTS.push({ id, tier, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
   for (const [id, icon] of Object.entries({ rl_fifth: 'bf_burn', rl_scroll: 'it_hp', rl_pyre: 'bf_burn', rl_maelstrom: 'ab_whirl', rl_phalanx: 'ab_shield', rl_quiver: 'ab_volley' })) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 4, relic: 1, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
-  for (const [id, needs, icon] of [['ev_storm', ['whirl_pull', 'whirl_ring'], 'ab_whirl'], ['ev_comet', ['fire_split', 'fire_pierce'], 'ab_fire'], ['ev_bulwark', ['shield_burst', 'shield_feed'], 'ab_shield'], ['ev_mines', ['trap_burst', 'leap_trap'], 'ab_trap'], ['ev_shoulder', ['dash_trail', 'dash_strike'], 'bf_burn']]) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 3, evo: 1, needs, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
+  for (const [id, needs, icon] of [['ev_storm', ['whirl_pull', 'whirl_ring'], 'ab_whirl'], ['ev_comet', ['fire_split', 'fire_pierce'], 'ab_fire'], ['ev_bulwark', ['shield_burst', 'shield_feed'], 'ab_shield'], ['ev_mines', ['trap_burst', 'leap_trap'], 'ab_trap'], ['ev_shoulder', ['dash_trail', 'dash_strike'], 'bf_burn'],
+    ['ev_ram', ['charge_quake', 'charge_rend'], 'ab_charge'], ['ev_roar', ['cry_mirror', 'cry_push'], 'ab_cry'], ['ev_glacier', ['frost_freeze', 'frost_brittle'], 'ab_frost']]) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 3, evo: 1, needs, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
   const RELIC_MAX = 3, relicsOf = (h) => Object.keys(h.powers || {}).filter((id) => (D.GIFTS.find((g) => g.id === id) || {}).relic).length;
   const hasPower = (h, id) => !!(h.powers || {})[id];
   // an offer is rolled when its altar is first opened, the hero may have changed by the time he comes back to it

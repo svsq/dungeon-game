@@ -31,6 +31,22 @@
     { const c = stage('archer'); c.h.powers = { rl_quiver: 1 }; const e = foe(c.R, c.h, 100); for (let i = 0; i < 4; i++) heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); if (!c.R.proj.some((p) => p.k === 'arrow')) out.push('relic: the fourth arrow called no other'); }
     if (D.giftCost(4, 1) <= 2 * D.giftCost(3, 1)) out.push('relic: not dear');
   }
+  // the charge's, the cry's and the ice wave's powers (TASKS 1819)
+  function checkAbilityPowers(out) {
+    const own = (c, ...ids) => { c.h.powers = Object.fromEntries(ids.map((i) => [i, 1])); };
+    { const c = stage('warrior'); own(c, 'charge_quake'); const a = foe(c.R, c.h, 60), b = foe(c.R, c.h, 100), far = foe(c.R, c.h, 400); SIMX.firePowers(c.S, c.R, 'chargeHit', { e: a, x: a.x, y: a.y }); if (!(b.rootT > c.S.t) || far.rootT > c.S.t) out.push('power: the charge\'s blow does not stun its neighbours alone'); }
+    { const c = stage('warrior'); own(c, 'ev_ram'); const a = foe(c.R, c.h, 60), b = foe(c.R, c.h, 120), hp = b.hp; SIMX.firePowers(c.S, c.R, 'chargeHit', { e: a, x: a.x, y: a.y }); if (!(b.hp < hp)) out.push('evo: the ram does not strike around its target'); }
+    { const c = stage('warrior'); own(c, 'cry_mirror'); c.h.aim = 0; const e = foe(c.R, c.h, 160), hp = e.hp, hurts = () => c.S.ev.filter((q) => q.k === 'hurt').length; castAbility(c.S, c.R, 'cry', {}); c.S.ev = [];
+      c.R.proj.push({ id: c.R.nextId++, src: e.id, who: 'x', k: 'arrow', x: c.h.x + 30, y: c.h.y - 38, vx: -400, vy: 0, t0: c.S.t, life: 2, dmg: 50, own: 'en' });
+      for (let i = 0; i < 120 && c.R.proj.length; i++) { c.S.t += SIMX.DT; SIMX.stepProjectiles(c.S, c.R); }
+      if (hurts() || !(e.hp < hp)) out.push(`power: the cry's mirror let ${hurts()} through and sent ${hp - e.hp} back`);
+      c.S.t += 4; c.R.proj.push({ id: c.R.nextId++, src: e.id, who: 'x', k: 'arrow', x: c.h.x + 10, y: c.h.y - 38, vx: -400, vy: 0, t0: c.S.t, life: 2, dmg: 50, own: 'en' }); c.h.ifr = 0; c.h.dashT = -9; for (let i = 0; i < 20 && c.R.proj.length; i++) { c.S.t += SIMX.DT; SIMX.stepProjectiles(c.S, c.R); } if (!hurts()) out.push('power: the cry\'s mirror outlives its time'); }
+    { const c = stage('warrior'); own(c, 'cry_push'); const e = foe(c.R, c.h, 70); castAbility(c.S, c.R, 'cry', {}); if (!(e.kbx > 0)) out.push('power: the cry does not push'); }
+    { const c = stage('mage'); own(c, 'frost_freeze'); c.h.aim = 0; const a = foe(c.R, c.h, 80, -20), b = foe(c.R, c.h, 80, 20); SIMX.chill(c.S, a, 2, 0.6); castAbility(c.S, c.R, 'frost', {}); if (!(a.rootT > c.S.t) || b.rootT > c.S.t) out.push('power: the wave freezes the wrong ones'); }
+    for (const id of ['frost_brittle', 'ev_glacier']) { const c = stage('mage'); own(c, id); const look = (b) => (id === 'frost_brittle' ? b.chillT > c.S.t : b.hp < b.max);
+      const a = foe(c.R, c.h, 200), b = foe(c.R, c.h, 240); killEnemy(c.S, c.R, a); if (look(b)) out.push(`power: ${id} fires on a warm death`);
+      const a2 = foe(c.R, c.h, 200, 100), b2 = foe(c.R, c.h, 240, 100); SIMX.chill(c.S, a2, 2, 0.6); killEnemy(c.S, c.R, a2); if (!look(b2)) out.push(`power: ${id} does not fire on a cold death`); }
+  }
   function checkEvolutions(out) {
     for (const g of D.GIFTS.filter((q) => q.needs)) { const c = stage('warrior'); if (D.giftPool(c.h, 3).some((q) => q.id === g.id)) out.push(`evo: ${g.id} is in the plain pool`); for (const n of g.needs) if (!D.POWERS[n]) out.push(`evo: ${g.id} needs ${n}, no such power`);
       const ab = D.POWERS[g.needs[0]].ab; if (ab && g.needs.some((n) => D.POWERS[n].ab && !Object.values(D.CLASSES).find((C) => C.abilities.includes(ab)).abilities.includes(D.POWERS[n].ab))) out.push(`evo: ${g.id} needs two classes' powers`);
@@ -165,7 +181,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAbilityPowers(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

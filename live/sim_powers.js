@@ -10,6 +10,7 @@
   function patch(S, R, P, x, y, dmg) { if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) !== 1) return false;
     addFire(R, S, x, y, { own: 'hero', who: 'hero', r: P.fr || 26, ry: P.ry || 0.7, t: P.t, dmg, per: P.per || 0.5, kind: 'flame' }); return true; }
   function burst(S, R, x, y, r, dmg, kb, kind) { for (const e of targets(R, x, y, r)) hitEnemy(S, R, e, dmg, false, x, y, kb, kind); }
+  function hold(S, e, P) { const t = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = S.t + t; e.cdT = Math.max(e.cdT || 0, S.t + t); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } }
   function boom(S, R, x, y) { ev(S, { k: 'boom', x, y: y - 20, gx: x, gy: y }); R.trauma = Math.min(1, R.trauma + 0.15); }
   const FX = {
     nova(S, R, P, ctx) { const [x, y] = pos(R, ctx); burst(S, R, x, y, P.r, atk(S, P, ctx), P.kb ?? 0.8, P.fire ? 'fire' : 'thorns'); boom(S, R, x, y); },
@@ -30,7 +31,10 @@
     heal(S, R, P) { const h = R.hero, st = heroSt(S); h.hp = Math.min(st.maxHp, h.hp + st.maxHp * P.v); },
     mana(S, R, P) { const h = R.hero, st = heroSt(S); h.mp = Math.min(st.maxMp, h.mp + st.maxMp * P.v); },
     slow(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) SIMX.chill(S, e, P.t, P.slow); },
-    stun(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) { const hold = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = S.t + hold; e.cdT = Math.max(e.cdT || 0, S.t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } } },
+    stun(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) hold(S, e, P); },
+    freeze(S, R, P, ctx) { for (const e of ctx.cold || []) if (e.deadT < 0) hold(S, e, P); },
+    // the hero's charge, not the monster's blow: what the cry turns back strikes as hard as he does, whoever shot it
+    mirror(S, R, P, ctx) { R.hero.mirror = { until: S.t + P.t, dmg: atk(S, P, ctx) }; },
     shieldBurst(S, R, P, ctx) { const [x, y] = pos(R, ctx); if (P.k) burst(S, R, x, y, P.r, Math.max(1, Math.round((ctx.left || 0) * P.k)), P.kb ?? 1, 'thorns'); else for (const e of targets(R, x, y, P.r)) { if (heavy(e)) continue; const d = Math.hypot(e.x - x, e.y - y) || 1; e.kbx = (e.x - x) / d * 300 * P.kb; e.kby = (e.y - y) / d * 300 * P.kb; } boom(S, R, x, y); },
     shieldMore(S, R, P) { R.hero.shieldUntil += P.t; },
     shieldAdd(S, R, P) { R.hero.shield = Math.round(R.hero.shield * (1 + P.k)); },
@@ -38,7 +42,7 @@
     strike(S, R, P, ctx) { if (ctx.e) hitEnemy(S, R, ctx.e, atk(S, P, ctx), false, R.hero.x, R.hero.y, P.kb ?? 0.5, 'thorns'); },
     dropTrap(S, R, P, ctx) { const [x, y] = pos(R, ctx); SIMX.setTrap(S, R, x, y + 4, x, y + 4, atk(S, P, ctx), false); },
   };
-  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25 };
+  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25, chilled: (S, h, ctx) => !!ctx.e && ctx.e.chillT > S.t };
   const onOf = (P) => (P.trig.startsWith('every:') ? 'hit' : P.trig);
   const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.each || 0);
   // what changes a shot goes before what copies it, so the side balls of a split carry every change whatever order the powers were taken in
@@ -46,7 +50,7 @@
   let depth = 0;
   function firePowers(S, R, trig, ctx = {}) { const h = R.hero, own = h.powers;
     if (!own || R.town || depth > (trig === 'kill' ? 2 : 0)) return;
-    for (const id of order(own, trig)) { const P = D.POWERS[id]; if (P.if && !IFS[P.if](S, h)) continue;
+    for (const id of order(own, trig)) { const P = D.POWERS[id]; if (P.if && !IFS[P.if](S, h, ctx)) continue;
       const N = every(P); if (N && ((h.powerN = h.powerN || {})[id] = (h.powerN[id] || 0) + 1) % N) continue;
       if (P.icd && S.t < ((h.powerT || {})[id] ?? -1e9) + P.icd) continue;
       if (P.p !== undefined && rnd(R) >= P.p) continue;

@@ -331,6 +331,8 @@
       let touched = null;
       if (p.own === 'hero' && R.town) SIMX.hitFolk(S, R, p.x, p.y + gz, p.r + 6);
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && !(p.past && p.past.includes(e.id)) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; touched = e; break; } }
+      else if (h.deadT < 0 && h.mirror && S.t < h.mirror.until && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) {
+        Object.assign(p, { own: 'hero', single: 1, r: p.r ?? 8, vx: -p.vx, vy: -p.vy, t0: S.t, dmg: h.mirror.dmg, crit: 0, kb: 0.6, vol: 0, spent: 0 }); ev(S, { k: 'power', id: 'cry_mirror', fx: 'mirror', x: p.x, y: p.y }); }
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' bolt', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       // a crossbow's bolt (TASKS 1163) goes through the first it strikes and on to the next
       if (touched && p.pierce > 0 && !wall && age <= p.life) { p.pierce--; (p.past = p.past || []).push(touched.id);
