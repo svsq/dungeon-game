@@ -57,8 +57,8 @@
   }
   // the class a found base is for: the one it is made for, or the hero's when it is anyone's
   const itemCls = (R, bk) => { const B = BASES[bk], cls = R.hero && D.clsOf(R.hero).id; return B.cls ? (B.cls.includes(cls) ? cls : B.cls[0]) : cls; };
-  // a legendary is the floors' unique of the rolled base's slot for its class (TASKS 358); it takes no draw of its own, so every roll after it stays where it was
-  function floorUniqueOf(R, bk) { const own = itemCls(R, bk); return own ? D.floorUnique(BASES[bk].slot, own) : null; }
+  // a legendary is the floors' unique of the rolled base for its class (TASKS 358, 2010); it takes no draw of its own, so every roll after it stays where it was
+  function floorUniqueOf(R, bk) { const own = itemCls(R, bk); return own ? D.floorUnique(bk, own) : null; }
   // the dice's next state looked at without being thrown: an epic's power (TASKS 359) moves no roll after it either
   const peek = (R, n) => rnd({ rs: (R.rs + n * 0x9e3779b9) | 0 });
   // a found epic, never one sold or handed, may hold one weak power for its class

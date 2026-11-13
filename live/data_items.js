@@ -143,9 +143,28 @@
     u_a_boots: { id: 'u_a_boots', cls: 'archer', b: 'boots', power: 'dash_trail', name: TXT('UNIQUES.u_a_boots.name'), lore: TXT('UNIQUES.u_a_boots.lore') },
     u_a_ring: { id: 'u_a_ring', cls: 'archer', b: 'ring', power: 'ev_mines', name: TXT('UNIQUES.u_a_ring.name'), lore: TXT('UNIQUES.u_a_ring.lore') },
     u_a_amulet: { id: 'u_a_amulet', cls: 'archer', b: 'amulet', power: 'f_leap_3b', name: TXT('UNIQUES.u_a_amulet.name'), lore: TXT('UNIQUES.u_a_amulet.lore') },
+    // TASKS 2010: a legendary keeps the base it rolled, so every base has its floors' unique; a base anyone wears has one for each class,
+    // as the class a find is for is the hero's there (sim_items itemCls)
+    u_w_longsword: { id: 'u_w_longsword', cls: 'warrior', b: 'longsword', power: 'blow_echo', name: TXT('UNIQUES.u_w_longsword.name'), lore: TXT('UNIQUES.u_w_longsword.lore') },
+    u_w_axe: { id: 'u_w_axe', cls: 'warrior', b: 'axe', power: 'blow_finisher', name: TXT('UNIQUES.u_w_axe.name'), lore: TXT('UNIQUES.u_w_axe.lore') },
+    u_w_hammer: { id: 'u_w_hammer', cls: 'warrior', b: 'hammer', power: 'charge_quake', name: TXT('UNIQUES.u_w_hammer.name'), lore: TXT('UNIQUES.u_w_hammer.lore') },
+    u_w_buckler: { id: 'u_w_buckler', cls: 'warrior', b: 'buckler', power: 'whirl_parry', name: TXT('UNIQUES.u_w_buckler.name'), lore: TXT('UNIQUES.u_w_buckler.lore') },
+    u_w_tower: { id: 'u_w_tower', cls: 'warrior', b: 'tower_shield', power: 'blow_reap', name: TXT('UNIQUES.u_w_tower.name'), lore: TXT('UNIQUES.u_w_tower.lore') },
+    u_w_knight_helm: { id: 'u_w_knight_helm', cls: 'warrior', b: 'knight_helm', power: 'f_cry_6a', name: TXT('UNIQUES.u_w_knight_helm.name'), lore: TXT('UNIQUES.u_w_knight_helm.lore') },
+    u_w_plate: { id: 'u_w_plate', cls: 'warrior', b: 'plate_armor', power: 'f_charge_6a', name: TXT('UNIQUES.u_w_plate.name'), lore: TXT('UNIQUES.u_w_plate.lore') },
+    u_w_cloak: { id: 'u_w_cloak', cls: 'warrior', b: 'cloak', power: 'whirl_pull', name: TXT('UNIQUES.u_w_cloak.name'), lore: TXT('UNIQUES.u_w_cloak.lore') },
+    u_w_gloves_l: { id: 'u_w_gloves_l', cls: 'warrior', b: 'leather_gloves', power: 'f_charge_3a', name: TXT('UNIQUES.u_w_gloves_l.name'), lore: TXT('UNIQUES.u_w_gloves_l.lore') },
+    u_w_iron_boots: { id: 'u_w_iron_boots', cls: 'warrior', b: 'iron_boots', power: 'f_charge_6b', name: TXT('UNIQUES.u_w_iron_boots.name'), lore: TXT('UNIQUES.u_w_iron_boots.lore') },
+    u_m_staff: { id: 'u_m_staff', cls: 'mage', b: 'staff', power: 'fire_pierce', name: TXT('UNIQUES.u_m_staff.name'), lore: TXT('UNIQUES.u_m_staff.lore') },
+    u_m_helm_l: { id: 'u_m_helm_l', cls: 'mage', b: 'leather_helm', power: 'f_frost_6b', name: TXT('UNIQUES.u_m_helm_l.name'), lore: TXT('UNIQUES.u_m_helm_l.lore') },
+    u_m_armor_l: { id: 'u_m_armor_l', cls: 'mage', b: 'leather_armor', power: 'shield_mirror', name: TXT('UNIQUES.u_m_armor_l.name'), lore: TXT('UNIQUES.u_m_armor_l.lore') },
+    u_m_cloak: { id: 'u_m_cloak', cls: 'mage', b: 'cloak', power: 'frost_step', name: TXT('UNIQUES.u_m_cloak.name'), lore: TXT('UNIQUES.u_m_cloak.lore') },
+    u_a_longbow: { id: 'u_a_longbow', cls: 'archer', b: 'longbow', power: 'volley_bounce', name: TXT('UNIQUES.u_a_longbow.name'), lore: TXT('UNIQUES.u_a_longbow.lore') },
+    u_a_crossbow: { id: 'u_a_crossbow', cls: 'archer', b: 'crossbow', power: 'leap_pierce', name: TXT('UNIQUES.u_a_crossbow.name'), lore: TXT('UNIQUES.u_a_crossbow.lore') },
+    u_a_cloak: { id: 'u_a_cloak', cls: 'archer', b: 'cloak', power: 'trap_chain', name: TXT('UNIQUES.u_a_cloak.name'), lore: TXT('UNIQUES.u_a_cloak.lore') },
   };
   const bossUniques = (type, cls) => Object.values(UNIQUES).filter((u) => u.boss === type && u.cls === cls);
-  const floorUnique = (slot, cls) => Object.values(UNIQUES).find((u) => !u.boss && u.cls === cls && BASES[u.b].slot === slot);
+  const floorUnique = (b, cls) => Object.values(UNIQUES).find((u) => !u.boss && u.cls === cls && u.b === b);
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)

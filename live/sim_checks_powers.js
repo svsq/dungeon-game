@@ -214,19 +214,25 @@
       h.powers = {}; h.powerN = {}; h.eq.weapon = SIMX.uniqueItem(c.R, 'u_forge_w', 5);
       if (blows() !== 1 || (h.powers || {}).kit_hammer) out.push('unique: a worn unique\'s power does not fire, or becomes the hero\'s own');
       h.eq.weapon = SIMX.rollItem(c.R, 5, 0, 'weapon'); if (blows() !== 0) out.push('unique: its power stays after it is taken off'); }
-    // TASKS 358: the floors hold one unique for each class in each slot, each with a power no other unique has, and every legendary found is one
-    const floor = Object.values(D.UNIQUES).filter((U) => !U.boss), seen = {};
-    if (floor.length !== 24) out.push(`unique: ${floor.length} found on the floors, not 24`);
+    // TASKS 358, 2010: every base holds one floors' unique for each class a legendary of it may be for, each with a power no other unique
+    // has, and every legendary found is the unique of the base it rolled
+    const floor = Object.values(D.UNIQUES).filter((U) => !U.boss), seen = {}, CL = ['warrior', 'mage', 'archer'];
+    const forCls = (b) => (D.BASES[b].cls ? [D.BASES[b].cls[0]] : CL), want = Object.keys(D.BASES).reduce((n, b) => n + forCls(b).length, 0);
+    if (floor.length !== want) out.push(`unique: ${floor.length} found on the floors, not ${want}`);
     for (const U of Object.values(D.UNIQUES)) { if (seen[U.power]) out.push(`unique: ${U.id} and ${seen[U.power]} share ${U.power}`); seen[U.power] = U.id; }
-    for (const U of floor) if (D.BASES[U.b].minF) out.push(`unique ${U.id}: its ${U.b} is not found above floor ${D.BASES[U.b].minF}, a legendary rolled there could not become it`);
-    for (const cl of ['warrior', 'mage', 'archer']) { for (const slot of D.SLOTS) if (floor.filter((U) => U.cls === cl && D.BASES[U.b].slot === slot).length !== 1) out.push(`unique: not one ${slot} for a ${cl} on the floors`);
-      const c = stage(cl);
-      for (let i = 0; i < 40; i++) { const slot = D.SLOTS[i % D.SLOTS.length], it = SIMX.rollItem(c.R, 1 + (i % 12), 0, slot, { min: 4 }), U = D.UNIQUES[it.u];
-        if (!U || U.boss || it.rar !== 4 || D.BASES[it.b].slot !== slot || it.b !== U.b || !D.wears(U.cls, it.b) || SIMX.itemName(it) !== U.name) { out.push(`unique: a ${cl}'s legendary ${slot} is no floor unique`); break; }
+    for (const b in D.BASES) for (const cl of forCls(b)) if (floor.filter((U) => U.cls === cl && U.b === b).length !== 1) out.push(`unique: not one ${b} for a ${cl} on the floors`);
+    for (const cl of CL) { const c = stage(cl), got = {};
+      for (let i = 0; i < 400; i++) { const it = SIMX.rollItem(c.R, 1 + (i % 18), 0, D.SLOTS[i % D.SLOTS.length], { min: 4 }), U = D.UNIQUES[it.u]; got[it.b] = 1;
+        if (!U || U.boss || it.rar !== 4 || it.b !== U.b || U !== D.floorUnique(it.b, D.BASES[it.b].cls ? D.BASES[it.b].cls[0] : cl) || SIMX.itemName(it) !== U.name) { out.push(`unique: a ${cl}'s legendary ${it.b} is no floor unique of its base`); break; }
         const back = JSON.parse(JSON.stringify(it)); if (back.u !== it.u || SIMX.itemName(back) !== U.name) { out.push('unique: a saved unique comes back without its name'); break; } }
+      const miss = Object.keys(D.BASES).filter((b) => D.wears(cl, b) && !got[b]); if (miss.length) out.push(`unique: a ${cl} never found a legendary ${miss.join(', ')}`);
       const R0 = JSON.parse(JSON.stringify(c.R)), it1 = SIMX.rollItem(c.R, 6, 0, undefined, { min: 4, lo: 1, hi: 1, lag: 2 }), f0 = D.floorUnique;
       D.floorUnique = () => null; const it0 = SIMX.rollItem(R0, 6, 0, undefined, { min: 4, lo: 1, hi: 1, lag: 2 }); D.floorUnique = f0;
-      if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || D.BASES[it0.b].slot !== D.BASES[it1.b].slot) out.push(`unique: a ${cl}'s legendary takes other draws than a plain one`); }
+      if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || it0.b !== it1.b) out.push(`unique: a ${cl}'s legendary takes other draws than a plain one`); }
+    // a save from before 2010 may hold a unique on another base than its own: it loads, is named and powers the hero as before
+    { const c = stage('warrior'), old = JSON.parse(JSON.stringify(Object.assign(SIMX.uniqueItem(c.R, 'u_w_weapon', 5), { b: 'axe' })));
+      try { c.h.eq.weapon = old; delete c.R.itemBalance; SIMX.rebalanceRun(c.R); if (SIMX.itemName(old) !== D.UNIQUES.u_w_weapon.name || !(SIMX.heroPowers(c.h) || {})[D.UNIQUES.u_w_weapon.power]) out.push('unique: an old unique on another base loses its name or power'); }
+      catch (e) { out.push(`unique: an old unique on another base breaks the load: ${e.message}`); } }
   }
   // TASKS 359: a found epic may hold one weak power of its class's altar pool, likelier deeper, and never moves a roll after it
   function checkEpicPowers(out) {
