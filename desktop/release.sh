@@ -3,6 +3,7 @@
 #   desktop/release.sh                  # macOS dmg from the working tree
 #   desktop/release.sh --head win mac   # from the last commit (uncommitted work left out); targets: mac win linux all
 #   desktop/release.sh run              # no installer, just launch the packed game in Electron
+#   desktop/release.sh win7             # Windows 7 x64 zip on Electron 22.3 (TASKS 2005: the last one that runs there), with any other targets
 #   --no-check                          # skip tune.cjs (it refuses to pack a sim whose selfCheck fails)
 set -euo pipefail
 DESK="$(cd "$(dirname "$0")" && pwd)"
@@ -15,7 +16,7 @@ for a in "$@"; do
     --head) head=1 ;;
     --no-check) check=0 ;;
     all) targets+=(mac win linux) ;;
-    mac|win|linux|run) targets+=("$a") ;;
+    mac|win|linux|run|win7) targets+=("$a") ;;
     *) echo "unknown argument: $a" >&2; exit 64 ;;
   esac
 done
@@ -51,9 +52,17 @@ cd "$DESK"
 if [ "${targets[0]}" = run ]; then exec npx electron .; fi
 
 export CRYPT_REV="$ver-$rev"
-flags=()
-for t in "${targets[@]}"; do flags+=("--$t"); done
-echo "== build ${targets[*]}"
-npx electron-builder "${flags[@]}" -c.extraMetadata.version="$ver" --publish never
+flags=(); win7=0
+for t in "${targets[@]}"; do if [ "$t" = win7 ]; then win7=1; else flags+=("--$t"); fi; done
+if [ ${#flags[@]} -gt 0 ]; then
+  echo "== build ${flags[*]}"
+  npx electron-builder "${flags[@]}" -c.extraMetadata.version="$ver" --publish never
+fi
+# Electron 23+ does not start on Windows 7/8/8.1; electron-builder fetches 22.3.27 itself, the main build keeps its own Electron
+if [ $win7 = 1 ]; then
+  echo "== build win7 (Electron 22.3.27)"
+  npx electron-builder --win zip --x64 -c.electronVersion=22.3.27 -c.extraMetadata.version="$ver" \
+    -c.artifactName='TheElderDeep-${env.CRYPT_REV}-win7-${arch}.${ext}' --publish never
+fi
 echo "== done"
 ls -lh release/ | grep "TheElderDeep-$CRYPT_REV" || true

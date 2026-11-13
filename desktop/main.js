@@ -51,12 +51,10 @@ app.whenReady().then(() => {
   log('main: ready');
   app.getGPUInfo('basic').then((g) => log('gpu: ' + JSON.stringify((g.gpuDevice || []).map((d) => ({ vendor: d.vendorId, device: d.deviceId, active: d.active, driver: d.driverVersion }))))).catch(() => {});
   app.on('child-process-gone', (e, d) => log(`main: ${d.type} process gone ${d.reason}`));
-  protocol.handle('app', (req) => {
-    const rel = decodeURIComponent(new URL(req.url).pathname);
-    const file = path.normalize(path.join(GAME, rel));
-    if (!file.startsWith(GAME + path.sep)) return new Response('forbidden', { status: 403 });
-    return net.fetch(pathToFileURL(file).toString());
-  });
+  const fileOf = (url) => { const file = path.normalize(path.join(GAME, decodeURIComponent(new URL(url).pathname))); return file.startsWith(GAME + path.sep) ? file : null; };
+  if (protocol.handle) protocol.handle('app', (req) => { const file = fileOf(req.url); return file ? net.fetch(pathToFileURL(file).toString()) : new Response('forbidden', { status: 403 }); });
+  // Electron 22, the Windows 7 build's (TASKS 2005), has no protocol.handle (it came in 25); -10 is net::ERR_ACCESS_DENIED
+  else protocol.registerFileProtocol('app', (req, cb) => { const file = fileOf(req.url); cb(file ? { path: file } : { error: -10 }); });
 
   // the run journal button: save straight to Downloads instead of a save dialog
   require('electron').session.defaultSession.on('will-download', (e, item) => {
