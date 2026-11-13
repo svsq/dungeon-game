@@ -36,6 +36,10 @@
       ['menu_news_empty', mk((S) => { S.saved = null; S.qaNewsMain = []; S.hover = 'news'; })],
       ['news', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = 0; })],
       ['news_end', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = DATA.UI.news(0).max; S.hover = 'back'; })],
+      // a past version unfolded under the pointer and the thumb held mid-drag (TASKS 1971)
+      ['news_past', mk((S) => { S.saved = null; S.screen = 'news'; const v = (DATA.CHANGES[1] || DATA.CHANGES[0]).v; S.newsOpen = { [DATA.CHANGES[0].v]: 1, [v]: 1 };
+        S.newsTop = Math.max(0, DATA.UI.news(0, S.newsOpen).max - 4); S.hover = 'ver:' + v; })],
+      ['news_drag', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = Math.round(DATA.UI.news(0).max / 2); S.newsDrag = 10; S.hover = 'track'; })],
       ['tests_saved', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.hover = 'endless'; })],
       ['tests_full_ask', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.slot = 0; S.screen = 'tests'; S.newAsk = 'magma'; S.focus = 'no'; })],
       ['play', play()],

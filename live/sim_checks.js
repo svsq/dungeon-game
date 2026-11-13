@@ -2558,6 +2558,25 @@
         const mx = UI.news(0).max; step(U, { keys: ['End'] }); step(U, { keys: ['ArrowDown'], wheel: 1 }); if (U.newsTop !== mx) out.push(`news: End scrolls to ${U.newsTop}, not ${mx}`);
         { const E = UI.news(mx); if (E.top + E.rows.length !== E.n) out.push('news: the end of the list does not show its last row'); }
         step(U, { keys: ['Home'] }); if (U.newsTop !== 0) out.push('news: Home does not go back to the top');
+        // TASKS 1971: only the newest version opens unfolded, a press on a folded header unfolds it, the thumb drags the scroll, a
+        // press on the track below the thumb scrolls down, and a second opening forgets what was unfolded
+        { const at = (b, o = {}) => Object.assign({ keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 + SIMX.uiDy('news') }, o), rs = D.newsRows(U.newsOpen), vs = rs.filter((r) => r.k === 'ver');
+          if (vs.length !== D.CHANGES.length || !vs[0].open || vs.slice(1).some((r) => r.open) || rs[1].k === 'ver' || rs[rs.length - 1].k !== 'ver') out.push('news: the list does not open with only the newest version unfolded');
+          step(U, { keys: ['End'] }); const h1 = UI.news(U.newsTop, U.newsOpen).heads.find((h) => !U.newsOpen[h.v]);
+          if (!h1 && D.CHANGES.length > 1) out.push('news: no folded version\'s header is shown at the end of the list');
+          if (h1) { const n0 = rs.length; step(U, at(h1, { click: 1, press: 1 })); step(U, at(h1));
+            if (!(U.newsOpen || {})[h1.v] || D.newsRows(U.newsOpen).length <= n0) out.push('news: a press on a folded version\'s header does not unfold it'); }
+          step(U, { keys: ['Home'] }); const B = UI.news(0, U.newsOpen).bar;
+          if (!B) out.push('news: the list has no scroll thumb');
+          else { const T = B.thumb, gy = T.y + T.h / 2 + SIMX.uiDy('news'), gx = T.x + T.w / 2;
+            step(U, { keys: [], px: gx, py: gy, click: 1, press: 1 }); for (let k = 1; k <= 4; k++) step(U, { keys: [], px: gx, py: gy + k * 60, press: 1 });
+            const dr = U.newsTop; step(U, { keys: [], px: gx, py: gy + 240 });
+            if (!(dr > 0)) out.push('news: dragging the scroll thumb does not scroll the list');
+            step(U, { keys: ['Home'] }); const ty = B.track.y + B.track.h - 4 + SIMX.uiDy('news');
+            step(U, { keys: [], px: gx, py: ty, click: 1, press: 1 }); step(U, { keys: [], px: gx, py: ty });
+            if (U.newsTop !== UI.news(0, U.newsOpen).max) out.push(`news: a press at the track's end scrolls to ${U.newsTop}, not to the end`); }
+          step(U, { keys: ['Escape'] }); press(U, UI.menu(true).find((b) => b.id === 'news'));
+          if (Object.keys(U.newsOpen || {}).length !== 1 || U.newsTop) out.push('news: a second opening keeps what was unfolded or scrolled'); }
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
       toTests(U); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || U.newAsk !== 'magma' || U.focus !== 'no') out.push('tests: one press over a saved run drops it or does not ask with «Нет» first');

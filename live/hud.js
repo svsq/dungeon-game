@@ -1209,16 +1209,19 @@
   // diamond a change, the scroll an ink rule with a red thumb
   function news(S, t) {
     backdrop(t);
-    const N = D.UI.news(S.newsTop), P = N.P, V = N.view, I = KIT.INK;
+    const N = D.UI.news(S.newsTop, S.newsOpen), P = N.P, V = N.view, I = KIT.INK;
     KIT.panel('nw_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
     KIT.heading('nw_t', TXT('hud.news'), P.x + P.w / 2, P.y + 80, { size: 56, wing: 80 });
     const dot = (x, y, s) => L.solid(x - s / 2, y - s / 2, s, s, [0.49, 0.12, 0.07], 0.7854, s / 2, s / 2);
+    // a header's fold mark (TASKS 1971): a minus over an unfolded version, a plus over a folded one
+    const fold = (x, y, open) => { L.solid(x - 9, y - 2, 18, 4, [0.62, 0.16, 0.09]); if (!open) L.solid(x - 2, y - 9, 4, 18, [0.62, 0.16, 0.09]); };
     N.rows.forEach((r, i) => { const id = 'nw_r' + i;
-      if (r.k === 'ver') { const vw = KIT.ink(id, r.v, V.x, r.y + 38, { size: 40, col: I.r }); KIT.ink(id + 'd', r.date, V.x + vw + 24, r.y + 42, { size: 24, col: I.d }); }
+      if (r.k === 'ver') { const hot = S.hover === 'ver:' + r.v; fold(V.x + 14, r.y + 36, r.open);
+        const vw = KIT.ink(id, r.v, V.x + 40, r.y + 38, { size: 40, col: hot ? I.t : I.r }); KIT.ink(id + 'd', r.date, V.x + 40 + vw + 24, r.y + 42, { size: 24, col: I.d }); }
       else if (r.k === 'group') { KIT.ink(id, r.s, V.x + 4, r.y + 26, { size: 30, col: I.r }); }
       else { if (r.first) dot(V.x + 22, r.y + 17, 10); KIT.ink(id, r.s, V.x + 40, r.y + 17, { size: 24 }); } });
-    if (N.max > 0) { const k = N.top / N.max, th = Math.max(60, V.h * V.h / (V.h + N.max * 34)), sx = P.x + P.w - 56;
-      L.solid(sx, V.y, 3, V.h, [0.42, 0.27, 0.15], 0, 0, 0, 0.8); L.rrect(sx - 4, V.y + (V.h - th) * k, 11, th, 5, [0.62, 0.16, 0.09], [0.42, 0.09, 0.05], 1);
+    if (N.bar) { const T = N.bar.thumb, hot = S.newsDrag != null || S.hover === 'track';
+      L.solid(N.bar.x, V.y, 3, V.h, [0.42, 0.27, 0.15], 0, 0, 0, 0.8); L.rrect(T.x, T.y, T.w, T.h, 5, hot ? [0.74, 0.22, 0.12] : [0.62, 0.16, 0.09], [0.42, 0.09, 0.05], 1);
       KIT.ink('nw_k', TXT('hud.news.keys'), P.x + 70, P.y + P.h - 60, { size: 26, col: I.d }); }
     for (const b of N.r) KIT.button('nw_' + b.id, b, stN(S, b.id));
   }

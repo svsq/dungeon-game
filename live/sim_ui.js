@@ -124,7 +124,7 @@
       if (id === 'continue') resume(S, S.saved);
       if (id === 'load') openLoad(S);
       if (D.RUNS[id]) pressRun(S, id);
-      if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
+      if (id === 'news') openNews(S);
       if (id === 'settings') openSettings(S, 'menu');
       // «Выход» (TASKS 1877): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
       // and then closes the window on quitReq
@@ -230,10 +230,20 @@
     else if (st) { S.focus = (S.focus || '').startsWith('slot:') ? (has ? 'go' : 'back') : 'slot:' + sel; tick(); }
     if ((S.focus || '').startsWith('slot:')) S.loadSel = +S.focus.slice(5);
   };
-  // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back
+  // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back.
+  // Every opening shows only the newest version's points (the player's decision 13.11.2026, TASKS 1971): the past ones wait folded
+  // under their headers, and what was unfolded is not kept
+  const openNews = (S) => { S.screen = 'news'; S.newsTop = 0; S.newsDrag = null; S.newsOpen = { [(D.CHANGES[0] || {}).v]: 1 }; };
   SCREEN.news = (S, inp, keys, x, y, click) => {
-    const N = UI.news(S.newsTop), b = D.hitUI(N.r, x, y), page = Math.max(1, N.rows.length - 2); S.hover = b ? b.id : '';
-    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
+    const N = UI.news(S.newsTop, S.newsOpen), hd = D.hitUI(N.heads, x, y), b = D.hitUI(N.r, x, y) || hd, page = Math.max(1, N.rows.length - 2); S.hover = b ? b.id : '';
+    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; S.newsDrag = null; if (click) ev(S, { k: 'ui', x, y }); return; }
+    if (click && hd) { const o = Object.assign({}, S.newsOpen); if (o[hd.v]) delete o[hd.v]; else o[hd.v] = 1; S.newsOpen = o;
+      S.newsTop = UI.news(N.top, o).top; ev(S, { k: 'ui', x, y }); return; }
+    // the thumb is taken where it was grabbed; a press on the track elsewhere brings the thumb's middle there and goes on dragging
+    const B = N.bar;
+    if (click && B && D.hitUI([B.track], x, y)) S.newsDrag = y >= B.thumb.y && y <= B.thumb.y + B.thumb.h ? y - B.thumb.y : B.thumb.h / 2;
+    if (!inp.press || !B) S.newsDrag = null;
+    if (S.newsDrag != null) { S.newsTop = Math.max(0, Math.min(N.max, Math.round((y - S.newsDrag - N.view.y) / (N.view.h - B.thumb.h) * N.max))); return; }
     const d = (inp.wheel || 0) + (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0) + (keys.PageDown ? page : 0) - (keys.PageUp ? page : 0) + (keys.End ? N.n : 0) - (keys.Home ? N.n : 0);
     if (d) S.newsTop = Math.max(0, Math.min(N.max, N.top + d));
   };
