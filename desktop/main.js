@@ -1,5 +1,7 @@
+const T0 = Date.now();
 const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { pathToFileURL } = require('url');
 
 const GAME = path.join(__dirname, 'game');
@@ -12,16 +14,25 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: t
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
+// the start's log (TASKS 2004): the window's and the page's stages with their times, rewritten at every launch, so a player whose
+// game takes long to open can send boot.log from the save folder
+const LOG = path.join(app.getPath('userData'), 'boot.log');
+const log = (s) => { try { fs.appendFileSync(LOG, `${String(Date.now() - T0).padStart(6)} ms  ${s}\n`); } catch (e) {} };
+try { fs.mkdirSync(path.dirname(LOG), { recursive: true }); fs.writeFileSync(LOG, `${new Date().toISOString()}  ${process.platform} ${process.arch} ${process.getSystemVersion()}  electron ${process.versions.electron}  app ${app.getVersion()}\n`); } catch (e) {}
+log('main: started');
+
 const toggleFullscreen = (win) => win.setFullScreen(!win.isFullScreen());
 
 const createWindow = () => {
   const win = new BrowserWindow({
-    width: 1600, height: 900, minWidth: 960, minHeight: 540, backgroundColor: '#000000', title: 'The Elder Deep: Below the Ages',
+    width: 1600, height: 900, minWidth: 960, minHeight: 540, backgroundColor: '#0b0806', title: 'The Elder Deep: Below the Ages',
     autoHideMenuBar: true, show: false,
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required', preload: path.join(__dirname, 'preload.js') },
   });
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => { log('main: ready-to-show'); win.show(); });
+  win.webContents.on('did-finish-load', () => { log('main: did-finish-load'); log('gpu features: ' + JSON.stringify(app.getGPUFeatureStatus())); });
+  win.webContents.on('render-process-gone', (e, d) => log('main: renderer gone ' + d.reason));
   const tellFull = () => win.webContents.send('full', win.isFullScreen());
   for (const e of ['enter-full-screen', 'leave-full-screen']) win.on(e, tellFull);
   win.webContents.on('did-finish-load', tellFull);
@@ -37,6 +48,9 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
+  log('main: ready');
+  app.getGPUInfo('basic').then((g) => log('gpu: ' + JSON.stringify((g.gpuDevice || []).map((d) => ({ vendor: d.vendorId, device: d.deviceId, active: d.active, driver: d.driverVersion }))))).catch(() => {});
+  app.on('child-process-gone', (e, d) => log(`main: ${d.type} process gone ${d.reason}`));
   protocol.handle('app', (req) => {
     const rel = decodeURIComponent(new URL(req.url).pathname);
     const file = path.normalize(path.join(GAME, rel));
@@ -57,6 +71,7 @@ app.whenReady().then(() => {
   const win = createWindow();
   ipcMain.on('set-full', (e, on) => { if (e.sender === win.webContents && win.isFullScreen() !== on) win.setFullScreen(on); });
   ipcMain.on('quit', (e) => { if (e.sender === win.webContents) app.quit(); });
+  ipcMain.on('boot-log', (e, s) => { if (e.sender === win.webContents) log('page: ' + String(s).slice(0, 2000)); });
   app.on('second-instance', () => { if (win.isMinimized()) win.restore(); win.focus(); });
 });
 

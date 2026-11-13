@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld('desktop', {
   quit: () => ipcRenderer.send('quit'),
   // the window lost to another one (TASKS 1882): the page pauses a run as on Esc
   onAway: (f) => { aways.push(f); },
+  // a stage of the page's start, for boot.log in the save folder (TASKS 2004)
+  bootLog: (s) => ipcRenderer.send('boot-log', String(s)),
 });

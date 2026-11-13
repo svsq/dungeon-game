@@ -2,7 +2,7 @@
 // targets, pixel-space quads (y down) with an affine transform. Everything the scene draws is a quad with a shader.
 (function () {
   const G = (window.G = {});
-  let gl, quadBuf, cur = null;
+  let gl, quadBuf, cur = null, PAR = null;
   const progs = {}, texs = {};
   let dropBinds = () => {};
 
@@ -11,6 +11,7 @@
     gl = G.gl = canvas.getContext('webgl2', { premultipliedAlpha: true, alpha: false, antialias: false, preserveDrawingBuffer: true });
     if (!gl) throw new Error('WebGL2 not available');
     gl.getExtension('EXT_color_buffer_float'); gl.getExtension('EXT_color_buffer_half_float'); gl.getExtension('OES_texture_float_linear');
+    PAR = gl.getExtension('KHR_parallel_shader_compile');
     quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
     G.W = W; G.H = H;
@@ -21,22 +22,25 @@
   G.oy = 0;
   const onScreen = (xf) => { if (!G.oy || cur) return xf; const q = xf.slice(); q[7] += G.oy; return q; };
 
-  // nearest: NEAREST min/mag, no mipmaps (pixel art: crisp texels; lod bias has no effect)
-  G.load = (name, url, { repeat = false, nearest = false } = {}) => new Promise((res, rej) => {
-    const im = new Image();
-    im.onload = () => {
-      dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
-      if (!nearest) gl.generateMipmap(gl.TEXTURE_2D);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
-      const wr = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
-      texs[name] = { t, w: im.width, h: im.height }; res(texs[name]);
-    };
-    im.onerror = () => rej(new Error('failed to load ' + url)); im.src = url;
-  });
+  // the time spent in texture uploads on the page's thread, for the start's log (TASKS 2004)
+  G.upMs = 0;
+  // the PNG is unpacked by createImageBitmap off the page's thread (TASKS 2004): from an <img>, texImage2D unpacked each one on it,
+  // 1.2 of the start's 1.9 s on a Mac; the same pixels either way (qashot frames compared). nearest: NEAREST min/mag, no mipmaps
+  // (pixel art: crisp texels; lod bias has no effect)
+  const viaImg = (name, url, o) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(upload(name, im, o)); im.onerror = () => rej(new Error('failed to load ' + url)); im.src = url; });
+  G.load = (name, url, o = {}) => (!window.createImageBitmap ? viaImg(name, url, o) : fetch(url).then((r) => { if (!r.ok) throw new Error('failed to load ' + url); return r.blob(); })
+    .then((b) => createImageBitmap(b, { premultiplyAlpha: 'premultiply', colorSpaceConversion: 'default' })).then((im) => { const r = upload(name, im, o); im.close(); return r; }));
+  const upload = (name, im, { repeat = false, nearest = false } = {}) => {
+    dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    const t0 = performance.now(); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+    if (!nearest) gl.generateMipmap(gl.TEXTURE_2D); G.upMs += performance.now() - t0;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
+    const wr = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
+    return (texs[name] = { t, w: im.width, h: im.height });
+  };
   G.canvasTex = (name, cv) => {
     dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -84,17 +88,30 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
 `;
   G.COMMON = COMMON;
 
-  G.program = (name, fs) => {
-    if (progs[name]) return progs[name];
-    const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(name + ': ' + gl.getShaderInfoLog(s)); return s; };
-    const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, COMMON + fs));
-    gl.bindAttribLocation(p, 0, 'a_pos'); gl.linkProgram(p);
+  // G.defer (TASKS 2004): a program is compiled and linked but not asked whether it compiled until G.settle or its first draw. A
+  // status query right after a compile waits for that one shader, so the forty of the start compiled one after another; on Windows
+  // ANGLE turns each into HLSL for D3D11, much slower than on a Mac. Asked all at the end, the driver compiles them side by side
+  G.defer = false;
+  const unchecked = new Set();
+  const finish = (P) => { const { p, sh, name } = P; unchecked.delete(P);
+    for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(name + ': ' + gl.getShaderInfoLog(s));
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(name + ': ' + gl.getProgramInfoLog(p));
     const loc = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const u = gl.getActiveUniform(p, i); loc[u.name.replace('[0]', '')] = { l: gl.getUniformLocation(p, u.name), type: u.type }; }
-    return (progs[name] = { p, loc, name });
+    P.loc = loc; P.sh = null; };
+  G.program = (name, fs) => {
+    if (progs[name]) return progs[name];
+    const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+    const p = gl.createProgram(), sh = [mk(gl.VERTEX_SHADER, VS), mk(gl.FRAGMENT_SHADER, COMMON + fs)]; for (const s of sh) gl.attachShader(p, s);
+    gl.bindAttribLocation(p, 0, 'a_pos'); gl.linkProgram(p);
+    const P = (progs[name] = { p, loc: null, name, sh }); unchecked.add(P); if (!G.defer) finish(P); return P;
   };
+  // waits, a frame at a time, until the driver has compiled every deferred program (KHR_parallel_shader_compile; without it they are
+  // asked at once), then checks them; returns how many there were
+  G.settle = async () => { const n = unchecked.size, done = (P) => gl.getProgramParameter(P.p, PAR.COMPLETION_STATUS_KHR);
+    if (PAR) while ([...unchecked].some((P) => !done(P))) await new Promise((r) => requestAnimationFrame(r));
+    for (const P of [...unchecked]) finish(P); G.defer = false; return n; };
+  G.parallel = () => !!PAR;
 
   // view: the coordinate space draws use (default w×h), e.g. a W/k × H/k target drawn in W×H view px; nearest: sample it crisp
   G.target = (w, h, float = false, { view = [w, h], nearest = false } = {}) => {
@@ -159,6 +176,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (G.rec) { G.rec.push([P, U, xf, flip]); return; }
     if (G.outside(xf)) return;
     xf = onScreen(xf);
+    if (!P.loc) finish(P);
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
