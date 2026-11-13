@@ -1,6 +1,6 @@
 // the HUD's top-left zone, where world labels (elites' plates, prompts, damage names) are not put, covers every row of the effects
 // under the level's bar, the second and third as well as the first (review of PR 63); quest marks in the town keep off every part of the HUD,
-// off bodies and off each other, and hide when walled in
+// off bodies and off each other, hide when walled in, and keep their spot while a body walks over the giver (TASKS 1903)
 //   node tools/hudzone.mjs        exit 2 on failure
 import http from 'node:http';
 import fs from 'node:fs';
@@ -79,6 +79,28 @@ try {
         for (let y = ny - 340; y <= ny + 340 + hh * Z; y += dy) for (let x = 960 - 400; x <= 960 + 400; x += dx) R.folk.push(Object.assign({}, src, { x: R.cam[0] + x / Z, y: R.cam[1] + y / Z }));
         render(); if (HUD.marks().some((b) => b.i === f.i)) out.push(`a giver walled in by ${R.folk.length - keep.length} townsfolk still shows a mark`);
         R.folk.length = 0; keep.forEach((q) => R.folk.push(q)); } }
+    // TASKS 1903: a hen, a townsman and the hero walking over a giver's head leave his mark where it is; a body parked on it moves it
+    // in the end, and once gone the mark comes home
+    { const f = givers[0], t0 = tq.t, hen = R.folk.find((q) => q.role === 'hen'), man = R.folk.find((q) => q.role !== 'hen' && !SIM.Q.questMark(R, q.role)), keep = R.folk.slice();
+      if (!hen || !man) out.push('town_quest_marks has no hen or no townsman without a quest to walk over a giver');
+      else { givers.forEach((g) => { g.x = R.cam[0] - 4000; }); const ny = stand(f, 960, 520); heroAt(200, 980);
+        const frame = () => { tq.t += 1 / 60; render(); return HUD.marks().find((b) => b.i === f.i); }, key = (b) => b ? b.x + ',' + b.y : 'none';
+        for (let i = 0; i < 30; i++) frame(); const home = key(frame());
+        if (home === 'none') out.push('the walk-over check: the giver shows no mark');
+        else {
+          const [mx, my] = home.split(',').map(Number), hb = { x: mx, y: my, w: 40, h: 56 };
+          const walk = (who, put) => { let over = false; for (let i = 0; i <= 50; i++) { put(700 + 520 * i / 50, ny); const b = frame(); over = over || bodies().some((o) => o.who === who && overlaps(o, hb));
+            if (key(b) !== home) { out.push(`the ${who} walking over ${f.role} moved his mark from ${home} to ${key(b)}`); break; } }
+            if (!over) out.push(`the walk-over check: the ${who} never crossed the mark`); put(-4000, 980); heroAt(200, 980); for (let i = 0; i < 10; i++) frame(); };
+          const body = (src) => { const q = Object.assign({}, src, { vx: 200, vy: 0, spd: 200 }); R.folk.push(q); return q; };
+          const feet = (q) => (x, y) => { q.x = R.cam[0] + x / Z; q.y = R.cam[1] + (y + 10) / Z; };
+          const hn = body(hen), mn = body(man); hn.x = mn.x = R.cam[0] - 4000;
+          walk('hen', feet(hn)); walk(man.role, feet(mn)); walk('hero', (x, y) => heroAt(x, y - 6 * Z));
+          mn.x = R.cam[0] + (mx + 20) / Z; mn.y = R.cam[1] + (my + 40) / Z; let moved = false;
+          for (let i = 0; i < 150 && !moved; i++) moved = key(frame()) !== home; if (!moved) out.push(`a townsman parked 2.5 s on ${f.role}'s mark did not move it`);
+          mn.x = R.cam[0] - 4000; hn.x = R.cam[0] - 4000; let back = false; for (let i = 0; i < 150 && !back; i++) back = key(frame()) === home;
+          if (!back) out.push(`${f.role}'s mark did not come home 2.5 s after the townsman left it`); } }
+      R.folk.length = 0; keep.forEach((q) => R.folk.push(q)); tq.t = t0; }
     return out; });
   fs.mkdirSync('frames/hudzone', { recursive: true }); await page.screenshot({ path: 'frames/hudzone/town_marks.png' });
 } finally { await browser.close(); server.close(); }

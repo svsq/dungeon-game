@@ -9,7 +9,7 @@
   const framed = (oy, fn) => { const o = G.oy, h = H; G.oy = oy; H = VH - oy; try { fn(); } finally { G.oy = o; H = h; } };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
-  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map();
+  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map(), MARKS = new WeakMap(), MARK_HOLD = 1.2;
   HUD.init = () => {};
   // a line of text broken into lines of at most `width` px
   const wrapLab = (id, s0, x, y, width, size, col) => { const lines = []; let line = '';
@@ -207,11 +207,20 @@
       for (let n = 0; n < 64 && open.length; n++) {
         let i = 0; for (let j = 1; j < open.length; j++) if (far(open[j]) < far(open[i])) i = j;
         const [bx, by] = open.splice(i, 1)[0], b = { x: bx, y: by, w, h: hh }, o = obst.find((q) => overlaps(b, q));
-        if (!o) { occupied.push(b); return b; }
+        if (!o) return b;
         for (const c of [[bx, o.y - hh - 4], [bx, o.y + o.h + 4], [o.x - w - 4, by], [o.x + o.w + 4, by]]) { const key = c[0] + ',' + c[1];
           if (tried.has(key) || Math.abs(c[0] - x0) > rx || Math.abs(c[1] - y0) > ry || c[0] < 4 || c[0] + w > W - 4 || c[1] < 4 || c[1] + hh > H - 4) continue;
           tried.add(key); open.push(c); } }
       return null; };
+    // a body passing over the giver's head sent the mark to a new spot every frame (TASKS 1903): the spot is kept until bodies have
+    // pushed it elsewhere for MARK_HOLD s, while the HUD, labels and other marks still move it at once. A stale record or a giver
+    // jumped on screen places afresh
+    const holdMark = (f, ax, ay, fresh, t) => {
+      const r = MARKS.get(f), dt = r ? t - r.t : -1, held = r && dt >= 0 && dt < 0.5 && Math.hypot(ax - r.ax, ay - r.ay) < 24 && { x: Math.round(ax + r.dx), y: Math.round(ay + r.dy), w: 40, h: 56 };
+      const free = held && held.x >= 4 && held.x + 40 <= W - 4 && held.y >= 4 && held.y + 56 <= H - 4 && !occupied.concat(ZN.map(clip)).some((q) => overlaps(held, q));
+      const same = free && fresh && Math.abs(fresh.x - held.x) <= 2 && Math.abs(fresh.y - held.y) <= 2, busy = free && !same ? r.busy + dt : 0;
+      const at = free && busy < MARK_HOLD ? held : fresh;
+      MARKS.set(f, at ? { ax, ay, dx: at.x - ax, dy: at.y - ay, t, busy: at === held ? busy : 0 } : { ax, ay, dx: 0, dy: 0, t: -9, busy: 0 }); return at; };
     const float = (id, s, x, y, o) => {
       const w = lw(id, s, o) + 8, hh = Math.max(20, o.size) * 1.24 + 8, b = place(x, y - hh / 2, w, hh, nameZones.concat(actorZones));
       if (b) lab(id, s, b.x + w / 2, b.y + hh / 2, { ...o, al: 0.5 });
@@ -231,7 +240,8 @@
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
       // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
       if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
-      const at = placeNear(V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 58, 40, 56, actorZones.concat(folkZones), 324, 240); if (!at) continue;
+      const ax = V.sx(f.x), ay = V.sy(f.y) - SZ('town_' + f.role)[1] * k - 58, fresh = placeNear(ax, ay, 40, 56, actorZones.concat(folkZones), 324, 240), at = holdMark(f, ax, ay, fresh, GT); if (!at) continue;
+      occupied.push(at);
       MKB.push(Object.assign({ i: f.i }, at)); const x = at.x + 20, y = at.y + 28 + 4 * Math.sin(GT * 3 + f.i), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
       G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
       L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
