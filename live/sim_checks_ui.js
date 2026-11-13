@@ -158,6 +158,14 @@
       if (P.focus === 'name' || P.pendName !== 'Ulf') out.push(`name: A on the die takes the field (${P.focus}, ${P.pendName})`);
       P.focus = above; put(P, ['ArrowDown'], []); if (P.focus !== 'name') out.push(`name: ↓ from the row above does not take the field (${P.focus})`);
       P.focus = 'dice'; put(P, ['ArrowLeft'], []); if (P.focus !== 'name') out.push(`name: ← on the die does not take the field (${P.focus})`); }
+    // a key that changes neither the focus nor a choice makes no interface sound (TASKS 1905)
+    { const P = toStart(), cls = SIMX.clsNow(P), dif = D.DIFF_ORDER, ids = D.classesReady(), ui = (keys, chars = []) => { P.ev = []; put(P, keys, chars); return P.ev.filter((e) => e.k === 'ui').length; };
+      const hush = [['the die, A', () => { P.focus = 'dice'; }, ['KeyA'], ['a']], ['the field, ←', () => { press(P, B(P, 'name')); }, ['ArrowLeft'], []],
+        ['the top row, ↑', () => { P.meta.diff = dif[0]; P.focus = 'dif:' + dif[0]; }, ['ArrowUp'], []], ['the last difficulty, →', () => { P.meta.diff = dif[dif.length - 1]; P.focus = 'dif:' + dif[dif.length - 1]; }, ['ArrowRight'], []],
+        ['the first class, ←', () => { P.meta.cls = ids[0]; P.focus = 'cls:' + ids[0]; }, ['ArrowLeft'], []], ['«В путь», →', () => { P.focus = 'go'; }, ['ArrowRight'], []]];
+      for (const [what, set, keys, chars] of hush) { set(); const n = ui(keys, chars); if (n) out.push(`start screen: ${what} changes nothing but sounds ${n} time(s)`); if (P.focus === 'name') put(P, ['Escape'], []); }
+      P.meta.cls = cls; P.focus = 'dice'; if (ui(['ArrowLeft']) !== 1 || P.focus !== 'name') out.push(`start screen: ← from the die into the field does not sound once (${P.focus})`);
+      put(P, ['Escape'], []); P.meta.diff = dif[0]; P.focus = 'dif:' + dif[0]; if (dif.length > 1 && (ui(['ArrowRight']) !== 1 || P.meta.diff !== dif[1])) out.push(`start screen: → on the difficulty does not sound once (${P.meta.diff})`); }
     { const P = toStart(), ids = UI.classes(P.meta).map((q) => q.id); step(P, Object.assign({ keys: [], moved: 1 }, mid(P, B(P, 'name'))));
       const lit = ids.includes(P.focus) ? P.focus : ids.includes(P.hover) ? P.hover : '';
       if (lit !== 'name') out.push(`name: the pointer over the field lights ${lit || 'nothing'}, not the field`); }
