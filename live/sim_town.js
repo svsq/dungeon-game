@@ -174,8 +174,8 @@
     const dUp = m.up ? Math.hypot(m.up.x - h.x, m.up.y - h.y) : 1e9;
     const fresh = S.t - (R.enteredT ?? -9) < 0.3;
     if (dUp < 56 && !fresh && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s') }); return; }
-      ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
-    const gt = gateNear(R); if (gt) { R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
+      const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }; if (enterFloor(S, R, R.floor - 1, undefined, 'up')) ev(S, e); return; }
+    const gt = gateNear(R); if (gt) { const was = R.portal; R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; return; } ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
     // out it is taken at once, with more a window to choose
     const cs = craftShut(R); if (cs) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.CAPTIVES[cs].shut }); return; }
@@ -192,11 +192,11 @@
     // the prompt shows the way out when one is in reach, so E takes it (TASKS 1600)
     const fk = folkNear(R), way = (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) || (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60); if (fk && !way) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
-    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
+    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor }; if (enterFloor(S, R, R.floor + 1)) ev(S, e); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (arenaSealed(R)) { const bz = R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0); ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s.2', { name: D.ENEMIES[bz.type].name }) }); return; }
       if (exitKind(R) === 'portal') { if (R.campaignWon) return; if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
-      ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); if ((RUN(R).chapters || []).some((c) => c.from === R.floor + 1) && !(R.chapSeen || {})[R.floor + 1]) R.leaving = 0.45; else enterFloor(S, R, R.floor + 1); return; }
+      const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor }; if ((RUN(R).chapters || []).some((c) => c.from === R.floor + 1) && !(R.chapSeen || {})[R.floor + 1]) { ev(S, e); R.leaving = 0.45; } else if (enterFloor(S, R, R.floor + 1)) ev(S, e); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) { openAltar(S, R, used); return; }
     const tz = SIMX.tossedNear(R); if (tz && !SIMX.takeItem(S, R, tz)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_items.stepDrops.s') });
