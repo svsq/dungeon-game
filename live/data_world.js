@@ -270,7 +270,13 @@
       // gap: how near he keeps; reach: how near the goal ends it; rig: his figure, a townsfolk rig (his own is TASKS 2006)
       captive: { w: 2, minF: 1, room: 'combat', ask: 1, goal: 1, near: 84, tag: 130, cage: 1, r: 11, spd: 150, gap: 64, fear: 150, hits: 3, cd: 0.9, reach: 90,
         off: 0.25, shards: [4, 1], rig: 'town_porter', lead: 1,
-        name: TXT('EVENTS.captive.name'), say: TXT('EVENTS.captive.say'), yes: TXT('EVENTS.captive.yes'), no: TXT('EVENTS.captive.no'), prompt: TXT('EVENTS.captive.prompt') } } };
+        name: TXT('EVENTS.captive.name'), say: TXT('EVENTS.captive.say'), yes: TXT('EVENTS.captive.yes'), no: TXT('EVENTS.captive.no'), prompt: TXT('EVENTS.captive.prompt') },
+      // the library (TASKS 368): no question, as reading costs nothing; E at its lectern opens one note of the floor's era out of the
+      // notes' own pool (sim_town.js libraryNote) and pays `xp` of the hero's level's need, so a room off the way is worth the walk even
+      // to a player who skips the lore. town: only in the run through the town, the one the notes are in; biomes: the built towns'
+      // eras, as shelves and a lectern have no place in a flooded cave or by the magma; shelves: at most this many new ones on its back wall
+      library: { w: 2, minF: 1, room: 'treasure', town: 1, biomes: ['dungeon', 'crypt', 'lava', 'arcane'], solid: 16, near: 70, tag: 84, xp: 0.15, shelves: 2,
+        name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

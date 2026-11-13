@@ -1809,6 +1809,16 @@
         for (let i = 0; i < 70; i++) SIM.step(S, { keys: [] }); R.msg = null; R.cam = [(h.x + E.px) / 2 - SCX.VW / 2, (h.y + E.py) / 2 - SCX.VH / 2]; }
       if (nm === 'captive_home' && E.st === 'on') { E.px = E.goal.x + 40; E.py = E.goal.y; R.hero.x = E.goal.x - 40; R.hero.y = E.goal.y + 10; SIM.step(S, { keys: [] }); for (let i = 0; i < 20; i++) SIM.step(S, { keys: [] }); R.cam = [E.goal.x - SCX.VW / 2, E.goal.y - SCX.VH / 2]; }
       states.push([nm, S]); }
+    // the library (TASKS 368) in the town's run: its shelves and lectern as come upon with the prompt, its note open, and after with the
+    // lesson's line and the motes off the pages
+    for (const [nm, st] of [['library_room', 0], ['library_read', 'read'], ['library_done', 'done']]) {
+      const S = mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+        for (let f = 1; f <= 8 && !E; f++) { SIM.enterFloor(S, R, f, { events: ['library'] }); E = (R.events || []).find((q) => q.id === 'library'); } if (!E) return;
+        R.en = []; R.msg = null; h.x = E.x + 40; h.y = E.y + 26; R.seen = R.seen.map(() => 1);
+        if (st) { R.enteredT = -9; SIM.step(S, { keys: ['KeyE'] }); SIM.step(S, { keys: [] }); }
+        if (st === 'done') { S.screen = 'play'; for (let i = 0; i < 40; i++) SIM.step(S, { keys: [] }); }
+        R.cam = [E.x - SCX.VW / 2, E.y - 60 - SCX.VH / 2]; });
+      if (S.run && (S.run.events || []).some((q) => q.id === 'library')) states.push([nm, S]); }
     for (const [nm, st] of [['unlit_door', 'door'], ['unlit_room', 'in'], ['unlit_map', 'map']]) { const S = darkS(st); if (S.run && (S.run.events || []).some((q) => q.id === 'dark')) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);

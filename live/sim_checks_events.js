@@ -34,9 +34,14 @@
     checkTrialGen(out);
     // (TASKS 363, 364) every event the pool draws comes on its own on some floor of each run it is for
     // (12 seeds since TASKS 366: with seven events in the pool the cave's fountain fell on none of the first 6 seeds' floors)
-    { const seen = {}; for (const [mode, o] of MODES) for (let sd = 1; sd <= 12; sd++) for (let f = 1; f <= Math.min(5, D.RUNS[mode].floors); f++)
-        for (const E of DG.genFloor((sd * 31 + f * 1013) >>> 0, f, Object.assign({ mode, runSeed: sd }, o)).events || []) seen[E.id + ' ' + mode] = 1;
-      for (const [id, P] of Object.entries(D.EVENTS.pool)) if (P.w > 0) for (const [mode] of MODES) if ((!P.modes || P.modes.includes(mode)) && !seen[id + ' ' + mode]) out.push(`events: the pool never draws ${id} in the ${mode} run`); }
+    // (TASKS 368: an event kept to the town's run or to some biomes is looked for only there, and never comes elsewhere)
+    { const seen = {}, run = (mode, o) => mode + (o.town ? ' (town)' : ''), biomes = {};
+      for (const [mode, o] of MODES) for (let sd = 1; sd <= 12; sd++) for (let f = 1; f <= Math.min(5, D.RUNS[mode].floors); f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, Object.assign({ mode, runSeed: sd }, o));
+        (biomes[run(mode, o)] = biomes[run(mode, o)] || new Set()).add(m.biome);
+        for (const E of m.events || []) { const P = D.EVENTS.pool[E.id]; seen[E.id + ' ' + run(mode, o)] = 1;
+          if ((P.town && !o.town) || (P.biomes && !P.biomes.includes(m.biome))) out.push(`events: ${E.id} drawn in the ${run(mode, o)} run on a ${m.biome} floor`); } }
+      for (const [id, P] of Object.entries(D.EVENTS.pool)) if (P.w > 0) for (const [mode, o] of MODES) { const k = run(mode, o);
+        if ((!P.modes || P.modes.includes(mode)) && (!P.town || o.town) && (!P.biomes || P.biomes.some((b) => biomes[k].has(b))) && !seen[id + ' ' + k]) out.push(`events: the pool never draws ${id} in the ${k} run`); } }
     for (const sd of [1, 2, 3]) for (let f = 1; f <= 4; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'magma', runSeed: sd }), sp = DG.specials(m);
       if (m.rooms.some((r) => r.hall && !sp.some((q) => q.src === 'hall' && q.room === r.id && q.id === r.hall))) out.push(`events: magma ${sd}/${f}: a hall missing from the floor's special rooms`);
       if (m.rooms.some((r) => r.type === 'shrine' && !sp.some((q) => q.src === 'altar' && q.room === r.id))) out.push(`events: magma ${sd}/${f}: the altar missing from the floor's special rooms`); }
@@ -287,5 +292,39 @@
       if (!k) { out.push('captive: no monster keeps the cage\'s key'); return; } const d0 = R.drops.length; R.keys = 0; k.hp = 0; SIMX.killEnemy(S, R, k); const p = R.drops.slice(d0).find((q) => q.kind === 'key');
       if (!p) out.push('captive: the keeper drops no key'); else { R.en = []; R.hero.x = p.x; R.hero.y = p.y; for (let i = 0; i < 240 && !(R.keys > 0); i++) { R.freeze = 0; S.screen = 'play'; step(S, { keys: [] }); } if (R.keys !== 1) out.push('captive: the keeper\'s key is not picked up'); } }
   }
-  Object.assign(SIMX, { checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay, checkHexPlay, checkFountainPlay, checkDicePlay, checkDarkPlay, checkCaptivePlay });
+  // the library (TASKS 368) in the town's run: a lectern on its spot that stands in the way, shelves on its back wall whose cells the
+  // way fields go round, the room's open floor still one piece. E asks nothing: it opens a plain note of the floor's era in the notes'
+  // window, puts it in the journal, pays its share of the level's need once and sends one `qevent`; it opens no more, and a save keeps
+  // it. Its book is never one lying unread on the floor; a series begun goes first; with the era all read a one-off comes again, and
+  // with nothing left at all there is no note, but the lesson is paid. It is never drawn in a cave or by the magma
+  function checkLibraryPlay(out) {
+    const P = D.EVENTS.pool.library, { S, R, E, key } = evRun('campaign', { town: 1 }, 'library'), tag = 'library';
+    if (!E) { out.push(`${tag}: no floor of 1–4 lays it asked for`); return; }
+    const m = R.map, h = R.hero, r = m.rooms[E.room], W = m.W, era = D.NOTES.era[m.biome], ofEra = (n) => n.id.split('_')[0] === era || (n.id.startsWith('pilot') && era === 'cellar');
+    const shelves = m.decor.filter((d) => d.n === 'bookshelf' && d.secret === undefined && DG.inRm(r, Math.floor(d.x / TILE), Math.floor(d.y / TILE)));
+    if (!shelves.length) out.push(`${tag}: no shelf in its room`);
+    if (shelves.some((d) => !m.block.includes(Math.floor(d.y / TILE) * W + Math.floor(d.x / TILE)))) out.push(`${tag}: a shelf's cell is left open to the way fields`);
+    if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the lectern does not stand in the way`);
+    { const blk = new Set(m.block), k0 = Math.floor(E.y / TILE) * W + Math.floor(E.x / TILE); blk.add(k0); const ok = (k) => DG.inRm(r, k % W, Math.floor(k / W)) && m.cells[k] === 1 && !blk.has(k);
+      const all = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (ok(y * W + x)) all.push(y * W + x);
+      const seen = new Set([k0 + W]), st = [k0 + W]; while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (ok(n) && !seen.has(n)) { seen.add(n); st.push(n); } } }
+      if (all.some((k) => !seen.has(k))) out.push(`${tag}: its shelves and lectern cut its floor in two`); }
+    S.meta.notes = []; h.xp = 0; const lvl = h.lvl, want = Math.round(Math.round(D.xpNeed(lvl) * P.xp) * SIMX.dif(R, 'xp')); S.ev.length = 0; key('KeyE');
+    const N = D.NOTES.byId[E.note], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'library');
+    if (S.screen !== 'note' || !N || !S.note || S.note.id !== E.note || N.kind !== 'note' || !ofEra(N)) out.push(`${tag}: E opens ${S.screen} with ${E.note}, not a note of the ${era}`);
+    if (!S.meta.notes.includes(E.note)) out.push(`${tag}: its note is not in the journal`);
+    if (h.lvl !== lvl || h.xp !== want || E.st !== 'done' || q.length !== 1) out.push(`${tag}: it pays ${h.xp} of ${want} experience, ends ${E.st} with ${q.length} qevent`);
+    S.screen = 'play'; key('KeyE'); if (S.screen === 'note' || h.xp !== want) out.push(`${tag}: a book read opens again or pays twice`);
+    { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.note !== E.note) out.push(`${tag}: a save forgets it was read`); }
+    const L = D.NOTES.list.filter((n) => n.kind === 'note' && ofEra(n)), pick = () => SIMX.libraryNote(S, R, E), d0 = R.drops.length, used0 = (R.notesUsed || []).slice();
+    { S.meta.notes = []; R.notesUsed = []; const a = pick(); R.drops.push({ id: R.nextId++, kind: 'note', note: a.id, x: 0, y: 0 }); const b = pick(); if (!b || b.id === a.id) out.push(`${tag}: its book is the note lying unread on the floor`); R.drops.length = d0; }
+    { const ch = L.find((n) => n.chain && n.part === 1); S.meta.notes = [ch.id]; const a = pick(); if (!a || !a.chain || a.part < 2) out.push(`${tag}: with a series begun it opens ${a && a.id}, not its next part`); }
+    { S.meta.notes = L.map((n) => n.id); R.notesUsed = []; const a = pick(); if (!a || a.chain) out.push(`${tag}: with the era all read it opens ${a && a.id}, not a one-off again`);
+      R.notesUsed = L.filter((n) => !n.chain).map((n) => n.id); if (pick()) out.push(`${tag}: with every note met it still finds one`);
+      E.st = 'idle'; delete E.note; S.screen = 'play'; h.xp = 0; SIMX.eventStart(S, R, E); if (S.screen === 'note' || E.note || h.xp !== want || !R.msg || R.msg.s !== TXT('EVENTS.library.empty', { n: want })) out.push(`${tag}: with nothing left to read it opens ${S.screen}, pays ${h.xp}`); }
+    S.meta.notes = []; R.notesUsed = used0;
+    for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= D.RUNS[mode].floors; f++) { const m2 = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, Object.assign({ mode, runSeed: sd }, o));
+      if ((m2.events || []).some((x) => x.id === 'library') && (!o.town || !P.biomes.includes(m2.biome))) out.push(`${tag}: drawn in the ${mode}${o.town ? ' (town)' : ''} run on a ${m2.biome} floor ${f}`); }
+  }
+  Object.assign(SIMX, { checkLibraryPlay, checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay, checkHexPlay, checkFountainPlay, checkDicePlay, checkDarkPlay, checkCaptivePlay });
 })(typeof window !== 'undefined' ? window : globalThis);

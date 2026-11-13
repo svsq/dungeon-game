@@ -205,11 +205,48 @@
       const keeper = pack.find((e) => e.elite) || pack[0], at = keeper && eventSpot(m, r); if (!at) return null;
       const tx = Math.floor(at[0] / TILE), ty = Math.floor(at[1] / TILE); if ((m.doors || []).some((d) => d.cells.some(([x, y]) => Math.abs(x - tx) <= 4 && Math.abs(y - ty) <= 4))) return null;
       for (let y = ty - 3; y <= ty + 3; y++) for (let x = tx - 3; x <= tx + 3; x++) if (!inRm(r, x, y) && m.cells[y * m.W + x] !== 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => inRm(r, x + a, y + b))) return null;
-      keeper.key = 'cage'; return at; } };
-  const evOk = (E, depth, mode) => depth >= (E.minF || 1) && depth <= (E.maxF ?? 1e9) && (!E.modes || E.modes.includes(mode));
+      keeper.key = 'cage'; return at; },
+    // the library (TASKS 368): its lectern on the spot, and up to `shelves` bookshelves against the back wall where the wall above is
+    // whole (no way in or secret behind them), nothing hangs or stands there, and they keep clear of the lectern. A room with none of
+    // them and none of its own is no library. Each shelf's cell is blocked, as a furnished one's is, so the way fields lead round it
+    library: (m, r) => { const W = m.W, at = eventSpot(m, r), P = D.EVENTS.pool.library; if (!at) return null;
+      const hide = new Set((m.secrets || []).flatMap((q) => q.wall.concat(q.front || []).map(([x, y]) => y * W + x)));
+      const sx = Math.floor(at[0] / TILE), sy = Math.floor(at[1] / TILE), y0 = r.y * TILE + 22, half = D.PROP_W.bookshelf / 2, busy = new Set(m.block || []);
+      for (const o of [...m.chests, ...m.pots, ...m.shrines, ...(m.webs || []), ...(m.ambush || []), ...m.traps]) busy.add(Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE));
+      const own = m.decor.filter((d) => d.n === 'bookshelf' && d.secret === undefined && inRm(r, Math.floor(d.x / TILE), Math.floor(d.y / TILE))), put = [];
+      // (a secret's wall or the floor before it is never hidden behind a shelf)
+      const clear = (X, self, Y = y0, wall = 1) => { const x = Math.floor(X / TILE), y = Math.floor(Y / TILE); if (x - 1 < r.x || x + 1 > r.x + r.w - 1 || (wall && Math.abs(x - sx) <= 3 && sy - r.y < 3)) return false;
+        for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) if (hide.has((y + j) * W + x + i)) return false;
+        if (wall) for (let i = -1; i <= 1; i++) if (m.cells[(r.y - 1) * W + x + i] !== 0) return false;
+        if (m.torches.some((t) => Math.abs(t.x - X) < half + 8 && Math.abs(t.y - Y) < 70)) return false;
+        return !m.decor.concat(put).some((d) => d !== self && Math.abs(d.x - X) < half + (D.PROP_W[d.n] || 40) / 2 + 8 && Math.abs(d.y - Y) < 60); };
+      const fits = (x, y = r.y, wall = 1) => { if (x - 1 < r.x || x + 1 > r.x + r.w - 1) return false;
+        for (let i = -1; i <= 1; i++) { const k = y * W + x + i; if (m.cells[k] !== 1 || busy.has(k) || m.cells[k + W] !== 1 || !inRm(r, x + i, y)) return false; }
+        return clear(x * TILE + TILE / 2, null, y * TILE + 22, wall); };
+      // the open floor of the room stays one piece with these cells taken (a free-standing shelf must not wall off a corner)
+      const whole = (ks) => { const blk = new Set([...busy, ...ks, Math.floor(at[1] / TILE) * W + Math.floor(at[0] / TILE)]), ok = (k) => inRm(r, k % W, Math.floor(k / W)) && m.cells[k] === 1 && !blk.has(k);
+        let n = 0, k0 = -1; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (ok(y * W + x)) { n++; if (k0 < 0) k0 = y * W + x; }
+        const seen = new Set([k0]), st = [k0]; while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) if (ok(k + d) && !seen.has(k + d)) { seen.add(k + d); st.push(k + d); } } return seen.size === n; };
+      // a room furnished against its back wall already (racks, statues, cages) has no wall left: the library takes that furniture's
+      // place, its shelves where the room's own pieces stood, when a shelf's width fits there
+      const back = m.decor.filter((d) => d.solid && d.secret === undefined && Math.abs(d.y - y0) < 4 && /^(rack|statue|cage|pillar|crystal)$/.test(d.n) && inRm(r, Math.floor(d.x / TILE), r.y)), swap = [];
+      const xs = []; for (let x = r.x + 2; x <= r.x + r.w - 3; x++) xs.push(x); xs.sort((a, b) => Math.abs(a - sx) - Math.abs(b - sx) || a - b);
+      for (const x of xs) { if (put.length >= P.shelves) break; if (fits(x)) put.push({ x: x * TILE + TILE / 2, y: y0, n: 'bookshelf', solid: 1, r: r.id, lib: 1 }); }
+      back.sort((a, b) => Math.abs(a.x - at[0]) - Math.abs(b.x - at[0]));
+      for (const d of back) { if (put.length + swap.length >= P.shelves) break; if (clear(d.x, d) && !swap.some((o) => Math.abs(o.x - d.x) < 2 * half + 8)) swap.push(d); }
+      // a room with no back wall to spare: two shelves stand free on the floor either side of the lectern, a reading corner
+      // (or, short of room for two, one behind it)
+      const stand = (L) => { if (put.length || swap.length || own.length || !L.every(([x, y]) => fits(x, y, 0)) || !whole(L.map(([x, y]) => y * W + x))) return;
+        for (const [x, y] of L) put.push({ x: x * TILE + TILE / 2, y: y * TILE + 22, n: 'bookshelf', solid: 1, r: r.id, lib: 1 }); };
+      for (const dy of [-1, 0]) stand([[sx - 3, sy + dy], [sx + 3, sy + dy]]); stand([[sx, sy - 2]]);
+      if (!put.length && !swap.length && !own.length) return null;
+      for (const d of swap) { d.n = 'bookshelf'; d.lib = 1; }
+      for (const d of put) { m.decor.push(d); const k = Math.floor(d.y / TILE) * W + Math.floor(d.x / TILE); if (!m.block.includes(k)) m.block.push(k); }
+      return at; } };
+  const evOk = (E, ST, mode, opts) => ST.depth >= (E.minF || 1) && ST.depth <= (E.maxF ?? 1e9) && (!E.modes || E.modes.includes(mode)) && (!E.town || !!opts.town) && (!E.biomes || E.biomes.includes(ST.biome));
   function markEvents(m, ST, opts, seed) {
     const EV = D.EVENTS, pool = EV.pool, mode = opts.mode || 'campaign', force = (opts.events || []).filter((id) => pool[id]);
-    const draw = Object.entries(pool).filter(([id, E]) => E.w > 0 && evOk(E, ST.depth, mode) && !force.includes(id));
+    const draw = Object.entries(pool).filter(([id, E]) => E.w > 0 && evOk(E, ST, mode, opts) && !force.includes(id));
     if (!force.length && !draw.length) return;
     const Er = mul32((seed ^ 0x3610) >>> 0), taken = specials(m).length;
     let want = Math.min(EV.n[0] + (Er() < EV.two ? 1 : 0), Math.max(0, EV.cap - taken)); want = Math.max(want, force.length);

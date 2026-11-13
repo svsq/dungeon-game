@@ -296,8 +296,8 @@
   // a one-off note comes once a run; a boss's notes only on its floors; picked by the run's seed so the sim's own random is untouched
   function notePlace(S, R) { const f = R.floor, m = R.map, done = R.notesDone || (R.notesDone = {}), era = D.NOTES.era[m.biome]; if (!R.viaTown || R.mode !== 'campaign' || R.town || done[f] || !era) return; done[f] = 1;
     let a = qhash((R.seed >>> 0) * 131 + f * 7877); const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, shuffle = (L) => { const o = L.slice(); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
-    const read = new Set(S.meta.notes || []), next = (n) => D.NOTES.chains[D.NOTES.chainOf(n)].findIndex((id) => !read.has(id)) + 1, here = new Set();
-    const used = R.notesUsed || (R.notesUsed = []), fits = (n) => !here.has(n.id) && (n.chain ? n.part === next(n) : !used.includes(n.id)), begun = (n) => !!n.chain && n.part > 1, ofEra = (n) => n.id.split('_')[0] === era || (n.id.startsWith('pilot') && era === 'cellar');
+    const read = new Set(S.meta.notes || []), next = (n) => noteNext(read, n), here = new Set();
+    const used = R.notesUsed || (R.notesUsed = []), fits = (n) => !here.has(n.id) && (n.chain ? n.part === next(n) : !used.includes(n.id)), begun = (n) => !!n.chain && n.part > 1, ofEra = (n) => noteOfEra(n, era);
     const put = (n, rm, sec) => { here.add(n.id); if (!n.chain) used.push(n.id); const clear = (x, y) => !R.drops.some((p) => p.kind === 'note' && Math.hypot(p.x - x, p.y - y) < 90), inRm = (d) => d.x >= rm.x * TILE && d.x < (rm.x + rm.w) * TILE && d.y >= rm.y * TILE && d.y < (rm.y + rm.h + 1) * TILE;
       const seat = m.decor.filter((d) => D.NOTES.lift[d.n] && d.secret === undefined && d.sec === sec && inRm(d) && clear(d.x, d.y + 1)); let x, y, lift = 0;
       if (seat.length && r() < 0.6) { const d = seat[Math.floor(r() * seat.length)]; x = d.x; y = d.y + 1; lift = D.NOTES.lift[d.n]; }
@@ -310,6 +310,17 @@
     out.forEach((o, i) => { if (rooms.length) put(o, rooms[i % rooms.length]); });
     (m.secrets || []).forEach((q, i) => { const o = first((v) => v.kind === 'secret' && ofEra(v)); if (o && r() < 0.6) put(o, m.rooms[q.room], i); });
     const hosted = (m.secrets || []).filter((q) => m.rooms[q.host]), hq = hosted.length && r() < 0.7 ? hosted[Math.floor(r() * hosted.length)] : null, hn = hq && first((v) => v.kind === 'hint' && v.how === SIMX.secretHow(hq)); if (hn) put(hn, m.rooms[hq.host], hq.parent); }
+  const noteNext = (read, n) => D.NOTES.chains[D.NOTES.chainOf(n)].findIndex((id) => !read.has(id)) + 1;
+  const noteOfEra = (n, era) => n.id.split('_')[0] === era || (n.id.startsWith('pilot') && era === 'cellar');
+  // the library's book (TASKS 368), by the notes' own rules: a plain note of the floor's era, the next part of a series or a one-off
+  // not met in this run, and none lying unread on the floor. A series begun goes first, then what the player has never read; once
+  // the era holds nothing unread, a one-off read in an earlier run comes again, as a book is read twice; with nothing left at all,
+  // none (the library still teaches). Picked by the run's seed, the floor and the room, so the sim's own random is untouched
+  function libraryNote(S, R, E) { const era = D.NOTES.era[R.map.biome]; if (!era) return null;
+    const read = new Set(S.meta.notes || []), used = R.notesUsed || [], lying = new Set(R.drops.filter((p) => p.kind === 'note' && !p.got).map((p) => p.note));
+    const L = D.NOTES.list.filter((n) => n.kind === 'note' && noteOfEra(n, era) && !lying.has(n.id) && (n.chain ? n.part === noteNext(read, n) : !used.includes(n.id)));
+    const pick = (G) => G.length ? G[qhash((R.seed >>> 0) * 131 + R.floor * 7877 + E.room * 389 + 0x368) % G.length] : null;
+    return pick(L.filter((n) => n.chain && n.part > 1)) || pick(L.filter((n) => !read.has(n.id))) || pick(L); }
   const nickOf = (type, a) => { const G = D.ELITE_NAMES[D.ELITE_GROUP[type]]; if (!G) return null; const n = G.names[a % G.names.length]; a = qhash(a + 0x9e3779b9); return n[0] + ' ' + G.adj[a % G.adj.length][n[1] === 'f' ? 1 : 0]; };
   const nickHash = (R, e) => qhash((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811);
   function nameElites(R) { for (const e of R.en) { if (!e.elite || e.title || e.nm || D.BOSSES[e.type]) continue; const s = nickOf(e.type, nickHash(R, e)); if (s) e.nm = s; } }
@@ -561,7 +572,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -700,6 +700,13 @@
         Y.push([E.y + 14, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); drawProp(open ? 'cage_big_open' : 'cage_big', X, Y0, { dy: open ? 8 : 0 }); }]); }
       if (E.st === 'on' && vis(E.px, E.py)) { const sp = Math.hypot(E.vx, E.vy), face = sp > 8 ? (E.vx < 0 ? -1 : 1) : h.x < E.px ? -1 : 1, scared = sp < 8 && R.en.some((e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'home' && Math.hypot(e.x - E.px, e.y - E.py) < P.fear);
         drawFolkRig({ i: 95, y: E.py, dist: E.dist, vx: E.vx, vy: E.vy }, null, P.rig, sx(E.px), sy(E.py), 64, face, GT, Y, { crouch: scared ? 12 : 0, headR: scared ? 0.12 : 0 }); } }
+    // the library (TASKS 368): the enchanter's lectern with its book open and a warm glow on the pages until it is read; read, the glow
+    // goes and a few pale motes lift off the pages. The town's lectern is borrowed; its own art would be a task of [А]
+    for (const E of R.events || []) { if (E.id !== 'library' || !vis(E.x, E.y)) continue; const on = E.st === 'idle', a = E.st === 'done' && E.t1 !== undefined ? GT - E.t1 : 9;
+      Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + 8, bk = Yb - 0.72 * SZ('lectern_tw')[1];
+        L.shadow(X, Yb, 20, 6, 0.5); drawProp('lectern_tw', X, Yb, {});
+        if (on) L.glow(X, bk, 30, [1, 0.86, 0.55], 0.16 + 0.04 * Math.sin(t * 1.6), 2.4);
+        if (a < 1.6) for (let j = 0; j < 5; j++) { const q = Math.min(1, a / 1.6 + j * 0.04); L.puff(X + (j - 2) * 6 + Math.sin(a * 3 + j) * 4, bk - 8 - 50 * q, 3 + 2 * q, [1, 0.92, 0.7], 0.6 * (1 - q), 31 + j); } }]); }
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in

@@ -93,7 +93,13 @@
       if (E.goal.k === 'shop' && R.shop) { for (const g of R.shop.goods) g.price = Math.max(1, Math.round(g.price * (1 - P.off))); R.shop.off = P.off; R.msg = { s: TXT('EVENTS.captive.shop'), t: S.t, d: 5 }; ev(S, { k: 'captive', x: E.px, y: E.py, gone: 1, home: 1 }); return; }
       const n = Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R)); SIMX.giveShards(S, R, n, E.px, E.py - 40, ''); R.msg = { s: TXT('EVENTS.captive.up', { n }), t: S.t, d: 5 };
       ev(S, { k: 'captive', x: E.px, y: E.py, gone: 1, home: 1 }); } };
-  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD, hex: HEX, fountain: FOUNTAIN, dice: DICE, dark: DARK, captive: CAPTIVE };
+  // the library (TASKS 368): its book is chosen as it is opened, by what the player has read by then, and kept on the event, so the
+  // journal and a reload agree; a one-off read here is the run's, as one picked up off the floor is
+  const LIBRARY = {
+    start(S, R, E) { const n = SIMX.libraryNote(S, R, E); if (!n) return; E.note = n.id; if (!n.chain) (R.notesUsed || (R.notesUsed = [])).push(n.id); SIMX.openNote(S, R, { note: n.id, x: E.x, y: E.y }); },
+    reward(S, R, E) { const n0 = Math.round(D.xpNeed(R.hero.lvl) * D.EVENTS.pool.library.xp), n = Math.round(n0 * SIMX.dif(R, 'xp')); SIMX.gainXp(S, R, n0);
+      R.msg = { s: E.note ? TXT('EVENTS.library.done', { n }) : TXT('EVENTS.library.empty', { n }), t: S.t, d: 5 }; } };
+  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD, hex: HEX, fountain: FOUNTAIN, dice: DICE, dark: DARK, captive: CAPTIVE, library: LIBRARY };
   const lootK = (R, e) => { const E = e.room !== undefined && e.room >= 0 && eventsOf(R).find((q) => q.id === 'dark' && q.room === e.room); return E ? D.EVENTS.pool.dark.loot : 1; };
   // the cells the minimap leaves out: the dark rooms' (TASKS 365), their wings too
   function darkMask(R) { const m = R.map, out = new Set();
