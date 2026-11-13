@@ -781,10 +781,16 @@
     // stats, and under them what it all adds up to
     L.solid(Lp.x + 44, Lp.y + 444, Lp.w - 88, 2, BRASS, 0, 0, 0, 0.7);
     KIT.light('inv_pts', h.pts > 0 ? TXT('hud.inv.7', { pts: h.pts }) : TXT('hud.inv.8'), Lp.x + 50, Lp.y + 462, { size: 24, col: h.pts > 0 ? C.gold : '#cdb89a' });
-    D.STATS.forEach((s, i) => { const b = U.r.find((q) => q.id === 'stat:' + s.k), y = b.y + b.h / 2;
-      KIT.light('st_n' + i, s.name, Lp.x + 50, y, { size: 26, col: '#cdb89a' }); KIT.light('st_v' + i, h.base[s.k] + (st[s.k] - h.base[s.k] ? ' (+' + (st[s.k] - h.base[s.k]) + ')' : ''), Lp.x + 150, y, { size: 26 });
+    // the stats as a ledger's rows, as on ref_ui_stats_b (TASKS 1915): the name, a dotted leader across the row and the value at its
+    // right end by the «+», a thin rule under each, so the row spans the panel instead of stopping short of its middle
+    D.STATS.forEach((s, i) => { const b = U.r.find((q) => q.id === 'stat:' + s.k), y = b.y + b.h / 2, vr = (h.pts > 0 ? b.x - 16 : b.x + b.w) - 4;
+      const add = st[s.k] - h.base[s.k], vs = String(h.base[s.k]), as = add ? ' (+' + add + ')' : '', aw = as ? lw('st_a' + i, as, { size: 22 }) : 0, vw = lw('st_v' + i, vs, { size: 26 });
+      const nw = KIT.light('st_n' + i, s.name, Lp.x + 50, y, { size: 26, col: '#cdb89a' });
+      KIT.light('st_v' + i, vs, vr - aw - vw, y, { size: 26 }); if (as) KIT.light('st_a' + i, as, vr - aw, y + 1, { size: 22, col: '#8fd98a' });
+      for (let x = Lp.x + 50 + nw + 14; x < vr - aw - vw - 16; x += 12) L.solid(Math.round(x), y + 7, 3, 3, [0.80, 0.72, 0.60], 0, 0, 0, 0.45);
+      L.solid(Lp.x + 50, b.y + b.h + 3, vr - Lp.x - 50, 1, BRASS, 0, 0, 0, 0.3);
       if (h.pts > 0) { KIT.cell('st_b' + i, b.x, b.y, b.w, KIT.st(S, b.id)); KIT.light('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); }
-      const tip = () => statGain(S, h, s.k); tipAt(Lp.x + 44, b.y - 4, 236, b.h + 8, s.full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, s.full, tip); });
+      const tip = () => statGain(S, h, s.k); tipAt(Lp.x + 44, b.y - 4, vr - Lp.x - 40, b.h + 8, s.full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, s.full, tip); });
     const draft = h.draft || {}, rst = (id, on) => { if (on) KIT.button('inv_' + id, Object.assign({}, U.r.find((q) => q.id === id), { size: 22 }), KIT.st(S, id)); };
     rst('reset:st', Object.values(draft.st || {}).some((n) => n > 0));
     const pct = (v) => (v > 0 ? '+' : '') + nf(v) + '%', num = nf;
