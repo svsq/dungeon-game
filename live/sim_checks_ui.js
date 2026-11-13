@@ -224,6 +224,10 @@
     else if (lit === 'next' && S.screen !== 'play') out.push(`finish: Enter does not press the lit ${lit} (${S.screen})`); }
   // an ability card's rank text, however many lines it wraps to, keeps 22 px clear of the fork line, the fork line of the cost, and
   // all of them stay under the rank's line and inside the card (TASKS 2001)
+  // TASKS 1994: a likeness of any shape, from a narrow child to a squat counter, stays inside the talk window's dark frame
+  function checkTalkFace(out) { const U = UI.talk(null), F = U.F;
+    for (const [sw, sh] of [[292, 620], [719, 864], [1200, 300], [100, 1500]]) { const f = U.face(sw, sh);
+      if (f.x < F.x || f.y < F.y || f.x + f.w > F.x + F.w || f.y + f.h > F.y + F.h) out.push(`talk: a ${sw}×${sh} likeness leaves its frame (${[f.x, f.y, f.w, f.h].map(Math.round)})`); } }
   function checkAbCard(out) {
     const c = UI.inv().r.find((q) => q.id.startsWith('ab:'));
     for (const split of [true, false]) for (const fork of [true, false]) for (let n = 1; n <= 4; n++) { const Y = UI.abCard(c.h, n, split, fork), tag = `ability card: ${n} line(s), ${split ? 'split' : 'whole'}, ${fork ? 'fork' : 'no fork'}`;
@@ -231,7 +235,7 @@
       if (fork && (Y.fork - Y.last < 22 || Y.cost - Y.fork < 22)) out.push(`${tag}: the fork line at ${Y.fork} crowds the text (${Y.last}) or the cost (${Y.cost})`);
       if (!fork && Y.cost - Y.last < 22) out.push(`${tag}: the text (${Y.last}) reaches the cost (${Y.cost})`);
       if (Y.cost > c.h - 20) out.push(`${tag}: the cost leaves the card`); } }
-  function checkReview57(out) { checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
+  function checkReview57(out) { checkTalkFace(out); checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
   // TASKS 1988: Shift+click asks how many of a stack and the part rides the pointer to the next click, Shift+right click takes half; the
   // total never changes, no stack goes past its limit, a save keeps both parts; the merchant sells and buys the number asked, at its price
   function checkSplit(out) {

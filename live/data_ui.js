@@ -223,7 +223,11 @@
       if (T && T.act && last) ids.push('act'); if (T && T.craft && !T.menu && !T.inTopic) ids.push('craft'); if (T && T.topics && !T.menu && !T.inTopic) ids.push('talk');
       const gap = 20, w = Math.min(290, Math.floor((P.w - 340 - gap * (ids.length - 1)) / ids.length)), label = { craft: TXT('UI.talk.label'), talk: TXT('UI.talk.talk') };
       const r = ids.map((id, i) => ({ id, label: label[id] || '', on: true, x: P.x + P.w - 40 - w - i * (w + gap), y: P.y + P.h - 92, w, h: 64 }));
-      if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 })); return { P, r }; },
+      if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 }));
+      // the likeness stands on its frame's floor, 230 tall where the frame lets it, and shrinks to keep a 10 px margin on every side (TASKS 1994)
+      const F = { x: P.x + 34, y: P.y + 44, w: 232, h: P.h - 88 }, pad = 10,
+        face = (sw, sh) => { const k = Math.min(230 / sh, (F.w - 2 * pad) / sw, (F.h - 2 * pad) / sh), w = sw * k, h = sh * k; return { x: F.x + F.w / 2 - w / 2, y: F.y + F.h - pad - h, w, h }; };
+      return { P, r, F, face }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
     // six rows, one per giver, leave the bottom to the close button

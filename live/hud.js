@@ -1464,8 +1464,8 @@
   function talk(S, R, t) {
     const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = T.role === 'merchant' ? 'merchant' : 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
     parch('talk', P, true);
-    panel('tk_frame', P.x + 34, P.y + 44, 232, P.h - 88, { r: 4, c0: [0.09, 0.07, 0.07] });
-    const [sw, sh] = SZ(nm), k = 230 / sh; L.sprite(nm, P.x + 150 - sw * k / 2, P.y + P.h - 30 - sh * k, { w: sw * k, h: sh * k });
+    panel('tk_frame', U.F.x, U.F.y, U.F.w, U.F.h, { r: 4, c0: [0.09, 0.07, 0.07] });
+    { const f = U.face(...SZ(nm)); L.sprite(nm, f.x, f.y, { w: f.w, h: f.h }); }
     lab('tk_n', FD.name, P.x + 300, P.y + 46, { size: 32, col: INK.r });
     lab('tk_j', FD.job, P.x + 300, P.y + 82, { size: 19, col: INK.d });
     wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 122, P.w - 360, 28, INK.t, INK.r);
