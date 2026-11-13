@@ -70,6 +70,7 @@ app.whenReady().then(() => {
   ipcMain.on('set-full', (e, on) => { if (e.sender === win.webContents && win.isFullScreen() !== on) win.setFullScreen(on); });
   ipcMain.on('quit', (e) => { if (e.sender === win.webContents) app.quit(); });
   ipcMain.on('boot-log', (e, s) => { if (e.sender === win.webContents) log('page: ' + String(s).slice(0, 2000)); });
+  require('./update')(win, log);
   app.on('second-instance', () => { if (win.isMinimized()) win.restore(); win.focus(); });
 });
 
