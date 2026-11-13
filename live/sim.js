@@ -113,7 +113,7 @@
   // has already filled; at replays the attract demo into its own cache). The render takes nothing else from SIM but constants
   root.SIM.Q = {
     depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
-    noteNear, captiveNear, eventNear: SIMX.eventNear, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
+    noteNear, captiveNear, eventNear: SIMX.eventNear, darkMask: SIMX.darkMask, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, crackSpan: SIMX.crackSpan, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, typing: SIMX.typing, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot, talkWalk: SIMX.talkWalk, talkFirst: SIMX.talkFirst, boardRows: SIMX.boardRows, legShown };
   Object.assign(SIMX, {

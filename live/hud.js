@@ -35,7 +35,7 @@
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
   const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
   // an event of the floor not done yet (TASKS 2002, R-12, R-35) has its mark once seen, and its line while one is seen
-  const EVENT_LEG = ['event', TXT('EVENT_LEG')], evSeen = (R) => (R.events || []).filter((E) => E.st !== 'done' && R.seen[Math.floor(E.y / TILE) * R.map.W + Math.floor(E.x / TILE)]);
+  const EVENT_LEG = ['event', TXT('EVENT_LEG')], evSeen = (R) => (R.events || []).filter((E) => E.st !== 'done' && !D.EVENTS.pool[E.id].hide && R.seen[Math.floor(E.y / TILE) * R.map.W + Math.floor(E.x / TILE)]);
   // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
   // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1863 з)
@@ -351,7 +351,7 @@
     const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
     if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, SIM.Q.shopShut(R) ? TXT('hud.world.shut') : TXT('hud.world.6')];
     const noteP = SIM.Q.noteNear(R); if (noteP) pr = [noteP.x, noteP.y - 40, TXT('hud.world.note')];
-    const evP = SIM.Q.eventNear(R); if (evP) pr = [evP.x, evP.y - 70, D.EVENTS.pool[evP.id].prompt];
+    const evP = SIM.Q.eventNear(R); if (evP) pr = [evP.x, evP.y - (D.EVENTS.pool[evP.id].tag || 70), D.EVENTS.pool[evP.id].prompt];
     const capP = SIM.Q.captiveNear(R); if (capP) pr = [capP.x, capP.y - 122, TXT('hud.world.captive')];
     if (SIM.Q.craftShut(R)) pr = [h.x, h.y - 110, TXT('hud.world.note')];
     const dr = SIM.Q.doorNear(R, 64); if (dr) { const lk = SIM.Q.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? TXT('hud.world.7') : lk.kind === 'key' ? (R.keys > 0 ? TXT('hud.world.8') : TXT('hud.world.9')) : TXT('hud.world.10')]; }
@@ -605,7 +605,8 @@
       lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14, y + 22, { size: 20, col: done ? '#8fd98a' : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
-    const hid = SIM.Q.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
+    // (a dark room, TASKS 365, is left off the map: its cells read as rock, its way in as a dead end)
+    const hid = new Set([...SIM.Q.secretMask(m), ...SIM.Q.darkMask(R)]), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
@@ -627,7 +628,7 @@
     L.sprite('minimap', px, py, { w: mw, h: mh });
     const ox = cut.x * TILE, oy = cut.y * TILE;
     const mark = (x, y, id, s) => icon_(id, px + (x - ox) / TILE * k, py + (y - oy) / TILE * k, s);
-    for (const c of R.chests) if (!c.open && !SIM.Q.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
+    for (const c of R.chests) if (!c.open && !SIM.Q.hidden(m, c) && !hid.has(Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
     for (const e of R.en) if (!!D.BOSSES[e.type] && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
     if (SIM.Q.exitKind(R, m.floor) !== null && R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
@@ -1570,7 +1571,7 @@
     const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], U = D.UI.event(), P = U.P;
     dim(0.6); KIT.panel('event', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('ev_t', W / 2, P.y + 16, 460, P0.name, { h: 76, size: 36 });
-    wrapLab('ev_s', P0.say, P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
+    wrapLab('ev_s', E.stake !== undefined ? P0.say.replace('{n}', E.stake) : P0.say, P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
     KIT.button('ev_yes', Object.assign({}, U.r[0], { label: P0.yes }), askSt(S, U, 'evYes'));
     KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
     KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });

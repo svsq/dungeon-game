@@ -1783,6 +1783,25 @@
       R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; });
     for (const [nm, id, st, fate] of [['trial_ask', 'trial', 'ask'], ['blood_room', 'blood', 0], ['blood_ask', 'blood', 'ask'], ['blood_done', 'blood', 'done'], ['hex_room', 'hex', 0], ['hex_ask', 'hex', 'ask'], ['hex_done', 'hex', 'done'],
       ['fountain_room', 'fountain', 0], ['fountain_ask', 'fountain', 'ask'], ['fountain_heal', 'fountain', 'done', 'heal'], ['fountain_bless', 'fountain', 'done', 'bless'], ['fountain_hex', 'fountain', 'done', 'hex']]) { const S = evS(id, st, fate && ((R, E) => { E.fate = fate; R.hero.hp = 20; })); if (S.run && (S.run.events || []).some((q) => q.id === id)) states.push([nm, S]); }
+    // the goblin's table (TASKS 365): the table and its goblin as come upon, the question naming the stake, each of the three throws;
+    // and a hero short of the stake told so
+    for (const [nm, st, fate, gold] of [['dice_room', 0], ['dice_ask', 'ask'], ['dice_lose', 'done', 'lose'], ['dice_win', 'done', 'win'], ['dice_jack', 'done', 'jack'], ['dice_broke', 'ask', 0, 3]]) {
+      const S = evS('dice', st, (R, E) => { R.hero.gold = gold ?? 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.fate = fate; });
+      // (past the winnings' flight into the gold counter: caught on its way in, a number of three wide stood over the counter's edge)
+      if (st === 'done' && S.run) for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); if (S.run && (S.run.events || []).some((q) => q.id === 'dice')) states.push([nm, S]); }
+    // the dark room (TASKS 365), its pack kept: from just outside its way in, inside it with the pack round the hero's lamp, and the
+    // minimap in the pause with the floor all seen and the room left off it
+    const darkS = (stage) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+      for (let f = 2; f <= 5 && !E; f++) { SIM.enterFloor(S, R, f, { events: ['dark'] }); E = (R.events || []).find((q) => q.id === 'dark'); } if (!E) return;
+      const m = R.map, r = m.rooms[E.room]; R.msg = null; h.ifr = 1e9; R.seen = R.seen.map(() => 1); for (const e of R.en) if (e.room === E.room) { e.st = 'idle'; } else { e.hp = 0; e.deadT = -99; }
+      R.en = R.en.filter((e) => e.room === E.room); h.x = E.x + 50; h.y = E.y + 30;
+      if (stage === 'door') { let best = null, bd = 1e9; for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (DUNGEON.inRm(r, x, y) || m.cells[y * m.W + x] !== 1) continue;
+          const d = Math.min(...[[r.x - 1, y], [r.x + r.w, y], [x, r.y - 1], [x, r.y + r.h]].map(([a, b]) => Math.abs(a - x) + Math.abs(b - y))); const dd = Math.hypot(x * TILE - E.x, y * TILE - E.y) + (d > 1 ? 1e4 : 0); if (dd < bd) { bd = dd; best = [x, y]; } }
+        if (best) { h.x = best[0] * TILE + 16; h.y = best[1] * TILE + 16; } }
+      else SIM.step(S, { keys: [] });
+      if (stage === 'map') { R.en = []; S.ev.length = 0; S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; }
+      if (stage !== 'in') R.msg = null; R.cam = [(h.x + E.x) / 2 - SCX.VW / 2, (h.y + E.y) / 2 - SCX.VH / 2]; });
+    for (const [nm, st] of [['unlit_door', 'door'], ['unlit_room', 'in'], ['unlit_map', 'map']]) { const S = darkS(st); if (S.run && (S.run.events || []).some((q) => q.id === 'dark')) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
     states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; S.focus = 'stay'; })]);

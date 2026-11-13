@@ -1,7 +1,7 @@
 // live/sim_events.js — the event rooms (R-12, TASKS 361): a floor's events (R.events, from map.events), E at an event's spot, its
 // yes/no question, its rule every step and its end. One of the sim's files (ARCHITECTURE.md §4.2).
 (function (root) {
-  const SIMX = root.SIMX, { D, TILE, ev } = SIMX;
+  const SIMX = root.SIMX, { D, DG, TILE, ev } = SIMX;
   // a rule per entry of data.js EVENTS.pool, every part optional: setup(R, E) as its floor is built; start(S, R, E) on «yes» (on E with
   // no question); step(S, R, E) every step while it runs; reward(S, R, E) as it ends. With no step it ends as it starts; a rule with a
   // step ends it by eventDone. The probe is the checks' and the QA's: never drawn (w 0), it ends at once
@@ -49,7 +49,30 @@
       else if (E.fate === 'bless') { h.bless = 1; h.blessTo = Math.max(h.blessTo || 0, R.floor); ev(S, { k: 'bless', x: h.x, y: h.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); }
       else { E.hex = 1; ev(S, { k: 'curse', x: h.x, y: h.y - 40 }); }
       R.msg = { s: E.fate === 'heal' ? TXT('EVENTS.fountain.heal') : E.fate === 'bless' ? TXT('EVENTS.fountain.bless') : TXT('EVENTS.fountain.hex'), t: S.t, d: 4 }; } };
-  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD, hex: HEX, fountain: FOUNTAIN };
+  // the goblin's table (TASKS 365): the stake is set as the floor is built, so the question can name it; with less gold than that the
+  // goblin asks nothing. The throw falls on the run's dice at «yes» (a save holds them), as the fountain's fate does
+  const DICE = {
+    setup(R, E) { const P = D.EVENTS.pool.dice; E.stake = Math.round(P.stake[0] + P.stake[1] * SIMX.dep(R)); },
+    can(S, R, E) { if (R.hero.gold >= E.stake) return true; R.msg = { s: TXT('EVENTS.dice.broke', { n: E.stake }), t: S.t, d: 3 }; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y }); return false; },
+    reward(S, R, E) { const P = D.EVENTS.pool.dice, h = R.hero, n = Math.min(h.gold, E.stake);
+      if (!E.fate) { const q = SIMX.rnd(R); E.fate = q < P.odds[0] ? 'lose' : q < P.odds[0] + P.odds[1] ? 'win' : 'jack'; }
+      const back = n * P.pay[['lose', 'win', 'jack'].indexOf(E.fate)]; h.gold += back - n; R.goldTot += Math.max(0, back - n);
+      ev(S, { k: 'dice', x: E.x, y: E.y, fate: E.fate }); if (back) ev(S, { k: 'gold', x: h.x, y: h.y, n: back });
+      R.msg = { s: E.fate === 'lose' ? TXT('EVENTS.dice.lose') : E.fate === 'win' ? TXT('EVENTS.dice.win', { n: back }) : TXT('EVENTS.dice.jack', { n: back }), t: S.t, d: 4 }; } };
+  // the dark room (TASKS 365): it starts as the hero steps in (stepEvents) and ends as the last of its pack falls; the pack's loot
+  // falls twice (lootK, in killEnemy)
+  const darkFoes = (R, E) => R.en.filter((e) => e.room === E.room && e.deadT < 0 && !e.summ);
+  const DARK = {
+    start(S, R, E) { R.msg = { s: TXT('EVENTS.dark.enter'), t: S.t, d: 4 }; ev(S, { k: 'dark', x: E.x, y: E.y }); },
+    step(S, R, E) { if (!darkFoes(R, E).length) eventDone(S, R, E); } };
+  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD, hex: HEX, fountain: FOUNTAIN, dice: DICE, dark: DARK };
+  const lootK = (R, e) => { const E = e.room !== undefined && e.room >= 0 && eventsOf(R).find((q) => q.id === 'dark' && q.room === e.room); return E ? D.EVENTS.pool.dark.loot : 1; };
+  // the cells the minimap leaves out: the dark rooms' (TASKS 365), their wings too
+  function darkMask(R) { const m = R.map, out = new Set();
+    for (const E of eventsOf(R)) { if (!D.EVENTS.pool[E.id] || !D.EVENTS.pool[E.id].hide) continue; const r = m.rooms[E.room];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) out.add(y * m.W + x);
+      for (const [a, b, c, d] of r.wings || []) for (let y = b; y < b + d; y++) for (let x = a; x < a + c; x++) out.add(y * m.W + x); }
+    return out; }
   // the floor's curses (TASKS 364): each the cursed chest's or a bitter fountain's, kept with the floor in its events
   const hexN = (R) => (R.events || []).filter((E) => E.hex).length;
   // a floor's blessing from its fountain comes back with the floor: arrive() clears the hero's, then this gives it again
@@ -58,9 +81,10 @@
   function eventsBuild(R) {
     R.events = (R.map.events || []).map((e) => Object.assign({ st: 'idle' }, e));
     for (const E of R.events) { const F = EVENT_RULES[E.id]; if (F && F.setup) F.setup(R, E); } }
-  const eventNear = (R) => { const h = R.hero; return eventsOf(R).find((E) => E.st === 'idle' && Math.hypot(E.x - h.x, E.y - h.y) < (D.EVENTS.pool[E.id].near || D.EVENTS.near)) || null; };
+  const eventNear = (R) => { const h = R.hero; return eventsOf(R).find((E) => E.st === 'idle' && !D.EVENTS.pool[E.id].walk && Math.hypot(E.x - h.x, E.y - h.y) < (D.EVENTS.pool[E.id].near || D.EVENTS.near)) || null; };
   // «Нет» in focus, so Enter alone never takes a risk
   function eventUse(S, R, E) {
+    const F = EVENT_RULES[E.id]; if (F && F.can && !F.can(S, R, E)) return;
     if (!D.EVENTS.pool[E.id].ask) { eventStart(S, R, E); return; }
     R.evAsk = R.events.indexOf(E); S.screen = 'event'; S.focus = 'evNo'; S.hover = ''; ev(S, { k: 'ui', x: E.x, y: E.y }); }
   function eventStart(S, R, E) {
@@ -73,6 +97,8 @@
     ev(S, { k: 'qevent', room: E.room, event: E.id, x: E.x, y: E.y }); S.saveN++; }
   // the floor left with an event running: back to how it stood before «yes», so the floor kept (or saved) never holds a half-fought one
   function eventsLeave(S, R) { for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.leave) F.leave(S, R, E); } }
-  function stepEvents(S, R) { for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
-  Object.assign(SIMX, { EVENT_RULES, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventDone, eventsLeave, stepEvents });
+  function stepEvents(S, R) { const h = R.hero;
+    for (const E of eventsOf(R)) if (E.st === 'idle' && D.EVENTS.pool[E.id].walk && h.deadT < 0 && DG.roomAt(R.map, h.x, h.y) === E.room) eventStart(S, R, E);
+    for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
+  Object.assign(SIMX, { EVENT_RULES, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventDone, eventsLeave, stepEvents });
 })(typeof window !== 'undefined' ? window : globalThis);

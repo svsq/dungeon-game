@@ -237,7 +237,7 @@
       // the skull door (TASKS 362): a skull over each way in and the bones on its floor tell of it from the doorway; «yes» drops a
       // grate in every way in, and three waves of the floor's own roster rise one after another, wave i n[i] + depth / perF strong,
       // gap s apart; the last one down lifts the grates and leaves a chest of a cache's tier (`chest`) on its spot
-      trial: { w: 2, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, chest: 4,
+      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, chest: 4,
         name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') },
       // the blood altar (TASKS 363): `cost` of the health the hero has now (never the last point) for one find of `item`, an epic or
       // better made for his class, on the altar. Its own reward, not a power: the altar of gifts (a room of its own) gives those.
@@ -251,7 +251,17 @@
       // the fountain (TASKS 364): a drink heals to the full, or with the chance `odd` it blesses (GIFTS.bless) or curses (EVENTS.hex) the
       // floor, half and half; both are the floor's, kept with it. near: E reaches round its basin
       fountain: { w: 2, minF: 1, room: 'treasure', ask: 1, odd: 1 / 3, solid: 40, near: 84,
-        name: TXT('EVENTS.fountain.name'), say: TXT('EVENTS.fountain.say'), yes: TXT('EVENTS.fountain.yes'), no: TXT('EVENTS.fountain.no'), prompt: TXT('EVENTS.fountain.prompt') } } };
+        name: TXT('EVENTS.fountain.name'), say: TXT('EVENTS.fountain.say'), yes: TXT('EVENTS.fountain.yes'), no: TXT('EVENTS.fountain.no'), prompt: TXT('EVENTS.fountain.prompt') },
+      // the goblin's table (TASKS 365): one throw for a stake of stake[0] + stake[1] × depth gold, set as the floor is built (its question
+      // names it). The goblin keeps it with the chance odds[0], pays it back twice with odds[1], thrice otherwise (pay: what comes back).
+      // tag: how high over the spot its prompt stands, over the goblin's head
+      dice: { w: 2, minF: 1, room: 'treasure', ask: 1, stake: [20, 10], odds: [0.5, 0.35], pay: [0, 2, 3], solid: 30, near: 84, tag: 120,
+        name: TXT('EVENTS.dice.name'), say: TXT('EVENTS.dice.say'), yes: TXT('EVENTS.dice.yes'), no: TXT('EVENTS.dice.no'), prompt: TXT('EVENTS.dice.prompt') },
+      // the dark room (TASKS 365): no light in it but the hero's own, and the minimap never shows it, so no event mark either (it would
+      // give it away). It starts as he steps in and ends with its pack down; every monster of its pack drops its loot `loot` times.
+      // walk: it starts on entering, no spot and no question; hide: off the minimap; pack: the least of its monsters
+      dark: { w: 3, minF: 2, room: 'combat', walk: 1, hide: 1, loot: 2, pack: 2,
+        name: TXT('EVENTS.dark.name'), done: TXT('EVENTS.dark.done') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

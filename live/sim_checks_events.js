@@ -194,5 +194,50 @@
       for (let i = 0; i < 90; i++) { R.rs = (i * 7919 + 13) | 0; E.st = 'idle'; delete E.fate; delete E.hex; SIMX.eventStart(S, R, E); n[E.fate] = (n[E.fate] || 0) + 1; }
       if (!(n.heal >= 45 && n.heal <= 75 && n.bless >= 6 && n.hex >= 6)) out.push(`fountain: 90 drinks fall ${JSON.stringify(n)}, not about two in three healing`); }
   }
-  Object.assign(SIMX, { checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay, checkHexPlay, checkFountainPlay });
+  // the goblin's table (TASKS 365) in each run: its stake set with the floor and named; with less gold the goblin asks nothing; «no»
+  // takes nothing; «yes» takes the stake and pays back none, twice or thrice by the throw, one `qevent`; it asks no more and stands
+  // in the way; a save keeps the throw. Thrown on the run's dice, the three fall about as the odds say
+  function checkDicePlay(out) {
+    const P = D.EVENTS.pool.dice;
+    for (const [mode, o] of MODES) for (const [i, fate] of ['lose', 'win', 'jack'].entries()) { const tag = `goblin's table ${mode}${o.town ? ' (town)' : ''} ${fate}`, { S, R, E, key, ask } = evRun(mode, o, 'dice'), h = R && R.hero;
+      if (!E) { out.push(`${tag}: no floor of 1–4 lays it asked for`); break; }
+      if (E.stake !== Math.round(P.stake[0] + P.stake[1] * SIMX.dep(R))) out.push(`${tag}: its stake is ${E.stake}`);
+      h.gold = E.stake - 1; key('KeyE'); if (S.screen === 'event' || h.gold !== E.stake - 1 || E.st !== 'idle') out.push(`${tag}: a hero short of the stake is asked, or loses gold`);
+      h.gold = 1000; key('KeyE'); if (S.screen !== 'event') out.push(`${tag}: E with the stake in hand asks nothing (${S.screen})`); key('Enter');
+      if (h.gold !== 1000 || E.st !== 'idle') out.push(`${tag}: «no» leaves ${h.gold} gold, it ${E.st}`);
+      E.fate = fate; ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
+      if (h.gold !== want || E.st !== 'done' || q.length !== 1) out.push(`${tag}: «yes» leaves ${h.gold} gold of ${want}, it ${E.st}, ${q.length} qevent`);
+      key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the table asks again`);
+      if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the table does not stand in the way`);
+      if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.fate !== fate) out.push(`${tag}: a save forgets the throw`); } }
+    { const { S, R, E } = evRun('campaign', {}, 'dice'); if (!E) return; const n = { lose: 0, win: 0, jack: 0 };
+      for (let i = 0; i < 200; i++) { R.rs = (i * 7919 + 13) | 0; R.hero.gold = 1000; E.st = 'idle'; delete E.fate; SIMX.eventStart(S, R, E); n[E.fate]++; }
+      if (Math.abs(n.lose - 200 * P.odds[0]) > 25 || Math.abs(n.win - 200 * P.odds[1]) > 25 || n.jack < 12) out.push(`goblin's table: 200 throws fall ${JSON.stringify(n)}`); }
+  }
+  // the dark room (TASKS 365) in each run, its pack kept: idle until the hero steps into it, then on; off the minimap (darkMask holds
+  // its box, no event mark); its pack drops twice (an elite of it two heaps of gold, one elsewhere); the last of it down ends it with
+  // one `qevent`; the floor left and come back to and a save keep it done
+  function checkDarkPlay(out) {
+    for (const [mode, o] of MODES) { const tag = `dark room ${mode}${o.town ? ' (town)' : ''}`;
+      const S = spawn(0, {}); S.run = newRun(S, mode, 77, Object.assign({ allFree: 1 }, o)); S.screen = 'play'; const R = S.run, h = R.hero; let E = null, f = 0;
+      for (f = 2; f <= Math.min(5, D.RUNS[mode].floors) && !E; f++) { enterFloor(S, R, f, { events: ['dark'] }); E = (R.events || []).find((q) => q.id === 'dark'); }
+      if (!E) { out.push(`${tag}: no floor of 2–5 lays it asked for`); continue; } f--;
+      const m = R.map, r = m.rooms[E.room], pack = () => R.en.filter((e) => e.room === E.room && e.deadT < 0 && !e.summ);
+      if (pack().length < D.EVENTS.pool.dark.pack) out.push(`${tag}: its pack is ${pack().length}`);
+      if (m.torches.some((t) => t.r === E.room && !t.dark)) out.push(`${tag}: a torch still burns in it`);
+      const mask = SIMX.darkMask(R); if (!mask.has(Math.floor(E.y / TILE) * m.W + Math.floor(E.x / TILE)) || !mask.has(r.y * m.W + r.x)) out.push(`${tag}: the minimap shows it`);
+      if (SIMX.eventNear(Object.assign({}, R, { hero: Object.assign({}, h, { x: E.x, y: E.y }) }))) out.push(`${tag}: its spot offers E`);
+      h.ifr = 1e9; for (const e of R.en) if (e.room !== E.room) { e.hp = 0; e.deadT = S.t; }
+      h.x = m.spawn.x; h.y = m.spawn.y; step(S, { keys: [] }); if (E.st !== 'idle') out.push(`${tag}: it starts before the hero comes in (${E.st})`);
+      h.x = E.x; h.y = E.y; step(S, { keys: [] }); if (E.st !== 'on') out.push(`${tag}: the hero in it leaves it ${E.st}`);
+      const gold = (room) => { const e = Object.assign({}, pack()[0], { id: R.nextId++, elite: 1, key: undefined, room, hp: 0 }); R.en.push(e); const d0 = R.drops.length; SIMX.killEnemy(S, R, e); return R.drops.slice(d0).filter((p) => p.kind === 'gold').length; };
+      const other = m.rooms.find((q) => q.id !== E.room && q.type === 'combat').id, gIn = gold(E.room), gOut = gold(other);
+      if (gIn !== 2 || gOut !== 1) out.push(`${tag}: an elite drops ${gIn} heaps of gold in it and ${gOut} elsewhere`);
+      S.ev.length = 0; for (const e of pack()) { e.hp = 0; SIMX.killEnemy(S, R, e); } for (let i = 0; i < 30; i++) { R.freeze = 0; S.screen = 'play'; step(S, { keys: [] }); }
+      const q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dark');
+      if (E.st !== 'done' || q.length !== 1) out.push(`${tag}: its pack down leaves it ${E.st} with ${q.length} qevent`);
+      if (o.town) { enterFloor(S, R, f + 1); enterFloor(S, R, f, undefined, 'up'); const B = (R.events || []).find((x) => x.room === E.room); if (!B || B.st !== 'done') out.push(`${tag}: the floor come back to forgets it`);
+        const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done') out.push(`${tag}: a save forgets it`); } }
+  }
+  Object.assign(SIMX, { checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay, checkHexPlay, checkFountainPlay, checkDicePlay, checkDarkPlay });
 })(typeof window !== 'undefined' ? window : globalThis);

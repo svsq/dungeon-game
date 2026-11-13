@@ -189,7 +189,15 @@
         for (; mouth.has(k) && mouth.get(k).dir === p.dir && !took.has(k); k += st) { took.add(k); run.push([k % W, Math.floor(k / W)]); }
         const a = run[0], n = run.length, ex = p.dir === 'l' ? r.x : p.dir === 'r' ? r.x + r.w : 0, ey = p.dir === 'u' ? r.y : p.dir === 'd' ? r.y + r.h : 0;
         gates.push({ dir: p.dir, cells: run, x: side ? ex * TILE : (a[0] + n / 2) * TILE, y: side ? (a[1] + n / 2) * TILE : ey * TILE }); }
-      const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; } };
+      const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; },
+    // the dark room (TASKS 365): a room with a pack to fight in the dark. Its wall torches and loose candles are put out (`dark`: the
+    // render neither draws nor lights them; the lists keep their order, as a lever's sconce is found by its index); a room with a fire
+    // on its floor (a brazier, a crystal, a forge), a secret's sconce or candles, or a zone's own light is not one
+    dark: (m, r) => { const inside = (o) => inRm(r, Math.floor(o.x / TILE), Math.floor(o.y / TILE), 1), mine = (t) => t.r === r.id || inside(t);
+      if (r.zone || m.enemies.filter((e) => e.room === r.id).length < D.EVENTS.pool.dark.pack) return null;
+      const lamp = (d) => /^candle/.test(d.n) && !d.solid && d.pz === undefined && d.secret === undefined && inside(d);
+      if (m.torches.some((t) => mine(t) && (t.kind !== 'wall' || t.lever !== undefined || t.sec !== undefined)) || m.decor.some((d) => /candle|crystal|brazier|forge/.test(d.n) && inside(d) && !lamp(d))) return null;
+      const at = eventSpot(m, r); if (at) { for (const t of m.torches) if (mine(t)) t.dark = 1; for (const d of m.decor) if (lamp(d)) d.dark = 1; } return at; } };
   const evOk = (E, depth, mode) => depth >= (E.minF || 1) && depth <= (E.maxF ?? 1e9) && (!E.modes || E.modes.includes(mode));
   function markEvents(m, ST, opts, seed) {
     const EV = D.EVENTS, pool = EV.pool, mode = opts.mode || 'campaign', force = (opts.events || []).filter((id) => pool[id]);
