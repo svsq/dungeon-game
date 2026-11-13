@@ -465,6 +465,18 @@
     if (i !== undefined && h.bag[i]) { const was = h.bag[i]; h.bag[i] = Object.assign(it, { id: R.nextId++ }); T.items[j] = was; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
     if (i !== undefined) h.bag[i] = it; else if (!bagAdd(R, it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashTake.s.2') }); return; }
     it.id = R.nextId++; T.items[j] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }
+  // a part of a stack moved (TASKS 1988): the source keeps the rest until the drop, so a save while it is held loses nothing. Into cell j
+  // it lands in an empty cell or joins a stack of its kind; with no j it joins the stacks among the first lim cells, then takes a free one
+  function movePart(R, A, k, B, j, n, lim = B.length) { const it = A[k]; if (!it || !isCons(it) || !(n >= 1) || n > (it.n || 1)) return 0;
+    const cap = D.CONSUMABLES[it.b].stack, into = (q, m) => { const o = B[q]; if (!o) { B[q] = Object.assign({}, it, { id: R.nextId++, n: m }); return m; }
+      return o === it || o.b !== it.b ? 0 : (m = Math.max(0, Math.min(m, cap - o.n)), o.n += m, m); };
+    let moved = 0;
+    if (j !== undefined) moved = into(j, n);
+    else { for (let q = 0; q < lim && moved < n; q++) if (B[q] && B[q] !== it && B[q].b === it.b) moved += into(q, n - moved);
+      for (let q = 0; q < lim && moved < n; q++) if (!B[q]) { moved += into(q, n - moved); break; } }
+    it.n -= moved; if (it.n <= 0) A[k] = null; return moved; }
+  // how many of a consumable the bag still takes: the room on its stacks and a full stack per free cell
+  const roomFor = (h, b) => { const cap = D.CONSUMABLES[b].stack; return h.bag.reduce((a, q) => a + (!q ? cap : q.b === b ? Math.max(0, cap - q.n) : 0), 0); };
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
   const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
@@ -521,21 +533,23 @@
   // what the merchant pays and asks by: the floor's depth, in the town the deepest floor reached
   const tradeDepth = (R) => (R.town ? dep(R, Math.max(1, R.deepest || 0)) : dep(R));
   const atCounter = (R) => { const s = R.map.shop, h = R.hero; return !!s && Math.abs(h.x - s.front.x) < 64 && h.y > s.counter.y - 4 && h.y - s.front.y < 40; };
-  function openShop(S, R) { S.screen = 'shop'; S.sellAsk = null; if (R.town) broke(S, R); R.shop.line = Math.floor(rnd(R) * (R.shop.wander ? D.SHOP.wander.lines : D.SHOP.lines).length); R.shop.tradeT = S.t; S.hover = ''; ev(S, { k: 'shop', x: R.map.shop.x, y: R.map.shop.y }); }
-  function buy(S, R, g, back) {
-    const h = R.hero, sh = R.shop;
-    if (h.gold < g.price) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s') }); return; }
-    const it = g.n ? Object.assign(potion(g.it.b, 1), { id: R.nextId++ }) : g.it;
+  function openShop(S, R) { S.screen = 'shop'; S.sellAsk = null; S.split = null; if (R.town) broke(S, R); R.shop.line = Math.floor(rnd(R) * (R.shop.wander ? D.SHOP.wander.lines : D.SHOP.lines).length); R.shop.tradeT = S.t; S.hover = ''; ev(S, { k: 'shop', x: R.map.shop.x, y: R.map.shop.y }); }
+  // n: how many of a shelf's stack (TASKS 1988), held to his stock, the gold and the bag's room; gear and the buy-back row go one piece at a time
+  function buy(S, R, g, back, n = 1) {
+    const h = R.hero, sh = R.shop; n = g.n ? Math.max(1, Math.min(n, g.n)) : 1;
+    if (h.gold < g.price * n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s') }); return; }
+    if (g.n && roomFor(h, g.it.b) < n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s.2') }); return; }
+    const it = g.n ? Object.assign(potion(g.it.b, n), { id: R.nextId++ }) : g.it;
     if (!bagAdd(R, it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s.2') }); return; }
-    h.gold -= g.price; sh.tradeT = S.t;
-    if (g.n) { if (--g.n <= 0) sh.goods.splice(sh.goods.indexOf(g), 1); } else (back ? sh.back : sh.goods).splice((back ? sh.back : sh.goods).indexOf(g), 1);
-    ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: -g.price, s: TXT('sim_town.buy.s.3', { p1: itemName(it) }), rar: it.rar });
+    h.gold -= g.price * n; sh.tradeT = S.t;
+    if (g.n) { if ((g.n -= n) <= 0) sh.goods.splice(sh.goods.indexOf(g), 1); } else (back ? sh.back : sh.goods).splice((back ? sh.back : sh.goods).indexOf(g), 1);
+    ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: -g.price * n, s: TXT('sim_town.buy.s.3', { p1: itemName(it) }), rar: it.rar });
   }
-  // a sale goes onto the buy-back row at the price paid for it, so a slip of the mouse costs nothing
-  function sell(S, R, i) {
+  // a sale goes onto the buy-back row at the price paid for it, so a slip of the mouse costs nothing; n of a stack go as one lot (TASKS 1988)
+  function sell(S, R, i, n = 1) {
     const h = R.hero, sh = R.shop, it = h.bag[i]; if (!it) return;
-    const n = isCons(it) ? 1 : 0, price = D.sellPrice(it, tradeDepth(R)), one = n && it.n > 1 ? Object.assign({}, it, { id: R.nextId++, n: 1 }) : it;
-    if (n && it.n > 1) it.n--; else h.bag[i] = null;
+    const k = isCons(it) ? Math.max(1, Math.min(n, it.n || 1)) : 1, price = D.sellPrice(it, tradeDepth(R)) * k, one = isCons(it) && it.n > k ? Object.assign({}, it, { id: R.nextId++, n: k }) : it;
+    if (one !== it) it.n -= k; else h.bag[i] = null;
     h.gold += price; sh.tradeT = S.t; sh.back.push({ it: one, price }); if (sh.back.length > D.SHOP.buyback) sh.back.shift();
     ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: price, s: TXT('sim_town.sell.s', { p1: itemName(one) }), rar: one.rar });
   }
@@ -544,6 +558,6 @@
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
-    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
+    stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

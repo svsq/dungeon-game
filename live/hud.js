@@ -773,7 +773,7 @@
       tipAt(x0 - 4, y - 20, sw + 8, 40, TXT('hud.stats.hand', { n: ss })); tipAt(x0 + sw + 36, y - 20, gw + 8, 40, TXT('hud.altar.6', { gold: gs }), TXT('hud.tip.gold')); }
     // the bag on the sheet
     bagTabs('inv_tb', U, S);
-    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
+    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? rest(h.bag[b.i], dr) : h.bag[b.i]);
     sortBtns('inv_', U, S);
     // skills
     KIT.ink('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), Rp.x + 76, Rp.y + 440, { size: 28, col: h.sp > 0 ? I.r : I.d });
@@ -800,7 +800,8 @@
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 32; plate('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 36);
       lab('sle', s, he.x + he.w / 2, he.y + he.h + 25, { size: 20, al: 0.5 }); }
     // tooltip
-    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : h.eq[dr.from.slice(3)]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 34, dr.y - 34, 68); dropChip(S, U); refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r); return; }
+    if (S.split) { refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r); return splitAsk(S, R); }
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : h.eq[dr.from.slice(3)]; if (it) held1(it, dr); dropChip(S, U); refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r); return; }
     refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r);
     const hb = U.r.find((q) => q.id === S.hover); if (hb) { const it = hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('eq:') ? h.eq[hb.slot] : null; if (it) tooltip(S, it, hb, h, null, null, [10, P.y + 8, P.x + P.w - 8, P.y + P.h - 8]); }
   }
@@ -830,10 +831,27 @@
     const Cd = U.card; L.rrect(Cd.x, Cd.y, Cd.w, Cd.h, 10, [0.1, 0.05, 0.04], [0.07, 0.035, 0.03], 0.3);
     closeBtn('sh_x', U, S);
     if (S.sellAsk) return sellAsk(S, R, f);
+    if (S.split) return splitAsk(S, R);
     const hb = U.r.find((q) => q.id === S.hover), idle = () => lab('sh_card0', TXT('hud.shop.card'), Cd.x + Cd.w / 2, Cd.y + Cd.h / 2, { size: 21, al: 0.5, col: '#9a8670' }); if (!hb) return idle();
     const g = hb.id.startsWith('buy:') ? sh.goods[hb.i] : hb.id.startsWith('back:') ? sh.back[hb.i] : null, it = g ? g.it : hb.id.startsWith('sell:') ? h.bag[hb.i] : null;
     // the details sit in a fixed pane: a floating tip would cover the next slots' prices
     if (it) tooltip(S, it, hb, h, g ? [TXT('hud.shop.10', { price: g.price }), h.gold >= g.price ? C.gold : C.red] : [TXT('hud.shop.11', { p1: D.sellPrice(it, f) }), C.gold], [Cd.x, Cd.y], [Cd.x, Cd.y, Cd.x + Cd.w, Cd.bot]); else idle();
+  }
+  // a part of a stack on the pointer (TASKS 1988): its count by the picture, the rest left in its cell
+  const rest = (it, dr) => (it && dr && dr.n ? Object.assign({}, it, { n: it.n - dr.n }) : null);
+  function held1(it, dr) { icon(SIM.Q.itemIcon(it), dr.x - 34, dr.y - 34, 68); if (dr.n) chip('drg_n', String(dr.n), dr.x + 34, dr.y + 8, { right: 1, size: 20, col: '#ffe9a8' }); }
+  // how many of a stack: taken onto the pointer, sold or bought; the price for that many at the merchant
+  function splitAsk(S, R) {
+    const A0 = S.split, h = R.hero, [p, k] = A0.id.split(':'), g = p === 'buy' ? R.shop.goods[+k] : null, it = g ? g.it : p === 'stash' ? SIM.Q.stashOf(S).items[+k] : h.bag[+k]; if (!it) return;
+    const U = D.UI.split(), A = U.A, N = U.num, keys = TXT('hud.split.keys'), ky = A.y + A.h + 40, kw = lw('sp_keys_w', keys, { size: 26 }), act = A0.act;
+    dim(0.45); L.uiCover('sp_cover', Math.min(A.x, W / 2 - kw / 2 - 12), A.y, W - 2 * Math.min(A.x, W / 2 - kw / 2 - 12), ky + 20 - A.y);
+    KIT.panel('sp_ask', A.x, A.y, A.w, A.h, 'torn'); slot(S, U.cell, Object.assign({}, it, { n: 1 }));
+    KIT.ink('sp_q', TXT('hud.split.' + act), A.x + A.w / 2, A.y + 128, { size: 24, al: 0.5, col: KIT.INK.t, bold: true });
+    KIT.ink('sp_n', String(A0.n), N.x + N.w / 2, N.y + N.h / 2 + 6, { size: 40, al: 0.5, col: KIT.INK.t, bold: true });
+    if (act !== 'take') { const pr = (g ? g.price : D.sellPrice(it, SIM.Q.tradeDepth(R))) * A0.n; KIT.ink('sp_pr', TXT('hud.split.price', { n: pr }), A.x + A.w / 2, N.y + N.h + 20, { size: 22, al: 0.5, col: KIT.INK.d }); }
+    for (const b of U.r) KIT.button('sp_' + b.id, b.id === 'spOk' ? Object.assign({}, b, { label: TXT('hud.split.ok.' + act) }) : b, askSt(S, U, b.id));
+    L.uiBox('sp_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    KIT.light('sp_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // a question on parchment, not a refusal (TASKS 1978): no red, the piece in its own gold-framed cell, drawn last over the whole shop
   function sellAsk(S, R, f) {
@@ -853,7 +871,9 @@
   // what letting go of the held piece over this cell does: 1 swaps with what lies there (or moves in), 2 wears it, -1 is refused
   function dropKind(S, b) {
     const dr = S.drag, h = S.run && S.run.hero; if (!dr || !h || b.id === dr.from) return 0;
-    const f = dr.from, fb = f.startsWith('bag:') ? h.bag[+f.slice(4)] : f.startsWith('eq:') ? h.eq[f.slice(3)] : null, fits = (it, sl) => !!it && !SIM.Q.isCons(it) && D.BASES[it.b].slot === sl;
+    const f = dr.from, fb = f.startsWith('bag:') ? h.bag[+f.slice(4)] : f.startsWith('eq:') ? h.eq[f.slice(3)] : f.startsWith('stash:') ? SIM.Q.stashOf(S).items[+f.slice(6)] : null, fits = (it, sl) => !!it && !SIM.Q.isCons(it) && D.BASES[it.b].slot === sl;
+    if (dr.n) { if (b.id.startsWith('eq:')) return -1; const o = b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('stash:') ? SIM.Q.stashOf(S).items[b.i] : undefined;
+      return o === undefined ? 0 : !o || (fb && o.b === fb.b && o.n < D.CONSUMABLES[o.b].stack) ? 1 : -1; }
     if (b.id.startsWith('eq:')) return f.startsWith('bag:') ? (fits(fb, b.slot) ? 2 : -1) : 0;
     if (b.id.startsWith('stash:')) return 1;
     if (!b.id.startsWith('bag:')) return 0;
@@ -867,7 +887,7 @@
   }
   // over the held piece's picture, on the cell it would swap into or be worn in
   function dropChip(S, U) {
-    const b = S.drag && U.r.find((q) => q.id === S.hover); if (!b || dropKind(S, b) < 1) return;
+    const b = S.drag && !S.drag.n && U.r.find((q) => q.id === S.hover); if (!b || dropKind(S, b) < 1) return;
     const h = S.run.hero, it = b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') ? h.eq[b.slot] : b.id.startsWith('stash:') ? SIM.Q.stashOf(S).items[b.i] : null;
     if (it || b.id.startsWith('eq:')) chip('slt_' + b.id, (b.id.startsWith('eq:') ? TXT('hud.inv.target.wear') : TXT('hud.inv.target.swap')), b.x + b.w / 2, b.y + b.h - 26, { size: 20, col: '#ffe9a8', mid: 1 });
   }
@@ -1501,14 +1521,15 @@
     dim(0.5); KIT.panel('stash', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('st_t', P.x + P.w / 2, P.y + 22, 460, TXT('hud.stash'), { h: 72, size: 34 });
     lab('st_s', TXT('hud.stash.2'), P.x + P.w / 2, P.y + 140, { size: 21, al: 0.5, col: '#cdb89a' });
-    for (const b of U.r) if (b.id.startsWith('stash:')) slot(S, b, held(b.id) ? null : T.items[b.i], undefined, 1);
+    for (const b of U.r) if (b.id.startsWith('stash:')) slot(S, b, held(b.id) ? rest(T.items[b.i], dr) : T.items[b.i], undefined, 1);
     lab('st_cells', TXT('hud.stash.4', { n: T.items.filter(Boolean).length, max: n }), P.x + 80 + 632, P.y + 450, { size: 21, al: 1, col: '#cdb89a' });
     bagTabs('st_tb', U, S);
-    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
+    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? rest(h.bag[b.i], dr) : h.bag[b.i]);
     sortBtns('st_', U, S);
     { const s = TXT('hud.stash.6'), p = s.split(' · '), n = Math.ceil(p.length / 2), q = L.labelW(0, s, { size: 26 }) > P.w - 120 ? [p.slice(0, n).join(' · '), p.slice(n).join(' · ')] : [s]; q.forEach((v, i) => lab('st_help' + i, v, W / 2, P.y + P.h - 36 - (q.length - 1 - i) * 30, { size: 26, al: 0.5, col: '#b8a48a' })); }
     closeBtn('st_x', U, S);
-    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 34, dr.y - 34, 68); dropChip(S, U); refusal(S, W / 2, P.y + 476); return; }
+    if (S.split) { refusal(S, W / 2, P.y + 476); return splitAsk(S, R); }
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) held1(it, dr); dropChip(S, U); refusal(S, W / 2, P.y + 476); return; }
     const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
     if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? TXT('hud.stash.8') : TXT('hud.stash.9'), C.gold], null, [10, 10, W - 10, P.y + P.h - 70]);
     refusal(S, W / 2, P.y + 476);

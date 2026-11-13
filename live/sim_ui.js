@@ -369,10 +369,49 @@
     if (click && b && b.id === 'do') craft(S, R);
     return;
   };
+  // a stack split (TASKS 1988): Shift+click asks how many, Shift+right click takes half at once. The part rides the pointer until the
+  // next click lays it down; the source keeps it all till then. At the merchant the same question sells or buys that many
+  const cellItem = (S, R, id) => { const [p, i] = id.split(':'), k = +i; return p === 'bag' || p === 'sell' ? R.hero.bag[k] : p === 'stash' ? stashOf(S).items[k] : p === 'buy' ? R.shop.goods[k] : null; };
+  const stackOf = (S, R, id) => { const q = cellItem(S, R, id); return q && (q.it ? (q.n ? q : null) : isCons(q) && q.n > 1 ? q : null); };
+  const splitOpen = (S, R, id, act, x, y) => { const q = stackOf(S, R, id); if (!q) return false; const it = q.it || q, h = R.hero;
+    const hi = act === 'take' ? it.n - 1 : act === 'sell' ? it.n : Math.min(q.n, Math.floor(h.gold / q.price), SIMX.roomFor(h, it.b));
+    if (act === 'buy' && hi < 1) { buy(S, R, q, 0); return true; }
+    S.split = { id, key: it.id, act, hi, n: act === 'take' ? Math.ceil(it.n / 2) : 1 }; S.focus = 'spOk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return true; };
+  const carry = (S, R, id, n, x, y) => { S.drag = { from: id, x, y, n, carry: 1 }; ev(S, { k: 'ui', x, y }); };
+  const halfOff = (S, R, id, x, y) => { const q = stackOf(S, R, id); if (!q || q.it) return false; carry(S, R, id, Math.ceil(q.n / 2), x, y); return true; };
+  // true while the question is up: it takes the step's input
+  function splitStep(S, R, inp, keys, x, y, click) { const A = S.split; if (!A) return false; const q = cellItem(S, R, A.id), it = q && (q.it || q);
+    if (!it || it.id !== A.key) { S.split = null; S.focus = ''; return true; }
+    const U = UI.split(), b = D.hitUI(U.r, x, y), P = U.A; S.hover = b ? b.id : '';
+    const d = (b && click && b.id === 'spPlus' ? 1 : 0) - (b && click && b.id === 'spMinus' ? 1 : 0) - (inp.wheel || 0) + (keys.ArrowRight || keys.ArrowUp ? 1 : 0) - (keys.ArrowLeft || keys.ArrowDown ? 1 : 0);
+    if (d) { const n = Math.max(1, Math.min(A.hi, A.n + d)); if (n !== A.n) { A.n = n; ev(S, { k: 'ui', x, y }); } }
+    const out = click && !(x >= P.x && x < P.x + P.w && y >= P.y && y < P.y + P.h);
+    if (keys.Escape || out || (click && b && b.id === 'spNo')) { S.split = null; S.focus = ''; ev(S, { k: 'ui', x, y }); return true; }
+    if (keys.Enter || (click && b && b.id === 'spOk')) { S.split = null; S.focus = '';
+      if (A.act === 'take') carry(S, R, A.id, A.n, x, y); else if (A.act === 'sell') sell(S, R, +A.id.split(':')[1], A.n); else buy(S, R, q, 0, A.n); }
+    return true; }
+  // the part held is laid down by the next click: a free cell or a stack of its kind takes it, another piece refuses it; Esc or the
+  // right button, a click on its own cell or off the cells put it back
+  function dropPart(S, R, A, k, B, j, n, x, y) { if (!B) return; if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
+    const o = B[j]; if (o && o.b === A[k].b && o.n >= D.CONSUMABLES[o.b].stack) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.full') }); return; }
+    if (!SIMX.movePart(R, A, k, B, j, n)) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.busy') }); return; }
+    S.saveN++; ev(S, { k: 'equip', x: R.hero.x, y: R.hero.y }); }
+  // the carried part's step in a window: true while it is held; arrOf gives the list and cell for a target cell, or null
+  function carryStep(S, R, inp, keys, x, y, click, b, arrOf) { const dr = S.drag; if (!dr || !dr.carry) return false;
+    dr.x = x; dr.y = y; const src = arrOf(dr.from), it = src && src[0][src[1]];
+    if (!it || keys.Escape || inp.rclick) { S.drag = null; return true; }
+    if (!click) return true; S.drag = null;
+    if (!b || b.id === dr.from) return true;
+    if (b.tab !== undefined) { dropPart(S, R, src[0], src[1], R.hero.bag, freeIn(R.hero, b.tab), dr.n, x, y); return true; }
+    if (b.id.startsWith('eq:')) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.cons') }); return true; }
+    const to = arrOf(b.id); if (to) dropPart(S, R, src[0], src[1], to[0], to[1], dr.n, x, y); return true; }
   SCREEN.stash = (S, inp, keys, x, y, click) => {
     const R = S.run, U = R && UI.stash(R.hero.bag.length, S.bagTab), b = U && D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
-    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
+    if (!R || ((keys.Escape || keys.KeyE) && !S.split && !(S.drag && S.drag.carry)) || (click && b && b.id === 'close' && !S.split)) { S.screen = 'play'; S.drag = null; S.split = null; return; }
     const T = stashOf(S);
+    if (splitStep(S, R, inp, keys, x, y, click)) return;
+    if (carryStep(S, R, inp, keys, x, y, click, b, (id) => { const [p, i] = id.split(':'), k = +i; return p === 'bag' && k < R.hero.bag.length ? [R.hero.bag, k] : p === 'stash' && k < n ? [T.items, k] : null; })) return;
+    if (b && !S.drag && inp.shift && (b.id.startsWith('bag:') || b.id.startsWith('stash:')) && ((click && splitOpen(S, R, b.id, 'take', x, y)) || (inp.rclick && halfOff(S, R, b.id, x, y)))) return;
     if (click && b && b.tab !== undefined && !S.drag) { tabClick(S, b, x, y); return; }
     if (inp.rclick && b && !S.drag) { if (b.id.startsWith('bag:') && R.hero.bag[b.i]) { stashPut(S, R, b.i); return; } if (b.id.startsWith('stash:') && T.items[b.i]) { stashTake(S, R, b.i); return; } }
     if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortTab(S, R.hero, b.k); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
@@ -414,8 +453,10 @@
     if (S.sellAsk) { const a = askAnswer(S, UI.sellAsk(), keys, x, y, click, inp.moved), A = S.sellAsk, it = R.hero.bag[A.i];
       if (a) { S.sellAsk = null; S.focus = ''; S.hover = ''; if (a > 0 && it && it.id === A.id) sell(S, R, A.i); else ev(S, { k: 'ui', x, y }); }
       return; }
+    if (splitStep(S, R, inp, keys, x, y, click)) return;
     const U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (click && b && inp.shift && ((b.id.startsWith('sell:') && splitOpen(S, R, b.id, 'sell', x, y)) || (b.id.startsWith('buy:') && splitOpen(S, R, b.id, 'buy', x, y)))) return;
     if (inp.rclick && b && b.id.startsWith('sell:')) { sellAsk(S, R, b.i, x, y); return; }
     if (!click || !b) return;
     if (b.id === 'talk' && !sh.wander) { S.talk = { role: 'merchant', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.merchant.topics, menu: 1 }; S.screen = 'talk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
@@ -485,7 +526,10 @@
     else if (b && b.id.startsWith('eq:') && !eq) { const it = h.bag[k]; if (it && isCons(it)) nope(TXT('sim_ui.inv.cons')); else if (!fitsSlot(it, b.slot)) nope(TXT('sim_ui.inv.slot', { p1: D.SLOT_NAME[b.slot] })); else useItem(S, R, k); } };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
     const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (splitStep(S, R, inp, keys, x, y, click)) return;
+    if (carryStep(S, R, inp, keys, x, y, click, b, (id) => { const [p, i] = id.split(':'), k = +i; return p === 'bag' && k < h.bag.length ? [h.bag, k] : null; })) return;
     if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
+    if (b && !S.drag && inp.shift && b.id.startsWith('bag:') && ((click && splitOpen(S, R, b.id, 'take', x, y)) || (inp.rclick && halfOff(S, R, b.id, x, y)))) return;
     if (click && b && (b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') && h.eq[b.slot])) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; return; }
     if (S.drag) { dropInv(S, R, h, b); return; }
