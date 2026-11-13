@@ -123,7 +123,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (play) {
       acc += dt; viewPtr();
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
+        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, shift: !!(keys.ShiftLeft || keys.ShiftRight), slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
         now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away };
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
       fullSync(false);

@@ -847,9 +847,19 @@
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
         const cg = R.shop.goods.find((q) => q.n); h.gold = 1e6; const c0 = cg.n; step(S, at('buy:' + R.shop.goods.indexOf(cg)));
         if (h.gold !== 1e6 || cg.n !== c0) out.push('a buy into a full bag took the gold');
-        // TASKS 1863 г, в, д: a legendary goes on a second press, the right button sells as the left does, I leaves the shop open
+        // TASKS 1863 г, в, д, 1978: a legendary asks first; «Оставить» and Esc keep it with the shop open, «Продать» sells it; the right
+        // button sells as the left does, I leaves the shop open
+        const SA = UI.sellAsk(), sa = (id) => { const b = SA.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
         h.bag[0] = Object.assign(rollItem(R, 1, 0), { id: 71000, rar: 4 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: a legendary is sold on one press');
-        step(S, at('sell:0')); if (h.bag[0] && h.bag[0].id === 71000) out.push('shop: a second press does not sell the legendary');
+        if (!S.sellAsk) out.push('shop: a legendary\'s sale does not ask');
+        step(S, sa('sellNo')); if (S.sellAsk || !h.bag[0] || h.gold !== g0) out.push('shop: «Оставить» does not keep the legendary');
+        step(S, at('sell:0')); step(S, { keys: ['Escape'] }); if (S.sellAsk || S.screen !== 'shop' || !h.bag[0]) out.push('shop: Esc on the sale\'s question does not just close the question');
+        step(S, at('sell:0')); step(S, sa('sellYes')); if (S.sellAsk || (h.bag[0] && h.bag[0].id === 71000)) out.push('shop: «Продать» does not sell the legendary');
+        { const U2 = UI.shop(R.shop.goods.length, h.bag.length), A = SA.A, inA = (b) => b.x >= A.x && b.y >= A.y && b.x + b.w <= A.x + A.w && b.y + b.h <= A.y + A.h;
+          const hit = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y), parts = [SA.cell, SA.q, ...SA.r];
+          if (!parts.every(inA)) out.push('shop: the sale\'s question leaves its sheet');
+          if (parts.some((a, i) => parts.some((b, j) => j > i && hit(a, b)))) out.push('shop: the sale\'s question, its cell or its buttons overlap');
+          if (U2.r.some((b) => (b.id === 'talk' || b.id === 'close') && hit(b, A))) out.push('shop: the sale\'s question sits over the merchant\'s buttons'); }
         h.bag[1] = Object.assign(rollItem(R, 1, 0), { id: 71001, rar: 1 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell');
         step(S, { keys: ['KeyI'] }); if (S.screen !== 'shop') out.push('shop: I closes it, only E and Esc should');
         step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('Esc does not close the shop'); } }
@@ -1589,16 +1599,23 @@
         { const [, , m, q, d, k0] = old(1, slid); if (q && (!opened(null, m, q, d, k0) || d.x !== q.x || q.slide || q.hinge || (slid && m.block.includes(k0 + 3)) || d.brokeT === undefined)) out.push(`secret check shelf: an old save's bookcase open ${tag} does not load broken in its place`); }
         { const [S, R, m, q, d, k0] = old(0, slid); if (q) { if (q.slide || !d.solid || d.broken || d.x !== q.x || !m.block.includes(k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not load whole`);
           for (let k = 0; k < D.SHELF_SECRET.hp; k++) { S.t += 0.5; hitProps(S, R, d.x, d.y + 12, 24); } if (!opened(R, m, q, d, k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not break`); } } } }
-    // puzzles (TASKS 1692): the right order opens the cache, any wrong piece puts everything back and hurts nobody
-    for (const k of ['levers', 'candles']) { const [S, q] = find((o) => o.pz && o.pz.k === k); if (!q) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
-      S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9; const hp0 = h.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);
-      playItem(S, R, q, ord[1]); if (q.pz.step || q.pz.items.some((it) => it.on) || q.open) out.push(`puzzle ${k}: a wrong start does not reset`);
-      playItem(S, R, q, ord[0]); if (q.pz.step !== 1 || q.open) out.push(`puzzle ${k}: the first piece does not hold`);
-      playItem(S, R, q, ord[2]); if (q.pz.step || q.open) out.push(`puzzle ${k}: a wrong piece does not reset`);
-      if (h.hp !== hp0) out.push(`puzzle ${k}: a wrong try costs health`);
-      for (const j of ord) { playItem(S, R, q, j); } if (!q.open) out.push(`puzzle ${k}: the right order does not open it`);
-      if (R.stats[1].sec !== 1) out.push(`puzzle ${k}: a solved puzzle is not counted`);
-      if (k === 'candles' && m.decor.filter((d) => d.pz === m.secrets.indexOf(q)).some((d) => (d.outUntil || 0) > S.t)) out.push('puzzle candles: a solved puzzle left a candle dark'); }
+    // puzzles (TASKS 1692, 1989): the right order opens the cache; a wrong one is caught at the difficulty's check point (easy at the
+    // first piece, normal at the second, hard at the last), puts everything back at once and hurts nobody; before that every piece takes
+    for (const k of ['levers', 'candles']) { const [S0, q0] = find((o) => o.pz && o.pz.k === k); if (!q0) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
+      const seed = S0.run.seed, qi = S0.run.map.secrets.indexOf(q0); for (const diff of D.DIFF_ORDER) {
+      const fresh = () => { const S = spawn(0, {}); S.meta.diff = diff; S.run = newRun(S, 'campaign', seed); S.screen = 'play'; const R = S.run; R.en = []; R.stats[1] = floorStat(R); R.hero.ifr = 1e9; return [S, R, R.map.secrets[qi]]; };
+      const tag = `puzzle ${k} (${diff})`, lit = (R, q) => q.pz.items.filter((it) => it.on).length, dark = (S, R, q) => R.map.decor.filter((d) => d.pz === R.map.secrets.indexOf(q) && (d.outUntil || 0) > S.t).length;
+      const at = diff === 'easy' ? 1 : diff === 'normal' ? 2 : q0.pz.items.length;
+      for (const wrong of [[1, 0, 2], [0, 2, 1], [2, 1, 0]]) { const [S, R, q] = fresh(), hp0 = R.hero.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);
+        const miss = wrong.findIndex((w, j) => w !== j), stop = Math.max(miss + 1, at);
+        for (let j = 0; j < wrong.length; j++) { playItem(S, R, q, ord[wrong[j]]);
+          if (j + 1 < stop) { if (lit(R, q) !== j + 1 || q.open) out.push(`${tag}: order ${wrong} is judged before its check point (piece ${j + 1})`); if (k === 'candles' && dark(S, R, q) !== q.pz.items.length - j - 1) out.push(`${tag}: a candle went out before the check point`); }
+          else if (j + 1 === stop) { if (lit(R, q) || q.pz.step || q.open) out.push(`${tag}: order ${wrong} does not reset at piece ${j + 1}`); if (k === 'candles' && dark(S, R, q) !== q.pz.items.length) out.push(`${tag}: a wrong order left a candle lit`);
+            if (!S.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_world.pz.nope'))) out.push(`${tag}: a wrong order does not say «${TXT('sim_world.pz.nope')}»`); break; } }
+        if (q.open) out.push(`${tag}: a wrong order opens it`); if (R.hero.hp !== hp0) out.push(`${tag}: a wrong try costs health`);
+        for (const j of ord) playItem(S, R, q, j); if (!q.open) out.push(`${tag}: the right order after a wrong one does not open it`);
+        if (R.stats[1].sec !== 1) out.push(`${tag}: a solved puzzle is not counted`);
+        if (k === 'candles' && dark(S, R, q)) out.push(`${tag}: a solved puzzle left a candle dark`); } } }
     // every secret of two whole campaigns, opened by the way the game offers it; a cache behind another is reached once its parent is open
     for (const sd of [11, 222]) for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9;
@@ -2541,6 +2558,30 @@
         const mx = UI.news(0).max; step(U, { keys: ['End'] }); step(U, { keys: ['ArrowDown'], wheel: 1 }); if (U.newsTop !== mx) out.push(`news: End scrolls to ${U.newsTop}, not ${mx}`);
         { const E = UI.news(mx); if (E.top + E.rows.length !== E.n) out.push('news: the end of the list does not show its last row'); }
         step(U, { keys: ['Home'] }); if (U.newsTop !== 0) out.push('news: Home does not go back to the top');
+        // TASKS 1971: only the newest version opens unfolded, a press on a folded header unfolds it, the thumb drags the scroll, a
+        // press on the track below the thumb scrolls down, and a second opening forgets what was unfolded
+        { const at = (b, o = {}) => Object.assign({ keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 + SIMX.uiDy('news') }, o), rs = D.newsRows(U.newsOpen), vs = rs.filter((r) => r.k === 'ver');
+          if (vs.length !== D.CHANGES.length || !vs[0].open || vs.slice(1).some((r) => r.open) || rs[1].k === 'ver' || rs[rs.length - 1].k !== 'ver') out.push('news: the list does not open with only the newest version unfolded');
+          step(U, { keys: ['End'] }); const h1 = UI.news(U.newsTop, U.newsOpen).heads.find((h) => !U.newsOpen[h.v]);
+          if (!h1 && D.CHANGES.length > 1) out.push('news: no folded version\'s header is shown at the end of the list');
+          if (h1) { const n0 = rs.length; step(U, at(h1, { click: 1, press: 1 })); step(U, at(h1));
+            if (!(U.newsOpen || {})[h1.v] || D.newsRows(U.newsOpen).length <= n0) out.push('news: a press on a folded version\'s header does not unfold it'); }
+          step(U, { keys: ['Home'] }); const B = UI.news(0, U.newsOpen).bar;
+          if (!B) out.push('news: the list has no scroll thumb');
+          else { const T = B.thumb, gy = T.y + T.h / 2 + SIMX.uiDy('news'), gx = T.x + T.w / 2;
+            step(U, { keys: [], px: gx, py: gy, click: 1, press: 1 }); for (let k = 1; k <= 4; k++) step(U, { keys: [], px: gx, py: gy + k * 60, press: 1 });
+            const dr = U.newsTop; step(U, { keys: [], px: gx, py: gy + 240 });
+            if (!(dr > 0)) out.push('news: dragging the scroll thumb does not scroll the list');
+            step(U, { keys: ['Home'] }); const ty = B.track.y + B.track.h - 4 + SIMX.uiDy('news');
+            step(U, { keys: [], px: gx, py: ty, click: 1, press: 1 }); step(U, { keys: [], px: gx, py: ty });
+            if (U.newsTop !== UI.news(0, U.newsOpen).max) out.push(`news: a press at the track's end scrolls to ${U.newsTop}, not to the end`);
+            step(U, { keys: ['Home'] }); step(U, { keys: [], px: gx, py: gy }); if (U.hover !== 'track') out.push(`news: the pointer over the scroll track does not light it (${U.hover})`);
+            const N0 = UI.news(0, U.newsOpen), hv = N0.heads[0], o0 = JSON.stringify(U.newsOpen);
+            if (N0.heads.some((h) => h.x + h.w > B.track.x)) out.push('news: a version header\'s press zone runs under the scroll track');
+            if (hv) { const hy = hv.y + hv.h / 2 + SIMX.uiDy('news'); step(U, { keys: [], px: B.track.x + 2, py: hy, click: 1, press: 1 }); const grab = U.newsDrag != null; step(U, { keys: [], px: B.track.x + 2, py: hy });
+              if (!grab || JSON.stringify(U.newsOpen) !== o0) out.push('news: a press on the track beside a version header folds the version instead of taking the thumb'); } }
+          step(U, { keys: ['Escape'] }); press(U, UI.menu(true).find((b) => b.id === 'news'));
+          if (Object.keys(U.newsOpen || {}).length !== 1 || U.newsTop) out.push('news: a second opening keeps what was unfolded or scrolled'); }
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
       toTests(U); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || U.newAsk !== 'magma' || U.focus !== 'no') out.push('tests: one press over a saved run drops it or does not ask with «Нет» first');
@@ -3143,9 +3184,16 @@
         if (e0 && i0 > 0) { const was = e0.was; if (!e0.mods || !e0.mods.length) out.push('quest abandon: the named foe on seed 19 has no elite mods to lose'); e0.hp = Math.round(e0.max / 2); R0.en.splice(0, 1); const maxOf = new Map(R0.en.filter((o) => o !== e0).map((o) => [o.id, o.max])); enterFloor(S, R0, 0, undefined, 'up'); SIMX.abandonQuest(S, R0, q0); enterFloor(S, R0, q0.f);
           const e1 = R0.en.find((o) => o.id === e0.id); if (!e1 || e1.quest !== undefined || e1.elite || e1.title || e1.mods !== undefined || e1.ward !== undefined || e1.max !== was.max || Math.abs(e1.hp - was.max / 2) > 2) out.push(`quest abandon: the named foe is not its plain self on a kept floor (${e1 ? e1.hp + '/' + e1.max + ', was ' + was.max : 'gone'})`);
           if (R0.en.some((o) => o !== e1 && maxOf.has(o.id) && o.max !== maxOf.get(o.id))) out.push('quest abandon: another foe took the named one\'s stats'); } else out.push('quest abandon: seed 19 has no named foe past the first in the list'); } }
-    let q = takeKind(51, 'named'); R = S.run;
+    // TASKS 1984: the named foe's name is the elites' «{name} {epithet}» of its family (1326), drawn when offered and kept once placed
+    const ofKin = (title, type) => { const G = D.ELITE_NAMES[D.ELITE_GROUP[type]]; return !!G && G.names.some((n) => G.adj.some((a) => title === n[0] + ' ' + a[n[1] === 'f' ? 1 : 0])); };
+    for (const sd of [51, 52, 53, 54, 55, 56]) { const R1 = run(sd); R1.offers = [{ key: 'named', from: 'guard', q: 0 }]; const o = offerOf(R1, 'guard'), q1 = o && o.q;
+      if (!q1 || !q1.foe || !SIMX.namedPool(R1, q1.f).includes(q1.foe) || !ofKin(q1.title, q1.foe)) out.push(`quest named: seed ${sd} offers a name off the elites' generator (${q1 && q1.title})`);
+      else if (!SIMX.questLine(q1, R1).startsWith(q1.title + ' ')) out.push('quest named: the quest line does not show the name'); }
+    let q = takeKind(51, 'named'); R = S.run; const offered = q && q.title, offeredFoe = q && q.foe;
     if (q) { for (let f = 1; f <= q.f; f++) enterFloor(S, R, f); const e = R.en.find((o) => o.quest === q.id);
-      if (!e || !e.elite || e.title !== q.title || D.BOSSES[e.type] || D.eliteName(e) !== q.title) out.push('quest named: no named elite on its floor');
+      const lost = e && (D.ELITE_GROUP[e.type] === D.ELITE_GROUP[offeredFoe] ? q.title !== offered : R.en.some((o) => SIMX.plainFoe(o) && D.ELITE_GROUP[o.type] === D.ELITE_GROUP[offeredFoe]));
+      if (lost) out.push('quest named: the foe lost the offered name, or is not of the offered family though one stood on its floor');
+      if (!e || !e.elite || D.BOSSES[e.type] || e.title !== q.title || D.eliteName(e) !== q.title || !ofKin(q.title, e.type) || D.ELITE_GROUP[q.foe] !== D.ELITE_GROUP[e.type]) out.push('quest named: no elite named by its family on its floor');
       else { if (!questMarks(R).some((o) => o.kind === 'named')) out.push('quest named: the foe is not on the map');
         const hp = e.max; enterFloor(S, R, 0, undefined, 'up'); enterFloor(S, R, q.f); const e2 = R.en.find((o) => o.quest === q.id);
         if (!e2 || e2.max !== hp || R.en.filter((o) => o.quest === q.id).length !== 1) out.push('quest named: the foe is not kept on its floor (or comes twice)');
@@ -3200,8 +3248,8 @@
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
     // TASKS 1850: a quest to turn in waits behind an ordinary line with its button; its words, the thanks and the reward come once pressed
-    // a quest's turn-in waits behind one of its giver's lines: every townsman with quests has them (PR 55 review 2)
-    for (const role in D.QUEST_SAY) if (!D.FOLK[role] || !(D.FOLK[role].lines || []).length) out.push(`quest turn-in: the ${role} gives quests but has no lines`);
+    // a quest's turn-in waits behind its giver's words on that kind of quest (PR 55 review 2, TASKS 1985; tools/textcheck.cjs checks every kind)
+    for (const role in D.QUEST_SAY) if (!D.FOLK[role] || !(D.QUEST_SAY[role].turnin || {}).kill) out.push(`quest turn-in: the ${role} gives quests but has no turn-in words`);
     // (PR 55 review 2) with the Keeper's news to tell, the news is the button's page and the reward is told once pressed
     for (const [role, key, news] of [['keeper', 'fetch'], ['smith', 'fetch'], ['porter', 'cull'], ['guard', 'named'], ['keeper', 'fetch', 1]]) { R = run(41); R.offers = []; R.quests = []; const q = takeQuest(S, R, newQuest(R, key, 2, role)); q.st = 'done'; q.n = q.need;
       const SAY = D.QUEST_SAY[role], W = [D.QUESTS[key].name, root.SIMX.rwLine(q.rw), D.QUESTS[key].thanks, ...SAY.done, ...SAY.thanks].filter(Boolean), said = () => S.talk.pages.some((p) => W.some((v) => p.includes(v)));
@@ -3629,6 +3677,27 @@
     return out;
   }
 
+  // TASKS 1977: attack speed per floor of the campaign, the hero a level ahead of it in rare gear of his level: the typical kit (attack speed on
+  // the weapon and the gloves at a mid roll, the leather pieces' own, a haste gift from floor 4) never passes the cap and nears it only by the
+  // campaign's end; a stacked one (the best roll on every slot, three haste gifts, every point in agility) is held at the cap
+  function aspdCheck() {
+    const out = [], cap = D.ASPD.cap, A = D.AFFIXES.find((a) => a.k === 'aspd'), N = D.RUNS.campaign.floors;
+    for (const cls of ['warrior', 'mage', 'archer']) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 7, { cls }); const h = S.run.hero, C = D.CLASSES[cls], top = {};
+      const slots = {}; for (const k in BASES) if (BASES[k].slot && D.wears(cls, k)) (slots[BASES[k].slot] = slots[BASES[k].slot] || []).push(k);
+      const kit = (f, build) => { const lvl = f + 1, stack = build === 'stack', rar = stack ? 3 : 2, main = build === 'main' ? (cls === 'archer' ? 'agi' : cls === 'mage' ? 'int' : 'str') : 'agi';
+        h.lvl = lvl; h.perks = { haste: stack ? 3 : f >= 4 ? 1 : 0 }; h.base = Object.assign({}, C.base); h.base[main] += (lvl - 1) * C.grow.pts;
+        for (const sl in h.eq) { const ks = slots[sl] || [], bk = ks.find((k) => (BASES[k].typed || {}).aspd) || ks[0]; if (!bk) { h.eq[sl] = null; continue; }
+          const roll = stack ? 1.3 : sl === 'weapon' || sl === 'gloves' ? 1 : 0;
+          h.eq[sl] = itemPower({ id: 1, b: bk, rar, lvl, mods: roll ? { aspd: Math.max(1, Math.round((A.a + A.b * lvl) * roll * (1 + 0.15 * rar))) } : {} }); }
+        return stats(h, S.meta); };
+      for (let f = 1; f <= N; f++) for (const build of ['main', 'agi', 'stack']) { const st = kit(f, build);
+        if (st.aspd > cap + 1e-9) out.push(`aspd: a ${cls} (${build}) on floor ${f} swings ${st.aspd.toFixed(1)} % faster, over the ${cap} % cap`);
+        if (build !== 'stack') { top[build] = st.aspd; if (f <= N / 2 && st.aspd >= 0.75 * cap) out.push(`aspd: a ${cls} (${build}) is at ${st.aspd.toFixed(1)} % by floor ${f}, the cap is near half way down`);
+          if (f <= N - 5 && st.aspd >= cap) out.push(`aspd: a ${cls} (${build}) reaches the cap on floor ${f}`); } }
+      if (!(Math.max(top.main, top.agi) >= 0.8 * cap)) out.push(`aspd: a ${cls} ends the campaign at ${Math.max(top.main, top.agi).toFixed(1)} %, far from the ${cap} % cap`); }
+    return out;
+  }
+
   function heroDeathCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
     const put = (perk) => { R.en = []; S.ev.length = 0; h.hp = heroSt(S).maxHp; h.deadT = -1; h.ifr = 0; h.dashT = -9; h.revived = 0; h.perks = perk ? { [perk]: 1 } : {}; };
@@ -3644,6 +3713,7 @@
 
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
+  const splitCheck = () => { const out = []; SIMX.checkSplit(out); return out; };
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
   const GEN_PRINT = { 27: '6536c5f1dd1fc12a' };
@@ -3651,7 +3721,7 @@
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
     return p === GEN_PRINT[D.GEN_VERSION] ? [] : [`gen print: the generator lays other floors (${p}) under D.GEN_VERSION ${D.GEN_VERSION}: raise the version and put the print in GEN_PRINT`]; }
-  const PARTS = { heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { splitCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

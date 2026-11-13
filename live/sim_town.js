@@ -308,7 +308,11 @@
     out.forEach((o, i) => { if (rooms.length) put(o, rooms[i % rooms.length]); });
     (m.secrets || []).forEach((q, i) => { const o = first((v) => v.kind === 'secret' && ofEra(v)); if (o && r() < 0.6) put(o, m.rooms[q.room], i); });
     const hosted = (m.secrets || []).filter((q) => m.rooms[q.host]), hq = hosted.length && r() < 0.7 ? hosted[Math.floor(r() * hosted.length)] : null, hn = hq && first((v) => v.kind === 'hint' && v.how === SIMX.secretHow(hq)); if (hn) put(hn, m.rooms[hq.host], hq.parent); }
-  function nameElites(R) { for (const e of R.en) { const G = D.ELITE_NAMES[D.ELITE_GROUP[e.type]]; if (!e.elite || e.title || e.nm || D.BOSSES[e.type] || !G) continue; let a = qhash((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811); const n = G.names[a % G.names.length]; a = qhash(a + 0x9e3779b9); const w = G.adj[a % G.adj.length]; e.nm = n[0] + ' ' + w[n[1] === 'f' ? 1 : 0]; } }
+  const nickOf = (type, a) => { const G = D.ELITE_NAMES[D.ELITE_GROUP[type]]; if (!G) return null; const n = G.names[a % G.names.length]; a = qhash(a + 0x9e3779b9); return n[0] + ' ' + G.adj[a % G.adj.length][n[1] === 'f' ? 1 : 0]; };
+  const nickHash = (R, e) => qhash((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811);
+  function nameElites(R) { for (const e of R.en) { if (!e.elite || e.title || e.nm || D.BOSSES[e.type]) continue; const s = nickOf(e.type, nickHash(R, e)); if (s) e.nm = s; } }
+  // the named quest's foe is drawn off its floor's roster when offered, so the townsman can name it before the floor exists
+  const namedPool = (R, f) => D.rosterAt(STAGE(R, f).biome, f).filter((t) => D.ELITE_GROUP[t] && !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake);
   const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
   function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
   const isFree = (R, w) => !!(R.freed && R.freed[w]), capOf = (R, w) => (R.captives || {})[w];
@@ -338,7 +342,7 @@
     else { o = offersOf(R).find((q) => q.from === role && !q.q && questFloor(R, q.key)); if (!o) return null; key = o.key; f = questFloor(R, key); }
     const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f, R.hero.lvl), story },
       k = qhash((R.seed >>> 0) * 31 + f * 977 + key.length * 131 + role.length);
-    if (Q.type === 'named') q.title = D.NAMED.titles[k % D.NAMED.titles.length];
+    if (Q.type === 'named') { const P = namedPool(R, f); if (P.length) { q.foe = P[k % P.length]; q.title = nickOf(q.foe, k); } }
     if (Q.type === 'fetch') { q.thing = D.QUEST_SAY[role].thing; q.ic = D.QUEST_SAY[role].ic; }
     return { o, q }; }
   const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
@@ -348,9 +352,12 @@
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
+  // the count of this giver's turned quests of the kind steps the pick, so the same words never come twice in a row (TASKS 1985)
+  function turnSay(R, role, q) { const ty = D.QUESTS[q.key].type, L = D.QUEST_SAY[role].turnin[ty], n = (R.quests || []).filter((o) => o.st === 'turned' && o.from === role && D.QUESTS[o.key].type === ty).length;
+    return D.turnFill(L[(qhash((R.seed >>> 0) + [...role + ty].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + n) % L.length], q); }
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
-    // a quest to turn in waits behind an ordinary line: its words and reward come with the press (TASKS 1850)
-    const dn = questDone(R, role), L = D.FOLK[role].lines; if (dn) return { pages: L[(dn.id || 0) % L.length].slice(), act: { k: 'turn', id: dn.id, rw: dn.rw } };
+    // a quest to turn in waits behind its giver's words on what was done: the thanks and reward come with the press (TASKS 1850, 1985)
+    const dn = questDone(R, role); if (dn) return { pages: [turnSay(R, role, dn)], act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
@@ -377,8 +384,9 @@
   const plainFoe = (e) => e.deadT < 0 && counted(e) && !D.BOSSES[e.type] && !e.elite && !e.guard && !e.exit && !ENEMIES[e.type].lurk && !ENEMIES[e.type].deep && !ENEMIES[e.type].lake && e.room >= 0;
   function questPlace(S, R) { const f = R.floor, m = R.map;
     for (const q of R.quests || []) { const Q = D.QUESTS[q.key]; if (q.st !== 'taken' || q.f !== f || !Q.fresh || q.placed) continue; q.placed = 1; const rooms = questRooms(R);
-      if (Q.type === 'named') { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && e.room === r2.id)), e = r && R.en.find((o) => plainFoe(o) && o.room === r.id);
-        if (!e) { q.lost = 1; continue; } const stg = STAGE(R, f), mob = stg.mob || 1;
+      if (Q.type === 'named') { const kin = (e) => D.ELITE_GROUP[e.type] === D.ELITE_GROUP[q.foe], pickIn = (ok) => { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && ok(e) && e.room === r2.id)); return r && R.en.find((o) => plainFoe(o) && ok(o) && o.room === r.id); };
+        const e = pickIn(kin) || pickIn((o) => D.ELITE_GROUP[o.type]);
+        if (!e) { q.lost = 1; continue; } if (!q.title || !kin(e)) { q.foe = e.type; q.title = nickOf(e.type, nickHash(R, e)); } const stg = STAGE(R, f), mob = stg.mob || 1;
         e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
         if (!r) { q.lost = 1; continue; } q.room = r.id; }
@@ -457,6 +465,18 @@
     if (i !== undefined && h.bag[i]) { const was = h.bag[i]; h.bag[i] = Object.assign(it, { id: R.nextId++ }); T.items[j] = was; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
     if (i !== undefined) h.bag[i] = it; else if (!bagAdd(R, it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashTake.s.2') }); return; }
     it.id = R.nextId++; T.items[j] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }
+  // a part of a stack moved (TASKS 1988): the source keeps the rest until the drop, so a save while it is held loses nothing. Into cell j
+  // it lands in an empty cell or joins a stack of its kind; with no j it joins the stacks among the first lim cells, then takes a free one
+  function movePart(R, A, k, B, j, n, lim = B.length) { const it = A[k]; if (!it || !isCons(it) || !(n >= 1) || n > (it.n || 1)) return 0;
+    const cap = D.CONSUMABLES[it.b].stack, into = (q, m) => { const o = B[q]; if (!o) { B[q] = Object.assign({}, it, { id: R.nextId++, n: m }); return m; }
+      return o === it || o.b !== it.b ? 0 : (m = Math.max(0, Math.min(m, cap - o.n)), o.n += m, m); };
+    let moved = 0;
+    if (j !== undefined) moved = into(j, n);
+    else { for (let q = 0; q < lim && moved < n; q++) if (B[q] && B[q] !== it && B[q].b === it.b) moved += into(q, n - moved);
+      for (let q = 0; q < lim && moved < n; q++) if (!B[q]) { moved += into(q, n - moved); break; } }
+    it.n -= moved; if (it.n <= 0) A[k] = null; return moved; }
+  // how many of a consumable the bag still takes: the room on its stacks and a full stack per free cell
+  const roomFor = (h, b) => { const cap = D.CONSUMABLES[b].stack; return h.bag.reduce((a, q) => a + (!q ? cap : q.b === b ? Math.max(0, cap - q.n) : 0), 0); };
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
   const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
@@ -513,21 +533,23 @@
   // what the merchant pays and asks by: the floor's depth, in the town the deepest floor reached
   const tradeDepth = (R) => (R.town ? dep(R, Math.max(1, R.deepest || 0)) : dep(R));
   const atCounter = (R) => { const s = R.map.shop, h = R.hero; return !!s && Math.abs(h.x - s.front.x) < 64 && h.y > s.counter.y - 4 && h.y - s.front.y < 40; };
-  function openShop(S, R) { S.screen = 'shop'; if (R.town) broke(S, R); R.shop.line = Math.floor(rnd(R) * (R.shop.wander ? D.SHOP.wander.lines : D.SHOP.lines).length); R.shop.tradeT = S.t; S.hover = ''; ev(S, { k: 'shop', x: R.map.shop.x, y: R.map.shop.y }); }
-  function buy(S, R, g, back) {
-    const h = R.hero, sh = R.shop;
-    if (h.gold < g.price) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s') }); return; }
-    const it = g.n ? Object.assign(potion(g.it.b, 1), { id: R.nextId++ }) : g.it;
+  function openShop(S, R) { S.screen = 'shop'; S.sellAsk = null; S.split = null; if (R.town) broke(S, R); R.shop.line = Math.floor(rnd(R) * (R.shop.wander ? D.SHOP.wander.lines : D.SHOP.lines).length); R.shop.tradeT = S.t; S.hover = ''; ev(S, { k: 'shop', x: R.map.shop.x, y: R.map.shop.y }); }
+  // n: how many of a shelf's stack (TASKS 1988), held to his stock, the gold and the bag's room; gear and the buy-back row go one piece at a time
+  function buy(S, R, g, back, n = 1) {
+    const h = R.hero, sh = R.shop; n = g.n ? Math.max(1, Math.min(n, g.n)) : 1;
+    if (h.gold < g.price * n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s') }); return; }
+    if (g.n && roomFor(h, g.it.b) < n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s.2') }); return; }
+    const it = g.n ? Object.assign(potion(g.it.b, n), { id: R.nextId++ }) : g.it;
     if (!bagAdd(R, it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.buy.s.2') }); return; }
-    h.gold -= g.price; sh.tradeT = S.t;
-    if (g.n) { if (--g.n <= 0) sh.goods.splice(sh.goods.indexOf(g), 1); } else (back ? sh.back : sh.goods).splice((back ? sh.back : sh.goods).indexOf(g), 1);
-    ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: -g.price, s: TXT('sim_town.buy.s.3', { p1: itemName(it) }), rar: it.rar });
+    h.gold -= g.price * n; sh.tradeT = S.t;
+    if (g.n) { if ((g.n -= n) <= 0) sh.goods.splice(sh.goods.indexOf(g), 1); } else (back ? sh.back : sh.goods).splice((back ? sh.back : sh.goods).indexOf(g), 1);
+    ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: -g.price * n, s: TXT('sim_town.buy.s.3', { p1: itemName(it) }), rar: it.rar });
   }
-  // a sale goes onto the buy-back row at the price paid for it, so a slip of the mouse costs nothing
-  function sell(S, R, i) {
+  // a sale goes onto the buy-back row at the price paid for it, so a slip of the mouse costs nothing; n of a stack go as one lot (TASKS 1988)
+  function sell(S, R, i, n = 1) {
     const h = R.hero, sh = R.shop, it = h.bag[i]; if (!it) return;
-    const n = isCons(it) ? 1 : 0, price = D.sellPrice(it, tradeDepth(R)), one = n && it.n > 1 ? Object.assign({}, it, { id: R.nextId++, n: 1 }) : it;
-    if (n && it.n > 1) it.n--; else h.bag[i] = null;
+    const k = isCons(it) ? Math.max(1, Math.min(n, it.n || 1)) : 1, price = D.sellPrice(it, tradeDepth(R)) * k, one = isCons(it) && it.n > k ? Object.assign({}, it, { id: R.nextId++, n: k }) : it;
+    if (one !== it) it.n -= k; else h.bag[i] = null;
     h.gold += price; sh.tradeT = S.t; sh.back.push({ it: one, price }); if (sh.back.length > D.SHOP.buyback) sh.back.shift();
     ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: price, s: TXT('sim_town.sell.s', { p1: itemName(one) }), rar: one.rar });
   }
@@ -535,7 +557,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
-    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
+    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

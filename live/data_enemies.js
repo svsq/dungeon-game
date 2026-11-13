@@ -277,7 +277,7 @@
   const eliteName = (e) => e.title || e.nm || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name).map((w) => (FEM.has(e.type) ? femAdj(w) : w)), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
-  const NAMED = { hp: 1.3, titles: [TXT('NAMED.titles'), TXT('NAMED.titles.2'), TXT('NAMED.titles.3'), TXT('NAMED.titles.4'), TXT('NAMED.titles.5'), TXT('NAMED.titles.6'), TXT('NAMED.titles.7'), TXT('NAMED.titles.8')] };
+  const NAMED = { hp: 1.3 };
 
   const colossusContact = (e, side = 'R') => ({ x: e.x + e.face * ENEMIES[e.type].h * (side === 'L' ? 0.02 : 0.45), y: e.y });
 

@@ -320,11 +320,14 @@
   const secretHow = (q) => (q.kind === 'puzzle' ? q.pz.k : q.kind === 'lever' ? q.trig.k : q.kind);
   // a puzzle (TASKS 1692): the piece the hero stands at, three levers on a wall or three candles on the floor worked in the order their scratches count
   function puzzleNear(R) { const h = R.hero, m = R.map; let best = null, bd = 1e9; for (const q of m.secrets || []) { if (q.open || !q.pz) continue; q.pz.items.forEach((it, i) => { if (it.on) return; const lev = q.pz.k === 'levers', d = lev ? Math.abs(h.x - it.x) : Math.hypot(h.x - it.x, h.y - it.y); if ((lev ? d < 36 && h.y > it.y && h.y - it.y < 90 : d < 46) && d < bd) { bd = d; best = { q, i }; } }); } return best; }
-  function resetPuzzle(m, q) { q.pz.step = 0; q.pz.items.forEach((it, j) => { it.on = 0; if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === j); if (d) d.outUntil = 1e9; } }); }
-  function usePuzzle(S, R, q, i) { const m = R.map, it = q.pz.items[i];
-    if (it.n !== q.pz.step + 1) { resetPuzzle(m, q); ev(S, { k: 'click', x: it.x, y: it.y }); ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: q.pz.k === 'levers' ? TXT('sim_world.pz.levers') : TXT('sim_world.pz.candles') }); return; }
-    it.on = 1; q.pz.step++; if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === i); if (d) d.outUntil = 0; }
-    ev(S, { k: 'click', x: it.x, y: it.y }); if (q.pz.step === q.pz.items.length) openSecret(S, R, q); }
+  function resetPuzzle(m, q) { q.pz.step = 0; q.pz.items.forEach((it, j) => { it.on = 0; delete it.at; if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === j); if (d) d.outUntil = 1e9; } }); }
+  // the order is judged at a point set by difficulty (TASKS 1989): easy at every piece, normal from the second, hard once all are worked;
+  // until then any piece takes, so a wrong order cannot be found piece by piece
+  function usePuzzle(S, R, q, i) { const m = R.map, it = q.pz.items[i], n = q.pz.items.length, at = R.diff === 'hard' ? n : R.diff === 'easy' ? 1 : 2;
+    it.on = 1; it.at = ++q.pz.step; ev(S, { k: 'click', x: it.x, y: it.y });
+    if (q.pz.step >= at && q.pz.items.some((o) => o.on && o.n !== (o.at ?? o.n))) { resetPuzzle(m, q); ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.pz.nope') }); return; }
+    if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === i); if (d) d.outUntil = 0; }
+    if (q.pz.step === n) openSecret(S, R, q); }
   function openChest(S, R, c) {
     if (c.open) return;
     if (c.mimic) { wakeMimic(S, R, c); return; }

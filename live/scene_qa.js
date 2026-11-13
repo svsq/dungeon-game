@@ -36,6 +36,10 @@
       ['menu_news_empty', mk((S) => { S.saved = null; S.qaNewsMain = []; S.hover = 'news'; })],
       ['news', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = 0; })],
       ['news_end', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = DATA.UI.news(0).max; S.hover = 'back'; })],
+      // a past version unfolded under the pointer and the thumb held mid-drag (TASKS 1971)
+      ['news_past', mk((S) => { S.saved = null; S.screen = 'news'; const v = (DATA.CHANGES[1] || DATA.CHANGES[0]).v; S.newsOpen = { [DATA.CHANGES[0].v]: 1, [v]: 1 };
+        S.newsTop = Math.max(0, DATA.UI.news(0, S.newsOpen).max - 4); S.hover = 'ver:' + v; })],
+      ['news_drag', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = Math.round(DATA.UI.news(0).max / 2); S.newsDrag = 10; S.hover = 'track'; })],
       ['tests_saved', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.hover = 'endless'; })],
       ['tests_full_ask', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.slot = 0; S.screen = 'tests'; S.newAsk = 'magma'; S.focus = 'no'; })],
       ['play', play()],
@@ -684,6 +688,9 @@
     const pouches = (S) => { const R = S.run, h = R.hero; S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 });
       for (let i = 24; i < h.bag.length; i++) h.bag[i] = Object.assign(SIM.rollItem(R, 3 + (i % 9), i % 5), { id: 3100 + i }); };
     states.push(['shop_idle', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = ''; })]);
+    // TASKS 1978: a legendary's sale asks on a sheet over the whole shop, the longest legendary name, either answer in focus
+    for (const [n, f] of [['shop_sell_ask', 'sellNo'], ['shop_sell_ask_yes', 'sellYes']]) states.push([n, shopS((S) => { worst(S); const h = S.run.hero, lb = Object.keys(D.BASES).filter((b) => D.LEGEND_NAMES[b]).sort((a, b) => D.LEGEND_NAMES[b].length - D.LEGEND_NAMES[a].length)[0];
+      h.bag[5] = Object.assign(SIM.rollItem(S.run, 12, 4, D.BASES[lb].slot), { id: 4000, b: lb, rar: 4 }); S.screen = 'shop'; S.sellAsk = { i: 5, id: 4000 }; S.focus = f; S.hover = f === 'sellYes' ? f : ''; })]);
     states.push(['shop_pouch', shopS((S) => { worst(S); pouches(S); S.screen = 'shop'; S.bagTab = 1; S.hover = 'sell:30'; })]);
     states.push(['small_props', play((S) => {
       const R = S.run, m = R.map, r = m.rooms.filter((q) => q.type === 'combat').reduce((a, b) => a.w * a.h > b.w * b.h ? a : b), h = R.hero;
@@ -1530,6 +1537,7 @@
     states.push(['codex_items', mk((S) => { S.meta.codex = { it: Object.fromEntries(Object.keys(D.BASES).map((k) => [k, 1])) }; S.screen = 'codex'; S.codexTab = 'it'; })]);
     states.push(['meta_unlocks', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 55; S.meta.open = { g_whirl_ring: 1, k_w_axe: 1 }; S.meta.ach = { a_elites: 13 }; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:1'; })]);
     states.push(['meta_unlocks_poor', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 0; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:2'; })]);
+    states.push(['meta_mage', mk((S) => { S.meta.cls = 'mage'; S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = { hp: 3, gear: 1, pouch: 1 }; S.hover = 'gear'; })]);
     states.push(['meta_tab_hover', mk((S) => { S.meta.shards = 35; S.screen = 'meta'; S.hover = 'tab:open'; })]);
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
     // TASKS 1887 б: the altar opened with no shards says so in shards, not in the gold it does not take

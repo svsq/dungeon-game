@@ -17,12 +17,16 @@
   const wrapLine = (s, n) => { const out = []; let cur = '';
     for (const w of s.split(' ')) { if (cur && cur.length + 1 + w.length > n) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; }
     return cur ? out.concat([cur]) : out; };
-  let newsMemo = null;
-  const newsRows = () => { if (newsMemo && newsMemo.src === D.CHANGES) return newsMemo.rows; const rows = [];
-    for (const e of D.CHANGES || []) { rows.push({ k: 'ver', v: e.v, date: e.date, h: NEWS.h.ver });
+  // only the versions in `open` show their points (TASKS 1971); with no `open` only the newest one does
+  let newsMemo = { src: null, by: {} };
+  const newsRows = (open) => { const top = (D.CHANGES[0] || {}).v, on = open || { [top]: 1 }, key = (D.CHANGES || []).filter((e) => on[e.v]).map((e) => e.v).join('|');
+    if (newsMemo.src !== D.CHANGES) newsMemo = { src: D.CHANGES, by: {} };
+    if (newsMemo.by[key]) return newsMemo.by[key]; const rows = [];
+    for (const e of D.CHANGES || []) { rows.push({ k: 'ver', v: e.v, date: e.date, open: !!on[e.v], h: NEWS.h.ver });
+      if (!on[e.v]) continue;
       for (const g of e.groups) { rows.push({ k: 'group', s: g.name, h: NEWS.h.group });
         for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
-    newsMemo = { src: D.CHANGES, rows }; return rows; };
+    return (newsMemo.by[key] = rows); };
   const MENU_SHEET = { x: 48, w: 620, bottom0: 1012, top: 92, row: 56, sub: 26, gap: 34, bottom: 78, inX: 56 };
   const MENU_ITEMS = [['continue', 'campaign', 'load'], ['stats', 'settings'], ['quit']];
   const MENU_LABEL = { continue: () => TXT('UI.menu'), load: () => TXT('UI.menu.load'), stats: () => TXT('UI.menu.stats'), settings: () => TXT('UI.menu.settings'), quit: () => TXT('UI.menu.quit') };
@@ -109,11 +113,15 @@
     tests: (hasRun, full = hasRun) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !full ? fresh : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
       .concat([{ id: 'back', label: TXT('UI.tests.back.label'), on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
     // the rows that fit from row `top`, and the last top that still fills the view (the end of the list sits at its bottom)
-    news: (top) => { const P = NEWS.P, rows = newsRows(), vh = P.h - NEWS.top - NEWS.bottom; let max = rows.length, fill = 0;
+    news: (top, open) => { const P = NEWS.P, rows = newsRows(open), vh = P.h - NEWS.top - NEWS.bottom; let max = rows.length, fill = 0;
       while (max > 0 && fill + rows[max - 1].h <= vh) fill += rows[--max].h;
       const t = Math.max(0, Math.min(max, top || 0)), shown = []; let y = P.y + NEWS.top;
       for (let i = t; i < rows.length && y + rows[i].h <= P.y + NEWS.top + vh; i++) { shown.push(Object.assign({ y }, rows[i])); y += rows[i].h; }
-      return { P, rows: shown, top: t, max, n: rows.length, view: { x: P.x + 60, y: P.y + NEWS.top, w: P.w - 120, h: vh },
+      const view = { x: P.x + 60, y: P.y + NEWS.top, w: P.w - 120, h: vh }, sx = P.x + P.w - 56;
+      // the scroll's track and thumb for both the sim's drag and the HUD (TASKS 1971); the track's hit is wider than its ink rule
+      const th = Math.max(60, vh * vh / (vh + max * 34)), bar = max > 0 ? { track: { id: 'track', x: sx - 14, y: view.y, w: 31, h: vh }, thumb: { x: sx - 4, y: view.y + (vh - th) * (t / max), w: 11, h: th }, x: sx } : null;
+      return { P, rows: shown, top: t, max, n: rows.length, view, bar,
+        heads: shown.filter((r) => r.k === 'ver').map((r) => ({ id: 'ver:' + r.v, v: r.v, x: view.x, y: r.y, w: bar ? bar.track.x - view.x : view.w, h: r.h })),
         r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
     // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right).
     // The book is as tall as the settings there are (TASKS 1758: five rows' room held two and stood two thirds empty); the graphics
@@ -152,9 +160,9 @@
     // a run through the town (R-17, TASKS 1006) goes back there with a new hero, and the button says so (TASKS 1812)
     end: (hasLog, town) => [['menu', TXT('UI.end'), true], ['again', town ? TXT('UI.end.2') : TXT('UI.end.3'), true], ['log', TXT('UI.end.4'), !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
     // the discoveries tab (TASKS 394): two columns of rows under the same tab button
-    unlocks: () => D.UNLOCKS.map((U, i) => ({ id: 'un:' + i, un: i, on: true, x: 200 + (i % 2) * 770, y: 276 + Math.floor(i / 2) * 76, w: 750, h: 68 })),
-    meta: (cls, tab) => { const back = { id: 'back', label: TXT('UI.meta.back.label'), on: true, x: 810, y: 890, w: 300, h: 70 }, cx = { id: 'codex', label: TXT('UI.codex.open'), on: true, x: 180, y: 120, w: 260, h: 60 }, tb = [['up', TXT('UI.meta.tab.up')], ['open', TXT('UI.meta.tab.open')]].map(([t, label], i) => ({ id: 'tab:' + t, tab: t, label, on: true, x: 1300 + i * 222, y: 124, w: 212, h: 56 })); if (tab === 'open') return UI.unlocks().concat([back, ...tb, cx]); const list = D.metaFor(cls), rows = Math.ceil(list.length / 2), step = Math.min(112, Math.floor(580 / rows));
-      return list.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 276 + (i % rows) * step, w: 760, h: step - 10 })).concat([back, ...tb, cx]); },
+    unlocks: () => D.UNLOCKS.map((U, i) => ({ id: 'un:' + i, un: i, on: true, x: 200 + (i % 2) * 770, y: 276 + Math.floor(i / 2) * 76, w: 750, h: 72 })),
+    meta: (cls, tab) => { const back = { id: 'back', label: TXT('UI.meta.back.label'), on: true, x: 810, y: 890, w: 300, h: 70 }, cx = { id: 'codex', label: TXT('UI.codex.open'), on: true, x: 180, y: 120, w: 260, h: 60 }, tb = [['up', TXT('UI.meta.tab.up')], ['open', TXT('UI.meta.tab.open')]].map(([t, label], i) => ({ id: 'tab:' + t, tab: t, label, on: true, x: 1300 + i * 222, y: 124, w: 212, h: 56 })); if (tab === 'open') return UI.unlocks().concat([back, ...tb, cx]); const list = D.metaFor(cls), rows = Math.ceil(list.length / 2), step = Math.min(112, Math.floor(572 / rows));
+      return list.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 276 + (i % rows) * step, w: 760, h: step - 4 })).concat([back, ...tb, cx]); },
     fork: () => [0, 1].map((i) => ({ id: 'fork:' + i, i, on: true, x: 460 + i * 520, y: 340, w: 480, h: 390 })),
     // the codex (TASKS 395): its pages' entries in three columns, tabs over them, the pager and the way back under them
     codex: (tab, page) => { const list = D.codexList(tab), pages = Math.max(1, Math.ceil(list.length / D.CODEX_PAGE)), p = Math.min(page || 0, pages - 1);
@@ -245,6 +253,15 @@
       const by = Math.max(...r.filter((q) => q.id.startsWith('sell:')).map((q) => q.y + q.h)) + 40, card = { x: P.x + 700, y: by, w: P.w - 740, h: P.y + P.h - 20 - by, bot: 1036 };
       return { P, r, card };
     },
+    // a legendary's sale asks first (TASKS 1978): a sheet in the middle of the shop, clear of the merchant's button, «Оставить» on the right
+    sellAsk: () => { const A = { x: 660, y: 320, w: 600, h: 380 }, cell = { id: 'sellAsk_it', x: A.x + A.w / 2 - CELL / 2, y: A.y + 56, w: CELL, h: CELL };
+      return { A, cell, q: { x: A.x + 40, y: A.y + 150, w: A.w - 80, h: 90 }, r: [{ id: 'sellYes', label: TXT('UI.shop.sellYes'), on: true, x: A.x + 50, y: A.y + A.h - 100, w: 230, h: 64 },
+        { id: 'sellNo', label: TXT('UI.shop.sellNo'), on: true, x: A.x + A.w - 280, y: A.y + A.h - 100, w: 230, h: 64 }] }; },
+    // how many of a stack (TASKS 1988): the count between − and +, the answer under them, «Отмена» on the right
+    split: () => { const A = { x: 710, y: 340, w: 500, h: 340 };
+      return { A, cell: { id: 'split_it', x: A.x + A.w / 2 - CELL / 2, y: A.y + 40, w: CELL, h: CELL }, num: { x: A.x + A.w / 2 - 80, y: A.y + 136, w: 160, h: 64 },
+        r: [{ id: 'spOk', label: '', on: true, x: A.x + 40, y: A.y + A.h - 96, w: 200, h: 60 }, { id: 'spNo', label: TXT('UI.split.no'), on: true, x: A.x + A.w - 240, y: A.y + A.h - 96, w: 200, h: 60 },
+          { id: 'spMinus', label: '\u2212', on: true, x: A.x + A.w / 2 - 150, y: A.y + 140, w: 56, h: 56 }, { id: 'spPlus', label: '+', on: true, x: A.x + A.w / 2 + 94, y: A.y + 140, w: 56, h: 56 }] }; },
   };
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start

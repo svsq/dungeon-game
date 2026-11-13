@@ -9,7 +9,7 @@
   const framed = (oy, fn) => { const o = G.oy, h = H; G.oy = oy; H = VH - oy; try { fn(); } finally { G.oy = o; H = h; } };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
-  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map();
+  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map(), MARKS = new WeakMap(), MARK_HOLD = 1.2;
   HUD.init = () => {};
   // a line of text broken into lines of at most `width` px
   const wrapLab = (id, s0, x, y, width, size, col) => { const lines = []; let line = '';
@@ -207,11 +207,20 @@
       for (let n = 0; n < 64 && open.length; n++) {
         let i = 0; for (let j = 1; j < open.length; j++) if (far(open[j]) < far(open[i])) i = j;
         const [bx, by] = open.splice(i, 1)[0], b = { x: bx, y: by, w, h: hh }, o = obst.find((q) => overlaps(b, q));
-        if (!o) { occupied.push(b); return b; }
+        if (!o) return b;
         for (const c of [[bx, o.y - hh - 4], [bx, o.y + o.h + 4], [o.x - w - 4, by], [o.x + o.w + 4, by]]) { const key = c[0] + ',' + c[1];
           if (tried.has(key) || Math.abs(c[0] - x0) > rx || Math.abs(c[1] - y0) > ry || c[0] < 4 || c[0] + w > W - 4 || c[1] < 4 || c[1] + hh > H - 4) continue;
           tried.add(key); open.push(c); } }
       return null; };
+    // a body passing over the giver's head sent the mark to a new spot every frame (TASKS 1903): the spot is kept until bodies have
+    // pushed it elsewhere for MARK_HOLD s, while the HUD, labels and other marks still move it at once. A stale record or a giver
+    // jumped on screen places afresh
+    const holdMark = (f, ax, ay, fresh, t) => {
+      const r = MARKS.get(f), dt = r ? t - r.t : -1, held = r && dt >= 0 && dt < 0.5 && Math.hypot(ax - r.ax, ay - r.ay) < 24 && { x: Math.round(ax + r.dx), y: Math.round(ay + r.dy), w: 40, h: 56 };
+      const free = held && held.x >= 4 && held.x + 40 <= W - 4 && held.y >= 4 && held.y + 56 <= H - 4 && !occupied.concat(ZN.map(clip)).some((q) => overlaps(held, q));
+      const same = free && fresh && Math.abs(fresh.x - held.x) <= 2 && Math.abs(fresh.y - held.y) <= 2, busy = free && !same ? r.busy + dt : 0;
+      const at = free && busy < MARK_HOLD ? held : fresh;
+      MARKS.set(f, at ? { ax, ay, dx: at.x - ax, dy: at.y - ay, t, busy: at === held ? busy : 0 } : { ax, ay, dx: 0, dy: 0, t: -9, busy: 0 }); return at; };
     const float = (id, s, x, y, o) => {
       const w = lw(id, s, o) + 8, hh = Math.max(20, o.size) * 1.24 + 8, b = place(x, y - hh / 2, w, hh, nameZones.concat(actorZones));
       if (b) lab(id, s, b.x + w / 2, b.y + hh / 2, { ...o, al: 0.5 });
@@ -231,7 +240,8 @@
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
       // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
       if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
-      const at = placeNear(V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 58, 40, 56, actorZones.concat(folkZones), 324, 240); if (!at) continue;
+      const ax = V.sx(f.x), ay = V.sy(f.y) - SZ('town_' + f.role)[1] * k - 58, fresh = placeNear(ax, ay, 40, 56, actorZones.concat(folkZones), 324, 240), at = holdMark(f, ax, ay, fresh, GT); if (!at) continue;
+      occupied.push(at);
       MKB.push(Object.assign({ i: f.i }, at)); const x = at.x + 20, y = at.y + 28 + 4 * Math.sin(GT * 3 + f.i), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
       G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
       L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
@@ -763,7 +773,7 @@
       tipAt(x0 - 4, y - 20, sw + 8, 40, TXT('hud.stats.hand', { n: ss })); tipAt(x0 + sw + 36, y - 20, gw + 8, 40, TXT('hud.altar.6', { gold: gs }), TXT('hud.tip.gold')); }
     // the bag on the sheet
     bagTabs('inv_tb', U, S);
-    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
+    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? rest(h.bag[b.i], dr) : h.bag[b.i]);
     sortBtns('inv_', U, S);
     // skills
     KIT.ink('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), Rp.x + 76, Rp.y + 440, { size: 28, col: h.sp > 0 ? I.r : I.d });
@@ -790,7 +800,8 @@
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 32; plate('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 36);
       lab('sle', s, he.x + he.w / 2, he.y + he.h + 25, { size: 20, al: 0.5 }); }
     // tooltip
-    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : h.eq[dr.from.slice(3)]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 34, dr.y - 34, 68); dropChip(S, U); refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r); return; }
+    if (S.split) { refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r); return splitAsk(S, R); }
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : h.eq[dr.from.slice(3)]; if (it) held1(it, dr); dropChip(S, U); refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r); return; }
     refusal(S, Rp.x + Rp.w / 2, Rp.y + Rp.h - 130, I.r);
     const hb = U.r.find((q) => q.id === S.hover); if (hb) { const it = hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('eq:') ? h.eq[hb.slot] : null; if (it) tooltip(S, it, hb, h, null, null, [10, P.y + 8, P.x + P.w - 8, P.y + P.h - 8]); }
   }
@@ -819,10 +830,40 @@
     lab('sh_help', TXT('hud.shop.9'), P.x + P.w / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#b8a48a' });
     const Cd = U.card; L.rrect(Cd.x, Cd.y, Cd.w, Cd.h, 10, [0.1, 0.05, 0.04], [0.07, 0.035, 0.03], 0.3);
     closeBtn('sh_x', U, S);
+    if (S.sellAsk) return sellAsk(S, R, f);
+    if (S.split) return splitAsk(S, R);
     const hb = U.r.find((q) => q.id === S.hover), idle = () => lab('sh_card0', TXT('hud.shop.card'), Cd.x + Cd.w / 2, Cd.y + Cd.h / 2, { size: 21, al: 0.5, col: '#9a8670' }); if (!hb) return idle();
     const g = hb.id.startsWith('buy:') ? sh.goods[hb.i] : hb.id.startsWith('back:') ? sh.back[hb.i] : null, it = g ? g.it : hb.id.startsWith('sell:') ? h.bag[hb.i] : null;
     // the details sit in a fixed pane: a floating tip would cover the next slots' prices
     if (it) tooltip(S, it, hb, h, g ? [TXT('hud.shop.10', { price: g.price }), h.gold >= g.price ? C.gold : C.red] : [TXT('hud.shop.11', { p1: D.sellPrice(it, f) }), C.gold], [Cd.x, Cd.y], [Cd.x, Cd.y, Cd.x + Cd.w, Cd.bot]); else idle();
+  }
+  // a part of a stack on the pointer (TASKS 1988): its count by the picture, the rest left in its cell
+  const rest = (it, dr) => (it && dr && dr.n ? Object.assign({}, it, { n: it.n - dr.n }) : null);
+  function held1(it, dr) { icon(SIM.Q.itemIcon(it), dr.x - 34, dr.y - 34, 68); if (dr.n) chip('drg_n', String(dr.n), dr.x + 34, dr.y + 8, { right: 1, size: 20, col: '#ffe9a8' }); }
+  // how many of a stack: taken onto the pointer, sold or bought; the price for that many at the merchant
+  function splitAsk(S, R) {
+    const A0 = S.split, h = R.hero, [p, k] = A0.id.split(':'), g = p === 'buy' ? R.shop.goods[+k] : null, it = g ? g.it : p === 'stash' ? SIM.Q.stashOf(S).items[+k] : h.bag[+k]; if (!it) return;
+    const U = D.UI.split(), A = U.A, N = U.num, keys = TXT('hud.split.keys'), ky = A.y + A.h + 40, kw = lw('sp_keys_w', keys, { size: 26 }), act = A0.act;
+    dim(0.45); L.uiCover('sp_cover', Math.min(A.x, W / 2 - kw / 2 - 12), A.y, W - 2 * Math.min(A.x, W / 2 - kw / 2 - 12), ky + 20 - A.y);
+    KIT.panel('sp_ask', A.x, A.y, A.w, A.h, 'torn'); slot(S, U.cell, Object.assign({}, it, { n: 1 }));
+    KIT.ink('sp_q', (act === 'sell' ? TXT('hud.split.sell') : act === 'buy' ? TXT('hud.split.buy') : TXT('hud.split.take')), A.x + A.w / 2, A.y + 128, { size: 24, al: 0.5, col: KIT.INK.t, bold: true });
+    KIT.ink('sp_n', String(A0.n), N.x + N.w / 2, N.y + N.h / 2 + 6, { size: 40, al: 0.5, col: KIT.INK.t, bold: true });
+    if (act !== 'take') { const pr = (g ? g.price : D.sellPrice(it, SIM.Q.tradeDepth(R))) * A0.n; KIT.ink('sp_pr', TXT('hud.split.price', { n: pr }), A.x + A.w / 2, N.y + N.h + 20, { size: 22, al: 0.5, col: KIT.INK.d }); }
+    for (const b of U.r) KIT.button('sp_' + b.id, b.id === 'spOk' ? Object.assign({}, b, { label: (act === 'sell' ? TXT('hud.split.ok.sell') : act === 'buy' ? TXT('hud.split.ok.buy') : TXT('hud.split.ok.take')) }) : b, askSt(S, U, b.id));
+    L.uiBox('sp_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    KIT.light('sp_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
+  }
+  // a question on parchment, not a refusal (TASKS 1978): no red, the piece in its own gold-framed cell, drawn last over the whole shop
+  function sellAsk(S, R, f) {
+    const it = R.hero.bag[S.sellAsk.i]; if (!it) return;
+    const U = D.UI.sellAsk(), A = U.A, Q = U.q, keys = TXT('hud.pause.keys.ask'), ky = A.y + A.h + 40, kw = lw('sa_keys_w', keys, { size: 26 }), cx = Math.min(A.x, W / 2 - kw / 2 - 12);
+    dim(0.45); L.uiCover('sa_cover', cx, A.y, W - 2 * cx, ky + 20 - A.y);
+    KIT.panel('sa_ask', A.x, A.y, A.w, A.h, 'torn'); slot(S, U.cell, it);
+    const q = TXT('hud.shop.sellAsk', { p1: SIM.Q.itemName(it), p2: D.sellPrice(it, f) }), ql = lw('sa_q_m', q, { size: 26 }) > Q.w ? halves(q) : [q];
+    ql.forEach((v, i) => KIT.ink('sa_q' + i, v, A.x + A.w / 2, Q.y + Q.h / 2 + (i - (ql.length - 1) / 2) * 34, { size: 26, fit: Q.w, al: 0.5, col: KIT.INK.t, bold: true }));
+    for (const b of U.r) KIT.button('sa_' + b.id, b, askSt(S, U, b.id));
+    L.uiBox('sa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    KIT.light('sa_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // an empty gear slot shows the outline of what goes in it, its name on hover
   const SLOT_SIL = { weapon: 'it_sword', offhand: 'it_shield', helm: 'it_helm_k', armor: 'it_armor_p', gloves: 'it_gloves', boots: 'it_boots', ring: 'it_ring', amulet: 'it_amulet' };
@@ -830,7 +871,9 @@
   // what letting go of the held piece over this cell does: 1 swaps with what lies there (or moves in), 2 wears it, -1 is refused
   function dropKind(S, b) {
     const dr = S.drag, h = S.run && S.run.hero; if (!dr || !h || b.id === dr.from) return 0;
-    const f = dr.from, fb = f.startsWith('bag:') ? h.bag[+f.slice(4)] : f.startsWith('eq:') ? h.eq[f.slice(3)] : null, fits = (it, sl) => !!it && !SIM.Q.isCons(it) && D.BASES[it.b].slot === sl;
+    const f = dr.from, fb = f.startsWith('bag:') ? h.bag[+f.slice(4)] : f.startsWith('eq:') ? h.eq[f.slice(3)] : f.startsWith('stash:') ? SIM.Q.stashOf(S).items[+f.slice(6)] : null, fits = (it, sl) => !!it && !SIM.Q.isCons(it) && D.BASES[it.b].slot === sl;
+    if (dr.n) { if (b.id.startsWith('eq:')) return -1; const o = b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('stash:') ? SIM.Q.stashOf(S).items[b.i] : undefined;
+      return o === undefined ? 0 : !o || (fb && o.b === fb.b && o.n < D.CONSUMABLES[o.b].stack) ? 1 : -1; }
     if (b.id.startsWith('eq:')) return f.startsWith('bag:') ? (fits(fb, b.slot) ? 2 : -1) : 0;
     if (b.id.startsWith('stash:')) return 1;
     if (!b.id.startsWith('bag:')) return 0;
@@ -844,7 +887,7 @@
   }
   // over the held piece's picture, on the cell it would swap into or be worn in
   function dropChip(S, U) {
-    const b = S.drag && U.r.find((q) => q.id === S.hover); if (!b || dropKind(S, b) < 1) return;
+    const b = S.drag && !S.drag.n && U.r.find((q) => q.id === S.hover); if (!b || dropKind(S, b) < 1) return;
     const h = S.run.hero, it = b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') ? h.eq[b.slot] : b.id.startsWith('stash:') ? SIM.Q.stashOf(S).items[b.i] : null;
     if (it || b.id.startsWith('eq:')) chip('slt_' + b.id, (b.id.startsWith('eq:') ? TXT('hud.inv.target.wear') : TXT('hud.inv.target.swap')), b.x + b.w / 2, b.y + b.h - 26, { size: 20, col: '#ffe9a8', mid: 1 });
   }
@@ -1141,7 +1184,7 @@
     const keys = ask ? TXT('hud.load.keys.ask') : TXT('hud.load.keys'), ky = H - 26, kw = lw('ld_keys_w', keys, { size: 26 }); L.uiBox('ld_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('ld_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
-  // the main menu (TASKS 1301): the item sheet pinned in the bottom-left corner; the item Enter or a click would press carries the
+  // the main menu (TASKS 1301): the item sheet pinned in the bottom-left corner, of the version sheet's paper (TASKS 1983); the item Enter or a click would press carries the
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
@@ -1154,7 +1197,7 @@
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
     if (F) newsFrame(F, lit === 'news');
     KIT.part('ui_b_strap_ring', [32, 47], P.x + P.w - 112, P.y + P.h - 34);
-    const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'menu'); KIT.strap(P.x + P.w / 2, P.y + 22);
+    const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'torn'); KIT.strap(P.x + P.w / 2, P.y + 22);
     KIT.corners({ x: IP.x + 8, y: IP.y + 8, w: IP.w - 16, h: IP.h - 16 }, 0.45);
     for (const y of M.rules) KIT.rule(P.x + 70, y, P.w - 140, 0.75);
     for (const b of items) { const lx = b.x + 46, ly = b.y + 30, maxW = b.x + b.w - lx - 6;
@@ -1186,16 +1229,19 @@
   // diamond a change, the scroll an ink rule with a red thumb
   function news(S, t) {
     backdrop(t);
-    const N = D.UI.news(S.newsTop), P = N.P, V = N.view, I = KIT.INK;
+    const N = D.UI.news(S.newsTop, S.newsOpen), P = N.P, V = N.view, I = KIT.INK;
     KIT.panel('nw_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
     KIT.heading('nw_t', TXT('hud.news'), P.x + P.w / 2, P.y + 80, { size: 56, wing: 80 });
     const dot = (x, y, s) => L.solid(x - s / 2, y - s / 2, s, s, [0.49, 0.12, 0.07], 0.7854, s / 2, s / 2);
+    // a header's fold mark (TASKS 1971): a minus over an unfolded version, a plus over a folded one
+    const fold = (x, y, open) => { L.solid(x - 9, y - 2, 18, 4, [0.62, 0.16, 0.09]); if (!open) L.solid(x - 2, y - 9, 4, 18, [0.62, 0.16, 0.09]); };
     N.rows.forEach((r, i) => { const id = 'nw_r' + i;
-      if (r.k === 'ver') { const vw = KIT.ink(id, r.v, V.x, r.y + 38, { size: 40, col: I.r }); KIT.ink(id + 'd', r.date, V.x + vw + 24, r.y + 42, { size: 24, col: I.d }); }
+      if (r.k === 'ver') { const hot = S.hover === 'ver:' + r.v; fold(V.x + 14, r.y + 36, r.open);
+        const vw = KIT.ink(id, r.v, V.x + 40, r.y + 38, { size: 40, col: hot ? I.t : I.r }); KIT.ink(id + 'd', r.date, V.x + 40 + vw + 24, r.y + 42, { size: 24, col: I.d }); }
       else if (r.k === 'group') { KIT.ink(id, r.s, V.x + 4, r.y + 26, { size: 30, col: I.r }); }
       else { if (r.first) dot(V.x + 22, r.y + 17, 10); KIT.ink(id, r.s, V.x + 40, r.y + 17, { size: 24 }); } });
-    if (N.max > 0) { const k = N.top / N.max, th = Math.max(60, V.h * V.h / (V.h + N.max * 34)), sx = P.x + P.w - 56;
-      L.solid(sx, V.y, 3, V.h, [0.42, 0.27, 0.15], 0, 0, 0, 0.8); L.rrect(sx - 4, V.y + (V.h - th) * k, 11, th, 5, [0.62, 0.16, 0.09], [0.42, 0.09, 0.05], 1);
+    if (N.bar) { const T = N.bar.thumb, hot = S.newsDrag != null || S.hover === 'track';
+      L.solid(N.bar.x, V.y, 3, V.h, [0.42, 0.27, 0.15], 0, 0, 0, 0.8); L.rrect(T.x, T.y, T.w, T.h, 5, hot ? [0.74, 0.22, 0.12] : [0.62, 0.16, 0.09], [0.42, 0.09, 0.05], 1);
       KIT.ink('nw_k', TXT('hud.news.keys'), P.x + 70, P.y + P.h - 60, { size: 26, col: I.d }); }
     for (const b of N.r) KIT.button('nw_' + b.id, b, stN(S, b.id));
   }
@@ -1288,7 +1334,10 @@
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) halves(TXT('hud.meta.3')).forEach((q, i) => KIT.ink('mt_run' + i, q, W / 2, 237 + i * 24, { size: 20, al: 0.5, col: I.d }));
     // a row lights under the pointer whether or not it can be bought; one the shards do not reach is dimmed (TASKS 1858)
-    const strip = (id, b, st, can, poor) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: poor ? (st.hover ? POOR_HOT : POOR) : st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox(id, b.x + 26, b.y, b.w - 52, b.h, 2); };
+    // the strip's light field spans rows 43–208 of the 251-row art and stretches with the row: two lines sit at fixed shares of it,
+    // so a shorter row (six rows of eleven upgrades for a mage or an archer) still keeps them off its rims (TASKS 1986)
+    const strip = (id, b, st, can, poor) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: poor ? (st.hover ? POOR_HOT : POOR) : st.hover ? HOT : [1, 1, 0, 1] } });
+      const f = { y: b.y + b.h * 0.171, h: b.h * 0.658 }; L.uiBox(id, b.x + 26, f.y, b.w - 52, f.h, 2); return [f.y + f.h * 0.33, f.y + f.h * 0.79]; };
     const bs = D.UI.meta(S.meta.cls, S.metaTab);
     KIT.tabs('mt_tb', bs.filter((b) => b.tab), 'tab:' + (S.metaTab === 'open' ? 'open' : 'up'), S);
     for (const b of bs) {
@@ -1297,17 +1346,17 @@
       if (b.id === 'back' || b.id === 'codex') { KIT.button('mt_' + b.id, b.id === 'back' && S.metaRun ? Object.assign({}, b, { label: TXT('UI.altar.r.leave.label') }) : b, stN(S, b.id)); continue; }
       const st = stN(S, b.id);
       if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), poor = !open && !U.ach && S.meta.shards < U.cost;
-        strip('un_' + b.un, b, st, !poor, poor);
-        KIT.ink('un_c' + b.un, open ? TXT('hud.unlock.done') : U.ach ? A.name : TXT('hud.unlock.cost', { c: U.cost }), b.x + b.w - 44, b.y + 23, { size: 20, al: 1, col: open ? I.g : poor ? I.off : I.r });
+        const [y1, y2] = strip('un_' + b.un, b, st, !poor, poor);
+        KIT.ink('un_c' + b.un, open ? TXT('hud.unlock.done') : U.ach ? A.name : TXT('hud.unlock.cost', { c: U.cost }), b.x + b.w - 44, y1, { size: 20, al: 1, col: open ? I.g : poor ? I.off : I.r });
         const ds = A && !open ? TXT('hud.unlock.ach', { p1: A.desc, p2: Math.min((S.meta.ach || {})[A.id] || 0, A.need), p3: A.need }) : Th.desc;
-        KIT.ink('un_n' + b.un, Th.name, b.x + 44, b.y + 22, { size: 22, col: open ? I.g : poor ? I.d : st.hover ? I.r : I.t });
-        KIT.ink('un_d' + b.un, ds, b.x + 44, b.y + 46, { size: 18, fit: b.w - 88, col: poor ? I.off : I.d }); continue; }
+        KIT.ink('un_n' + b.un, Th.name, b.x + 44, y1, { size: 22, col: open ? I.g : poor ? I.d : st.hover ? I.r : I.t });
+        KIT.ink('un_d' + b.un, ds, b.x + 44, y2, { size: 18, fit: b.w - 88, col: poor ? I.off : I.d }); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, poor = !max && S.meta.shards < c;
-      strip('mt_' + b.id, b, st, !poor, poor);
-      const tw = KIT.ink('mt_n' + b.id, M.name, b.x + 44, b.y + 32, { size: 28, col: poor ? I.d : st.hover && !max ? I.r : I.t });
-      KIT.ink('mt_d' + b.id, D.metaLine(M, r), b.x + 44, b.y + 68, { size: 20, col: r ? I.g : poor ? I.off : I.d });
-      for (let i = 0; i < M.max; i++) pip(b.x + 58 + tw + i * 24, b.y + 24, i < r);
-      KIT.ink('mt_c' + b.id, max ? TXT('hud.meta.4') : TXT('hud.meta.5', { c }), b.x + b.w - 44, b.y + b.h / 2, { size: 24, al: 1, col: max ? I.g : poor ? I.off : I.r }); }
+      const [y1, y2] = strip('mt_' + b.id, b, st, !poor, poor);
+      const tw = KIT.ink('mt_n' + b.id, M.name, b.x + 44, y1, { size: 28, col: poor ? I.d : st.hover && !max ? I.r : I.t });
+      KIT.ink('mt_d' + b.id, D.metaLine(M, r), b.x + 44, y2, { size: 20, col: r ? I.g : poor ? I.off : I.d });
+      for (let i = 0; i < M.max; i++) pip(b.x + 58 + tw + i * 24, y1 - 7, i < r);
+      KIT.ink('mt_c' + b.id, max ? TXT('hud.meta.4') : TXT('hud.meta.5', { c }), b.x + b.w - 44, y1, { size: 24, al: 1, col: max ? I.g : poor ? I.off : I.r }); }
     refusal(S, W / 2, 868, I.r);
   }
   // the latest refusal on a full-screen menu, where the in-game feed is hidden
@@ -1472,14 +1521,15 @@
     dim(0.5); KIT.panel('stash', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('st_t', P.x + P.w / 2, P.y + 22, 460, TXT('hud.stash'), { h: 72, size: 34 });
     lab('st_s', TXT('hud.stash.2'), P.x + P.w / 2, P.y + 140, { size: 21, al: 0.5, col: '#cdb89a' });
-    for (const b of U.r) if (b.id.startsWith('stash:')) slot(S, b, held(b.id) ? null : T.items[b.i], undefined, 1);
+    for (const b of U.r) if (b.id.startsWith('stash:')) slot(S, b, held(b.id) ? rest(T.items[b.i], dr) : T.items[b.i], undefined, 1);
     lab('st_cells', TXT('hud.stash.4', { n: T.items.filter(Boolean).length, max: n }), P.x + 80 + 632, P.y + 450, { size: 21, al: 1, col: '#cdb89a' });
     bagTabs('st_tb', U, S);
-    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
+    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? rest(h.bag[b.i], dr) : h.bag[b.i]);
     sortBtns('st_', U, S);
     { const s = TXT('hud.stash.6'), p = s.split(' · '), n = Math.ceil(p.length / 2), q = L.labelW(0, s, { size: 26 }) > P.w - 120 ? [p.slice(0, n).join(' · '), p.slice(n).join(' · ')] : [s]; q.forEach((v, i) => lab('st_help' + i, v, W / 2, P.y + P.h - 36 - (q.length - 1 - i) * 30, { size: 26, al: 0.5, col: '#b8a48a' })); }
     closeBtn('st_x', U, S);
-    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 34, dr.y - 34, 68); dropChip(S, U); refusal(S, W / 2, P.y + 476); return; }
+    if (S.split) { refusal(S, W / 2, P.y + 476); return splitAsk(S, R); }
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) held1(it, dr); dropChip(S, U); refusal(S, W / 2, P.y + 476); return; }
     const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
     if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? TXT('hud.stash.8') : TXT('hud.stash.9'), C.gold], null, [10, 10, W - 10, P.y + P.h - 70]);
     refusal(S, W / 2, P.y + 476);
