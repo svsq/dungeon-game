@@ -150,5 +150,49 @@
     // the last point is never taken: at 1 health «yes» leaves 1, and at 3 it takes 1
     { const { S, R, E, ask } = evRun('campaign', {}, 'blood'); if (E) { R.hero.hp = 1; ask(); if (R.hero.hp !== 1 || R.hero.deadT >= 0) out.push(`blood altar: a hero at 1 health is left at ${R.hero.hp}`); } }
   }
-  Object.assign(SIMX, { checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay });
+  // a monster's blow of 30 on the hero as it lands after his armour, under any cap (a dodge thrown again until one lands; no rage to soften it)
+  function blow(S, R) { const h = R.hero, e = { type: 'skeleton', x: h.x + 30, y: h.y }; for (let i = 0; i < 40; i++) { h.ifr = 0; h.hp = 1e5; h.mp = 0; h.shield = 0; S.ev.length = 0; SIMX.hurtHero(S, R, 30, e.x, e.y, undefined, 'skeleton', e);
+    const g = S.ev.find((v) => v.k === 'hurt'); h.vx = h.vy = 0; h.ifr = 0; R.freeze = 0; R.inbuf = null; if (g) return g.n; } return 0; }
+  // the cursed chest (TASKS 364) in each run: a chest of its tier stands on its spot from the start, its finds rolled `up` floors
+  // deeper; E or a blow at it asks and never lifts the lid; «no» leaves it shut; «yes» opens it, lays its finds, curses the floor
+  // (the monsters' blows EVENTS.hex harder, the curse on the HUD's list), one `qevent`; the curse is the floor's: another floor has
+  // none, and the floor come back to and a save keep it
+  function checkHexPlay(out) {
+    const P = D.EVENTS.pool.hex;
+    for (const [mode, o] of MODES) { const tag = `cursed chest ${mode}${o.town ? ' (town)' : ''}`, { S, R, E, key, ask } = evRun(mode, o, 'hex');
+      if (!E) { out.push(`${tag}: no floor of 1–4 lays it asked for`); continue; }
+      const c = R.chests.find((q) => q.hex === E.room);
+      if (!c || c.x !== E.x || c.y !== E.y || c.tier !== P.chest || c.up !== P.up || c.open || !(c.loot || []).length) { out.push(`${tag}: its chest is ${JSON.stringify(c && { tier: c.tier, up: c.up, open: c.open, n: (c.loot || []).length })}`); continue; }
+      { const rs = R.rs, id = R.nextId, lv = (up) => { R.rs = rs; R.nextId = id; return SIMX.chestLoot(R, Object.assign({}, c, { up })).filter((it) => !SIMX.isCons(it)).map((it) => it.lvl); };
+        const a = lv(0), b = lv(c.up); R.rs = rs; R.nextId = id; if (!(Math.max(...b) > Math.max(...a))) out.push(`${tag}: its finds are rolled no deeper (${a} → ${b})`); }
+      const n0 = blow(S, R); R.hero.x = E.x + 30; R.hero.y = E.y + 30; R.hero.hp = 100;
+      SIMX.hitChests(S, R, E.x, E.y, 80); if (c.open || S.screen !== 'play') out.push(`${tag}: a blow opens it or its question (${S.screen})`);
+      key('KeyE'); if (S.screen !== 'event' || c.open) out.push(`${tag}: E at it opens ${S.screen}, the lid ${c.open ? 'up' : 'down'}`);
+      key('Enter'); if (c.open || E.st !== 'idle' || SIMX.hexN(R)) out.push(`${tag}: «no» opens it or curses the floor`);
+      const d0 = R.drops.length; ask(); const q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'hex'), got = R.drops.slice(d0).filter((p) => p.kind === 'item');
+      if (!c.open || E.st !== 'done' || q.length !== 1 || got.length < 2) out.push(`${tag}: «yes» leaves the lid ${c.open ? 'up' : 'down'}, it ${E.st}, ${q.length} qevent, ${got.length} finds out`);
+      const n1 = blow(S, R); if (SIMX.hexN(R) !== 1 || n1 <= n0 || Math.abs(n1 - n0 * (1 + D.EVENTS.hex)) > 2) out.push(`${tag}: a blow of ${n0} lands as ${n1} on the cursed floor`);
+      const f = R.floor; enterFloor(S, R, f + 1); if (SIMX.hexN(R)) out.push(`${tag}: the curse follows the hero to the next floor`);
+      if (o.town) { enterFloor(S, R, f, undefined, 'up'); if (SIMX.hexN(R) !== 1) out.push(`${tag}: the floor come back to forgets its curse`);
+        const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))); if (!T.saved || (T.saved.events || []).filter((x) => x.hex).length !== 1) out.push(`${tag}: a save forgets the floor's curse`); } }
+  }
+  // the fountain (TASKS 364) in each run: «yes» heals to the full, blesses the floor (GIFTS.bless) or curses it, each a fate kept with
+  // the floor; drunk, it asks no more and stands in the way. Thrown on the run's dice, about one drink in three is no plain healing
+  function checkFountainPlay(out) {
+    for (const [mode, o] of MODES) for (const fate of ['heal', 'bless', 'hex']) { const tag = `fountain ${mode}${o.town ? ' (town)' : ''} ${fate}`, { S, R, E, key, ask } = evRun(mode, o, 'fountain'), h = R && R.hero;
+      if (!E) { out.push(`${tag}: no floor of 1–4 lays it asked for`); break; }
+      E.fate = fate; h.hp = 5; h.bless = 0; ask(); const max = SIMX.heroSt(S).maxHp, f = R.floor;
+      if (E.st !== 'done' || S.ev.filter((e) => e.k === 'qevent' && e.room === E.room).length !== 1) out.push(`${tag}: it ends ${E.st}`);
+      if (fate === 'heal' && (h.hp < max - 1 || h.bless || SIMX.hexN(R))) out.push(`${tag}: the drink leaves ${h.hp} of ${max}, bless ${h.bless}, curses ${SIMX.hexN(R)}`);
+      if (fate === 'bless' && (!h.bless || h.hp > 50 || SIMX.hexN(R))) out.push(`${tag}: the drink leaves bless ${h.bless}, ${h.hp} health`);
+      if (fate === 'hex' && (h.bless || SIMX.hexN(R) !== 1)) out.push(`${tag}: the drink leaves curses ${SIMX.hexN(R)}`);
+      key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the fountain asks again`);
+      if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the fountain does not stand in the way`);
+      enterFloor(S, R, f + 1); if (h.bless || SIMX.hexN(R)) out.push(`${tag}: its fate follows the hero to the next floor`);
+      if (o.town) { enterFloor(S, R, f, undefined, 'up'); if (!!h.bless !== (fate === 'bless') || SIMX.hexN(R) !== (fate === 'hex' ? 1 : 0)) out.push(`${tag}: the floor come back to forgets its fate (bless ${h.bless}, curses ${SIMX.hexN(R)})`); } }
+    { const { S, R, E } = evRun('campaign', {}, 'fountain'); if (!E) return; const n = {};
+      for (let i = 0; i < 90; i++) { R.rs = (i * 7919 + 13) | 0; E.st = 'idle'; delete E.fate; delete E.hex; SIMX.eventStart(S, R, E); n[E.fate] = (n[E.fate] || 0) + 1; }
+      if (!(n.heal >= 45 && n.heal <= 75 && n.bless >= 6 && n.hex >= 6)) out.push(`fountain: 90 drinks fall ${JSON.stringify(n)}, not about two in three healing`); }
+  }
+  Object.assign(SIMX, { checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay, checkHexPlay, checkFountainPlay });
 })(typeof window !== 'undefined' ? window : globalThis);

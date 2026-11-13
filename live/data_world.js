@@ -230,7 +230,8 @@
   // The floor's special rooms, read by the lair quest and the vows (DUNGEON.specials): an event of this pool, a magma hall
   // (MAGMA_HALLS, laid by the magma's own code with its packs and props: moving it here would lay every magma floor anew), the altar
   // of gifts. R-35's shrines come as entries of this pool
-  const EVENTS = { n: [1, 2], two: 0.4, cap: 3, area: 30, near: 60,
+  // hex: what a floor's curse adds to the monsters' blows, per curse on it (the cursed chest's, a bitter fountain's), TASKS 364
+  const EVENTS = { n: [1, 2], two: 0.4, cap: 3, area: 30, near: 60, hex: 0.2,
     pool: {
       probe: { w: 0, minF: 1, room: 'treasure', ask: 1, name: TXT('EVENTS.probe.name'), say: TXT('EVENTS.probe.say'), yes: TXT('EVENTS.probe.yes'), no: TXT('EVENTS.probe.no'), prompt: TXT('EVENTS.probe.prompt'), done: TXT('EVENTS.probe.done') },
       // the skull door (TASKS 362): a skull over each way in and the bones on its floor tell of it from the doorway; «yes» drops a
@@ -242,7 +243,15 @@
       // better made for his class, on the altar. Its own reward, not a power: the altar of gifts (a room of its own) gives those.
       // solid: the prop's radius, it stays when done
       blood: { w: 2, minF: 1, room: 'treasure', ask: 1, goal: 1, cost: 0.25, solid: 20, item: { q: 3, min: 3, lo: 0, hi: 2, lag: 1, own: 1 },
-        name: TXT('EVENTS.blood.name'), say: TXT('EVENTS.blood.say'), yes: TXT('EVENTS.blood.yes'), no: TXT('EVENTS.blood.no'), prompt: TXT('EVENTS.blood.prompt'), done: TXT('EVENTS.blood.done') } } };
+        name: TXT('EVENTS.blood.name'), say: TXT('EVENTS.blood.say'), yes: TXT('EVENTS.blood.yes'), no: TXT('EVENTS.blood.no'), prompt: TXT('EVENTS.blood.prompt'), done: TXT('EVENTS.blood.done') },
+      // the cursed chest (TASKS 364): a chest of tier `chest` whose finds are rolled `up` floors deeper, opened only by «yes», which
+      // curses the floor (EVENTS.hex) for as long as the hero is on it; the curse is the floor's, kept with it
+      hex: { w: 2, minF: 2, room: 'combat', ask: 1, chest: 4, up: 1,
+        name: TXT('EVENTS.hex.name'), say: TXT('EVENTS.hex.say'), yes: TXT('EVENTS.hex.yes'), no: TXT('EVENTS.hex.no'), prompt: TXT('EVENTS.hex.prompt'), done: TXT('EVENTS.hex.done') },
+      // the fountain (TASKS 364): a drink heals to the full, or with the chance `odd` it blesses (GIFTS.bless) or curses (EVENTS.hex) the
+      // floor, half and half; both are the floor's, kept with it. near: E reaches round its basin
+      fountain: { w: 2, minF: 1, room: 'treasure', ask: 1, odd: 1 / 3, solid: 40, near: 84,
+        name: TXT('EVENTS.fountain.name'), say: TXT('EVENTS.fountain.say'), yes: TXT('EVENTS.fountain.yes'), no: TXT('EVENTS.fountain.no'), prompt: TXT('EVENTS.fountain.prompt') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

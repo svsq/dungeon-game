@@ -172,7 +172,7 @@
     for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), out = [1, 0.75, 0.5, 0.25, 0].find((k) => !SIMX.boxHit(m, d.x + Math.cos(a) * 56 * k, d.y + 10 + Math.sin(a) * 40 * k, E.r, true)) ?? 0, x = d.x + Math.cos(a) * 56 * out, y = d.y + 10 + Math.sin(a) * 40 * out; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
     R.msg = { s: TXT('sim_world.wreck.msg'), t: S.t, d: 2 }; }
   function hitChests(S, R, x, y, rad, ax, arc) {
-    for (const c of R.chests) { if (c.open || c.sealed) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
+    for (const c of R.chests) { if (c.open || c.sealed || (c.hex !== undefined && !c.hexOk)) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 16) continue; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, c.x, c.y)) continue; openChest(S, R, c); } }
   // a false bookcase gives way to its third blow, as it did before 0.3.0 (TASKS 1852): it needs no room along the wall, so every
   // planned one stays a bookcase. A swing, a whirl, a bolt or a blast counts, as for crates and barrels
@@ -337,6 +337,7 @@
     if (q.pz.step === n) openSecret(S, R, q); }
   function openChest(S, R, c) {
     if (c.open) return;
+    if (c.hex !== undefined && !c.hexOk) { const E = SIMX.eventsOf(R).find((q) => q.id === 'hex' && q.room === c.hex); if (E && E.st === 'idle') SIMX.eventUse(S, R, E); return; }
     if (c.mimic) { wakeMimic(S, R, c); return; }
     if (c.sealed) { if (S.t - (c.nopeT ?? -9) > 1) { c.nopeT = S.t; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.openChest.sealed') }); } return; }
     const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
@@ -372,7 +373,7 @@
     const LT = c.mimic ? Object.assign({}, LOOT.chest[3], { n: LOOT.chest[c.tier].n }) : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)
     if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], Object.assign({}, LT, { min: Y.forge.min })));
-    else if (LT.p === undefined || rnd(R) < LT.p) for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q, undefined, LT));
+    else if (LT.p === undefined || rnd(R) < LT.p) for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R) + (c.up || 0), i ? LT.q * 0.8 : LT.q, undefined, LT));
     if (Y.stash) for (const [b, n] of Object.entries(Y.stash)) if (!SIMX.useless(R, b)) out.push(potion(b, n));
     if (rnd(R) < POT.chest) out.push(potion('hp_potion')); if (rnd(R) < (R.viaTown ? POT.scrollTown : POT.scroll)) out.push(potion('scroll'));
     for (const it of out) it.id = R.nextId++; return out; }

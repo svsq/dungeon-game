@@ -31,7 +31,7 @@ const res = await p.evaluate(({ MIN, mode }) => {
     if (town) { const R0 = S.run; R0.deepest = f - 1; R0.offers = [{ key: 'fetch', from: ['guard', 'child', 'sweeper'][sd % 3], q: 0 }]; R0.quests = []; SIM.giveQuest(S, R0, R0.offers[0].from); SIM.enterFloor(S, R0, f); }
     else if (f > 1) SIM.enterFloor(S, S.run, f); S.screen = 'play';
     const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; R.seen = R.seen.map(() => 1); for (const q of R.map.secrets) SIM.openSecret(S, R, q, true);
-    for (const c of R.chests) SIM.openChest(S, R, c); h.x = -9999; h.y = -9999; for (let k = 0; k < 150; k++) SIM.step(S, { keys: [], px: 960, py: 540 }); R.msg = null; S.ev = [];
+    for (const c of R.chests) { if (c.hex !== undefined) c.hexOk = 1; SIM.openChest(S, R, c); } h.x = -9999; h.y = -9999; for (let k = 0; k < 150; k++) SIM.step(S, { keys: [], px: 960, py: 540 }); R.msg = null; S.ev = [];
     for (const d of R.drops.filter((o) => (town ? o.kind === 'qitem' : o.kind === 'item') && !o.got)) { n++; R.cam = [d.x - 640, d.y - 360];
       const a = grab(S, d.x, d.y), crop = cv.toDataURL(); d.qaHide = 1; const b = grab(S, d.x, d.y); delete d.qaHide;
       let diff = 0; for (let k = 0; k < a.px.length; k += 4) diff += Math.abs(a.px[k] - b.px[k]) + Math.abs(a.px[k + 1] - b.px[k + 1]) + Math.abs(a.px[k + 2] - b.px[k + 2]);

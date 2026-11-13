@@ -226,6 +226,7 @@
     lvl: (o) => [523, 659, 784, 1047].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.09, d: 0.6, v: 0.12 })),
     unseal: (o) => { tone(o, { type: 'square', f0: 110, f1: 70, d: 0.14, v: 0.16 }); noise(o, { t: now() + 0.05, d: 0.18, v: 0.2, type: 'lowpass', f0: 1400, f1: 400 }); [660, 988].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.18 + i * 0.1, d: 0.9, v: 0.1 })); },
     unlock: (o) => [784, 1175].forEach((f, i) => tone(o, { f0: f, t: now() + i * 0.12, d: 0.8, v: 0.12 })),
+    spring: (o) => { for (let i = 0; i < 5; i++) tone(o, { f0: rr(500, 700), f1: rr(900, 1200), t: now() + i * 0.09, d: 0.07, v: 0.09 }); },
     drink: (o) => { for (let i = 0; i < 3; i++) tone(o, { f0: rr(260, 340), f1: rr(450, 560), t: now() + i * 0.11, d: 0.08, v: 0.14 }); },
     shield: (o) => { tone(o, { f0: 520, f1: 1040, a: 0.05, d: 0.5, v: 0.1 }); tone(o, { f0: 780, f1: 1560, a: 0.05, d: 0.5, v: 0.07, det: 8 }); },
     dodge: (o) => noise(o, { d: 0.14, v: 0.18, type: 'bandpass', f0: 2400, f1: 900, q: 1.5 }),

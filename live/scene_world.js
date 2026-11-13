@@ -487,7 +487,7 @@
       if (c.open && ao < chestOpenT(c) && !c.woke) { chestOpening(c, sx(c.x), sy(c.y), ao); return; }
       // the gold chest's coins are painted in their own flat golds: the tier's lift would melt them into one orange heap
       const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold, cl = chestLook(c), ownN = cl.tex && cl.tex + (op > 0.5 ? '_open' : ''), own = ownN && window.ASSETS[ownN];
-      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x) + (op > 0.5 ? cl.dx || 0 : 0), sy(c.y), { dy: 4 + trapDy, j: trapJ || (c.open ? chestRecoil(c, ao) : null), u: c.bangT !== undefined && GT >= c.bangT ? { grade: [0.5, 0.75, 0, 0.75], tint: [0.28, 0.24, 0.22, 0.6] } : gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
+      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x) + (op > 0.5 ? cl.dx || 0 : 0), sy(c.y), { dy: 4 + trapDy, j: trapJ || (c.open ? chestRecoil(c, ao) : null), u: c.bangT !== undefined && GT >= c.bangT ? { grade: [0.5, 0.75, 0, 0.75], tint: [0.28, 0.24, 0.22, 0.6] } : gold || own ? (c.hex !== undefined && !c.open ? { grade: [0.85, 0.8, 0, 1], tint: [0.25, 0.5, 0.12, 0.4] } : { grade: [1, 1, 0, 1] }) : cl.u });
       if (c.sealed) { const [pw0, ph0] = SZ('padlock'), pw = pw0 * 0.7, ph = ph0 * 0.7, a = 0.5 + 0.5 * Math.sin(t * 2.4), px = sx(c.x) - 2 - pw / 2, py = sy(c.y) - 56; G.blend('add'); L.glow(sx(c.x) - 2, py + ph / 2, 20, [1, 0.25, 0.15], 0.12 + 0.12 * a); G.blend(); L.inked(() => L.sprite('padlock', px, py, { w: pw, h: ph }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); } }]);
     for (const p of brokenPots) if (GT - (p.brokeT ?? -9) < DEBRIS_END) Y.push([p.y + 30, () => potDebris(p, true)]);
     for (const d of brokenWrecks) if (GT - (d.brokeT ?? -9) < DEBRIS_END) Y.push([d.y + 30, () => wreckDebris(d, true)]);
@@ -666,6 +666,19 @@
     for (const E of R.events || []) if (E.id === 'blood' && vis(E.x, E.y)) { const on = E.st !== 'done';
       Y.push([E.y, () => { if (on) L.glow(sx(E.x), sy(E.y) - 30, 54, [1, 0.12, 0.08], 0.14 + 0.05 * Math.sin(t * 1.7), 2.4);
         L.shadow(sx(E.x), sy(E.y) + 2, 26, 7, 0.5); drawProp('altar', sx(E.x), sy(E.y), { dy: 6, u: { grade: on ? [0.8, 0.8, 0, 1] : [0.5, 0.5, 0, 1], tint: [0.55, 0.04, 0.05, on ? 0.45 : 0.35] } }); }]); }
+    // the cursed chest (TASKS 364): a green haze curls up round its lid until it is opened (the chest itself is the floor's, drawn with
+    // the others, in a sick green tint); the fountain: the basin's water lit from within and a spring welling in its middle, its rings
+    // spreading; after a drink the spring runs on, quieter
+    for (const E of R.events || []) { if (!vis(E.x, E.y)) continue;
+      if (E.id === 'hex' && E.st !== 'done') Y.push([E.y + 1, () => { const X = sx(E.x), Yb = sy(E.y);
+        L.glow(X, Yb - 18, 40, [0.45, 0.85, 0.2], 0.13 + 0.04 * Math.sin(t * 1.9), 2.4);
+        for (let j = 0; j < 4; j++) { const q = (t * 0.35 + j / 4) % 1; L.puff(X + Math.sin(t * 0.9 + j * 1.7) * 14 * q + (j - 1.5) * 9, Yb - 14 - 46 * q, 10 + 12 * q, [0.3, 0.55, 0.16], 0.35 * Math.sin(Math.PI * q), 17 + j); } }]);
+      if (E.id === 'fountain') { const [bw, bh] = SZ('water_basin'), k = 1.3, W = bw * k, H = bh * k, on = E.st !== 'done';
+        Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + H / 2 - 6, wy = Yb - H * 0.58;
+          L.shadow(X, Yb - 2, W * 0.46, 7, 0.55); L.sprite('water_basin', X - W / 2, Yb - H, { w: W, h: H });
+          L.glow(X, wy, W * 0.42, [0.35, 0.75, 0.85], (on ? 0.16 : 0.08) + 0.03 * Math.sin(t * 2.3), 2.2);
+          for (let j = 0; j < 3; j++) { const q = (t * 0.6 + j / 3) % 1; L.ring(X, wy, 6 + 30 * q, 3 + 11 * q, [0.7, 0.92, 1], (on ? 0.5 : 0.3) * (1 - q), 0.14); }
+          L.solid(X - 2, wy - 3 - 2 * Math.abs(Math.sin(t * 7)), 4, 4, [0.85, 0.97, 1], 0, 0, 0, on ? 0.8 : 0.5); }]); } }
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in

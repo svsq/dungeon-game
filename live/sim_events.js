@@ -35,12 +35,30 @@
       h.hp -= n; h.hurtT = S.t; R.trauma = Math.min(1, R.trauma + 0.25); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, blow: n, side: h.x > E.x ? 1 : -1, src: 'blood', actor: null }); },
     reward(S, R, E) { const P = D.EVENTS.pool.blood, it = SIMX.rollItem(R, SIMX.dep(R), P.item.q, undefined, P.item);
       SIMX.drop(R, E.x, E.y + 18, { kind: 'item', item: it }); ev(S, { k: 'summon', x: E.x, y: E.y }); } };
-  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD };
+  // the cursed chest (TASKS 364): a chest of the floor's from its first moment (its finds count in the floor's loot), but E or a blow at
+  // it opens its question, never the lid; «yes» opens it and the floor's curse falls
+  const hexChest = (R, E) => R.chests.find((c) => c.hex === E.room);
+  const HEX = {
+    setup(R, E) { const P = D.EVENTS.pool.hex, c = { x: E.x, y: E.y, tier: P.chest, up: P.up, open: 0, hex: E.room }; c.loot = SIMX.chestLoot(R, c); R.chests.push(c); },
+    reward(S, R, E) { const c = hexChest(R, E); E.hex = 1; if (c) { c.hexOk = 1; SIMX.openChest(S, R, c); } ev(S, { k: 'curse', x: E.x, y: E.y - 40 }); } };
+  // the fountain (TASKS 364): its fate thrown at the drink, by the run's dice (a save holds them, so a reload throws the same)
+  const FOUNTAIN = {
+    reward(S, R, E) { const P = D.EVENTS.pool.fountain, h = R.hero;
+      if (!E.fate) E.fate = SIMX.rnd(R) >= P.odd ? 'heal' : SIMX.rnd(R) < 0.5 ? 'bless' : 'hex';
+      if (E.fate === 'heal') { h.hp = SIMX.heroSt(S).maxHp; ev(S, { k: 'spring', x: E.x, y: E.y }); }
+      else if (E.fate === 'bless') { h.bless = 1; h.blessTo = Math.max(h.blessTo || 0, R.floor); ev(S, { k: 'bless', x: h.x, y: h.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); }
+      else { E.hex = 1; ev(S, { k: 'curse', x: h.x, y: h.y - 40 }); }
+      R.msg = { s: E.fate === 'heal' ? TXT('EVENTS.fountain.heal') : E.fate === 'bless' ? TXT('EVENTS.fountain.bless') : TXT('EVENTS.fountain.hex'), t: S.t, d: 4 }; } };
+  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD, hex: HEX, fountain: FOUNTAIN };
+  // the floor's curses (TASKS 364): each the cursed chest's or a bitter fountain's, kept with the floor in its events
+  const hexN = (R) => (R.events || []).filter((E) => E.hex).length;
+  // a floor's blessing from its fountain comes back with the floor: arrive() clears the hero's, then this gives it again
+  function eventsArrive(R) { const h = R.hero; if ((R.events || []).some((E) => E.fate === 'bless')) { h.bless = 1; h.blessTo = Math.max(h.blessTo || 0, R.floor); } }
   const eventsOf = (R) => R.events || [];
   function eventsBuild(R) {
     R.events = (R.map.events || []).map((e) => Object.assign({ st: 'idle' }, e));
     for (const E of R.events) { const F = EVENT_RULES[E.id]; if (F && F.setup) F.setup(R, E); } }
-  const eventNear = (R) => { const h = R.hero; return eventsOf(R).find((E) => E.st === 'idle' && Math.hypot(E.x - h.x, E.y - h.y) < D.EVENTS.near) || null; };
+  const eventNear = (R) => { const h = R.hero; return eventsOf(R).find((E) => E.st === 'idle' && Math.hypot(E.x - h.x, E.y - h.y) < (D.EVENTS.pool[E.id].near || D.EVENTS.near)) || null; };
   // «Нет» in focus, so Enter alone never takes a risk
   function eventUse(S, R, E) {
     if (!D.EVENTS.pool[E.id].ask) { eventStart(S, R, E); return; }
@@ -56,5 +74,5 @@
   // the floor left with an event running: back to how it stood before «yes», so the floor kept (or saved) never holds a half-fought one
   function eventsLeave(S, R) { for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.leave) F.leave(S, R, E); } }
   function stepEvents(S, R) { for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
-  Object.assign(SIMX, { EVENT_RULES, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventDone, eventsLeave, stepEvents });
+  Object.assign(SIMX, { EVENT_RULES, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventDone, eventsLeave, stepEvents });
 })(typeof window !== 'undefined' ? window : globalThis);

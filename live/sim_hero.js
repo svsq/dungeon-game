@@ -45,6 +45,8 @@
     if (actor && actor.fireT > S.t && kind === undefined && !/ (bolt|blast|pillar)$/.test(src || '')) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
     // a monster the war cry shook hits softer (TASKS 1130)
     if (actor && actor.weakT > S.t) dmg *= D.CRY.weak;
+    // a cursed floor's monsters hit harder (TASKS 364): every blow but a trap's or the lava's
+    if (kind !== 'spike' && src !== 'lava' && R.events) dmg *= 1 + D.EVENTS.hex * SIMX.hexN(R);
     const st = heroSt(S), KD = 20 + 12 * D.deepEnd(dep(R)); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (kind !== 'spike' && src !== 'lava' && D.clsOf(h).res === 'rage') dmg = Math.max(1, Math.round(dmg * (1 - h.mp / D.RAGE.max * D.RAGE.guard)));
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : D.deepAxis(dep(R), 'blow'))));
