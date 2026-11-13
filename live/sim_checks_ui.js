@@ -319,6 +319,16 @@
     press(S, ab); if (!S.pauseAsk) { out.push('test end: the end button asks nothing'); return; }
     press(S, UI.pauseAsk(false, true).r.find((b) => b.id === 'yes'));
     if (!S.result || !S.result.test || !S.result.abandoned) out.push(`test end: an ended test leaves the result ${JSON.stringify(S.result && { test: S.result.test, abandoned: S.result.abandoned })}`); }
+  // STR does something for every class (TASKS 1913): a point more moves a number the class's own weapon uses, the mage's poise softens a
+  // blow's shove, and no class's affix pool leaves STR out
+  function checkStrUse(out) { for (const cl of ['warrior', 'mage', 'archer']) { const S = spawn(0, {}), R = newRun(S, 'campaign', 7, { cls: cl }), h = R.hero; S.run = R;
+    const a = SIMX.stats(h, S.meta), b = SIMX.stats(Object.assign({}, h, { base: Object.assign({}, h.base, { str: h.base.str + 1 }) }), S.meta);
+    if (!(b.atk > a.atk || b.poise > a.poise)) out.push(`str: a point of STR changes nothing a ${cl} with ${a.wtype} uses`);
+    if (D.CLASSES[cl].dead.mods.includes('str')) out.push(`str: a ${cl}'s items never roll STR`);
+    if (cl === 'mage') { if (!(b.poise > a.poise)) out.push('str: STR gives the mage no poise');
+      const shove = (str) => { const S2 = spawn(0, {}), R2 = newRun(S2, 'campaign', 7, { cls: cl }), q = R2.hero; S2.run = R2; S2.screen = 'play'; S2.t = R2.t = 10; q.base.str = str; q.ifr = 0; q.dashT = -9; q.hp = 1e4; q.vx = q.vy = 0; q.base.agi = 0;
+        let n = 0; while (q.vx === 0 && n++ < 50) SIMX.hurtHero(S2, R2, 5, q.x - 30, q.y); return q.vx; };
+      if (!(shove(20) < shove(0))) out.push('str: a strong mage is thrown as far as a weak one'); } } }
   // an offer's key words (TASKS 1995): every page of every giver's offer opens and shuts its **…** marks, the giver's name in it is
   // marked whole, and a name never marks a longer word it starts
   function checkKeyWords(out) { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { town: 1 }); S.run = R;
@@ -329,5 +339,5 @@
         for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
       if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
     { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
-  Object.assign(SIMX, { checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
+  Object.assign(SIMX, { checkStrUse, checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);

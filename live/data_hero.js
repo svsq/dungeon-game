@@ -58,6 +58,10 @@
   // (TASKS 1156: `MAGE_SPELL` of the fire on his gear and the arcane gift reaches the bolt, so what he wears grows his main attack; INT's
   // share is cut from 0.8 to 0.76 to hold his power level, which the player did not ask to raise)
   const MAGE_ATK = 0.76, MAGE_SPELL = 0.5;
+  // STR for the classes that shoot (TASKS 1913, the player's call 13.11.2026: no stat may do nothing): `atk`, its share of the main stat's
+  // 1.6 a point on the shot (the archer's AGI gives 1.7–2.4 of it, the mage's INT 0.76, so STR stays the lesser buy); `poise`, the mage's
+  // % a point off a blow's shove and off its chance to break a scroll's reading, his only casting a blow can break; at most POISE.cap
+  const POISE = { cap: 50 };
   // (TASKS 1184: the bar filled in seconds and only unlocked cooldowns: now what is held adds `dmg` of damage per 10 rage, so the cry's 40 is a price)
   // `guard`: the share of a monster's blow full rage takes off (TASKS 1140: without the town the melee warrior won 29 % to the archer's 94 %)
   const RAGE = { max: 100, hit: 6, hurt: 1.2, decay: 12, calm: 4, charge: 14, dmg: 0.015, guard: 0.35 };
@@ -77,12 +81,12 @@
       abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1 } },
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
-    mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 5, sp: 1 }, intK: { spell: 0, hp: 0 },
+    mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 5, sp: 1 }, intK: { spell: 0, hp: 0 }, strK: { atk: 0.3, poise: 2 },
       abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1, eye: [13.3, 5.9] } },
     // the archer's mana comes from his arrows (TASKS 1162: `hitMp` a hit, a crit; the pool held on potions); `slow` the share of his
     // shot's cycle he is slowed after it, so a quick bow does not keep him slow
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 5, sp: 1 },
-      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65, cold: { sat: 0.8, lift: 0.8 } } },
+      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', strK: { atk: 0.4 }, hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65, cold: { sat: 0.8, lift: 0.8 } } },
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
   // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire
@@ -90,15 +94,17 @@
   CLASSES.mage.kit = { longsword: 'staff', shield: 'orb', knight_helm: 'circlet', plate_armor: 'robe', gauntlets: 'leather_gloves', iron_boots: 'boots' };
   CLASSES.archer.kit = { longsword: 'shortbow', shield: 'quiver', knight_helm: 'leather_helm', plate_armor: 'leather_armor', gauntlets: 'leather_gloves', iron_boots: 'boots' };
   Object.assign(CLASSES.warrior, { note: TXT('CLASSES.warrior.note'), resWord: TXT('CLASSES.warrior.resWord'), dead: { gifts: ['wisdom', 'arcane'], meta: ['mana'], mods: ['int', 'mp', 'fire'], cons: ['mp_potion'] } });
-  Object.assign(CLASSES.mage, { note: TXT('CLASSES.mage.note'), resWord: TXT('CLASSES.mage.resWord'), dead: { gifts: ['reach', 'cleave'], meta: [], mods: ['str'], cons: [] } });
-  Object.assign(CLASSES.archer, { note: TXT('CLASSES.archer.note'), resWord: TXT('CLASSES.archer.resWord'), dead: { gifts: ['reach', 'cleave', 'arcane'], meta: [], mods: ['str', 'fire'], cons: [] } });
+  Object.assign(CLASSES.mage, { note: TXT('CLASSES.mage.note'), resWord: TXT('CLASSES.mage.resWord'), dead: { gifts: ['reach', 'cleave'], meta: [], mods: [], cons: [] } });
+  Object.assign(CLASSES.archer, { note: TXT('CLASSES.archer.note'), resWord: TXT('CLASSES.archer.resWord'), dead: { gifts: ['reach', 'cleave', 'arcane'], meta: [], mods: ['fire'], cons: [] } });
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run
   const classesReady = () => Object.keys(CLASSES).filter((k) => CLASSES[k].look.ready);
   const clsOf = (h) => CLASSES[(h && h.cls) || 'warrior'] || CLASSES.warrior;
   const liveFor = (h, kind, list, key = (q) => q.id) => { const no = clsOf(h).dead[kind]; return list.filter((q) => !no.includes(key(q))); };
   const metaFor = (cls) => liveFor({ cls }, 'meta', META);
+  const statFull = (h, s) => (clsOf(h).statFull || {})[s.k] || s.full;
 
+  CLASSES.mage.statFull = { str: TXT('STATS.str.full.mage') }; CLASSES.archer.statFull = { str: TXT('STATS.str.full.archer') };
   const STATS = [
     { k: 'str', name: TXT('STATS.str.name'), full: TXT('STATS.str.full') },
     { k: 'agi', name: TXT('STATS.agi.name'), full: TXT('STATS.agi.full') },
@@ -172,5 +178,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftCost, rerollCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftCost, rerollCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

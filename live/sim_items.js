@@ -101,19 +101,19 @@
     const s = { str: h.base.str, agi: h.base.agi, int: h.base.int, vit: h.base.vit, atk: 0, def: 0, crit: 0, critd: 0, hp: 0, mp: 0, aspd: 0, mspd: 0, leech: 0, fire: 0, regen: 0, onhit: 0, dodge: 0 };
     let wpn = null;
     for (const k in h.eq) { const it = h.eq[k]; if (!it) continue; if (k === 'weapon') wpn = it; s.def += it.def || 0; const mods = itemMods(it); for (const m in mods) s[m] = (s[m] || 0) + mods[m]; }
-    const up = (meta && meta.up) || {}, G = D.clsOf(h).grow, IK = D.clsOf(h).intK || { spell: 0, hp: 0 }, W = wpn ? BASES[wpn.b] : { atk: 3, spd: 0.45, arc: 110, reach: 51 };
+    const up = (meta && meta.up) || {}, G = D.clsOf(h).grow, IK = D.clsOf(h).intK || { spell: 0, hp: 0 }, SK = D.clsOf(h).strK || {}, W = wpn ? BASES[wpn.b] : { atk: 3, spd: 0.45, arc: 110, reach: 51 };
     const hf = hitFrame(h, wpn ? wpn.b : 'fist') + DT, wcd = Math.max(W.spd, hf), aspdMax = Math.min(D.ASPD.cap, 100 * (wcd / hf - 1));
     const out = {
       str: s.str, agi: s.agi, int: s.int, vit: s.vit,
       maxHp: Math.round((80 + s.vit * 10 + (h.lvl - 1) * G.hp + s.int * IK.hp + s.hp + 12 * (up.hp || 0) + gift(h, 'vigor')) * (1 + D.masteryK(h))),
       maxMp: D.clsOf(h).res === 'rage' ? D.RAGE.max : Math.round(40 + s.int * 6 + (h.lvl - 1) * G.mp + s.mp + 10 * (up.mana || 0) + gift(h, 'wisdom')),
-      atk: Math.round(((wpn ? wpn.atk : 3) + (W.dex ? s.agi * W.dex : W.spell ? s.int * D.MAGE_ATK : s.str) * 1.6 + s.atk) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100) * (1 + D.masteryK(h)) * (W.spell ? 1 + D.MAGE_SPELL * (s.fire + gift(h, 'arcane')) / 100 : 1)),
+      atk: Math.round(((wpn ? wpn.atk : 3) + (W.dex ? s.agi * W.dex : W.spell ? s.int * D.MAGE_ATK : s.str) * 1.6 + (W.dex || W.spell ? s.str * (SK.atk || 0) * 1.6 : 0) + s.atk) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100) * (1 + D.masteryK(h)) * (W.spell ? 1 + D.MAGE_SPELL * (s.fire + gift(h, 'arcane')) / 100 : 1)),
       def: Math.round(s.def + s.vit * 0.3 + gift(h, 'ward')),
       crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')), critK: Math.min(D.CRIT.cap, D.CRIT.k + s.critd / 100), dodge: Math.min(BAL.dodge.cap, s.agi * BAL.dodge.agi + s.dodge + gift(h, 'alert')),
       aspd: Math.min(s.agi * D.ASPD.agi + s.aspd + gift(h, 'haste'), aspdMax), aspdMax, mspd: Math.min(40, s.agi * 0.4 + s.mspd + gift(h, 'swift')), leech: s.leech + gift(h, 'leech'),
       regen: s.regen + 0.5 * (up.regen || 0) + gift(h, 'life'), onhit: s.onhit,
       spellBase: (wpn ? wpn.atk : 3) + s.int * 1.6, spell: 1 + (W.spell || 0) + s.fire / 100 + 0.06 * (up.dmg || 0) + gift(h, 'fury') / 100 + gift(h, 'arcane') / 100 + s.int * IK.spell + D.masteryK(h),
-      resist: 1 - 0.15 * (up.resist || 0), gold: 1 + gift(h, 'greed') / 100,
+      resist: 1 - 0.15 * (up.resist || 0), poise: Math.min(D.POISE.cap, s.str * (SK.poise || 0)), gold: 1 + gift(h, 'greed') / 100,
       wcd, arc: W.arc + gift(h, 'cleave'), reach: W.reach * (1 + gift(h, 'reach') / 100), kb: W.kb || 1, wtype: wpn ? wpn.b : 'fist',
     };
     return out;

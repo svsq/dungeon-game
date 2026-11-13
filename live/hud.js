@@ -743,7 +743,7 @@
   const nf = (v, d = 1, fixed = false) => (fixed ? v.toFixed(d) : String(Math.round(v * 10 ** d) / 10 ** d)).replace('.', ',');
   // what one point of a stat gives, from the stats' own formula with the point and without it (TASKS 1857)
   const GAIN = [['atk', (v) => TXT('hud.stat.atk', { v })], ['def', (v) => TXT('hud.stat.def', { v })], ['maxHp', (v) => TXT('hud.stat.maxHp', { v })], ['maxMp', (v) => TXT('hud.stat.maxMp', { v })],
-    ['crit', (v) => TXT('hud.stat.crit', { v })], ['dodge', (v) => TXT('hud.stat.dodge', { v })], ['aspd', (v) => TXT('hud.stat.aspd', { v })], ['mspd', (v) => TXT('hud.stat.mspd', { v })]];
+    ['crit', (v) => TXT('hud.stat.crit', { v })], ['dodge', (v) => TXT('hud.stat.dodge', { v })], ['aspd', (v) => TXT('hud.stat.aspd', { v })], ['mspd', (v) => TXT('hud.stat.mspd', { v })], ['poise', (v) => TXT('hud.stat.poise', { v })]];
   function statGain(S, h, k) { const a = SIM.Q.stats(h, S.meta), b = SIM.Q.stats(Object.assign({}, h, { base: Object.assign({}, h.base, { [k]: h.base[k] + 1 }) }), S.meta), out = [];
     for (const [q, say] of GAIN) if (Math.abs(b[q] - a[q]) >= 0.05) out.push(say(nf(b[q] - a[q])));
     const sp = Math.round(b.spellBase * b.spell - a.spellBase * a.spell); if (sp > 0) out.push(TXT('hud.stat.spell', { v: sp }));
@@ -790,7 +790,7 @@
       for (let x = Lp.x + 50 + nw + 14; x < vr - aw - vw - 16; x += 12) L.solid(Math.round(x), y + 7, 3, 3, [0.80, 0.72, 0.60], 0, 0, 0, 0.45);
       L.solid(Lp.x + 50, b.y + b.h + 3, vr - Lp.x - 50, 1, BRASS, 0, 0, 0, 0.3);
       if (h.pts > 0) { KIT.cell('st_b' + i, b.x, b.y, b.w, KIT.st(S, b.id)); KIT.light('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); }
-      const tip = () => statGain(S, h, s.k); tipAt(Lp.x + 44, b.y - 4, vr - Lp.x - 40, b.h + 8, s.full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, s.full, tip); });
+      const tip = () => statGain(S, h, s.k), full = D.statFull(h, s); tipAt(Lp.x + 44, b.y - 4, vr - Lp.x - 40, b.h + 8, full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, full, tip); });
     const draft = h.draft || {}, rst = (id, on) => { if (on) KIT.button('inv_' + id, Object.assign({}, U.r.find((q) => q.id === id), { size: 22 }), KIT.st(S, id)); };
     rst('reset:st', Object.values(draft.st || {}).some((n) => n > 0));
     const pct = (v) => (v > 0 ? '+' : '') + nf(v) + '%', num = nf;
