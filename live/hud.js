@@ -1164,7 +1164,7 @@
     const keys = ask ? TXT('hud.load.keys.ask') : TXT('hud.load.keys'), ky = H - 26, kw = lw('ld_keys_w', keys, { size: 26 }); L.uiBox('ld_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('ld_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
-  // the main menu (TASKS 1301): the item sheet pinned in the bottom-left corner; the item Enter or a click would press carries the
+  // the main menu (TASKS 1301): the item sheet pinned in the bottom-left corner, of the version sheet's paper (TASKS 1983); the item Enter or a click would press carries the
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
@@ -1177,7 +1177,7 @@
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
     if (F) newsFrame(F, lit === 'news');
     KIT.part('ui_b_strap_ring', [32, 47], P.x + P.w - 112, P.y + P.h - 34);
-    const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'menu'); KIT.strap(P.x + P.w / 2, P.y + 22);
+    const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'torn'); KIT.strap(P.x + P.w / 2, P.y + 22);
     KIT.corners({ x: IP.x + 8, y: IP.y + 8, w: IP.w - 16, h: IP.h - 16 }, 0.45);
     for (const y of M.rules) KIT.rule(P.x + 70, y, P.w - 140, 0.75);
     for (const b of items) { const lx = b.x + 46, ly = b.y + 30, maxW = b.x + b.w - lx - 6;
