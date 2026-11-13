@@ -327,6 +327,7 @@
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
     for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y) && !hid(d)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
+    for (const E of R.events || []) if (E.id === 'blood' && vis(E.x, E.y)) { const [w0, h0] = SZ('dc_blood'), k = 92 / Math.max(w0, h0); L.sprite('dc_blood', sx(E.x) - w0 * k / 2, sy(E.y) + 4 - h0 * k / 2, { w: w0 * k, h: h0 * k, u: { alpha: 0.8 } }); }
     // a two-level hall's steps (TASKS 375) lie on the ground: whoever walks them is drawn over them
     for (const d of m.decor) if (d.steps && vis(d.x, d.y) && !hid(d)) drawProp(d.n, sx(d.x), sy(d.y), { dy: 26 });   // down to the foot of the face's plinth (TASKS 1680)
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
@@ -487,7 +488,7 @@
       if (c.open && ao < chestOpenT(c) && !c.woke) { chestOpening(c, sx(c.x), sy(c.y), ao); return; }
       // the gold chest's coins are painted in their own flat golds: the tier's lift would melt them into one orange heap
       const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold, cl = chestLook(c), ownN = cl.tex && cl.tex + (op > 0.5 ? '_open' : ''), own = ownN && window.ASSETS[ownN];
-      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x) + (op > 0.5 ? cl.dx || 0 : 0), sy(c.y), { dy: 4 + trapDy, j: trapJ || (c.open ? chestRecoil(c, ao) : null), u: c.bangT !== undefined && GT >= c.bangT ? { grade: [0.5, 0.75, 0, 0.75], tint: [0.28, 0.24, 0.22, 0.6] } : gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
+      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x) + (op > 0.5 ? cl.dx || 0 : 0), sy(c.y), { dy: 4 + trapDy, j: trapJ || (c.open ? chestRecoil(c, ao) : null), u: c.bangT !== undefined && GT >= c.bangT ? { grade: [0.5, 0.75, 0, 0.75], tint: [0.28, 0.24, 0.22, 0.6] } : gold || own ? (c.hex !== undefined && !c.open ? { grade: [0.85, 0.8, 0, 1], tint: [0.25, 0.5, 0.12, 0.4] } : { grade: [1, 1, 0, 1] }) : cl.u });
       if (c.sealed) { const [pw0, ph0] = SZ('padlock'), pw = pw0 * 0.7, ph = ph0 * 0.7, a = 0.5 + 0.5 * Math.sin(t * 2.4), px = sx(c.x) - 2 - pw / 2, py = sy(c.y) - 56; G.blend('add'); L.glow(sx(c.x) - 2, py + ph / 2, 20, [1, 0.25, 0.15], 0.12 + 0.12 * a); G.blend(); L.inked(() => L.sprite('padlock', px, py, { w: pw, h: ph }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); } }]);
     for (const p of brokenPots) if (GT - (p.brokeT ?? -9) < DEBRIS_END) Y.push([p.y + 30, () => potDebris(p, true)]);
     for (const d of brokenWrecks) if (GT - (d.brokeT ?? -9) < DEBRIS_END) Y.push([d.y + 30, () => wreckDebris(d, true)]);
@@ -639,6 +640,74 @@
     // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
     if (m.town) drawCart(R, m, GT, Y, sx, sy);
     if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
+    // the skull door (TASKS 362): bones on its spot until it is won, a stake with a skull at the end of each way in, and while it is
+    // fought an iron grate in every one, dropped in a blink and lifted at the end. The stakes stand outside, where the hero comes from;
+    // the skull is the bones' own, cut out of them
+    for (const E of R.events || []) { if (E.id !== 'trial') continue; const on = E.st === 'on', e0 = ST.ev.filter((e) => e.k === 'grates' && e.room === E.room && GT >= e.t).pop();
+      const SK = [70 / 168, 4 / 128, 150 / 168, 72 / 128], skW = 22, skH = 19, BH = 76;
+      if (E.st !== 'done' && vis(E.x, E.y)) Y.push([E.y, () => { L.glow(sx(E.x), sy(E.y) - 6, 46, [1, 0.22, 0.1], (on ? 0.16 : 0.07) + 0.03 * Math.sin(t * 2.2), 2.4); L.shadow(sx(E.x), sy(E.y) + 4, 22, 6, 0.4); drawProp('bones', sx(E.x), sy(E.y), { dy: 6, k: 1.5 }); }]);
+      // a grate falls in its first 0.15 s and rises in its last 0.4 s
+      const drop = on ? (e0 && !e0.up ? SS(0, 0.15, GT - e0.t) : 1) : e0 && e0.up ? 1 - SS(0, 0.4, GT - e0.t) : 0;
+      for (const g of E.gates || []) { if (!vis(g.x, g.y)) continue; const side = g.dir === 'l' || g.dir === 'r', n = g.cells.length, ins = g.dir === 'u' || g.dir === 'l' ? 1 : -1;
+        const [kx, ky] = side ? [g.x - ins * 20, g.y - n * TILE / 2 + 12] : [g.x - n * TILE / 2 + 7, g.y + (g.dir === 'd' ? TILE + 20 : -TILE - 4)];
+        Y.push([ky, () => { const X = sx(kx), Yb = sy(ky); L.solid(X - 2, Yb - 44, 4, 44, [0.2, 0.14, 0.1]); L.solid(X - 2, Yb - 44, 1, 44, [0.36, 0.27, 0.19]); L.shadow(X, Yb + 1, 6, 3, 0.5);
+          L.sprite('bones', X - skW / 2, Yb - 44 - skH + 4, { w: skW, h: skH, src: SK }); if (on) L.glow(X, Yb - 44 - skH / 2 + 4, 14, [1, 0.25, 0.1], 0.12 + 0.04 * Math.sin(t * 5), 2.4); }]);
+        if (drop <= 0) continue; const lift = (1 - drop) * BH, iron = [0.13, 0.12, 0.13], lit = [0.32, 0.29, 0.28];
+        if (!side) { const x0 = sx(g.x - n * TILE / 2), w = n * TILE, foot = sy(g.y) + (g.dir === 'd' ? TILE : 0) - lift, key = g.y + (g.dir === 'd' ? TILE : 0);
+          Y.push([key, () => { for (let bx = 4; bx < w - 2; bx += 11) { L.solid(x0 + bx, foot - BH, 3, BH, iron, 0, 0, 0, drop); L.solid(x0 + bx, foot - BH, 1, BH, lit, 0, 0, 0, drop); L.solid(x0 + bx, foot - 2, 3, 4, lit, 0, 0, 0, drop); }
+            for (const hy of [0.18, 0.62]) L.solid(x0, foot - BH * (1 - hy), w, 4, iron, 0, 0, 0, drop); }]); }
+        else { const yT = g.y - n * TILE / 2, X = sx(g.x) - 3;
+          for (let c = 0; c < n; c++) Y.push([yT + (c + 1) * TILE, () => { const y0 = sy(yT + c * TILE) - lift, y1 = sy(yT + (c + 1) * TILE) - lift;
+            // edge-on, its bars stand one behind another: a band of iron, each bar's lit side a tick on it, the rails across
+            L.solid(X - 2, y0 - BH, 8, y1 - y0 + BH, iron, 0, 0, 0, drop);
+            for (let by = 4; by < TILE; by += 10) { L.solid(X - 2, y0 + by - BH, 8, 2, lit, 0, 0, 0, drop); L.solid(X - 2, y0 + by - 2, 8, 3, lit, 0, 0, 0, drop); }
+            for (const hy of [0.18, 0.62]) L.solid(X - 4, y0 - BH * (1 - hy), 12, y1 - y0, lit, 0, 0, 0, 0.7 * drop); }]); } } }
+    // the blood altar (TASKS 363): the altar's stone darkened to old blood and lit from below by a red pulse until it has had its due;
+    // a darker, quieter stone after, so it is never taken for the altar of gifts' grey one
+    for (const E of R.events || []) if (E.id === 'blood' && vis(E.x, E.y)) { const on = E.st !== 'done';
+      Y.push([E.y, () => { if (on) L.glow(sx(E.x), sy(E.y) - 30, 54, [1, 0.12, 0.08], 0.14 + 0.05 * Math.sin(t * 1.7), 2.4);
+        L.shadow(sx(E.x), sy(E.y) + 2, 26, 7, 0.5); drawProp('altar', sx(E.x), sy(E.y), { dy: 6, u: { grade: on ? [0.8, 0.8, 0, 1] : [0.5, 0.5, 0, 1], tint: [0.55, 0.04, 0.05, on ? 0.45 : 0.35] } }); }]); }
+    // the cursed chest (TASKS 364): a green haze curls up round its lid until it is opened (the chest itself is the floor's, drawn with
+    // the others, in a sick green tint); the fountain: the basin's water lit from within and a spring welling in its middle, its rings
+    // spreading; after a drink the spring runs on, quieter
+    for (const E of R.events || []) { if (!vis(E.x, E.y)) continue;
+      if (E.id === 'hex' && E.st !== 'done') Y.push([E.y + 1, () => { const X = sx(E.x), Yb = sy(E.y);
+        L.glow(X, Yb - 18, 40, [0.45, 0.85, 0.2], 0.13 + 0.04 * Math.sin(t * 1.9), 2.4);
+        for (let j = 0; j < 4; j++) { const q = (t * 0.35 + j / 4) % 1; L.puff(X + Math.sin(t * 0.9 + j * 1.7) * 14 * q + (j - 1.5) * 9, Yb - 14 - 46 * q, 10 + 12 * q, [0.3, 0.55, 0.16], 0.35 * Math.sin(Math.PI * q), 17 + j); } }]);
+      if (E.id === 'fountain') { const [bw, bh] = SZ('water_basin'), k = 1.3, W = bw * k, H = bh * k, on = E.st !== 'done';
+        Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + H / 2 - 6, wy = Yb - H * 0.58;
+          L.shadow(X, Yb - 2, W * 0.46, 7, 0.55); L.sprite('water_basin', X - W / 2, Yb - H, { w: W, h: H });
+          L.glow(X, wy, W * 0.42, [0.35, 0.75, 0.85], (on ? 0.16 : 0.08) + 0.03 * Math.sin(t * 2.3), 2.2);
+          for (let j = 0; j < 3; j++) { const q = (t * 0.6 + j / 3) % 1; L.ring(X, wy, 6 + 30 * q, 3 + 11 * q, [0.7, 0.92, 1], (on ? 0.5 : 0.3) * (1 - q), 0.14); }
+          L.solid(X - 2, wy - 3 - 2 * Math.abs(Math.sin(t * 7)), 4, 4, [0.85, 0.97, 1], 0, 0, 0, on ? 0.8 : 0.5); }]); } }
+    // the goblin's table (TASKS 365): the goblin stands at its left corner, at his station facing it, a heap of coins and two dice on
+    // its top; the dice show the throw once it is made. The goblin is the monsters' rig, standing still; its own art is TASKS 2023
+    for (const E of R.events || []) { if (E.id !== 'dice' || !vis(E.x, E.y)) continue; const k = 1.25, [tw, th] = SZ('table'), gH = SZ('en_goblin')[1], face = 1;
+      Y.push([E.y - 6, () => { const X = sx(E.x) - 50, Yg = sy(E.y) - 6;
+        L.shadow(X, Yg + 2, 0.24 * gH, 6, 0.45);
+        L.inked(() => MONSTERS.biped({ id: 'dice_gob', n: 'goblin', x: X, y: Yg, H: gH, face, t: GT, seed: E.room * 1.7, dist: 0, vx: 0, vy: 0, U: {}, Ufar: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+      Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + 10, top = Yb - th * k * 0.78, [cw, ch] = SZ('dc_coins'), ck = 30 / Math.max(cw, ch);
+        L.shadow(X, Yb, tw * k * 0.42, 8, 0.5); drawProp('table', X, Yb, { k });
+        L.sprite('dc_coins', X - 24, top - ch * ck / 2, { w: cw * ck, h: ch * ck });
+        const pips = { lose: [1, 2], win: [4, 5], jack: [6, 6] }[E.st === 'done' && E.fate] || [3, 5];
+        pips.forEach((n, i) => { const dx = X + 6 + i * 16, dy = top - 4 + i * 4; L.rrect(dx - 7, dy - 7, 14, 14, 2, [0.93, 0.88, 0.76], [0.74, 0.68, 0.56]);
+          const P = { 1: [[0, 0]], 2: [[-3, -3], [3, 3]], 3: [[-3, -3], [0, 0], [3, 3]], 4: [[-3, -3], [3, -3], [-3, 3], [3, 3]], 5: [[-3, -3], [3, -3], [0, 0], [-3, 3], [3, 3]], 6: [[-3, -3], [3, -3], [-3, 0], [3, 0], [-3, 3], [3, 3]] }[n];
+          for (const [px, py] of P) L.solid(dx + px - 1, dy + py - 1, 2, 2, n === 1 ? [0.6, 0.08, 0.06] : [0.12, 0.08, 0.06]); }); }]); }
+    // the captive (TASKS 366): the story captives' cage (1328) with a wayfarer in it, the townsfolk rig (his own art is TASKS 2025);
+    // unlocked, the cage stands open and he walks behind the hero, crouched while monsters are about; gone once home or fled
+    for (const E of R.events || []) { if (E.id !== 'captive') continue; const P = D.EVENTS.pool.captive, open = E.st !== 'idle';
+      if (vis(E.x, E.y)) { const X = sx(E.x), Y0 = sy(E.y) + 14, look = h.x < E.x ? -1 : 1;
+        if (!open) drawFolkRig({ i: 95, y: E.y + 13, dist: 0, vx: 0, vy: 0 }, null, P.rig, X + 5, Y0 - 6, 64, look, GT, Y, {});
+        Y.push([E.y + 14, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); drawProp(open ? 'cage_big_open' : 'cage_big', X, Y0, { dy: open ? 8 : 0 }); }]); }
+      if (E.st === 'on' && vis(E.px, E.py)) { const sp = Math.hypot(E.vx, E.vy), face = sp > 8 ? (E.vx < 0 ? -1 : 1) : h.x < E.px ? -1 : 1, scared = sp < 8 && R.en.some((e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'home' && Math.hypot(e.x - E.px, e.y - E.py) < P.fear);
+        drawFolkRig({ i: 95, y: E.py, dist: E.dist, vx: E.vx, vy: E.vy }, null, P.rig, sx(E.px), sy(E.py), 64, face, GT, Y, { crouch: scared ? 12 : 0, headR: scared ? 0.12 : 0 }); } }
+    // the library (TASKS 368): the enchanter's lectern with its book open and a warm glow on the pages until it is read; read, the glow
+    // goes and a few pale motes lift off the pages. The town's lectern is borrowed; its own art would be a task of [А]
+    for (const E of R.events || []) { if (E.id !== 'library' || !vis(E.x, E.y)) continue; const on = E.st === 'idle', a = E.st === 'done' && E.t1 !== undefined ? GT - E.t1 : 9;
+      Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + 8, bk = Yb - 0.72 * SZ('lectern_tw')[1];
+        L.shadow(X, Yb, 20, 6, 0.5); drawProp('lectern_tw', X, Yb, {});
+        if (on) L.glow(X, bk, 30, [1, 0.86, 0.55], 0.16 + 0.04 * Math.sin(t * 1.6), 2.4);
+        if (a < 1.6) for (let j = 0; j < 5; j++) { const q = Math.min(1, a / 1.6 + j * 0.04); L.puff(X + (j - 2) * 6 + Math.sin(a * 3 + j) * 4, bk - 8 - 50 * q, 3 + 2 * q, [1, 0.92, 0.7], 0.6 * (1 - q), 31 + j); } }]); }
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in

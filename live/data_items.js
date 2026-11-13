@@ -54,8 +54,8 @@
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
-  // floors anew; 27: PR 67's lights and props laid other floors under 26); selfCheck holds the generator's print to its version
-  const GEN_VERSION = 27;
+  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 33;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   // the chance of a find above the hero's level: `base`, `per` more for each floor he is ahead of it, at most `cap`; at most `up` levels above
   const LOOT_OVER = { base: 0.04, per: 0.06, cap: 0.3, up: 4 };
@@ -93,10 +93,78 @@
     ring: { crit: 2, critd: 2, atk: 1.5, leech: 1.5, fire: 1.5, int: 1.5, str: 1.5, agi: 1.5, def: 0.5 },
     amulet: { hp: 2, mp: 2, regen: 2, vit: 1.5, int: 1.5, fire: 1.5, def: 0.5 },
   };
-  // by base first: a legendary staff or axe must not be called a blade
+  // by base first: a legendary staff or axe must not be called a blade. Since 358 only a legendary with no unique wears these: one saved before it, or one rolled with no hero
   const LEGEND_NAMES = { sword: TXT('LEGEND_NAMES.sword'), longsword: TXT('LEGEND_NAMES.longsword'), axe: TXT('LEGEND_NAMES.axe'), hammer: TXT('LEGEND_NAMES.hammer'), staff: TXT('LEGEND_NAMES.staff'), wand: TXT('LEGEND_NAMES.wand'), shortbow: TXT('LEGEND_NAMES.shortbow'), longbow: TXT('LEGEND_NAMES.longbow'), crossbow: TXT('LEGEND_NAMES.crossbow'), quiver: TXT('LEGEND_NAMES.quiver'), orb: TXT('LEGEND_NAMES.orb'), robe: TXT('LEGEND_NAMES.robe'), circlet: TXT('LEGEND_NAMES.circlet'),
     cloak: TXT('LEGEND_NAMES.cloak'), weapon: TXT('LEGEND_NAMES.weapon'), offhand: TXT('LEGEND_NAMES.offhand'), helm: TXT('LEGEND_NAMES.helm'), armor: TXT('LEGEND_NAMES.armor'), gloves: TXT('LEGEND_NAMES.gloves'),
     boots: TXT('LEGEND_NAMES.boots'), ring: TXT('LEGEND_NAMES.ring'), amulet: TXT('LEGEND_NAMES.amulet') };
+  // a unique (R-09, TASKS 1818; 358 adds the ones found anywhere): its own name, base, power and lore line, for one class; `boss` is the
+  // chapter boss that always drops it to a hero of that class. Its power works while it is worn (sim_powers heroPowers)
+  const UNIQUES = {
+    u_spider_w: { id: 'u_spider_w', boss: 'boss_spider', cls: 'warrior', b: 'cloak', power: 'f_whirl_6b', name: TXT('UNIQUES.u_spider_w.name'), lore: TXT('UNIQUES.u_spider_w.lore') },
+    u_spider_m: { id: 'u_spider_m', boss: 'boss_spider', cls: 'mage', b: 'robe', power: 'f_shield_6b', name: TXT('UNIQUES.u_spider_m.name'), lore: TXT('UNIQUES.u_spider_m.lore') },
+    u_spider_a: { id: 'u_spider_a', boss: 'boss_spider', cls: 'archer', b: 'shortbow', power: 'kit_long', name: TXT('UNIQUES.u_spider_a.name'), lore: TXT('UNIQUES.u_spider_a.lore') },
+    u_necro_w: { id: 'u_necro_w', boss: 'boss_necro', cls: 'warrior', b: 'ring', power: 'f_cry_6b', name: TXT('UNIQUES.u_necro_w.name'), lore: TXT('UNIQUES.u_necro_w.lore') },
+    u_necro_m: { id: 'u_necro_m', boss: 'boss_necro', cls: 'mage', b: 'wand', power: 'f_fireball_6b', name: TXT('UNIQUES.u_necro_m.name'), lore: TXT('UNIQUES.u_necro_m.lore') },
+    u_necro_a: { id: 'u_necro_a', boss: 'boss_necro', cls: 'archer', b: 'quiver', power: 'rl_fifth', name: TXT('UNIQUES.u_necro_a.name'), lore: TXT('UNIQUES.u_necro_a.lore') },
+    u_forge_w: { id: 'u_forge_w', boss: 'boss_forge', cls: 'warrior', b: 'hammer', power: 'kit_hammer', name: TXT('UNIQUES.u_forge_w.name'), lore: TXT('UNIQUES.u_forge_w.lore') },
+    u_forge_m: { id: 'u_forge_m', boss: 'boss_forge', cls: 'mage', b: 'orb', power: 'ev_bulwark', name: TXT('UNIQUES.u_forge_m.name'), lore: TXT('UNIQUES.u_forge_m.lore') },
+    u_forge_a: { id: 'u_forge_a', boss: 'boss_forge', cls: 'archer', b: 'ring', power: 'f_trap_6b', name: TXT('UNIQUES.u_forge_a.name'), lore: TXT('UNIQUES.u_forge_a.lore') },
+    u_demon_w: { id: 'u_demon_w', boss: 'boss', cls: 'warrior', b: 'amulet', power: 'ev_roar', name: TXT('UNIQUES.u_demon_w.name'), lore: TXT('UNIQUES.u_demon_w.lore') },
+    u_demon_m: { id: 'u_demon_m', boss: 'boss', cls: 'mage', b: 'circlet', power: 'ev_comet', name: TXT('UNIQUES.u_demon_m.name'), lore: TXT('UNIQUES.u_demon_m.lore') },
+    u_demon_a: { id: 'u_demon_a', boss: 'boss', cls: 'archer', b: 'longbow', power: 'rl_quiver', name: TXT('UNIQUES.u_demon_a.name'), lore: TXT('UNIQUES.u_demon_a.lore') },
+    u_serp_w: { id: 'u_serp_w', boss: 'boss_serpent', cls: 'warrior', b: 'tower_shield', power: 'rl_maelstrom', name: TXT('UNIQUES.u_serp_w.name'), lore: TXT('UNIQUES.u_serp_w.lore') },
+    u_serp_m: { id: 'u_serp_m', boss: 'boss_serpent', cls: 'mage', b: 'staff', power: 'f_frost_3a', name: TXT('UNIQUES.u_serp_m.name'), lore: TXT('UNIQUES.u_serp_m.lore') },
+    u_serp_a: { id: 'u_serp_a', boss: 'boss_serpent', cls: 'archer', b: 'amulet', power: 'f_volley_6a', name: TXT('UNIQUES.u_serp_a.name'), lore: TXT('UNIQUES.u_serp_a.lore') },
+    u_col_w: { id: 'u_col_w', boss: 'boss_colossus', cls: 'warrior', b: 'plate_armor', power: 'ev_ram', name: TXT('UNIQUES.u_col_w.name'), lore: TXT('UNIQUES.u_col_w.lore') },
+    u_col_m: { id: 'u_col_m', boss: 'boss_colossus', cls: 'mage', b: 'cloak', power: 'rl_phalanx', name: TXT('UNIQUES.u_col_m.name'), lore: TXT('UNIQUES.u_col_m.lore') },
+    u_col_a: { id: 'u_col_a', boss: 'boss_colossus', cls: 'archer', b: 'crossbow', power: 'f_leap_6b', name: TXT('UNIQUES.u_col_a.name'), lore: TXT('UNIQUES.u_col_a.lore') },
+    // the floors' own (TASKS 358): one for each class in each slot, so any legendary a hero finds has its unique
+    u_w_weapon: { id: 'u_w_weapon', cls: 'warrior', b: 'sword', power: 'blow_cinder', name: TXT('UNIQUES.u_w_weapon.name'), lore: TXT('UNIQUES.u_w_weapon.lore') },
+    u_w_offhand: { id: 'u_w_offhand', cls: 'warrior', b: 'shield', power: 'cry_mirror', name: TXT('UNIQUES.u_w_offhand.name'), lore: TXT('UNIQUES.u_w_offhand.lore') },
+    u_w_helm: { id: 'u_w_helm', cls: 'warrior', b: 'leather_helm', power: 'cry_push', name: TXT('UNIQUES.u_w_helm.name'), lore: TXT('UNIQUES.u_w_helm.lore') },
+    u_w_armor: { id: 'u_w_armor', cls: 'warrior', b: 'leather_armor', power: 'cry_call', name: TXT('UNIQUES.u_w_armor.name'), lore: TXT('UNIQUES.u_w_armor.lore') },
+    u_w_gloves: { id: 'u_w_gloves', cls: 'warrior', b: 'gauntlets', power: 'charge_rend', name: TXT('UNIQUES.u_w_gloves.name'), lore: TXT('UNIQUES.u_w_gloves.lore') },
+    u_w_boots: { id: 'u_w_boots', cls: 'warrior', b: 'boots', power: 'dash_strike', name: TXT('UNIQUES.u_w_boots.name'), lore: TXT('UNIQUES.u_w_boots.lore') },
+    u_w_ring: { id: 'u_w_ring', cls: 'warrior', b: 'ring', power: 'ev_storm', name: TXT('UNIQUES.u_w_ring.name'), lore: TXT('UNIQUES.u_w_ring.lore') },
+    u_w_amulet: { id: 'u_w_amulet', cls: 'warrior', b: 'amulet', power: 'f_cry_3a', name: TXT('UNIQUES.u_w_amulet.name'), lore: TXT('UNIQUES.u_w_amulet.lore') },
+    u_m_weapon: { id: 'u_m_weapon', cls: 'mage', b: 'wand', power: 'fire_split', name: TXT('UNIQUES.u_m_weapon.name'), lore: TXT('UNIQUES.u_m_weapon.lore') },
+    u_m_offhand: { id: 'u_m_offhand', cls: 'mage', b: 'orb', power: 'shield_burst', name: TXT('UNIQUES.u_m_offhand.name'), lore: TXT('UNIQUES.u_m_offhand.lore') },
+    u_m_helm: { id: 'u_m_helm', cls: 'mage', b: 'circlet', power: 'frost_freeze', name: TXT('UNIQUES.u_m_helm.name'), lore: TXT('UNIQUES.u_m_helm.lore') },
+    u_m_armor: { id: 'u_m_armor', cls: 'mage', b: 'robe', power: 'shield_feed', name: TXT('UNIQUES.u_m_armor.name'), lore: TXT('UNIQUES.u_m_armor.lore') },
+    u_m_gloves: { id: 'u_m_gloves', cls: 'mage', b: 'leather_gloves', power: 'fire_blaze', name: TXT('UNIQUES.u_m_gloves.name'), lore: TXT('UNIQUES.u_m_gloves.lore') },
+    u_m_boots: { id: 'u_m_boots', cls: 'mage', b: 'boots', power: 'rl_pyre', name: TXT('UNIQUES.u_m_boots.name'), lore: TXT('UNIQUES.u_m_boots.lore') },
+    u_m_ring: { id: 'u_m_ring', cls: 'mage', b: 'ring', power: 'frost_brittle', name: TXT('UNIQUES.u_m_ring.name'), lore: TXT('UNIQUES.u_m_ring.lore') },
+    u_m_amulet: { id: 'u_m_amulet', cls: 'mage', b: 'amulet', power: 'ev_glacier', name: TXT('UNIQUES.u_m_amulet.name'), lore: TXT('UNIQUES.u_m_amulet.lore') },
+    u_a_weapon: { id: 'u_a_weapon', cls: 'archer', b: 'shortbow', power: 'volley_pierce', name: TXT('UNIQUES.u_a_weapon.name'), lore: TXT('UNIQUES.u_a_weapon.lore') },
+    u_a_offhand: { id: 'u_a_offhand', cls: 'archer', b: 'quiver', power: 'f_volley_3a', name: TXT('UNIQUES.u_a_offhand.name'), lore: TXT('UNIQUES.u_a_offhand.lore') },
+    u_a_helm: { id: 'u_a_helm', cls: 'archer', b: 'leather_helm', power: 'trap_lure', name: TXT('UNIQUES.u_a_helm.name'), lore: TXT('UNIQUES.u_a_helm.lore') },
+    u_a_armor: { id: 'u_a_armor', cls: 'archer', b: 'leather_armor', power: 'leap_trap', name: TXT('UNIQUES.u_a_armor.name'), lore: TXT('UNIQUES.u_a_armor.lore') },
+    u_a_gloves: { id: 'u_a_gloves', cls: 'archer', b: 'leather_gloves', power: 'f_volley_6b', name: TXT('UNIQUES.u_a_gloves.name'), lore: TXT('UNIQUES.u_a_gloves.lore') },
+    u_a_boots: { id: 'u_a_boots', cls: 'archer', b: 'boots', power: 'dash_trail', name: TXT('UNIQUES.u_a_boots.name'), lore: TXT('UNIQUES.u_a_boots.lore') },
+    u_a_ring: { id: 'u_a_ring', cls: 'archer', b: 'ring', power: 'ev_mines', name: TXT('UNIQUES.u_a_ring.name'), lore: TXT('UNIQUES.u_a_ring.lore') },
+    u_a_amulet: { id: 'u_a_amulet', cls: 'archer', b: 'amulet', power: 'f_leap_3b', name: TXT('UNIQUES.u_a_amulet.name'), lore: TXT('UNIQUES.u_a_amulet.lore') },
+    // TASKS 2029: a legendary keeps the base it rolled, so every base has its floors' unique; a base anyone wears has one for each class,
+    // as the class a find is for is the hero's there (sim_items itemCls)
+    u_w_longsword: { id: 'u_w_longsword', cls: 'warrior', b: 'longsword', power: 'blow_echo', name: TXT('UNIQUES.u_w_longsword.name'), lore: TXT('UNIQUES.u_w_longsword.lore') },
+    u_w_axe: { id: 'u_w_axe', cls: 'warrior', b: 'axe', power: 'blow_finisher', name: TXT('UNIQUES.u_w_axe.name'), lore: TXT('UNIQUES.u_w_axe.lore') },
+    u_w_hammer: { id: 'u_w_hammer', cls: 'warrior', b: 'hammer', power: 'charge_quake', name: TXT('UNIQUES.u_w_hammer.name'), lore: TXT('UNIQUES.u_w_hammer.lore') },
+    u_w_buckler: { id: 'u_w_buckler', cls: 'warrior', b: 'buckler', power: 'whirl_parry', name: TXT('UNIQUES.u_w_buckler.name'), lore: TXT('UNIQUES.u_w_buckler.lore') },
+    u_w_tower: { id: 'u_w_tower', cls: 'warrior', b: 'tower_shield', power: 'blow_reap', name: TXT('UNIQUES.u_w_tower.name'), lore: TXT('UNIQUES.u_w_tower.lore') },
+    u_w_knight_helm: { id: 'u_w_knight_helm', cls: 'warrior', b: 'knight_helm', power: 'f_cry_6a', name: TXT('UNIQUES.u_w_knight_helm.name'), lore: TXT('UNIQUES.u_w_knight_helm.lore') },
+    u_w_plate: { id: 'u_w_plate', cls: 'warrior', b: 'plate_armor', power: 'f_charge_6a', name: TXT('UNIQUES.u_w_plate.name'), lore: TXT('UNIQUES.u_w_plate.lore') },
+    u_w_cloak: { id: 'u_w_cloak', cls: 'warrior', b: 'cloak', power: 'whirl_pull', name: TXT('UNIQUES.u_w_cloak.name'), lore: TXT('UNIQUES.u_w_cloak.lore') },
+    u_w_gloves_l: { id: 'u_w_gloves_l', cls: 'warrior', b: 'leather_gloves', power: 'f_charge_3a', name: TXT('UNIQUES.u_w_gloves_l.name'), lore: TXT('UNIQUES.u_w_gloves_l.lore') },
+    u_w_iron_boots: { id: 'u_w_iron_boots', cls: 'warrior', b: 'iron_boots', power: 'f_charge_6b', name: TXT('UNIQUES.u_w_iron_boots.name'), lore: TXT('UNIQUES.u_w_iron_boots.lore') },
+    u_m_staff: { id: 'u_m_staff', cls: 'mage', b: 'staff', power: 'fire_pierce', name: TXT('UNIQUES.u_m_staff.name'), lore: TXT('UNIQUES.u_m_staff.lore') },
+    u_m_helm_l: { id: 'u_m_helm_l', cls: 'mage', b: 'leather_helm', power: 'f_frost_6b', name: TXT('UNIQUES.u_m_helm_l.name'), lore: TXT('UNIQUES.u_m_helm_l.lore') },
+    u_m_armor_l: { id: 'u_m_armor_l', cls: 'mage', b: 'leather_armor', power: 'shield_mirror', name: TXT('UNIQUES.u_m_armor_l.name'), lore: TXT('UNIQUES.u_m_armor_l.lore') },
+    u_m_cloak: { id: 'u_m_cloak', cls: 'mage', b: 'cloak', power: 'frost_step', name: TXT('UNIQUES.u_m_cloak.name'), lore: TXT('UNIQUES.u_m_cloak.lore') },
+    u_a_longbow: { id: 'u_a_longbow', cls: 'archer', b: 'longbow', power: 'volley_bounce', name: TXT('UNIQUES.u_a_longbow.name'), lore: TXT('UNIQUES.u_a_longbow.lore') },
+    u_a_crossbow: { id: 'u_a_crossbow', cls: 'archer', b: 'crossbow', power: 'leap_pierce', name: TXT('UNIQUES.u_a_crossbow.name'), lore: TXT('UNIQUES.u_a_crossbow.lore') },
+    u_a_cloak: { id: 'u_a_cloak', cls: 'archer', b: 'cloak', power: 'trap_chain', name: TXT('UNIQUES.u_a_cloak.name'), lore: TXT('UNIQUES.u_a_cloak.lore') },
+  };
+  const bossUniques = (type, cls) => Object.values(UNIQUES).filter((u) => u.boss === type && u.cls === cls);
+  const floorUnique = (b, cls) => Object.values(UNIQUES).find((u) => !u.boss && u.cls === cls && u.b === b);
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)
@@ -143,5 +211,5 @@
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
-  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, reqLvl, SHOP, itemPrice, sellPrice });
+  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, floorUnique, reqLvl, SHOP, itemPrice, sellPrice });
 })(typeof window !== 'undefined' ? window : globalThis);

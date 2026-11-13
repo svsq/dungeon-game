@@ -50,8 +50,20 @@
     // most of what a hero finds is of his class (TASKS 1102): a foreign base is kept at CLASS_LOOT.foreign, else rolled among his own
     const cls = R.hero && D.clsOf(R.hero).id;
     if (cls && !D.wears(cls, bk) && (o.own || rnd(R) >= D.CLASS_LOOT.foreign)) { const own = keys.filter((k) => D.wears(cls, k)); if (own.length) bk = pick(own); }
-    return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: lootLvl(R, floor + (R.mode ? RUN(R).loot || 0 : 0), o), mods: {} }));
+    const lvl = lootLvl(R, floor + (R.mode ? RUN(R).loot || 0 : 0), o), U = rar === 4 && floorUniqueOf(R, bk);
+    if (U) return uniqueItem(R, U.id, lvl);
+    const it = rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl, mods: {} }));
+    return rar === 3 && !o.own ? epicPower(R, it, floor) : it;
   }
+  // the class a found base is for: the one it is made for, or the hero's when it is anyone's
+  const itemCls = (R, bk) => { const B = BASES[bk], cls = R.hero && D.clsOf(R.hero).id; return B.cls ? (B.cls.includes(cls) ? cls : B.cls[0]) : cls; };
+  // a legendary is the floors' unique of the rolled base for its class (TASKS 358, 2029); it takes no draw of its own, so every roll after it stays where it was
+  function floorUniqueOf(R, bk) { const own = itemCls(R, bk); return own ? D.floorUnique(bk, own) : null; }
+  // the dice's next state looked at without being thrown: an epic's power (TASKS 359) moves no roll after it either
+  const peek = (R, n) => rnd({ rs: (R.rs + n * 0x9e3779b9) | 0 });
+  // a found epic, never one sold or handed, may hold one weak power for its class
+  function epicPower(R, it, floor) { const own = itemCls(R, it.b); if (!own || peek(R, 1) >= D.EPIC_POWER.p(floor)) return it;
+    const L = D.epicPool(own); if (L.length) it.pw = L[Math.floor(peek(R, 2) * L.length)]; return it; }
   // a find's level (the player's note 5.10, TASKS 1345): half way from the floor to a hero who has outgrown it, spread by the source's lo/hi,
   // and never more than the source's `lag` under him; shop stock and rewards name no spread and stay at the floor's own level
   function lootLvl(R, base, o) { if (o.hi === undefined) return base; const h = R.hero, a = base + (h ? Math.round(0.5 * Math.max(0, h.lvl - base)) : 0);
@@ -59,6 +71,9 @@
     // a find above the hero (the player's note 5.7, TASKS 1347): likelier the further he runs ahead of his level, its bonus capped at `up`
     const O = D.LOOT_OVER, gap = Math.max(0, base - h.lvl); if (rnd(R) >= Math.min(O.cap, O.base + O.per * gap)) return lvl;
     return Math.max(lvl, h.lvl) + 1 + Math.floor(rnd(R) * Math.min(O.up, 2 + gap)); }
+  const uniqueItem = (R, uid, lvl) => { const U = D.UNIQUES[uid]; return rollAffixes(R, itemPower({ id: 0, b: U.b, rar: 4, lvl, mods: {}, u: uid })); };
+  // a chapter boss's first prize is its unique for this hero's class, at the level the roll gave
+  function bossPrize(R, e, it) { const L = R.hero ? D.bossUniques(e.type, D.clsOf(R.hero).id) : []; return L.length ? uniqueItem(R, L[Math.floor(rnd(R) * L.length)].id, it.lvl) : it; }
   function rollAffixes(R, it) {
     const pool = D.liveFor(R.hero, 'mods', AFFIXES, (a) => a.k), W = D.AFFIX_W[BASES[it.b].slot] || {}, wt = (a) => W[a.k] ?? 1;
     for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { let s = pool.reduce((n, a) => n + wt(a), 0) * rnd(R), j = pool.length - 1;
@@ -70,7 +85,7 @@
   const useless = (R, b) => D.clsOf(R.hero).dead.cons.includes(b);
   const potion = (b, n = 1) => ({ id: 0, b, n, rar: 0, lvl: 1, mods: {} });
   const isCons = (it) => !!CONSUMABLES[it.b];
-  const itemName = (it) => (isCons(it) ? CONSUMABLES[it.b].name : it.rar === 4 ? (D.LEGEND_NAMES[it.b] || D.LEGEND_NAMES[BASES[it.b].slot]) : BASES[it.b].name);
+  const itemName = (it) => (isCons(it) ? CONSUMABLES[it.b].name : D.UNIQUES[it.u] ? D.UNIQUES[it.u].name : it.rar === 4 ? (D.LEGEND_NAMES[it.b] || D.LEGEND_NAMES[BASES[it.b].slot]) : BASES[it.b].name);
   const gearName = (it) => it ? TXT('sim_items.gearName', { p1: itemName(it), name: RARITY[it.rar].name, lvl: it.lvl }) : null;
   const itemIcon = (it) => (isCons(it) ? CONSUMABLES[it.b].icon : BASES[it.b].icon);
 
@@ -189,6 +204,6 @@
   }
 
   Object.assign(SIMX, {
-    sortItems, itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
+    sortItems, itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, uniqueItem, bossPrize, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
     stats, hitFrame, propBoxes, behindProp, DROP_REST, stepDrops, takeItem, tossedNear });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -46,6 +46,8 @@
     if (actor && actor.fireT > S.t && kind === undefined && !/ (bolt|blast|pillar)$/.test(src || '')) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
     // a monster the war cry shook hits softer (TASKS 1130)
     if (actor && actor.weakT > S.t) dmg *= D.CRY.weak;
+    // a cursed floor's monsters hit harder (TASKS 364): every blow but a trap's or the lava's
+    if (kind !== 'spike' && src !== 'lava' && R.events) dmg *= 1 + D.EVENTS.hex * SIMX.hexN(R);
     const st = heroSt(S), KD = 20 + 12 * D.deepEnd(dep(R)); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (kind !== 'spike' && src !== 'lava' && D.clsOf(h).res === 'rage') dmg = Math.max(1, Math.round(dmg * (1 - h.mp / D.RAGE.max * D.RAGE.guard)));
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : D.deepAxis(dep(R), 'blow'))));
@@ -67,7 +69,7 @@
     if (kind === 'water') { h.slowT = S.t + ORB.t; ev(S, { k: 'soak', x: h.x, y: h.y - 38 }); }
     ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: dmg, blow, side: h.hurtX || -1, src: src || kind || '?',
       actor: actor ? { type: actor.type, elite: actor.elite, mods: (actor.mods || []).slice() } : null });
-    if (h.hp > 0 && h.powers) SIMX.powersHurt(S, R, dmg, st.maxHp);
+    if (h.hp > 0 && SIMX.heroPowers(h)) SIMX.powersHurt(S, R, dmg, st.maxHp);
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
     if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
       ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: TXT('sim_hero.hurtHero.msg.s'), t: S.t }; return; }
@@ -107,7 +109,7 @@
     const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
     if (fromHero && has(e, 'reflect') && kind !== 'burn') { const h = R.hero, n = Math.min(Math.round(dmg * MOD.reflect.k), Math.max(0, Math.ceil(h.hp) - 1));
       if (n > 0 && h.deadT < 0) { h.hp -= n; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, blow: n, side: h.x > e.x ? 1 : -1, src: e.type + ' reflect', reflect: 1 }); } }
-    if (fromHero && R.hero.powers && kind !== 'burn' && kind !== 'thorns') { const ctx = { e, x: e.x, y: e.y, hit: dmg }; SIMX.firePowers(S, R, 'hit', ctx); if (crit) SIMX.firePowers(S, R, 'crit', ctx); }
+    if (fromHero && SIMX.heroPowers(R.hero) && kind !== 'burn' && kind !== 'thorns') { const ctx = { e, x: e.x, y: e.y, hit: dmg }; SIMX.firePowers(S, R, 'hit', ctx); if (crit) SIMX.firePowers(S, R, 'crit', ctx); }
     if (e.hp <= 0 && e.deadT < 0) { e.dieA = Math.atan2(dy, dx); killEnemy(S, R, e); }   // the killing blow's direction: bones fly that way
   }
   function aggroRoom(R, e) { for (const o of R.en) if (o.deadT < 0 && (!D.BOSSES[o.type] || !R.map.bossType || R.arena) && (o === e || o.st === 'idle') && (o.room === e.room || (Math.hypot(o.x - e.x, o.y - e.y) < 220 && losClear(R.map, o.x, o.y - 10, e.x, e.y - 10)))) { o.st = 'chase'; o.t0 = o.seenT = R.t; }
@@ -158,22 +160,24 @@
     ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id, elite: e.elite && !D.BOSSES[e.type] ? 1 : 0, boss: D.BOSSES[e.type] ? 1 : 0 }, e.quest ? { quest: e.quest } : {}, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // the last monster of a room down: the room is cleared (TASKS 1017, a quest's goal)
     if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) ev(S, { k: 'clear', x: e.x, y: e.y, room: e.room });
-    if (R.hero.powers && R.hero.deadT < 0) { SIMX.firePowers(S, R, 'kill', { e, x: e.x, y: e.y }); if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) SIMX.firePowers(S, R, 'roomClear', { x: e.x, y: e.y }); }
+    if (SIMX.heroPowers(R.hero) && R.hero.deadT < 0) { SIMX.firePowers(S, R, 'kill', { e, x: e.x, y: e.y }); if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) SIMX.firePowers(S, R, 'roomClear', { x: e.x, y: e.y }); }
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
     if (e.type === 'mimic') SIMX.mimicLoot(S, R, e);
     if (e.summ) return;
     const [lx, ly] = landOf(R.map, e.x, e.y), ox = e.x, oy = e.y; e.x = lx; e.y = ly;
     if (e.key !== undefined) drop(R, e.x, e.y, { kind: 'key', lock: e.key });
     const gb = 1 + 0.15 * ((S.meta.up || {}).gold || 0);
-    if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + dep(R) * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
-    const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
-    if (!D.BOSSES[e.type] && (e.elite ? rnd(R) < (LT.p ?? 1) : rnd(R) < LT.p * BAL.reward * LOOT.thin(dep(R)))) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
-    if (rnd(R) < POT.kill * BAL.reward) dropPotion(R, e.x, e.y, 0.65);
+    // a dark room's pack (TASKS 365) pays its gold, finds and potions twice over, each thrown on its own
+    for (let k = SIMX.lootK(R, e); k > 0; k--) {
+      if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + dep(R) * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
+      const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
+      if (!D.BOSSES[e.type] && (e.elite ? rnd(R) < (LT.p ?? 1) : rnd(R) < LT.p * BAL.reward * LOOT.thin(dep(R)))) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
+      if (rnd(R) < POT.kill * BAL.reward) dropPotion(R, e.x, e.y, 0.65); }
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
     const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || SIMX.chapterEnd(R, e)), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (D.BOSSES[e.type]) { SIMX.captiveBoss(S, R, e); SIMX.finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); } }
-    if (big && !R.chests.some((c) => c.boss)) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
+    if (big && !R.chests.some((c) => c.boss)) LOOT.boss.forEach((o, i) => { const it = rollItem(R, dep(R), o.q, undefined, o); drop(R, e.x, e.y, { kind: 'item', item: i ? it : SIMX.bossPrize(R, e, it) }); });
     if (fin) { R.bossDead = 1; R.msg = { s: TXT('sim_hero.killEnemy.msg.s', { name: ENEMIES[e.type].name }), t: S.t }; }
     e.x = ox; e.y = oy;
   }
@@ -253,10 +257,10 @@
     const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : h.leapV && h.leapV[0] === h.dashT ? h.leapV[1] : K.DASH, slide = stag ? 1 - (t - stag.t0) / (stag.t - stag.t0) : 0, mvx = held || (dashing && halted) ? 0 : stag ? stag.vx * slide : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : stag ? stag.vy * slide : dashing ? h.dashY * dashV : h.vy;
     if (charging) { const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - h.x, (o.y - h.y) * 1.25) < ENEMIES[o.type].r + K.R + 18);
       if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.mp = Math.min(D.RAGE.max, h.mp + D.RAGE.charge); h.dashHalt = h.dashT; R.freeze = Math.max(R.freeze, 0.06); R.trauma = Math.min(1, R.trauma + 0.3);
-        e.rootT = t + stun; e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
-        heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); } }
+        e.rootT = Math.max(e.rootT || 0, t + stun); e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
+        heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); SIMX.firePowers(S, R, 'chargeHit', { e, x: e.x, y: e.y }); } }
     else if (h.charge && t - h.dashT >= CH.t) { h.charge = null; h.cd.charge = Math.min(h.cd.charge, t + CH.miss); ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.charge.miss') }); }
-    if (leap && h.powers) SIMX.dashTouch(S, R);
+    if (leap && SIMX.heroPowers(h)) SIMX.dashTouch(S, R);
     // (the throw never carries him onto the lava: a knock-back shoves monsters in, the hero never, TASKS 406)
     if (stag && onLava(m, { x: h.x + mvx * DT * 3, y: h.y + mvy * DT * 3 })) stag.vx = stag.vy = 0;
     // a hero whose box the ground closed over (a railed bank's edge under his heels, TASKS 1833) could not take a step any way: back to
@@ -363,6 +367,7 @@
     // is blessed for the floor, as by the altar's gift, and the circle goes dark
     for (const q of m.circles || []) if (q.bless && !q.used && h.hp > 0 && Math.hypot(h.x - q.x, (h.y - q.y) * 1.6) < 1.6 * TILE && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) {
       q.used = 1; h.bless = 1; h.blessTo = R.floor + 1; ev(S, { k: 'bless', x: q.x, y: q.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); R.msg = { s: TXT('sim_hero.sanctum.msg'), t: S.t }; }
+    if (R.events && R.events.length) SIMX.stepEvents(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
     if (R.chests.length) SIMX.stepChestTraps(S, R);

@@ -53,7 +53,8 @@
       }
       G.blend();
     };
-    const hid = (o) => SIM.Q.hidden(m, o);
+    // (a dark room's torches and candles, TASKS 365, put out: neither drawn nor lit)
+    const hid = (o) => !!o.dark || SIM.Q.hidden(m, o);
     const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)

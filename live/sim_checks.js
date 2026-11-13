@@ -2,7 +2,7 @@
 // sim.js requires it, the page never loads it (ARCHITECTURE.md §4.2). It reads the sim's inside through SIMX.
 (function (root) {
   const SIMX = root.SIMX;
-  if (typeof module !== 'undefined') { require('./sim_checks_powers.js'); require('./sim_checks_ui.js'); }
+  if (typeof module !== 'undefined') { require('./sim_checks_powers.js'); require('./sim_checks_ui.js'); require('./sim_checks_events.js'); }
   const {
     ABILITIES, ARROW_Y, BAL, BASES, CRUST, D, DG, DOOM, DT, ENEMIES, FROM, K, LOOT, MOD, RARITY, REWARD, STAGE, TILE, UI, WADE, addFire,
     aggroRoom, angDiff, bagAdd, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
@@ -545,10 +545,11 @@
           // each secret has its cover or its mechanism, and a mechanism is found and worked from the open floor
           for (const e of cacheIssues(m, q, i, shut)) out.push(`seed ${seed} f${f}: secret ${i} (${q.kind}) ${e}`); }); }
       // every floor cell of every room lies within reach of a light: a torch, a brazier, candles, a crystal, an altar, the bonfire or a shop lamp
-      { const LR = DG.LIGHT_R, lights = m.torches.map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n]).map((d) => [d.x, d.y, LR[d.n]]),
+      // (but a dark room, TASKS 365, whose torches and candles are put out)
+      { const LR = DG.LIGHT_R, lights = m.torches.filter((t) => !t.dark).map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n] && !d.dark).map((d) => [d.x, d.y, LR[d.n]]),
           m.shrines.map((s) => [s.x, s.y, LR.shrine]), m.shop.lanterns.map((q) => [q.x, q.y, LR.wall]), [[m.shop.x, m.shop.y, LR.fire]]);
         for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) lights.push([(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE + 6, LR.lava]);   // lava glows
-        for (const r of m.rooms) { let dark = 0;
+        for (const r of m.rooms) { let dark = 0; if (r.event === 'dark') continue;
           for (const [bx, by, bw, bh] of DG.rectsOf(r)) for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) if (cell(m, x, y) === 1 && !lights.some(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE - 6) / 0.8) <= lr * TILE)) dark++;
           if (dark) out.push(`seed ${seed} f${f}: ${dark} dark cells in ${r.type} room ${r.id} (${r.w}×${r.h})`); } } }
     // the cave's water comes in every kind over the floors checked: falls, breaches, springs, isthmuses, fords and bridges
@@ -1652,11 +1653,11 @@
         else for (let k = 0; k < 4 && !q.open; k++) { standAt(R, q); if (q.trig && q.trig.k === 'plate') step(S, { keys: [], px: 960, py: 540 }); else pressE(S); }
         if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${q.trig ? ' ' + q.trig.k : ''}, ${q.dir}) does not open by its way`); }); }
     // loot: open every chest of a few floors (secret ones too, each after its secret, as in play: TASKS 1868, the loot of a chest opened
-    // in a shut 3×5 cache had no cell out of its props' shade), let the items fall and pick up half of them; the floor's books
+    // in a shut 3×5 cache had no cell out of its props' shade; a cursed chest as if its question had been answered «yes», TASKS 364), let the items fall and pick up half of them; the floor's books
     // balance at every stage and no item comes to rest where the hero cannot get to it
     for (const sd of [11, 222]) for (const f of [1, 4, 8]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; const check = (when) => { const A = lootAudit(R); if (A.off) out.push(`seed ${sd} f${f}: loot books off by ${A.off} ${when}`); if (A.stuck) out.push(`seed ${sd} f${f}: ${A.stuck} loot out of reach ${when}`); };
-      check('on arrival'); for (const c of R.chests) { const line = []; for (let q = c.sec !== undefined ? R.map.secrets[c.sec] : null; q; q = q.parent !== undefined ? R.map.secrets[q.parent] : null) line.unshift(q); for (const q of line) if (!q.open) openSecret(S, R, q, true); openChest(S, R, c); } h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
+      check('on arrival'); for (const c of R.chests) { if (c.hex !== undefined) c.hexOk = 1; const line = []; for (let q = c.sec !== undefined ? R.map.secrets[c.sec] : null; q; q = q.parent !== undefined ? R.map.secrets[q.parent] : null) line.unshift(q); for (const q of line) if (!q.open) openSecret(S, R, q, true); openChest(S, R, c); } h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
       const pick = R.drops.filter((o) => o.loot && !o.got).slice(0, 6); for (const d of pick) for (let k = 0; k < 3; k++) { h.x = d.x; h.y = d.y; step(S, { keys: [] }); }
       if (pick.some((d) => !d.got)) out.push(`seed ${sd} f${f}: loot could not be picked up`); check('after picking some up'); }
     // debug: the button opens every secret without counting it, and the second press seals exactly those again
@@ -1980,7 +1981,8 @@
         { const e = crab({ cdT: 99, rushT: 99 }); h.x = x0 - 120; for (let i = 0; i < 60; i++) step(S, quiet); const turned = Math.abs(e.fa);
           if (!(turned > 0.2 && turned <= E.turn * 0.5 + 0.02)) out.push(`crab: turns ${turned.toFixed(2)} rad in 0.5 s, not up to ${E.turn * 0.5}`); }
         // the pinch: a hero before it is hurt; one behind it is not, for the second it takes to turn even half way
-        { const e = crab({}); h.x = x0 + E.r + K.R + 14; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
+        // (a pinch the hero dodges is a pinch too: the run's RNG decides the dodge, TASKS 362 moved it so the first one was dodged)
+        { const e = crab({}); h.x = x0 + E.r + K.R + 14; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => (v.k === 'hurt' || v.k === 'dodge') && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
           if (!hurt || !S.ev.some((v) => v.k === 'pinch' && v.id === e.id)) out.push('crab: never pinches a hero before it'); }
         { const e = crab({ rushT: 99 }); h.x = x0 - E.r - K.R - 14; let hurt = 0; for (let i = 0; i < 120; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 - E.r - K.R - 14; h.y = y0; e.x = x0; e.y = y0; }
           if (hurt) out.push('crab: pinches a hero behind it'); }
@@ -3841,6 +3843,16 @@
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
   const splitCheck = () => { const out = []; SIMX.checkSplit(out); return out; };
+  const eventGenCheck = () => { const out = []; SIMX.checkEventGen(out); return out; };
+  const eventPlayCheck = () => { const out = []; SIMX.checkEventPlay(out); return out; };
+  const trialPlayCheck = () => { const out = []; SIMX.checkTrialPlay(out); return out; };
+  const bloodPlayCheck = () => { const out = []; SIMX.checkBloodPlay(out); return out; };
+  const hexPlayCheck = () => { const out = []; SIMX.checkHexPlay(out); return out; };
+  const fountainPlayCheck = () => { const out = []; SIMX.checkFountainPlay(out); return out; };
+  const dicePlayCheck = () => { const out = []; SIMX.checkDicePlay(out); return out; };
+  const darkPlayCheck = () => { const out = []; SIMX.checkDarkPlay(out); return out; };
+  const captivePlayCheck = () => { const out = []; SIMX.checkCaptivePlay(out); return out; };
+  const libraryPlayCheck = () => { const out = []; SIMX.checkLibraryPlay(out); return out; };
   const stackCheck = () => { const out = []; SIMX.checkStacks(out); return out; };
   const hudFootCheck = () => { const out = []; SIMX.checkHudFoot(out); return out; };
   const trkFoldCheck = () => { const out = []; SIMX.checkTrkFold(out); return out; };
@@ -3849,13 +3861,13 @@
   const keyWordCheck = () => { const out = []; SIMX.checkKeyWords(out); return out; };
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
-  const GEN_PRINT = { 27: '6536c5f1dd1fc12a' };
+  const GEN_PRINT = { 33: 'b7a355cecbaeeced' };
   function genPrintCheck() { const h = require('crypto').createHash('sha1');
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
     return p === GEN_PRINT[D.GEN_VERSION] ? [] : [`gen print: the generator lays other floors (${p}) under D.GEN_VERSION ${D.GEN_VERSION}: raise the version and put the print in GEN_PRINT`]; }
   const hudHeroCheck = () => { const out = []; SIMX.checkHudHero(out); return out; };
-  const PARTS = { hudHeroCheck, strCheck, splitCheck, stackCheck, hudFootCheck, trkFoldCheck, keyWordCheck, testEndCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, cartCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { hudHeroCheck, strCheck, eventGenCheck, eventPlayCheck, trialPlayCheck, bloodPlayCheck, hexPlayCheck, fountainPlayCheck, dicePlayCheck, darkPlayCheck, captivePlayCheck, libraryPlayCheck, splitCheck, stackCheck, hudFootCheck, trkFoldCheck, keyWordCheck, testEndCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, cartCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

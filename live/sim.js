@@ -112,12 +112,12 @@
 
   root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, VIEW_H, viewFor, setView, uiDy, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, persist,
     stepLen, stats, gift, itemName, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
-  root.SIM.chooseFork = SIMX.chooseFork; root.SIM.genApart = SIMX.genApart; root.SIM.migrateSecrets = SIMX.migrateSecrets;
+  root.SIM.chooseFork = SIMX.chooseFork; root.SIM.uniqueItem = SIMX.uniqueItem; root.SIM.genApart = SIMX.genApart; root.SIM.migrateSecrets = SIMX.migrateSecrets;
   // what the render may ask the sim (ARCHITECTURE.md §8): reads of the state, never a change to it (fstat fills a memo the step
   // has already filled; at replays the attract demo into its own cache). The render takes nothing else from SIM but constants
   root.SIM.Q = {
     depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
-    noteNear, captiveNear, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
+    noteNear, captiveNear, eventNear: SIMX.eventNear, darkMask: SIMX.darkMask, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, crackSpan: SIMX.crackSpan, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, typing: SIMX.typing, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot, talkWalk: SIMX.talkWalk, talkFirst: SIMX.talkFirst, boardRows: SIMX.boardRows, legShown };
   Object.assign(SIMX, {

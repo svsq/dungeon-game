@@ -70,7 +70,7 @@
     for (const d of m.doors || []) if (!d.open) for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5;
     R.keys = 0;
     R.shop = !m.shop ? null : SIMX.stockShop(R, d, m.wander ? 'wander' : undefined);
-    R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = SIMX.chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s));
+    R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = SIMX.chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s)); SIMX.eventsBuild(R);
     // a big monster's post can graze a prop: the post is where it can actually stand
     { const sol = SIMX.solids(R); for (const e of R.en) seatFoe(R, e, sol); }
     R.seen = new Array(m.W * m.H).fill(R.town); R.rseen = m.rooms.map(() => R.town);
@@ -79,7 +79,7 @@
   // a run through the town can go back up the stairs or home through a portal and come back: each floor it leaves is kept as the
   // diff of its changing parts against the same floor rebuilt fresh (the RNG and ids it was first built with are in R.memo[f]),
   // the loot on its floor and its explored cells run-length coded; nothing comes back to life
-  const FLOOR_KEYS = ['map', 'en', 'chests', 'pots', 'shrines', 'shop', 'keys', 'bossDead', 'arena', 'eggs'];
+  const FLOOR_KEYS = ['map', 'en', 'chests', 'pots', 'shrines', 'events', 'shop', 'keys', 'bossDead', 'arena', 'eggs'];
   const jclone = (o) => JSON.parse(JSON.stringify(o === undefined ? null : o));
   function fdiff(a, b) {
     if (a === b) return undefined;
@@ -185,6 +185,7 @@
     const ok = enterFloor(S, R, 0, undefined, 'portal'); R.portal = { f };
     if (ok) R.msg = { s: TXT('sim_floor.mended', { floor: f }), t: S.t, d: 5 }; return ok; }
   function goFloor(S, R, f, gen, how) {
+    if (R.map && R.events) SIMX.eventsLeave(S, R);
     if (R.map && R.viaTown) stashFloor(R);
     if (R.map && R.town && R.shop) R.townShop = R.shop;
     R.htraps = [];   // (a set trap stays where it was set: kept, it sprang on the new floor at the old floor's spot, PR 36 review)
@@ -219,7 +220,7 @@
     else if (how === 'down' && m.up) [hx, hy] = m.biome === 'magma' && !m.up.free ? standNear(R, m.up.x + 34, m.up.y + 46 + D.TILE) : standNear(R, m.up.x, m.up.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
-    h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null; h.volleyT = null;
+    h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null; h.volleyT = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; snapCam(R);

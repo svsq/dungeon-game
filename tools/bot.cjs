@@ -513,7 +513,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // what lies behind a door still locked is out of reach until its key or lever is found
     // a note (TASKS 1323) is taken by E, not walked over: without the key the bot circled each for CHASE s, 30–110 s a floor (TASKS 1808)
     const drop = first(R.drops.filter((p) => !p.got && !p.tossed && !(p.fly > 0) && takes(p) && reach(p) && !(p.kind === 'note' && SIM.hidden(m, p))));
-    const chest = first(R.chests.filter((c) => !c.open && !c.sealed && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
+    const chest = first(R.chests.filter((c) => !c.open && !c.sealed && c.hex === undefined && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
     const locked = R.keys > 0 ? first((m.doors || []).filter((d) => { const L = SIM.doorLock(m, d); return L && L.kind === 'key'; })) : null;
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
     const shrine = first(R.shrines.filter((s) => !s.used && !s.skip && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));

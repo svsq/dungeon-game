@@ -57,11 +57,13 @@
   const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')], ['board', TXT('TOWN_LEG.9')]];
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
   const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
+  // an event of the floor not done yet (TASKS 2021, R-12, R-35) has its mark once seen, and its line while one is seen
+  const EVENT_LEG = ['event', TXT('EVENT_LEG')], evSeen = (R) => (R.events || []).filter((E) => E.st !== 'done' && !D.EVENTS.pool[E.id].hide && !(D.EVENTS.pool[E.id].lead && E.st === 'on') && R.seen[Math.floor(E.y / TILE) * R.map.W + Math.floor(E.x / TILE)]);
   // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
   // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1863 з)
   const SHOP_SHUT_LEG = ['shop', TXT('TOWN_LEG.shut')], townLeg = (R) => (SIM.Q.shopShut(R) ? TOWN_LEG.map((q) => (q[0] === 'shop' ? SHOP_SHUT_LEG : q)) : TOWN_LEG);
-  const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
+  const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], evSeen(R).length ? [EVENT_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
   // where world labels keep off: the top-left block (portrait, level, its bar, every row of effects, so a long list does not run under
   // labels; the stats under the portrait), the bottom panel and the key hints over it
@@ -150,6 +152,7 @@
     if (S.screen === 'altar' && R) altar(S, R, t);
     if (S.screen === 'gate' && R) gate(S, R, t);
     if (S.screen === 'leave' && R) leave(S, R);
+    if (S.screen === 'event' && R) eventAsk(S, R);
     if (S.screen === 'stash' && R) stash(S, R, t);
     if (S.screen === 'craft' && R) craft(S, R, t);
     if (S.screen === 'talk' && R && S.talk) talk(S, R, t);
@@ -379,6 +382,7 @@
     const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
     if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, SIM.Q.shopShut(R) ? TXT('hud.world.shut') : TXT('hud.world.6')];
     const noteP = SIM.Q.noteNear(R); if (noteP) pr = [noteP.x, noteP.y - 40, TXT('hud.world.note')];
+    const evP = SIM.Q.eventNear(R); if (evP) pr = [evP.x, evP.y - (D.EVENTS.pool[evP.id].tag || 70), D.EVENTS.pool[evP.id].prompt];
     const capP = SIM.Q.captiveNear(R); if (capP) pr = [capP.x, capP.y - 122, TXT('hud.world.captive')];
     if (SIM.Q.craftShut(R)) pr = [h.x, h.y - 110, TXT('hud.world.note')];
     const dr = SIM.Q.doorNear(R, 64); if (dr) { const lk = SIM.Q.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? TXT('hud.world.7') : lk.kind === 'key' ? (R.keys > 0 ? TXT('hud.world.8') : TXT('hud.world.9')) : TXT('hud.world.10')]; }
@@ -538,6 +542,8 @@
     for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', nf(G.v * n)).replace('{n}', n) : D.giftDesc(G, n).split(' ')[0], col: '#9cc8ff', gift: 1, name: G.name, desc: giftTip(G, n) }); }
     if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T, name: D.ABILITIES.find((A) => A.id === 'shield').name, desc: TXT('hud.tip.shield', { n: Math.ceil(h.shield) }) });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.burn'), desc: TXT('hud.tip.burn') });
+    // the floor's curse (TASKS 364): the bones' skull in a sick green, on a debuff's red rim; it lasts the floor, so it has no clock
+    { const n = (R.events || []).filter((E) => E.hex).length; if (n) list.push({ id: 'hex', ic: 'bones', src: [70 / 168, 4 / 128, 150 / 168, 72 / 128], u: { tint: [0.4, 0.8, 0.2, 0.45] }, v: '+' + Math.round(n * D.EVENTS.hex * 100) + '%', col: '#a6d86a', bad: 1, name: TXT('EVENTS.hex.tip'), desc: TXT('EVENTS.hex.tipDesc', { n: Math.round(n * D.EVENTS.hex * 100) }) }); }
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
     return list;
   }
@@ -549,7 +555,7 @@
       if (b.gift) { L.rrect(x + 3, y + 3, 34, 34, 17, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]); KIT.part('ui_b_cell_round', [48, 48], x - 3, y - 3, { k: 46 / 96 }); }
       else { KIT.nine('cell', x, y, 40, 40, { u: { grade: b.bad ? [1, 1, 0, 1] : [1, 1.1, 0, 1] } }); if (b.bad) edge(x, y, 40, 40, [0.8, 0.2, 0.15], 2); }
       L.uiBox('bf_' + b.id, x, y, 40, 40, 4); tipAt(x - 4, y - 4, 48, 66, b.name, b.desc);
-      if (window.ASSETS[b.ic]) icon(b.ic, x + (b.gift ? 6 : 3), y + (b.gift ? 6 : 3), b.gift ? 28 : 34);
+      if (b.src) L.sprite(b.ic, x + 4, y + 6, { w: 32, h: 28, src: b.src, u: b.u }); else if (window.ASSETS[b.ic]) icon(b.ic, x + (b.gift ? 6 : 3), y + (b.gift ? 6 : 3), b.gift ? 28 : 34);
       if (b.left !== undefined) { const f = Math.max(0, Math.min(1, 1 - b.left)); L.solid(x + 3, y + 3, 34, 34 * f, [0, 0, 0], 0, 0, 0, 0.55);
         if (b.left < 0.25 && Math.sin(GT * 18) > 0) L.rrect(x, y, 40, 40, 5, [1, 1, 1], [1, 1, 1], 0.12); }
       // chips stand 66 px apart: a value cannot shrink under the font's 20 px floor, and +180% is 60 px wide (TASKS 1861)
@@ -613,7 +619,7 @@
   function mmGeo(S, R, leg) {
     const k = mapK(R), cut = mapCut(R), mw = cut.w * k, mh = cut.h * k, title = mmTitle(R), bw = Math.max(240, lw('mm_t', title, { size: 26, bold: true }) + 130);
     const legend = leg ? legendOf(R).concat(SIM.Q.completionHints(R).length ? [['hint', TXT('hud.minimap.legend')]] : []) : [];
-    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, QUEST_LEG, SHOP_SHUT_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
+    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, EVENT_LEG, QUEST_LEG, SHOP_SHUT_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
     const pw = Math.max(mw + 44, bw + 20, legW), x0 = W - pw - 14, y0 = 24, py = 66, lg0 = py + mh + 26, rule = lg0 + 26 * legend.length + (legend.length ? 6 : -10), bot = rule + 46;
     return { k, cut, mw, mh, title, bw, legend, pw, x0, y0, py, px: x0 + Math.round((pw - mw) / 2), lg0, rule, bot, box: [x0, 4, pw, bot - 4] };
   }
@@ -643,7 +649,8 @@
       lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14 + TRK_IN, y + 22, { size: 20, col: done ? C.dim : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
-    const hid = SIM.Q.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
+    // (a dark room, TASKS 365, is left off the map: its cells read as rock, its way in as a dead end)
+    const hid = new Set([...SIM.Q.secretMask(m), ...SIM.Q.darkMask(R)]), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d', { willReadFrequently: true }); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
@@ -665,13 +672,14 @@
     L.sprite('minimap', px, py, { w: mw, h: mh });
     const ox = cut.x * TILE, oy = cut.y * TILE;
     const mark = (x, y, id, s) => icon_(id, px + (x - ox) / TILE * k, py + (y - oy) / TILE * k, s);
-    for (const c of R.chests) if (!c.open && !SIM.Q.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
+    for (const c of R.chests) if (!c.open && !SIM.Q.hidden(m, c) && !hid.has(Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
     for (const e of R.en) if (!!D.BOSSES[e.type] && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
     if (SIM.Q.exitKind(R, m.floor) !== null && R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
     if (m.sanct && R.seen[Math.floor(m.sanct.y / TILE) * m.W + Math.floor(m.sanct.x / TILE)]) mark(m.sanct.x, m.sanct.y, 'camp', 12);
     if (m.way && R.seen[m.way.ty * m.W + m.way.tx]) mark(m.way.x, m.way.y, 'way', 13);
     if (m.town) { const V0 = m.town.svc; mark(V0.altar.x, V0.altar.y, 'altar', 12); mark(V0.stash.x, V0.stash.y, 'stash', 12); mark(V0.anvil.x, V0.anvil.y, 'craft', 12); mark(V0.lectern.x, V0.lectern.y, 'craft', 12); mark(V0.portal.x, V0.portal.y, 'way', 13); mark(V0.board.x, V0.board.y, 'board', 12); }
+    for (const E of evSeen(R)) mark(E.x, E.y, 'event', 13);
     for (const q of R.shrines) if (!SIM.Q.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
     // the townsfolk with quest business (TASKS 1033): their ! and ? on the town's map, where they stand now
     if (m.town && R.folk) R.folk.forEach((f, i) => { const mk = SIM.Q.questMark(R, f.role); if (!mk) return; const x = px + (f.x - ox) / TILE * k, y = py + (f.y - oy) / TILE * k;
@@ -706,6 +714,9 @@
     if (id === 'craft') { L.solid(x - s * 0.45, y + s * 0.1, s * 0.9, s * 0.25, [0.6, 0.6, 0.66]); L.solid(x - s * 0.25, y - s * 0.15, s * 0.5, s * 0.28, [0.75, 0.75, 0.8]); L.solid(x - s * 0.08, y - s * 0.5, s * 0.16, s * 0.4, [0.62, 0.42, 0.24]); return; }
     if (id === 'way') { const c = [0.62, 0.7, 1]; L.solid(x - s / 2, y + s * 0.3, s, s * 0.2, [0.4, 0.38, 0.45]); L.solid(x - s * 0.22, y - s / 2, s * 0.44, s * 0.82, [0.5, 0.47, 0.56]); L.solid(x - s * 0.08, y - s * 0.32, s * 0.16, s * 0.5, c); return; }
     if (id === 'quest') { const a = a0; L.rrect(x - s / 2 - 2, y - s / 2 - 2, s + 4, s + 4, s / 2 + 2, [0.08, 0.05, 0.03], [0.08, 0.05, 0.03], a); L.solid(x, y, s * 0.62, s * 0.62, [1, 0.78, 0.25], Math.PI / 4, s * 0.31, s * 0.31, a); L.solid(x, y, s * 0.26, s * 0.26, [1, 0.97, 0.8], Math.PI / 4, s * 0.13, s * 0.13, a); return; }
+    // an event: a bone-white skull in a dark rim, its eyes lit red (the boss's gem is red with a white skull)
+    if (id === 'event') { const r = s / 2; L.rrect(x - r - 1.5, y - r - 1.5, s + 3, s + 3, r + 1.5, [0.06, 0.04, 0.04], [0.06, 0.04, 0.04]); L.rrect(x - r, y - r, s, s * 0.85, r, [0.95, 0.9, 0.78], [0.72, 0.66, 0.55]);
+      L.solid(x - r * 0.55, y - r * 0.15, r * 0.4, r * 0.4, [0.75, 0.12, 0.06]); L.solid(x + r * 0.15, y - r * 0.15, r * 0.4, r * 0.4, [0.75, 0.12, 0.06]); L.solid(x - r * 0.35, y + r * 0.55, r * 0.7, r * 0.35, [0.72, 0.66, 0.55]); return; }
     if (id === 'hint') { L.rrect(x - 4, y - 4, 8, 8, 4, [1, 0.85, 0.3], [1, 0.85, 0.3]); return; }
     if (id === 'lava') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.77, 0.27, 0.1], [0.77, 0.27, 0.1]); return; }
     if (id === 'chasm') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.4, 0.37, 0.38], [0.4, 0.37, 0.38]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.02, 0.015, 0.02], [0.02, 0.015, 0.02]); return; }
@@ -972,6 +983,8 @@
     if (cur) lines.push(['   ' + TXT('hud.compare.lvl', { p1: it.lvl, p2: cur.lvl }), mute(it.lvl > cur.lvl ? UP : it.lvl < cur.lvl ? DOWN : C.dim), 19]);
     if (!o.compact) for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05 || !c[k]) continue;
       lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), mute(d > 0 ? UP : DOWN), 19]); }
+    const pw = (x) => { const U = x && D.UNIQUES[x.u]; return U ? D.POWERS[U.power].name : x && D.POWERS[x.pw] ? TXT('hud.compare.weak', { name: D.POWERS[x.pw].name }) : TXT('hud.compare.none'); };
+    if (pw(it) !== pw(cur)) lines.push(['   ' + TXT('hud.compare.power', { p1: pw(cur), p2: pw(it) }), mute(C.gold), 19]);
     const s0 = SIM.Q.stats(h, S.meta), s1 = SIM.Q.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
     const tot = [[TXT('hud.compare.tot'), 'maxHp'], [TXT('hud.compare.tot.2'), 'atk'], [TXT('hud.compare.tot.3'), 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
     if (tot.length) lines.push([TXT('hud.compare.3', { p1: tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · ') }),
@@ -980,6 +993,8 @@
   function tooltip(S, it, b, h, deal, at, box) {
     const bx = box || [10, 10, W - 10, H - 10], cons = SIM.Q.isCons(it), B = cons ? null : D.BASES[it.b];
     const make = (compact) => { const lines = [];
+      const U = !cons && D.UNIQUES[it.u], UPW = U && D.POWERS[U.power];
+      const wrap = (txt, col, z) => { let ln = ''; for (const w of txt.split(' ')) { if ((ln + ' ' + w).length > 40) { lines.push([ln, col, z]); ln = w; } else ln = ln ? ln + ' ' + w : w; } if (ln) lines.push([ln, col, z]); };
       lines.push([SIM.Q.itemName(it), hex(D.RARITY[it.rar].col), 28]);
       if (!cons) { lines.push([TXT('hud.tooltip', { name: D.RARITY[it.rar].name, p2: D.SLOT_NAME[B.slot], lvl: it.lvl }), C.dim, 20]);
         if (B.cls) lines.push([TXT('hud.tooltip.cls', { p1: D.clsNames(it.b) }), D.wears(D.clsOf(h).id, it.b) ? C.dim : '#ff6a5a', 20]);
@@ -989,11 +1004,14 @@
         const typed = SIM.Q.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
         mod(typed, C.text); mod(it.mods, '#8fd98a');
         for (const e of it.ench || []) lines.push([TXT('hud.tooltip.6', { p1: D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) }), '#9cc8ff', 22]);
+        if (UPW) { lines.push([TXT('hud.tooltip.power', { name: UPW.name }), '#ffb347', 22]); if (!compact) wrap(UPW.desc, '#ffd9a0', 19); }
+        else if (D.POWERS[it.pw]) { const P = D.POWERS[it.pw]; lines.push([TXT('hud.tooltip.weak', { name: P.name }), '#ffb347', 22]);
+          if (!compact) { wrap(P.desc, '#ffd9a0', 19); wrap(TXT('hud.tooltip.weak.k', { p: Math.round(D.EPIC_POWER.k * 100) }), '#c9b79c', 18); } }
         const own = D.wears(D.clsOf(h).id, it.b);
         if (h.eq[B.slot] !== it && own) compare(S, it, B.slot, h, lines, { dim: h.lvl < rq, compact });
         if (!deal) lines.push([b.id.startsWith('eq:') ? TXT('hud.tooltip.7') : !own ? TXT('hud.tooltip.cls2') : h.lvl < rq ? TXT('hud.tooltip.8', { rq }) : TXT('hud.tooltip.9'), '#8a7d6c', 18]); }
       else { lines.push([it.b === 'hp_potion' ? TXT('hud.tooltip.10') : it.b === 'mp_potion' ? TXT('hud.tooltip.11') : S.run && S.run.viaTown ? TXT('hud.tooltip.12') : TXT('hud.tooltip.13'), C.text, 20]); if (!deal) lines.push([TXT('hud.tooltip.14'), '#8a7d6c', 18]); }
-      if (!cons && !compact && it.rar === 4) { const L0 = TXT.talk('legends'), lore = L0[it.b] || L0[B.slot]; if (lore) { let ln = ''; for (const w of lore.split(' ')) { if ((ln + ' ' + w).length > 40) { lines.push([ln, '#c9b79c', 18]); ln = w; } else ln = ln ? ln + ' ' + w : w; } if (ln) lines.push([ln, '#c9b79c', 18]); } }
+      if (!cons && !compact && it.rar === 4) { const L0 = TXT.talk('legends'), lore = U ? U.lore : L0[it.b] || L0[B.slot]; if (lore) wrap(lore, '#c9b79c', 18); }
       if (deal) lines.push([deal[0], deal[1], 22]);
       return lines; };
     const size = (lines) => [Math.max(...lines.map(([s, , z], i) => lw('tt' + i, s, { size: z }))) + 60, lines.reduce((a, l) => a + l[2] * 1.45, 0) + 56];
@@ -1626,6 +1644,16 @@
     KIT.button('lv_go', Object.assign({}, U.r[0], { label: done ? TXT('hud.leave.goDone') : TXT('hud.leave.goGive') }), askSt(S, U, 'go'));
     KIT.button('lv_stay', U.r[1], askSt(S, U, 'stay'));
     KIT.light('lv_help', TXT('hud.leave.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
+  }
+  // an event's question (TASKS 361): its name, what it asks, and the two answers its entry words
+  function eventAsk(S, R) {
+    const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], U = D.UI.event(), P = U.P;
+    dim(0.6); KIT.panel('event', P.x, P.y, P.w, P.h, 'leather');
+    KIT.banner('ev_t', W / 2, P.y + 16, 460, P0.name, { h: 76, size: 36 });
+    wrapLab('ev_s', E.stake !== undefined ? P0.say.replace('{n}', E.stake) : P0.say, P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
+    KIT.button('ev_yes', Object.assign({}, U.r[0], { label: P0.yes }), askSt(S, U, 'evYes'));
+    KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
+    KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   function gate(S, R, t) {
     const o = SIM.Q.gateWays(R), U = D.UI.gate(o.length), P = U.P, I = KIT.INK;

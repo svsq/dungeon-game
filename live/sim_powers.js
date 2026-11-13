@@ -10,6 +10,7 @@
   function patch(S, R, P, x, y, dmg) { if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) !== 1) return false;
     addFire(R, S, x, y, { own: 'hero', who: 'hero', r: P.fr || 26, ry: P.ry || 0.7, t: P.t, dmg, per: P.per || 0.5, kind: 'flame' }); return true; }
   function burst(S, R, x, y, r, dmg, kb, kind) { for (const e of targets(R, x, y, r)) hitEnemy(S, R, e, dmg, false, x, y, kb, kind); }
+  function hold(S, e, P) { const t = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = Math.max(e.rootT || 0, S.t + t); e.cdT = Math.max(e.cdT || 0, S.t + t); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } }
   function boom(S, R, x, y) { ev(S, { k: 'boom', x, y: y - 20, gx: x, gy: y }); R.trauma = Math.min(1, R.trauma + 0.15); }
   const FX = {
     nova(S, R, P, ctx) { const [x, y] = pos(R, ctx); burst(S, R, x, y, P.r, atk(S, P, ctx), P.kb ?? 0.8, P.fire ? 'fire' : 'thorns'); boom(S, R, x, y); },
@@ -30,34 +31,47 @@
     heal(S, R, P) { const h = R.hero, st = heroSt(S); h.hp = Math.min(st.maxHp, h.hp + st.maxHp * P.v); },
     mana(S, R, P) { const h = R.hero, st = heroSt(S); h.mp = Math.min(st.maxMp, h.mp + st.maxMp * P.v); },
     slow(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) SIMX.chill(S, e, P.t, P.slow); },
-    stun(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) { const hold = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = S.t + hold; e.cdT = Math.max(e.cdT || 0, S.t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } } },
+    stun(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) hold(S, e, P); },
+    freeze(S, R, P, ctx) { for (const e of ctx.cold || []) if (e.deadT < 0) hold(S, e, P); },
+    // the hero's charge, not the monster's blow: what the cry turns back strikes as hard as he does, whoever shot it
+    mirror(S, R, P, ctx) { const m = R.hero.mirror; R.hero.mirror = { until: Math.max(m ? m.until : 0, S.t + P.t), dmg: atk(S, P, ctx) }; },
     shieldBurst(S, R, P, ctx) { const [x, y] = pos(R, ctx); if (P.k) burst(S, R, x, y, P.r, Math.max(1, Math.round((ctx.left || 0) * P.k)), P.kb ?? 1, 'thorns'); else for (const e of targets(R, x, y, P.r)) { if (heavy(e)) continue; const d = Math.hypot(e.x - x, e.y - y) || 1; e.kbx = (e.x - x) / d * 300 * P.kb; e.kby = (e.y - y) / d * 300 * P.kb; } boom(S, R, x, y); },
     shieldMore(S, R, P) { R.hero.shieldUntil += P.t; },
     shieldAdd(S, R, P) { R.hero.shield = Math.round(R.hero.shield * (1 + P.k)); },
-    proj(S, R, P, ctx) { for (const p of ctx.projs || []) { if (P.dmg) p.dmg = Math.max(1, Math.round(p.dmg * P.dmg)); if (P.spd) { p.vx *= P.spd; p.vy *= P.spd; p.life /= P.spd; } if (P.kb) p.kb = (p.kb ?? 1) * P.kb; } },
+    // chill, bounce and blaze ride on the shot and act where it lands (sim_enemies stepProjectiles)
+    proj(S, R, P, ctx) { for (const p of ctx.projs || []) { if (P.dmg) p.dmg = Math.max(1, Math.round(p.dmg * P.dmg)); if (P.spd) { p.vx *= P.spd; p.vy *= P.spd; p.life /= P.spd; } if (P.kb) p.kb = (p.kb ?? 1) * P.kb;
+      if (P.slow) p.chill = [P.t, P.slow]; if (P.bounce) p.bounce = (p.bounce || 0) + P.bounce; if (P.blaze) p.blaze = P.id; } },
+    ready(S, R, P) { R.hero.cd[P.ab] = S.t; },
+    // the dash's own move and i-frames, backwards from the aim; no 'dash' trigger, so a dash's powers do not ride on a cast
+    recoil(S, R, P, ctx) { const h = R.hero, a = ctx.a ?? h.aim; h.dashT = S.t; h.dashX = -Math.cos(a); h.dashY = -Math.sin(a); ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); },
     strike(S, R, P, ctx) { if (ctx.e) hitEnemy(S, R, ctx.e, atk(S, P, ctx), false, R.hero.x, R.hero.y, P.kb ?? 0.5, 'thorns'); },
     dropTrap(S, R, P, ctx) { const [x, y] = pos(R, ctx); SIMX.setTrap(S, R, x, y + 4, x, y + 4, atk(S, P, ctx), false); },
   };
-  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25 };
+  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25, chilled: (S, h, ctx) => !!ctx.e && ctx.e.chillT > S.t, held: (S, h, ctx) => !!ctx.e && ctx.e.deadT < 0 && (ctx.e.rootT || 0) > S.t, dead: (S, h, ctx) => !!ctx.e && ctx.e.deadT >= 0 };
   const onOf = (P) => (P.trig.startsWith('every:') ? 'hit' : P.trig);
   const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.each || 0);
   // what changes a shot goes before what copies it, so the side balls of a split carry every change whatever order the powers were taken in
   const order = (own, trig) => { const ids = Object.keys(own).filter((id) => D.POWERS[id] && onOf(D.POWERS[id]) === trig); return ids.filter((id) => D.POWERS[id].fx !== 'split').concat(ids.filter((id) => D.POWERS[id].fx === 'split')); };
+  // a unique's power is the hero's while he wears it and not his own: an altar may still offer it and it counts for no evolution
+  // an epic's power is weak (TASKS 359), its value the share of firings it keeps; held in full by the hero or a unique, the full one wins
+  const heroPowers = (h) => { let g = null, w = null; for (const k in h.eq || {}) { const it = h.eq[k] || {}, U = D.UNIQUES[it.u]; if (U) (g = g || {})[U.power] = 1; else if (D.POWERS[it.pw]) (w = w || {})[it.pw] = D.EPIC_POWER.k; }
+    return g || w ? Object.assign({}, w, h.powers, g) : h.powers; };
   let depth = 0;
-  function firePowers(S, R, trig, ctx = {}) { const h = R.hero, own = h.powers;
+  function firePowers(S, R, trig, ctx = {}) { const h = R.hero, own = heroPowers(h);
     if (!own || R.town || depth > (trig === 'kill' ? 2 : 0)) return;
-    for (const id of order(own, trig)) { const P = D.POWERS[id]; if (P.if && !IFS[P.if](S, h)) continue;
+    for (const id of order(own, trig)) { const P = D.POWERS[id]; if (P.if && !IFS[P.if](S, h, ctx)) continue;
       const N = every(P); if (N && ((h.powerN = h.powerN || {})[id] = (h.powerN[id] || 0) + 1) % N) continue;
       if (P.icd && S.t < ((h.powerT || {})[id] ?? -1e9) + P.icd) continue;
       if (P.p !== undefined && rnd(R) >= P.p) continue;
+      if (own[id] < 1 && rnd(R) >= own[id]) continue;
       (h.powerT = h.powerT || {})[id] = S.t; depth++; try { FX[P.fx](S, R, P, ctx, own[id]); } finally { depth--; }
       ev(S, { k: 'power', id, fx: P.fx, x: ctx.x ?? h.x, y: ctx.y ?? h.y }); } }
-  const hasOn = (h, trig) => { for (const id in h.powers || {}) if (D.POWERS[id] && onOf(D.POWERS[id]) === trig) return true; return false; };
+  const hasOn = (h, trig) => { for (const id in heroPowers(h) || {}) if (D.POWERS[id] && onOf(D.POWERS[id]) === trig) return true; return false; };
   const drinkFires = (S, R) => !R.town && hasOn(R.hero, 'potion');
   function powersHurt(S, R, dmg, maxHp) { const h = R.hero; firePowers(S, R, 'hurt', { x: h.x, y: h.y, dmg }); const low = h.hp < maxHp * 0.35; if (low && !h.lowOn) firePowers(S, R, 'lowHp', { x: h.x, y: h.y }); h.lowOn = low; }
   function dashTouch(S, R) { const h = R.hero; if (!hasOn(h, 'dashTouch')) return; if (!h.dashHit || h.dashHit.t !== h.dashT) h.dashHit = { t: h.dashT, ids: [] };
     for (const e of R.en) if (e.deadT < 0 && !under(e) && !h.dashHit.ids.includes(e.id) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.25) < ENEMIES[e.type].r + K.R + 10) { h.dashHit.ids.push(e.id); firePowers(S, R, 'dashTouch', { e, x: e.x, y: e.y }); } }
   function chooseFork(S, R, i) { const h = R.hero, P = D.forkPending(h); if (!P) return; (h.forks = h.forks || {})[D.forkKey(P.ab, P.rank)] = i; (h.powers = h.powers || {})[D.FORKS[P.ab][P.rank][i]] = 1; S.saveN++; }
   function thresholdTip(S, R) { const h = R.hero, T = D.THRESHOLD[D.clsOf(h).id]; if (T && !h.thTip && heroSt(S)[T[0]] >= T[1]) { h.thTip = 1; R.msg = { s: T[2], t: S.t, d: 4 }; } }
-  Object.assign(SIMX, { drinkFires, chooseFork, thresholdTip, firePowers, powersHurt, dashTouch, POWER_FX: FX });
+  Object.assign(SIMX, { heroPowers, drinkFires, chooseFork, thresholdTip, firePowers, powersHurt, dashTouch, POWER_FX: FX });
 })(typeof window !== 'undefined' ? window : globalThis);

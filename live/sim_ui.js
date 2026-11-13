@@ -465,6 +465,10 @@
     if (a < 0) { S.screen = 'play'; S.focus = ''; return; }
     if (a > 0) { S.focus = ''; if (campaignDone(R)) finishRun(S); else { if (R.log) R.log.abandon = 1; endRun(S, 'dead'); } }
   };
+  // an event's question (TASKS 361): «Да» starts it, «Нет», E or Escape walk away, and it can be asked again
+  SCREEN.event = (S, inp, keys, x, y, click) => {
+    const R = S.run, E = R && SIMX.eventsOf(R)[R.evAsk], a = E && E.st === 'idle' ? askAnswer(S, UI.event(), Object.assign({}, keys, { Escape: keys.Escape || keys.KeyE }), x, y, click, inp.moved) : -1;
+    if (!a) return; S.screen = 'play'; S.focus = ''; if (R) R.evAsk = undefined; if (a > 0) SIMX.eventStart(S, R, E); };
   SCREEN.altar = (S, inp, keys, x, y, click) => {
     const R = S.run, sh = R.shrines[R.altar], U = UI.altar(sh && sh.gifts ? sh.gifts.length : 3), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!sh || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }

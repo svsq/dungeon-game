@@ -218,6 +218,65 @@
       // (the nest its own pack alone, TASKS 1041: with 2 extra it held 5–7, their blasts a chain; the prison less often: 54 halls of 134)
       nest: { need: 'skel_ember', pack: 'nest', extra: 0, w: 2, pay: { tier: 3, gold: 3 } },
       prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 1, pay: { tier: 2, gold: 1, stash: { hp_potion: 3, mp_potion: 1, scroll: 1 } } } } };
+  // the event rooms (R-12, TASKS 361, 1817): one pool for every run and biome (the crypt's floors, the caves, the magma, a run through
+  // the town). An event is an entry here and a rule in sim_events.js (EVENT_RULES[id]), with an optional placer in
+  // dungeon.js (EVENT_PLACE[id]) for its prop. dungeon.js marks its room (r.event) off the walk from the start to the stairs, in a plain
+  // fight's room only, on a stream of its own, so a floor with no event is laid exactly as before.
+  //   w: weight (0: never drawn; a vow or a check asks for it by opts.events); minF/maxF: the depth (stageOf) it comes from/to;
+  //   room: 'combat' keeps the room's pack, 'treasure' sends it away; modes: the runs it is in (all when absent); ask: E opens a
+  //   yes/no question before it starts; goal: the town's lair quest (1021) may take its room
+  // n: events a floor [least, most], the second with the chance `two`; cap: the floor's special rooms together at most (events, magma
+  // halls, the altar); area: a room's least box, in cells; near: the reach of E at its spot, in px.
+  // The floor's special rooms, read by the lair quest and the vows (DUNGEON.specials): an event of this pool, a magma hall
+  // (MAGMA_HALLS, laid by the magma's own code with its packs and props: moving it here would lay every magma floor anew), the altar
+  // of gifts. R-35's shrines come as entries of this pool
+  // hex: what a floor's curse adds to the monsters' blows, per curse on it (the cursed chest's, a bitter fountain's), TASKS 364
+  const EVENTS = { n: [1, 2], two: 0.4, cap: 3, area: 30, near: 60, hex: 0.2,
+    pool: {
+      probe: { w: 0, minF: 1, room: 'treasure', ask: 1, name: TXT('EVENTS.probe.name'), say: TXT('EVENTS.probe.say'), yes: TXT('EVENTS.probe.yes'), no: TXT('EVENTS.probe.no'), prompt: TXT('EVENTS.probe.prompt'), done: TXT('EVENTS.probe.done') },
+      // the skull door (TASKS 362): a skull over each way in and the bones on its floor tell of it from the doorway; «yes» drops a
+      // grate in every way in, and three waves of the floor's own roster rise one after another, wave i n[i] + depth / perF strong,
+      // gap s apart; the last one down lifts the grates and leaves a chest of a cache's tier (`chest`) on its spot
+      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, retry: 0.25, tries: 12, chest: 4,
+        name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') },
+      // the blood altar (TASKS 363): `cost` of the health the hero has now (never the last point) for one find of `item`, an epic or
+      // better made for his class, on the altar. Its own reward, not a power: the altar of gifts (a room of its own) gives those.
+      // solid: the prop's radius, it stays when done
+      blood: { w: 2, minF: 1, room: 'treasure', ask: 1, goal: 1, cost: 0.25, solid: 20, item: { q: 3, min: 3, lo: 0, hi: 2, lag: 1, own: 1 },
+        name: TXT('EVENTS.blood.name'), say: TXT('EVENTS.blood.say'), yes: TXT('EVENTS.blood.yes'), no: TXT('EVENTS.blood.no'), prompt: TXT('EVENTS.blood.prompt'), done: TXT('EVENTS.blood.done') },
+      // the cursed chest (TASKS 364): a chest of tier `chest` whose finds are rolled `up` floors deeper, opened only by «yes», which
+      // curses the floor (EVENTS.hex) for as long as the hero is on it; the curse is the floor's, kept with it
+      hex: { w: 2, minF: 2, room: 'combat', ask: 1, chest: 4, up: 1,
+        name: TXT('EVENTS.hex.name'), say: TXT('EVENTS.hex.say'), yes: TXT('EVENTS.hex.yes'), no: TXT('EVENTS.hex.no'), prompt: TXT('EVENTS.hex.prompt'), done: TXT('EVENTS.hex.done') },
+      // the fountain (TASKS 364): a drink heals to the full, or with the chance `odd` it blesses (GIFTS.bless) or curses (EVENTS.hex) the
+      // floor, half and half; both are the floor's, kept with it. near: E reaches round its basin
+      fountain: { w: 2, minF: 1, room: 'treasure', ask: 1, odd: 1 / 3, solid: 40, near: 84,
+        name: TXT('EVENTS.fountain.name'), say: TXT('EVENTS.fountain.say'), yes: TXT('EVENTS.fountain.yes'), no: TXT('EVENTS.fountain.no'), prompt: TXT('EVENTS.fountain.prompt') },
+      // the goblin's table (TASKS 365): one throw for a stake of stake[0] + stake[1] × depth gold, set as the floor is built (its question
+      // names it). The goblin keeps it with the chance odds[0], pays it back twice with odds[1], thrice otherwise (pay: what comes back).
+      // tag: how high over the spot its prompt stands, over the goblin's head
+      dice: { w: 2, minF: 1, room: 'treasure', ask: 1, stake: [20, 10], odds: [0.5, 0.35], pay: [0, 2, 3], solid: 30, near: 84, tag: 120,
+        name: TXT('EVENTS.dice.name'), say: TXT('EVENTS.dice.say'), yes: TXT('EVENTS.dice.yes'), no: TXT('EVENTS.dice.no'), prompt: TXT('EVENTS.dice.prompt') },
+      // the dark room (TASKS 365): no light in it but the hero's own, and the minimap never shows it, so no event mark either (it would
+      // give it away). It starts as he steps in and ends with its pack down; every monster of its pack drops its loot `loot` times.
+      // walk: it starts on entering, no spot and no question; hide: off the minimap; pack: the least of its monsters
+      dark: { w: 3, minF: 2, room: 'combat', walk: 1, hide: 1, loot: 2, pack: 2,
+        name: TXT('EVENTS.dark.name'), done: TXT('EVENTS.dark.done') },
+      // the captive (TASKS 366): a wayfarer caged in a room whose pack keeps it, one of the pack carrying its key (`key` 'cage' on him,
+      // dropped as a door's is, TASKS 78; any key of the floor fits, so it may go to the locked door instead). Unlocked, he follows the
+      // hero to the floor's merchant, who takes `off` off his prices, or with no merchant on the floor to the spawn by the stairs up, where
+      // he pays shards[0] + shards[1] × depth. He never fights: he stops while a waking monster is within `fear`, and `hits` blows from
+      // monsters at his side (one each `cd` s) send him running off alone, unpaid. He waits where he stands while the floor is left.
+      // gap: how near he keeps; reach: how near the goal ends it; rig: his figure, a townsfolk rig (his own is TASKS 2025)
+      captive: { w: 2, minF: 1, room: 'combat', ask: 1, goal: 1, near: 84, tag: 130, cage: 1, r: 11, spd: 150, gap: 64, fear: 150, hits: 3, cd: 0.9, reach: 90,
+        off: 0.25, shards: [4, 1], rig: 'town_porter', lead: 1,
+        name: TXT('EVENTS.captive.name'), say: TXT('EVENTS.captive.say'), yes: TXT('EVENTS.captive.yes'), no: TXT('EVENTS.captive.no'), prompt: TXT('EVENTS.captive.prompt') },
+      // the library (TASKS 368): no question, as reading costs nothing; E at its lectern opens one note of the floor's era out of the
+      // notes' own pool (sim_town.js libraryNote) and pays `xp` of the hero's level's need, so a room off the way is worth the walk even
+      // to a player who skips the lore. town: only in the run through the town, the one the notes are in; biomes: the built towns'
+      // eras, as shelves and a lectern have no place in a flooded cave or by the magma; shelves: at most this many new ones on its back wall
+      library: { w: 2, minF: 1, room: 'treasure', town: 1, biomes: ['dungeon', 'crypt', 'lava', 'arcane'], solid: 16, near: 70, tag: 84, xp: 0.15, shelves: 2,
+        name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
@@ -311,5 +370,5 @@
   // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2 };
-  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);
