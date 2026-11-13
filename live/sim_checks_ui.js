@@ -243,7 +243,19 @@
       if (fork && (Y.fork - Y.last < 22 || Y.cost - Y.fork < 22)) out.push(`${tag}: the fork line at ${Y.fork} crowds the text (${Y.last}) or the cost (${Y.cost})`);
       if (!fork && Y.cost - Y.last < 22) out.push(`${tag}: the text (${Y.last}) reaches the cost (${Y.cost})`);
       if (Y.cost > c.h - 20) out.push(`${tag}: the cost leaves the card`); } }
-  function checkReview57(out) { checkTalkFace(out); checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
+  // a gift's number reads with the Russian decimal comma wherever it shows: the altar's card, the HUD chip and tip for n gifts, the
+  // message on taking it; the number comes from v, so no text holds one of its own (TASKS 1900)
+  function checkGiftDecimal(out) {
+    const R = root.TEXT.ru, dot = /\d\.\d/, comma = (x) => String(Math.round(x * 100) / 100).replace('.', ',');
+    for (const G of D.GIFTS) { if (G.power) continue;
+      if (!/\{v\}/.test(R['GIFTS.' + G.id + '.desc'] || '')) out.push(`gift ${G.id}: its text holds its number apart from v`);
+      for (let n = 1; n <= 4; n++) { const d = D.giftDesc(G, n); if (dot.test(d) || !d.includes(comma(G.v * n))) out.push(`gift ${G.id} ×${n}: «${d}» does not read ${comma(G.v * n)}`); } }
+    const life = D.GIFTS.find((g) => g.id === 'life'); if (life.desc !== '+1,5 здоровья в секунду') out.push(`gift life: «${life.desc}»`);
+    const tk = TXT('sim_town.takeGift.msg', { name: life.name, desc: life.desc }); if (dot.test(tk)) out.push(`gift life: the message on taking it reads «${tk}»`);
+    if (TXT('GIFTS.phoenix.descN', { n: 2, times: 'раза', v: 50 }).indexOf('50%') < 0) out.push('gift phoenix: the tip for two loses its 50%');
+    for (const [k, v] of Object.entries(R)) for (const s of [].concat(v)) if (typeof s === 'string' && /(^|[^\d.])\d+\.\d+(?![.\d])/.test(s.replace(/\{[^}]*\}/g, ''))) out.push(`text ${k}: a decimal dot in «${s}»`);
+    if (TXT('GIFTS.life.desc', { v: 4.5 }) !== '+4,5 здоровья в секунду') out.push(`text: a fractional value goes in as «${TXT('GIFTS.life.desc', { v: 4.5 })}»`); }
+  function checkReview57(out) { checkGiftDecimal(out); checkTalkFace(out); checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
   // TASKS 1988: Shift+click asks how many of a stack and the part rides the pointer to the next click, Shift+right click takes half; the
   // total never changes, no stack goes past its limit, a save keeps both parts; the merchant sells and buys the number asked, at its price
   function checkSplit(out) {

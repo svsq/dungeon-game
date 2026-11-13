@@ -509,7 +509,7 @@
   // timed ones drain clockwise; debuffs sit on a red rim
   // a gift taken at several altars: its tooltip names the summed value, as its cell does, and how many times it was given
   const giftTip = (G, n) => { if (n < 2) return G.desc; const times = TXT.n('hud.tip.times', n);
-    const d = G.flat ? TXT('GIFTS.phoenix.descN', { n, times }) : G.desc.replace(String(G.v), nf(G.v * n));
+    const d = G.flat ? TXT('GIFTS.phoenix.descN', { n, times, v: G.v }) : D.giftDesc(G, n);
     return G.flat ? d : TXT('hud.tip.giftN', { d, n, times }); };
   function buffList(R, GT) {
     const h = R.hero, list = [], gift = (id) => D.GIFTS.find((g) => g.id === id);
@@ -517,7 +517,7 @@
     if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff', gift: 1, name: TXT('hud.tip.greed') });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
     for (const G of D.GIFTS) if (G.power && D.hasPower(h, G.id)) list.push({ id: 'g_' + G.id, ic: G.icon, v: '', col: '#ffd27a', gift: 1, name: G.name, desc: G.desc });
-    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', nf(G.v * n)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, nf(G.v * n)), col: '#9cc8ff', gift: 1, name: G.name, desc: giftTip(G, n) }); }
+    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', nf(G.v * n)).replace('{n}', n) : D.giftDesc(G, n).split(' ')[0], col: '#9cc8ff', gift: 1, name: G.name, desc: giftTip(G, n) }); }
     if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T, name: D.ABILITIES.find((A) => A.id === 'shield').name, desc: TXT('hud.tip.shield', { n: Math.ceil(h.shield) }) });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.burn'), desc: TXT('hud.tip.burn') });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
@@ -1442,7 +1442,7 @@
       KIT.cell('al_cl' + i, cx - 64, b.y + 44, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52, 112, can ? undefined : { alpha: 0.5 });
       // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1861)
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
-      const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, nf(Gf.v * (rank + 1))) : Gf.desc;
+      const ds = rank && !Gf.flat ? D.giftDesc(Gf, rank + 1) : Gf.desc;
       // a fourth line would run into the price: a long text drops to the 20 px floor, packs its lines and lifts the name (review of PR 72)
       const w21 = wrapWords(ds, iw, 21), long = w21.length > 3, lines = long ? wrapWords(ds, iw, 20) : w21, ny = long ? -18 : 0;
       KIT.ink('al_n' + i, Gf.name, cx, b.y + 214 + ny, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
