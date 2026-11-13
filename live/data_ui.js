@@ -239,6 +239,12 @@
       r.push({ id: 'close', x: Rp.x + Rp.w - 92, y: Rp.y + 34, w: 52, h: 52 }, ...sortCol('sort', Rp.x + 76 + COLS * STEP + 40, Rp.y + 130));
       return { P: { x: Lp.x, y: Lp.y, w: Rp.x + Rp.w - Lp.x, h: Lp.h }, L: Lp, R: Rp, r };
     },
+    // an ability card's lines in a card h tall (TASKS 2001): the cost at the foot, the fork line over it, the rank's text in its n
+    // wrapped lines (split: its head on a line of its own) raised with its rule before it would reach the fork line, which drops
+    // under the text only when the text cannot rise further
+    abCard: (h, n, split, fork) => { const LH = 27, cost = h - 34, span = n <= 1 ? 0 : (split ? 30 : LH) + LH * (n - 2);
+      const y0 = Math.max(116, Math.min(146, (fork ? h - 66 : cost) - LH - span)), f = fork ? Math.min(cost - 22, Math.max(h - 66, y0 + span + LH)) : null;
+      return { rule: y0 - 24, y0, d1: y0 + 30, last: y0 + span, fork: f, cost }; },
     // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the
     // right; every slot has its price line under it
     shop: (nGoods, len, tab) => {

@@ -786,16 +786,18 @@
       icon(A.icon, b.x + 16, b.y + 22, 70, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 98, b.y + 46, { size: 22, fit: b.w - 110, col: C.text });
       lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 98, b.y + 78, { size: 20, col: r ? C.gold : C.dim });
-      { const cs = abCost(D.clsOf(h), A, r); lab('ab_c' + i, cs, b.x + 20, b.y + b.h - 34, { size: 18, fit: b.w - 90, col: C.dim }); }
       const ds = abDesc(A, r, st, R), parts = ds.split(': '), forkAt = r < D.AB_MAX && D.FORKS[A.id] && D.FORK_RANKS.includes(r + 1);
       const chosen = D.FORK_RANKS.map((q) => { const n = (h.forks || {})[D.forkKey(A.id, q)]; return n >= 0 ? D.POWERS[D.FORKS[A.id][q][n]].name : ''; }).filter(Boolean).join(', ');
       // the next rank's fork shows on the card before the press (TASKS 1857), not only as «Ждёт выбора» after it
       const pend = D.forkPending(h) && D.forkPending(h).ab === A.id, fl = pend ? TXT('hud.fork.pending') : forkAt ? TXT('hud.abtip.forkAt', { r: r + 1 }) : '';
-      if (fl && (pend || !chosen)) lab('ab_f' + i, fl, b.x + 20, b.y + b.h - 66, { size: 20, col: '#ffb060' }); else if (chosen) lab('ab_f' + i, chosen, b.x + 20, b.y + b.h - 66, { size: 18, fit: b.w - 40, col: C.gold });
+      const d0 = parts[0] + ':', d1 = parts[1] || '', whole = lw('ab_d' + i, d0, { size: 20 }) > b.w - 40, n = whole ? wrapWords(ds, b.w - 40, 20).length : 1 + wrapWords(d1, b.w - 40, 20).length;
+      const Y = D.UI.abCard(b.h, n, !whole, !!(fl || chosen));
+      lab('ab_c' + i, abCost(D.clsOf(h), A, r), b.x + 20, b.y + Y.cost, { size: 18, fit: b.w - 90, col: C.dim });
+      if (fl && (pend || !chosen)) lab('ab_f' + i, fl, b.x + 20, b.y + Y.fork, { size: 20, col: '#ffb060' }); else if (chosen) lab('ab_f' + i, chosen, b.x + 20, b.y + Y.fork, { size: 18, fit: b.w - 40, col: C.gold });
       tipAt(b.x, b.y, b.w, b.h, ...abTip(h, A, r, st, R, !!D.forkPending(h), forkAt));
-      L.solid(b.x + 20, b.y + 122, b.w - 40, 1, [0.66, 0.5, 0.28], 0, 0, 0, 0.4);
-      { const d0 = parts[0] + ':', d1 = parts[1] || ''; if (lw('ab_d' + i, d0, { size: 20 }) > b.w - 40) wrapLab('ab_e' + i, ds, b.x + 20, b.y + 146, b.w - 40, 20, C.text);
-        else { lab('ab_d' + i, d0, b.x + 20, b.y + 146, { size: 20, col: C.dim }); wrapLab('ab_e' + i, d1, b.x + 20, b.y + 176, b.w - 40, 20, C.text); } }
+      L.solid(b.x + 20, b.y + Y.rule, b.w - 40, 1, [0.66, 0.5, 0.28], 0, 0, 0, 0.4);
+      if (whole) wrapLab('ab_e' + i, ds, b.x + 20, b.y + Y.y0, b.w - 40, 20, C.text);
+      else { lab('ab_d' + i, d0, b.x + 20, b.y + Y.y0, { size: 20, col: C.dim }); wrapLab('ab_e' + i, d1, b.x + 20, b.y + Y.d1, b.w - 40, 20, C.text); }
       if (can) { L.rrect(b.x + b.w - 52, b.y + b.h - 52, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 36, b.y + b.h - 36, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
     { const s = TXT('hud.inv.drag'), fw = Rp.w - 80, q = L.labelW(0, s, { size: 26 }) > fw ? dotHalves(s, 26) : [s]; q.forEach((v, i) => KIT.ink('inv_help' + i, v, Rp.x + Rp.w / 2, Rp.y + Rp.h - 56 - (q.length - 1 - i) * 28, { size: 26, fit: fw, al: 0.5, col: I.d })); }
     closeBtn('inv_x', U, S);

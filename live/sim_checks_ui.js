@@ -222,7 +222,16 @@
     const lit = S.focus; step(S, Object.assign({ keys: ['Enter'] }, mid(S, fb)));
     if (!S.run || S.screen === 'win') out.push('finish: Enter under the pointer on the finish button ends the run');
     else if (lit === 'next' && S.screen !== 'play') out.push(`finish: Enter does not press the lit ${lit} (${S.screen})`); }
-  function checkReview57(out) { checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
+  // an ability card's rank text, however many lines it wraps to, keeps 22 px clear of the fork line, the fork line of the cost, and
+  // all of them stay under the rank's line and inside the card (TASKS 2001)
+  function checkAbCard(out) {
+    const c = UI.inv().r.find((q) => q.id.startsWith('ab:'));
+    for (const split of [true, false]) for (const fork of [true, false]) for (let n = 1; n <= 4; n++) { const Y = UI.abCard(c.h, n, split, fork), tag = `ability card: ${n} line(s), ${split ? 'split' : 'whole'}, ${fork ? 'fork' : 'no fork'}`;
+      if (Y.rule < 92 || Y.y0 - Y.rule < 20) out.push(`${tag}: the text rises into the rank's line (${Y.rule}, ${Y.y0})`);
+      if (fork && (Y.fork - Y.last < 22 || Y.cost - Y.fork < 22)) out.push(`${tag}: the fork line at ${Y.fork} crowds the text (${Y.last}) or the cost (${Y.cost})`);
+      if (!fork && Y.cost - Y.last < 22) out.push(`${tag}: the text (${Y.last}) reaches the cost (${Y.cost})`);
+      if (Y.cost > c.h - 20) out.push(`${tag}: the cost leaves the card`); } }
+  function checkReview57(out) { checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
   // TASKS 1988: Shift+click asks how many of a stack and the part rides the pointer to the next click, Shift+right click takes half; the
   // total never changes, no stack goes past its limit, a save keeps both parts; the merchant sells and buys the number asked, at its price
   function checkSplit(out) {
@@ -259,5 +268,5 @@
       else out.push('split: the merchant sells no potions');
       if (g) { h.bag.fill(null); g.n = cap * 2 + 3; h.gold = g.price * g.n; const n = g.n; SIMX.buy(S, R, g, false, n);
         if (hp(h) !== n || over(h.bag) || h.bag.filter(Boolean).length !== 3) out.push(`split: buying ${n} into an empty bag gives ${hp(h)} potions in ${h.bag.filter(Boolean).length} cells, or a stack past its limit`); } } }
-  Object.assign(SIMX, { checkReview57, checkResize, checkMapCut, checkSplit });
+  Object.assign(SIMX, { checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit });
 })(typeof window !== 'undefined' ? window : globalThis);
