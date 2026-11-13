@@ -34,11 +34,13 @@
   const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')], ['board', TXT('TOWN_LEG.9')]];
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
   const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
+  // an event of the floor not done yet (TASKS 2002, R-12, R-35) has its mark once seen, and its line while one is seen
+  const EVENT_LEG = ['event', TXT('EVENT_LEG')], evSeen = (R) => (R.events || []).filter((E) => E.st !== 'done' && R.seen[Math.floor(E.y / TILE) * R.map.W + Math.floor(E.x / TILE)]);
   // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
   // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1863 з)
   const SHOP_SHUT_LEG = ['shop', TXT('TOWN_LEG.shut')], townLeg = (R) => (SIM.Q.shopShut(R) ? TOWN_LEG.map((q) => (q[0] === 'shop' ? SHOP_SHUT_LEG : q)) : TOWN_LEG);
-  const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
+  const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], evSeen(R).length ? [EVENT_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
   // where world labels keep off: the top-left block (portrait, level, its bar, every row of effects, so a long list does not run under
   // labels; the stats under the portrait), the bottom panel and the key hints over it
@@ -584,7 +586,7 @@
   function mmGeo(S, R, leg) {
     const k = mapK(R), cut = mapCut(R), mw = cut.w * k, mh = cut.h * k, title = mmTitle(R), bw = Math.max(240, lw('mm_t', title, { size: 26, bold: true }) + 130);
     const legend = leg ? legendOf(R).concat(SIM.Q.completionHints(R).length ? [['hint', TXT('hud.minimap.legend')]] : []) : [];
-    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, QUEST_LEG, SHOP_SHUT_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
+    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, EVENT_LEG, QUEST_LEG, SHOP_SHUT_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
     const pw = Math.max(mw + 44, bw + 20, legW), x0 = W - pw - 14, y0 = 24, py = 66, lg0 = py + mh + 26, rule = lg0 + 26 * legend.length + (legend.length ? 6 : -10), bot = rule + 46;
     return { k, cut, mw, mh, title, bw, legend, pw, x0, y0, py, px: x0 + Math.round((pw - mw) / 2), lg0, rule, bot, box: [x0, 4, pw, bot - 4] };
   }
@@ -630,6 +632,7 @@
     if (m.sanct && R.seen[Math.floor(m.sanct.y / TILE) * m.W + Math.floor(m.sanct.x / TILE)]) mark(m.sanct.x, m.sanct.y, 'camp', 12);
     if (m.way && R.seen[m.way.ty * m.W + m.way.tx]) mark(m.way.x, m.way.y, 'way', 13);
     if (m.town) { const V0 = m.town.svc; mark(V0.altar.x, V0.altar.y, 'altar', 12); mark(V0.stash.x, V0.stash.y, 'stash', 12); mark(V0.anvil.x, V0.anvil.y, 'craft', 12); mark(V0.lectern.x, V0.lectern.y, 'craft', 12); mark(V0.portal.x, V0.portal.y, 'way', 13); mark(V0.board.x, V0.board.y, 'board', 12); }
+    for (const E of evSeen(R)) mark(E.x, E.y, 'event', 13);
     for (const q of R.shrines) if (!SIM.Q.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
     // the townsfolk with quest business (TASKS 1033): their ! and ? on the town's map, where they stand now
     if (m.town && R.folk) R.folk.forEach((f, i) => { const mk = SIM.Q.questMark(R, f.role); if (!mk) return; const x = px + (f.x - ox) / TILE * k, y = py + (f.y - oy) / TILE * k;
@@ -664,6 +667,9 @@
     if (id === 'craft') { L.solid(x - s * 0.45, y + s * 0.1, s * 0.9, s * 0.25, [0.6, 0.6, 0.66]); L.solid(x - s * 0.25, y - s * 0.15, s * 0.5, s * 0.28, [0.75, 0.75, 0.8]); L.solid(x - s * 0.08, y - s * 0.5, s * 0.16, s * 0.4, [0.62, 0.42, 0.24]); return; }
     if (id === 'way') { const c = [0.62, 0.7, 1]; L.solid(x - s / 2, y + s * 0.3, s, s * 0.2, [0.4, 0.38, 0.45]); L.solid(x - s * 0.22, y - s / 2, s * 0.44, s * 0.82, [0.5, 0.47, 0.56]); L.solid(x - s * 0.08, y - s * 0.32, s * 0.16, s * 0.5, c); return; }
     if (id === 'quest') { const a = a0; L.rrect(x - s / 2 - 2, y - s / 2 - 2, s + 4, s + 4, s / 2 + 2, [0.08, 0.05, 0.03], [0.08, 0.05, 0.03], a); L.solid(x, y, s * 0.62, s * 0.62, [1, 0.78, 0.25], Math.PI / 4, s * 0.31, s * 0.31, a); L.solid(x, y, s * 0.26, s * 0.26, [1, 0.97, 0.8], Math.PI / 4, s * 0.13, s * 0.13, a); return; }
+    // an event: a bone-white skull in a dark rim, its eyes lit red (the boss's gem is red with a white skull)
+    if (id === 'event') { const r = s / 2; L.rrect(x - r - 1.5, y - r - 1.5, s + 3, s + 3, r + 1.5, [0.06, 0.04, 0.04], [0.06, 0.04, 0.04]); L.rrect(x - r, y - r, s, s * 0.85, r, [0.95, 0.9, 0.78], [0.72, 0.66, 0.55]);
+      L.solid(x - r * 0.55, y - r * 0.15, r * 0.4, r * 0.4, [0.75, 0.12, 0.06]); L.solid(x + r * 0.15, y - r * 0.15, r * 0.4, r * 0.4, [0.75, 0.12, 0.06]); L.solid(x - r * 0.35, y + r * 0.55, r * 0.7, r * 0.35, [0.72, 0.66, 0.55]); return; }
     if (id === 'hint') { L.rrect(x - 4, y - 4, 8, 8, 4, [1, 0.85, 0.3], [1, 0.85, 0.3]); return; }
     if (id === 'lava') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.77, 0.27, 0.1], [0.77, 0.27, 0.1]); return; }
     if (id === 'chasm') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.4, 0.37, 0.38], [0.4, 0.37, 0.38]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.02, 0.015, 0.02], [0.02, 0.015, 0.02]); return; }

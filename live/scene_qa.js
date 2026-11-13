@@ -1770,6 +1770,8 @@
       R.msg = null; h.hp = hp0; R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2];
       if (stage < 0) { const g = E.gates[0], [vx, vy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[g.dir], [cx, cy] = g.cells[0]; h.x = (cx + 0.5 + vx * 2) * TILE; h.y = (cy + 0.5 + vy * 2) * TILE; R.cam = [g.x - SCX.VW / 2, g.y - SCX.VH / 2]; } });
     for (const [nm, mode, st] of [['trial_door', 'campaign', -1], ['trial_room', 'campaign', 0], ['trial_fight', 'campaign', 1], ['trial_won', 'campaign', 2], ['trial_fight_cave', 'cave', 1], ['trial_fight_magma', 'magma', 1]]) { const S = trialS(mode, st); if (S.run && (S.run.events || []).some((q) => q.id === 'trial')) states.push([nm, S]); }
+    // (TASKS 2002) its mark on the map and the legend's line, the legend opened by the pointer over the map in the pause
+    { const S = trialS('campaign', 0); if (S.run && (S.run.events || []).length) { S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; states.push(['trial_map', S]); } }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
     states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; S.focus = 'stay'; })]);
