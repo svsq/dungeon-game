@@ -53,7 +53,9 @@
   // what changes a shot goes before what copies it, so the side balls of a split carry every change whatever order the powers were taken in
   const order = (own, trig) => { const ids = Object.keys(own).filter((id) => D.POWERS[id] && onOf(D.POWERS[id]) === trig); return ids.filter((id) => D.POWERS[id].fx !== 'split').concat(ids.filter((id) => D.POWERS[id].fx === 'split')); };
   // a unique's power is the hero's while he wears it and not his own: an altar may still offer it and it counts for no evolution
-  const heroPowers = (h) => { let g = null; for (const k in h.eq || {}) { const U = D.UNIQUES[(h.eq[k] || {}).u]; if (U) (g = g || {})[U.power] = 1; } return g ? Object.assign({}, h.powers, g) : h.powers; };
+  // an epic's power is weak (TASKS 359), its value the share of firings it keeps; held in full by the hero or a unique, the full one wins
+  const heroPowers = (h) => { let g = null, w = null; for (const k in h.eq || {}) { const it = h.eq[k] || {}, U = D.UNIQUES[it.u]; if (U) (g = g || {})[U.power] = 1; else if (D.POWERS[it.pw]) (w = w || {})[it.pw] = D.EPIC_POWER.k; }
+    return g || w ? Object.assign({}, w, h.powers, g) : h.powers; };
   let depth = 0;
   function firePowers(S, R, trig, ctx = {}) { const h = R.hero, own = heroPowers(h);
     if (!own || R.town || depth > (trig === 'kill' ? 2 : 0)) return;
@@ -61,6 +63,7 @@
       const N = every(P); if (N && ((h.powerN = h.powerN || {})[id] = (h.powerN[id] || 0) + 1) % N) continue;
       if (P.icd && S.t < ((h.powerT || {})[id] ?? -1e9) + P.icd) continue;
       if (P.p !== undefined && rnd(R) >= P.p) continue;
+      if (own[id] < 1 && rnd(R) >= own[id]) continue;
       (h.powerT = h.powerT || {})[id] = S.t; depth++; try { FX[P.fx](S, R, P, ctx, own[id]); } finally { depth--; }
       ev(S, { k: 'power', id, fx: P.fx, x: ctx.x ?? h.x, y: ctx.y ?? h.y }); } }
   const hasOn = (h, trig) => { for (const id in heroPowers(h) || {}) if (D.POWERS[id] && onOf(D.POWERS[id]) === trig) return true; return false; };

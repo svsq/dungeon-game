@@ -80,6 +80,10 @@
   for (const [id, icon] of Object.entries({ rl_fifth: 'bf_burn', rl_scroll: 'it_hp', rl_pyre: 'bf_burn', rl_maelstrom: 'ab_whirl', rl_phalanx: 'ab_shield', rl_quiver: 'ab_volley' })) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 4, relic: 1, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
   for (const [id, needs, icon] of [['ev_storm', ['whirl_pull', 'whirl_ring'], 'ab_whirl'], ['ev_comet', ['fire_split', 'fire_pierce'], 'ab_fire'], ['ev_bulwark', ['shield_burst', 'shield_feed'], 'ab_shield'], ['ev_mines', ['trap_burst', 'leap_trap'], 'ab_trap'], ['ev_shoulder', ['dash_trail', 'dash_strike'], 'bf_burn'],
     ['ev_ram', ['charge_quake', 'charge_rend'], 'ab_charge'], ['ev_roar', ['cry_mirror', 'cry_push'], 'ab_cry'], ['ev_glacier', ['frost_freeze', 'frost_brittle'], 'ab_frost']]) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 3, evo: 1, needs, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
+  // an epic's weak power (TASKS 359): one of the altar's own, fired by chance `k` of the times the full one would, so its numbers stay in one place;
+  // its odds grow with the floor. The step back of frost_step is left out: at random it would take the hero's footing from the player
+  const EPIC_POWER = { p: (f) => Math.min(0.4, 0.04 + 0.02 * f), k: 0.5, skip: ['frost_step'] };
+  const epicPool = (cls) => Object.keys(GIFT_OF).filter((id) => { const P = POWERS[id]; return !EPIC_POWER.skip.includes(id) && (!P.cls || P.cls === cls) && (!P.ab || D.CLASSES[cls].abilities.includes(P.ab)); });
   const RELIC_MAX = 3, relicsOf = (h) => Object.keys(h.powers || {}).filter((id) => (D.GIFTS.find((g) => g.id === id) || {}).relic).length;
   const hasPower = (h, id) => !!(h.powers || {})[id];
   // an offer is rolled when its altar is first opened, the hero may have changed by the time he comes back to it
@@ -116,5 +120,5 @@
   // the codex (TASKS 395): what a page of it lists; an entry opens on first meeting (sim_unlocks)
   const CODEX_TABS = ['m', 'it', 'p'], CODEX_PAGE = 36;
   const codexList = (tab) => (tab === 'm' ? Object.keys(D.ENEMIES).map((k) => ({ k, name: D.ENEMIES[k].name })) : tab === 'it' ? Object.keys(D.BASES).map((k) => ({ k, name: D.BASES[k].name, icon: D.BASES[k].icon })) : D.GIFTS.filter((g) => g.power).map((g) => ({ k: g.id, name: g.name, icon: g.icon })));
-  Object.assign(D, { SHARDS, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
+  Object.assign(D, { SHARDS, EPIC_POWER, epicPool, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);

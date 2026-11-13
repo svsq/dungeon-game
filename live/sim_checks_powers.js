@@ -226,6 +226,29 @@
       D.floorUnique = () => null; const it0 = SIMX.rollItem(R0, 6, 0, undefined, { min: 4, lo: 1, hi: 1, lag: 2 }); D.floorUnique = f0;
       if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || D.BASES[it0.b].slot !== D.BASES[it1.b].slot) out.push(`unique: a ${cl}'s legendary takes other draws than a plain one`); }
   }
+  // TASKS 359: a found epic may hold one weak power of its class's altar pool, likelier deeper, and never moves a roll after it
+  function checkEpicPowers(out) {
+    const all = new Set(); for (const cl of ['warrior', 'mage', 'archer']) { const L = D.epicPool(cl); L.forEach((id) => all.add(id));
+      if (L.length < 8) out.push(`epic: a ${cl}'s pool holds only ${L.length} powers`);
+      for (const id of L) { const P = D.POWERS[id], g = D.GIFTS.find((q) => q.id === id); if (!P.name || !P.desc || !g || g.relic || g.evo || (P.cls && P.cls !== cl) || (P.ab && !D.CLASSES[cl].abilities.includes(P.ab))) out.push(`epic: ${id} in a ${cl}'s pool is no altar power of his`); } }
+    if (all.size < 20 || all.size > 32) out.push(`epic: ${all.size} powers in the pools, not 20–32`);
+    if (!(D.EPIC_POWER.k > 0 && D.EPIC_POWER.k < 1) || !(D.EPIC_POWER.p(1) < D.EPIC_POWER.p(15))) out.push('epic: a weak power is not weaker, or its odds do not grow with the floor');
+    for (const cl of ['warrior', 'mage', 'archer']) { const c = stage(cl), n = [0, 0];
+      for (const [k, f] of [[0, 1], [1, 18]]) for (let i = 0; i < 300; i++) { const it = SIMX.rollItem(c.R, f, 0, undefined, { min: 3, max: 3 }); if (!it.pw) continue; n[k]++;
+        const own = D.BASES[it.b].cls ? (D.BASES[it.b].cls.includes(cl) ? cl : D.BASES[it.b].cls[0]) : cl;
+        if (it.u || it.rar !== 3 || !D.epicPool(own).includes(it.pw)) { out.push(`epic: a ${cl}'s epic holds ${it.pw}, not one power of its class`); break; }
+        const back = JSON.parse(JSON.stringify(it)); if (back.pw !== it.pw) out.push('epic: a saved epic loses its power'); }
+      if (!n[0] || !(n[1] > n[0] * 2)) out.push(`epic: a ${cl}'s epics hold a power ${n[0]} times on the 1st floor, ${n[1]} on the 18th`);
+      for (let i = 0; i < 100; i++) { if (SIMX.rollItem(c.R, 18, 0, undefined, { min: 3, max: 3, own: 1 }).pw) { out.push('epic: the merchant sells a power'); break; } if (SIMX.rollItem(c.R, 18, 0, undefined, { min: 4 }).pw) { out.push('epic: a legendary holds a weak power too'); break; } }
+      const R0 = JSON.parse(JSON.stringify(c.R)), it1 = SIMX.rollItem(c.R, 18, 0, undefined, { min: 3, max: 3, lo: 1, hi: 1, lag: 2 }), p0 = D.EPIC_POWER.p;
+      D.EPIC_POWER.p = () => 0; const it0 = SIMX.rollItem(R0, 18, 0, undefined, { min: 3, max: 3, lo: 1, hi: 1, lag: 2 }); D.EPIC_POWER.p = p0;
+      if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || it0.b !== it1.b || JSON.stringify(it0.mods) !== JSON.stringify(it1.mods)) out.push(`epic: a ${cl}'s epic with a power takes other draws than one without`); }
+    { const c = stage('warrior'), h = c.h, e = foe(c.R, h), blows = () => { c.S.ev = []; h.powerN = {}; for (let i = 0; i < 400; i++) heroHit(c.S, c.R, e, 1, false, h.x, h.y); return hits(c.S, 'kit_hammer'); };
+      h.powers = {}; h.eq.weapon = Object.assign(SIMX.rollItem(c.R, 5, 0, 'weapon', { min: 3, max: 3 }), { pw: 'kit_hammer' });
+      const weak = blows(); if (weak < 30 || weak > 70 || (h.powers || {}).kit_hammer) out.push(`epic: a worn epic's power fired ${weak} of 100 times, or became the hero's own`);
+      h.powers = { kit_hammer: 1 }; if (blows() !== 100) out.push('epic: a power held in full is weakened by an epic holding it too');
+      h.powers = {}; delete h.eq.weapon.pw; if (blows() !== 0) out.push('epic: its power stays once the epic has none'); }
+  }
   function checkPowers(out) {
     const T = '__t', drive = (trig, act, extra = {}) => { const c = stage(extra.cls); grant(c.h, T, Object.assign({ trig, fx: 'mana', v: 0 }, extra.p)); c.S.ev = []; act(c); const n = hits(c.S, T); delete D.POWERS[T]; return n; };
     const cases = {
@@ -247,7 +270,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAbilityPowers(out); checkSecondPack(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out); checkUniques(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAbilityPowers(out); checkSecondPack(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out); checkUniques(out); checkEpicPowers(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

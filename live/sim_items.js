@@ -51,12 +51,19 @@
     const cls = R.hero && D.clsOf(R.hero).id;
     if (cls && !D.wears(cls, bk) && (o.own || rnd(R) >= D.CLASS_LOOT.foreign)) { const own = keys.filter((k) => D.wears(cls, k)); if (own.length) bk = pick(own); }
     const lvl = lootLvl(R, floor + (R.mode ? RUN(R).loot || 0 : 0), o), U = rar === 4 && floorUniqueOf(R, bk);
-    return U ? uniqueItem(R, U.id, lvl) : rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl, mods: {} }));
+    if (U) return uniqueItem(R, U.id, lvl);
+    const it = rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl, mods: {} }));
+    return rar === 3 && !o.own ? epicPower(R, it, floor) : it;
   }
-  // a legendary is the floors' unique of the rolled base's slot (TASKS 358), for the class the base is made for, or the hero's when it is anyone's;
-  // it takes no draw of its own, so every roll after it stays where it was
-  function floorUniqueOf(R, bk) { const B = BASES[bk], cls = R.hero && D.clsOf(R.hero).id, own = B.cls ? (B.cls.includes(cls) ? cls : B.cls[0]) : cls;
-    return own ? D.floorUnique(B.slot, own) : null; }
+  // the class a found base is for: the one it is made for, or the hero's when it is anyone's
+  const itemCls = (R, bk) => { const B = BASES[bk], cls = R.hero && D.clsOf(R.hero).id; return B.cls ? (B.cls.includes(cls) ? cls : B.cls[0]) : cls; };
+  // a legendary is the floors' unique of the rolled base's slot for its class (TASKS 358); it takes no draw of its own, so every roll after it stays where it was
+  function floorUniqueOf(R, bk) { const own = itemCls(R, bk); return own ? D.floorUnique(BASES[bk].slot, own) : null; }
+  // the dice's next state looked at without being thrown: an epic's power (TASKS 359) moves no roll after it either
+  const peek = (R, n) => rnd({ rs: (R.rs + n * 0x9e3779b9) | 0 });
+  // a found epic, never one sold or handed, may hold one weak power for its class
+  function epicPower(R, it, floor) { const own = itemCls(R, it.b); if (!own || peek(R, 1) >= D.EPIC_POWER.p(floor)) return it;
+    const L = D.epicPool(own); if (L.length) it.pw = L[Math.floor(peek(R, 2) * L.length)]; return it; }
   // a find's level (the player's note 5.10, TASKS 1345): half way from the floor to a hero who has outgrown it, spread by the source's lo/hi,
   // and never more than the source's `lag` under him; shop stock and rewards name no spread and stay at the floor's own level
   function lootLvl(R, base, o) { if (o.hi === undefined) return base; const h = R.hero, a = base + (h ? Math.round(0.5 * Math.max(0, h.lvl - base)) : 0);

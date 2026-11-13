@@ -919,6 +919,8 @@
     if (cur) lines.push(['   ' + TXT('hud.compare.lvl', { p1: it.lvl, p2: cur.lvl }), mute(it.lvl > cur.lvl ? UP : it.lvl < cur.lvl ? DOWN : C.dim), 19]);
     if (!o.compact) for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05 || !c[k]) continue;
       lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), mute(d > 0 ? UP : DOWN), 19]); }
+    const pw = (x) => { const U = x && D.UNIQUES[x.u]; return U ? D.POWERS[U.power].name : x && D.POWERS[x.pw] ? TXT('hud.compare.weak', { name: D.POWERS[x.pw].name }) : TXT('hud.compare.none'); };
+    if (pw(it) !== pw(cur)) lines.push(['   ' + TXT('hud.compare.power', { p1: pw(cur), p2: pw(it) }), mute(C.gold), 19]);
     const s0 = SIM.Q.stats(h, S.meta), s1 = SIM.Q.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
     const tot = [[TXT('hud.compare.tot'), 'maxHp'], [TXT('hud.compare.tot.2'), 'atk'], [TXT('hud.compare.tot.3'), 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
     if (tot.length) lines.push([TXT('hud.compare.3', { p1: tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · ') }),
@@ -939,6 +941,8 @@
         mod(typed, C.text); mod(it.mods, '#8fd98a');
         for (const e of it.ench || []) lines.push([TXT('hud.tooltip.6', { p1: D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) }), '#9cc8ff', 22]);
         if (UPW) { lines.push([TXT('hud.tooltip.power', { name: UPW.name }), '#ffb347', 22]); if (!compact) wrap(UPW.desc, '#ffd9a0', 19); }
+        else if (D.POWERS[it.pw]) { const P = D.POWERS[it.pw]; lines.push([TXT('hud.tooltip.weak', { name: P.name }), '#ffb347', 22]);
+          if (!compact) { wrap(P.desc, '#ffd9a0', 19); wrap(TXT('hud.tooltip.weak.k', { p: Math.round(D.EPIC_POWER.k * 100) }), '#c9b79c', 18); } }
         const own = D.wears(D.clsOf(h).id, it.b);
         if (h.eq[B.slot] !== it && own) compare(S, it, B.slot, h, lines, { dim: h.lvl < rq, compact });
         if (!deal) lines.push([b.id.startsWith('eq:') ? TXT('hud.tooltip.7') : !own ? TXT('hud.tooltip.cls2') : h.lvl < rq ? TXT('hud.tooltip.8', { rq }) : TXT('hud.tooltip.9'), '#8a7d6c', 18]); }
