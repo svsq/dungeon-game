@@ -1599,16 +1599,23 @@
         { const [, , m, q, d, k0] = old(1, slid); if (q && (!opened(null, m, q, d, k0) || d.x !== q.x || q.slide || q.hinge || (slid && m.block.includes(k0 + 3)) || d.brokeT === undefined)) out.push(`secret check shelf: an old save's bookcase open ${tag} does not load broken in its place`); }
         { const [S, R, m, q, d, k0] = old(0, slid); if (q) { if (q.slide || !d.solid || d.broken || d.x !== q.x || !m.block.includes(k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not load whole`);
           for (let k = 0; k < D.SHELF_SECRET.hp; k++) { S.t += 0.5; hitProps(S, R, d.x, d.y + 12, 24); } if (!opened(R, m, q, d, k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not break`); } } } }
-    // puzzles (TASKS 1692): the right order opens the cache, any wrong piece puts everything back and hurts nobody
-    for (const k of ['levers', 'candles']) { const [S, q] = find((o) => o.pz && o.pz.k === k); if (!q) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
-      S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9; const hp0 = h.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);
-      playItem(S, R, q, ord[1]); if (q.pz.step || q.pz.items.some((it) => it.on) || q.open) out.push(`puzzle ${k}: a wrong start does not reset`);
-      playItem(S, R, q, ord[0]); if (q.pz.step !== 1 || q.open) out.push(`puzzle ${k}: the first piece does not hold`);
-      playItem(S, R, q, ord[2]); if (q.pz.step || q.open) out.push(`puzzle ${k}: a wrong piece does not reset`);
-      if (h.hp !== hp0) out.push(`puzzle ${k}: a wrong try costs health`);
-      for (const j of ord) { playItem(S, R, q, j); } if (!q.open) out.push(`puzzle ${k}: the right order does not open it`);
-      if (R.stats[1].sec !== 1) out.push(`puzzle ${k}: a solved puzzle is not counted`);
-      if (k === 'candles' && m.decor.filter((d) => d.pz === m.secrets.indexOf(q)).some((d) => (d.outUntil || 0) > S.t)) out.push('puzzle candles: a solved puzzle left a candle dark'); }
+    // puzzles (TASKS 1692, 1989): the right order opens the cache; a wrong one is caught at the difficulty's check point (easy at the
+    // first piece, normal at the second, hard at the last), puts everything back at once and hurts nobody; before that every piece takes
+    for (const k of ['levers', 'candles']) { const [S0, q0] = find((o) => o.pz && o.pz.k === k); if (!q0) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
+      const seed = S0.run.seed, qi = S0.run.map.secrets.indexOf(q0); for (const diff of D.DIFF_ORDER) {
+      const fresh = () => { const S = spawn(0, {}); S.meta.diff = diff; S.run = newRun(S, 'campaign', seed); S.screen = 'play'; const R = S.run; R.en = []; R.stats[1] = floorStat(R); R.hero.ifr = 1e9; return [S, R, R.map.secrets[qi]]; };
+      const tag = `puzzle ${k} (${diff})`, lit = (R, q) => q.pz.items.filter((it) => it.on).length, dark = (S, R, q) => R.map.decor.filter((d) => d.pz === R.map.secrets.indexOf(q) && (d.outUntil || 0) > S.t).length;
+      const at = diff === 'easy' ? 1 : diff === 'normal' ? 2 : q0.pz.items.length;
+      for (const wrong of [[1, 0, 2], [0, 2, 1], [2, 1, 0]]) { const [S, R, q] = fresh(), hp0 = R.hero.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);
+        const miss = wrong.findIndex((w, j) => w !== j), stop = Math.max(miss + 1, at);
+        for (let j = 0; j < wrong.length; j++) { playItem(S, R, q, ord[wrong[j]]);
+          if (j + 1 < stop) { if (lit(R, q) !== j + 1 || q.open) out.push(`${tag}: order ${wrong} is judged before its check point (piece ${j + 1})`); if (k === 'candles' && dark(S, R, q) !== q.pz.items.length - j - 1) out.push(`${tag}: a candle went out before the check point`); }
+          else if (j + 1 === stop) { if (lit(R, q) || q.pz.step || q.open) out.push(`${tag}: order ${wrong} does not reset at piece ${j + 1}`); if (k === 'candles' && dark(S, R, q) !== q.pz.items.length) out.push(`${tag}: a wrong order left a candle lit`);
+            if (!S.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_world.pz.nope'))) out.push(`${tag}: a wrong order does not say «${TXT('sim_world.pz.nope')}»`); break; } }
+        if (q.open) out.push(`${tag}: a wrong order opens it`); if (R.hero.hp !== hp0) out.push(`${tag}: a wrong try costs health`);
+        for (const j of ord) playItem(S, R, q, j); if (!q.open) out.push(`${tag}: the right order after a wrong one does not open it`);
+        if (R.stats[1].sec !== 1) out.push(`${tag}: a solved puzzle is not counted`);
+        if (k === 'candles' && dark(S, R, q)) out.push(`${tag}: a solved puzzle left a candle dark`); } } }
     // every secret of two whole campaigns, opened by the way the game offers it; a cache behind another is reached once its parent is open
     for (const sd of [11, 222]) for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9;
