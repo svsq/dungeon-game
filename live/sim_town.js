@@ -355,6 +355,9 @@
   // the count of this giver's turned quests of the kind steps the pick, so the same words never come twice in a row (TASKS 1985)
   function turnSay(R, role, q) { const ty = D.QUESTS[q.key].type, L = D.QUEST_SAY[role].turnin[ty], n = (R.quests || []).filter((o) => o.st === 'turned' && o.from === role && D.QUESTS[o.key].type === ty).length;
     return D.turnFill(L[(qhash((R.seed >>> 0) + [...role + ty].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + n) % L.length], q); }
+  // an offer's townsfolk names are its key words (TASKS 1995), bold in the window; whole words only, so a short name never marks a longer word it starts
+  const NAMES_RX = new RegExp('(?<!\\p{L})(' + [...new Set(Object.values(D.FOLK).map((f) => f.name).filter(Boolean))].join('|') + ')(?!\\p{L})', 'gu');
+  const keyNames = (s) => s.replace(NAMES_RX, '**$1**');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
     // a quest to turn in waits behind its giver's words on what was done: the thanks and reward come with the press (TASKS 1850, 1985)
     const dn = questDone(R, role); if (dn) return { pages: [turnSay(R, role, dn)], act: { k: 'turn', id: dn.id, rw: dn.rw } };
@@ -362,7 +365,7 @@
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
     const first = q.story && !(R.quests || []).some((o) => D.QUESTS[o.key].kind === 'story') ? 1 : 0;
-    return { pages: [...say, Q.text(q)], act: { k: 'take', key: q.key, rw: q.rw, name: Q.name, first } }; }
+    return { pages: [...say, TXT('sim_town.questTalk.offer', { name: Q.name, text: Q.text(q) })].map(keyNames), act: { k: 'take', key: q.key, rw: q.rw, name: Q.name, first } }; }
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
@@ -557,7 +560,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

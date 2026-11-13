@@ -180,25 +180,18 @@
     let d = C.s, x = pts[pts.length - 1][0], y = pts[pts.length - 1][1];
     for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l) { x = ax + (bx - ax) * d / l; y = ay + (by - ay) * d / l; break; } d -= l; }
     const justTook = ms && !ms.go && ms.lift === 'take' && GT - ms.t0 < 0.45, shown = C.load + (justTook ? 1 : 0), li = shown >= 3 ? 0 : shown === 2 ? 1 : 2, nmS = ["cart_tw", "cart_tw_half", "cart_tw_empty"][li], nmF = ["cart_tw_f", "cart_tw_f_half", "cart_tw_f_empty"][li],
-      tot = pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0),
-      at = (d) => { d = Math.max(0, Math.min(tot, d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } },
-      [q0, q1] = [at(C.s - 14), at(C.s + 14)], th = Math.atan2(Math.abs(q1[1] - q0[1]), Math.abs(q1[0] - q0[0])) * 180 / Math.PI,
-      wS = 1 - E01((th - 52) / 6), rotS = -(th - 23) * Math.PI / 180, rotF = (90 - th) * Math.PI / 180, nm = wS >= 0.5 ? nmS : nmF, [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(0, 44, C.s), X = sx(x), Yg = sy(y) + 8;
+      V = D.cartView(pts, C.s), nm = V.side ? nmS : nmF, [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(0, 44, C.s), X = sx(x), Yg = sy(y) + 8;
     const rope = [];
     { let left = C.s; for (let i = 1; i < pts.length && left > 0; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); for (let q = 0; q < Math.min(l, left); q += 2) rope.push([ax + (bx - ax) * q / l, ay + (by - ay) * q / l]); left -= l; } }
     Y.push([y - 40, () => { for (const [px, py] of rope) L.solid(Math.round(sx(px)), Math.round(sy(py) - 8), 2, 2, [0.34, 0.26, 0.18], 0, 0, 0, 1); }]);
     const pulse = (a, dur) => (a >= 0 && a < dur ? Math.sin(Math.PI * a / dur) * (1 - a / dur) : 0), sag = pulse(GT - (C.takeT ?? -9) - 0.45, 0.4), stopK = C.st === 'at' ? pulse(GT - (C.atT ?? -9), 0.4) : 0, end = pts[pts.length - 1], pre = pts[pts.length - 2], back = end[0] >= pre[0] ? -1 : 1;
-    const rot = wS >= 0.5 ? rotS : rotF, wob = 0.05 * sag - back * 0.03 * stopK, cr = Math.cos(rot + wob), sr = Math.sin(rot + wob), Xc = X + back * 3 * stopK, Yc = Yg + bob + 2.5 * sag + 1.2 * stopK;
-    const rotAt = (dx, dy) => [Xc + dx * cr - dy * sr, Yc + dx * sr + dy * cr], tintU = { tint: [k * 0.82, k * 0.82, k * 0.82, 1] };
+    const wob = 0.05 * sag - back * 0.03 * stopK, Xc = X + back * 3 * stopK, Yc = Yg + bob + 2.5 * sag + 1.2 * stopK;
+    const Mc = M.of(M.t(Xc, Yc), [1, Math.tan(V.tilt * L.D2R), 0, 1, 0, 0], M.r(V.rot * L.D2R + wob), M.s(V.sx, 1)), rotAt = (dx, dy) => M.ap(Mc, [dx, dy]), tintU = { tint: [k * 0.82, k * 0.82, k * 0.82, 1] };
     // the sprites' own wheels cannot turn: two studs on each hub circle it by the distance rolled (town_motion_r6 5)
     const hubs = [[nm === 'cart_tw' ? 0.54 : 0.532, nm === 'cart_tw' ? 0.825 : 0.815], [nm === 'cart_tw' ? 0.83 : 0.815, nm === 'cart_tw' ? 0.714 : 0.69]], wr = 0.11 * w, spin = C.s / wr;
-    // the 3/4 sprite's wheel line runs 23 degrees up to the right and the front one is plumb: each is turned onto the rails' line, and the two turned sprites stand 67 degrees apart and cannot cross smoothly, so over the corner the side view dissolves into the front one within a few frames
-    const part = (n, a, ro) => { const [pw, ph] = SZ(n); L.sprite(n, 0, 0, { m: L.M.of(L.M.t(Xc, Yc), L.M.r(ro + wob)), pivot: [pw / 2, ph], w: pw, h: ph, u: a < 1 ? Object.assign({ alpha: a }, tintU) : tintU }); };
-    Y.push([y + 8, () => { L.shadow(Xc, Yg, 0.42 * w, 5, 0.45); L.joint('cart', 'ground', [Xc, Yg]); L.joint('cart', 'top', rotAt(0, -h)); L.joint('cart', 'body', [Xc, Yc]); hubs.forEach(([hu, hv], q) => L.joint('cart', 'stud' + q, rotAt((hu - 0.5) * w + Math.cos(spin) * 0.42 * wr, (hv - 1) * h + Math.sin(spin) * 0.5 * wr)));
-      const sideTop = wS >= 0.5;
-      L.inked(() => (sideTop ? part(nmS, 1, rotS) : part(nmF, 1, rotF)), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
-      if (wS > 0.001 && wS < 0.999) { if (sideTop) part(nmF, 1 - wS, rotF); else part(nmS, wS, rotS); }
-      if (wS >= 0.5) for (const [hu, hv] of hubs) for (const q of [0, 1]) { const a = spin + q * Math.PI, [sx0, sy0] = rotAt((hu - 0.5) * w + Math.cos(a) * 0.5 * wr * 0.85, (hv - 1) * h + Math.sin(a) * 0.5 * wr); L.solid(Math.round(sx0) - 1, Math.round(sy0) - 1, 2, 2, [0.72 * k, 0.62 * k, 0.5 * k]); }
+    Y.push([y + 8, () => { L.shadow(Xc, Yg, 0.42 * w * V.sx, 5, 0.45); L.joint('cart', 'ground', [Xc, Yg]); L.joint('cart', 'top', rotAt(0, -h)); L.joint('cart', 'body', [Xc, Yc]); hubs.forEach(([hu, hv], q) => L.joint('cart', 'stud' + q, rotAt((hu - 0.5) * w + Math.cos(spin) * 0.42 * wr, (hv - 1) * h + Math.sin(spin) * 0.5 * wr)));
+      L.inked(() => L.sprite(nm, 0, 0, { m: Mc, pivot: [w / 2, h], w, h, u: tintU }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+      if (V.side) for (const [hu, hv] of hubs) for (const q of [0, 1]) { const a = spin + q * Math.PI, [sx0, sy0] = rotAt((hu - 0.5) * w + Math.cos(a) * 0.5 * wr * 0.85, (hv - 1) * h + Math.sin(a) * 0.5 * wr); L.solid(Math.round(sx0) - 1, Math.round(sy0) - 1, 2, 2, [0.72 * k, 0.62 * k, 0.5 * k]); }
       if (shown === 1) { const [sx1, sy1] = rotAt(0.04 * w, -0.71 * h); L.sprite('town_tool_stone', sx1 - 7, sy1 - 7, { w: 14, h: 14, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }); } }]);
   }
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {

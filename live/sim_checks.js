@@ -150,6 +150,32 @@
         k2(Q, 'ArrowUp'); k2(Q, 'ArrowUp'); if (Q.focus !== 'quit') out.push('menu: ↑ does not reach «Выход»');
         const R = Q.run = newRun(Q, 'campaign', 46); k2(Q, 'Enter'); if (Q.quitReq !== 1 || Q.run || Q.saved !== R) out.push('menu: «Выход» does not save the run in play and ask the page to quit');
         const B = spawn(0, {}); B.screen = 'menu'; B.focus = 'quit'; step(B, { keys: ['Enter'] }); if (B.quitReq) out.push('menu: «Выход» asks to quit where the page cannot'); }
+      // TASKS 1870: the update's item and window. No state from the page, no item; the desktop's item stands before «Выход», a press
+      // asks for a check and opens the window; its buttons ask the page for the download, the restart (saving a run in play first)
+      // and a new try, by what failed; Escape closes it back onto the item. The browser's item shows only a newer version and its page
+      { if (UI.menu(true, 0, 0, false, true).some((b) => b.id === 'update')) out.push('update: the item shows with no state from the page');
+        const n = { v: 0 }, upd = (o) => Object.assign({ can: 1, st: 'idle', n: ++n.v }, o);
+        const U = spawn(0, {}); U.screen = 'menu'; U.focus = ''; step(U, { keys: [], quit: 1, upd: upd() }); const ids = UI.menu(false, 0, 0, false, true, U.upd).map((b) => b.id);
+        if (ids.indexOf('update') < 0 || ids.indexOf('update') !== ids.indexOf('quit') - 1) out.push('update: the desktop menu has no «Проверить обновления» right before «Выход»');
+        const ask = () => (U.updReq ? U.updReq.k : ''), was = () => (U.updReq ? U.updReq.n : 0);
+        U.focus = 'update'; k2(U, 'Enter'); if (!U.updOpen || ask() !== 'check') out.push('update: the item does not open its window and ask for a check');
+        let w = was(); step(U, { keys: [], upd: upd({ st: 'check' }) }); k2(U, 'Enter'); if (U.updOpen || U.focus !== 'update' || was() !== w) out.push('update: «Закрыть» over a check does not close back onto the item');
+        step(U, { keys: [], upd: upd({ st: 'avail', v: '9.9.9', notes: D.relNotes('### A\n\n- one\n  two\n- three\n\n### B\n\n- four') }) });
+        if (U.upd.notes.join('|') !== 'one two|three') out.push('update: a release\'s notes are not its first section\'s points: ' + U.upd.notes.join('|'));
+        if (!D.updMark(U.upd)) out.push('update: a version found leaves no mark on the menu');
+        { const long = 'Доспехи складываются аккуратнее, а запасная броня в сумке больше не мешает носить оружие и щит вместе со всем остальным добром', Z = UI.upd({ st: 'avail', v: '9.9.9', notes: [long] }).rows.filter((r) => r.k === 'note');
+          if (Z.length !== 2 || !Z[1].s.endsWith('…') || Z[1].s.length > 48) out.push('update: a long «Что нового» point is not two lines ending in «…» within the width: ' + Z.map((r) => r.s).join('|'));
+          else if (!long.split(' ').includes(Z[1].s.slice(0, -1).split(' ').pop())) out.push('update: a long «Что нового» point is cut inside a word: ' + Z[1].s); }
+        U.focus = 'update'; w = was(); k2(U, 'Enter'); if (was() !== w) out.push('update: the item asks for a new check over a version already found');
+        k2(U, 'Enter'); if (ask() !== 'get') out.push('update: «Скачать и обновить» does not ask for the download');
+        step(U, { keys: [], upd: upd({ st: 'err', err: 'down', v: '9.9.9' }) }); k2(U, 'Enter'); if (ask() !== 'get') out.push('update: a new try after a broken download does not download again');
+        step(U, { keys: [], upd: upd({ st: 'err', err: 'net' }) }); k2(U, 'Enter'); if (ask() !== 'check') out.push('update: a new try offline does not check again');
+        const R = U.run = newRun(U, 'campaign', 47); step(U, { keys: [], upd: upd({ st: 'ready', v: '9.9.9' }) }); k2(U, 'ArrowRight'); k2(U, 'ArrowLeft'); k2(U, 'Enter');
+        if (ask() !== 'run' || U.run || U.saved !== R) out.push('update: «Перезапустить» does not save the run in play and ask for the restart');
+        k2(U, 'Escape'); if (U.updOpen || U.screen !== 'menu') out.push('update: Escape does not close the window');
+        const B = spawn(0, {}); B.screen = 'menu'; step(B, { keys: [], upd: { web: 1, st: 'none', n: 1 } }); if (UI.menu(false, 0, 0, false, false, B.upd).some((b) => b.id === 'update')) out.push('update: the browser shows the item with no newer version');
+        step(B, { keys: [], upd: { web: 1, st: 'web', v: '9.9.9', n: 2 } }); B.focus = 'update'; k2(B, 'Enter'); k2(B, 'Enter'); if (!B.updOpen || !B.updReq || B.updReq.k !== 'open') out.push('update: the browser\'s window does not open the release page');
+        if (!D.verNewer('0.10.0', '0.9.9') || D.verNewer('v0.4.1', '0.4.1') || D.verNewer('0.4.0', '0.4.1')) out.push('update: versions compare wrong'); }
       K.screen = 'menu'; K.uiWas = 'menu'; K.focus = ''; k2(K, 'Enter'); if (K.screen !== 'play' || !K.run || K.run.seed !== 45) out.push('menu: Enter with no focus does not continue the saved run'); }
     { const { loadSlot, slotRun } = SIMX, J = (o) => JSON.parse(JSON.stringify(o)), play = (S, n) => { S.screen = 'play'; for (let i = 0; i < n; i++) step(S, { keys: [] }); };
       const save = (S) => { const b = UI.pause(S.meta.zoom).find((q) => q.id === 'save'); S.screen = 'pause'; step(S, { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }); step(S, { keys: [], press: 0 }); };
@@ -1511,7 +1537,7 @@
     let mims = 0;
     for (let sd = 1; sd <= 80 && !mims; sd++) for (let f = 3; f <= 8 && !mims; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 3670 + sd); enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, c = R.chests.find((o) => o.mimic); if (!c) continue; mims++;
       R.en = []; const h = R.hero, spot = [[0, 80], [80, 0], [-80, 0], [0, -80], [60, 60], [-60, 60]].find(([dx, dy]) => cell(R.map, Math.floor((c.x + dx) / TILE), Math.floor((c.y + dy) / TILE)) === 1 && losClear(R.map, c.x, c.y - 6, c.x + dx, c.y + dy - 6)); if (!spot) { mims--; continue; } h.x = c.x + spot[0]; h.y = c.y + spot[1]; h.ifr = 1e9; const items = c.loot.length, n0 = R.drops.length, A0 = lootAudit(R).off; openChest(S, R, c); const e = R.en.find((o) => o.type === 'mimic');
-      if (!e || e.st !== 'rise' || R.drops.length !== n0 || c.loot.length !== items) out.push('mimic: did not wake holding its loot'); if (solids(R).some((o) => o.x === c.x && o.y === c.y)) out.push('mimic: its chest still stands in the way');
+      if (!e || e.st !== 'rise' || R.drops.length !== n0 || c.loot.length !== items) out.push('mimic: did not wake holding its loot'); else { const hp0 = e.hp; hitEnemy(S, R, e, 100, false, h.x, h.y); if (hp0 - e.hp !== Math.round(100 * ENEMIES.mimic.riseGuard)) out.push(`mimic: a blow while it rises takes ${hp0 - e.hp} of 100, not ${100 * ENEMIES.mimic.riseGuard}`); e.hp = hp0; } if (solids(R).some((o) => o.x === c.x && o.y === c.y)) out.push('mimic: its chest still stands in the way');
       if (lootAudit(R).off !== A0) out.push('mimic: loot books off while it lives'); for (let k = 0; k < 300 && !R.en.some((o) => o.st === 'strike' && o.type === 'mimic'); k++) step(S, { keys: [] }); if (!R.en.some((o) => o.st === 'strike')) out.push('mimic: never bites');
       e.hp = 0; killEnemy(S, R, e); if (R.drops.filter((d) => d.kind === 'item').length < items || c.loot.length) out.push('mimic: its loot did not fall'); if (lootAudit(R).off !== A0) out.push('mimic: loot books off after it dies'); if (R.stats[f] && R.stats[f].kills > R.stats[f].foes + 1) out.push('mimic: counted among the floor\'s monsters'); }
     if (!mims) out.push('mimic: none on 80 seeds');
@@ -3317,6 +3343,22 @@
     return out;
   }
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
+  // TASKS 1781: along the whole rail the cart shows one painting, kept upright: the 3/4 one turned no more than CART.roll with its
+  // wheel line on the rails, the front one never turned and its axle tilted no more than 18 degrees; one change of view at the bend
+  function cartCheck() {
+    const out = [], C = D.CART, R2D = 180 / Math.PI, m = DG.genTown(31), pts = D.railPts(m);
+    let prev = null, swaps = 0;
+    for (let s = 0; s <= 400; s++) { const v = D.cartView(pts, s);
+      if (v.side) { const line = Math.atan(Math.tan(C.side / R2D) / v.sx) * R2D - v.rot;
+        if (Math.abs(v.rot) > C.roll + 0.5 || v.sx < C.squash - 1e-6 || v.sx > 1) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}° or narrowed to ${v.sx.toFixed(2)}`);
+        if (Math.abs(line - v.th) > 1) out.push(`cart: the 3/4 view's wheel line at ${s} px runs ${line.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`); }
+      else if (v.rot || v.sx !== 1 || Math.abs(v.tilt) > 18 || v.th < 55) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}° or its axle tilts ${v.tilt.toFixed(0)}°`);
+      if (prev && prev.side !== v.side) swaps++;
+      else if (prev && (Math.abs(prev.rot - v.rot) > 2 || Math.abs(prev.tilt - v.tilt) > 2 || Math.abs(prev.sx - v.sx) > 0.02)) out.push(`cart: the view jumps at ${s} px`);
+      prev = v; if (out.length > 4) break; }
+    if (swaps !== 1) out.push(`cart: the view changes ${swaps} times along the rails, not once at the bend`);
+    return out;
+  }
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
     for (let sd = 1; sd <= 8; sd++) { const m = DG.genTown(sd * 977), go = (k) => m.cells[k] === 1, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
@@ -3462,7 +3504,7 @@
         if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
         if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); }
       // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
-      // onto it and lets it go, the leap carries him back from the aim, AGI (not STR) grows his bow's damage, a sword is not his
+      // onto it and lets it go, the leap carries him back from the aim, AGI (and a little STR, TASKS 1913) grows his bow's damage, a sword is not his
       { const { S, R, h, foe, ok } = arena('archer');
         if (h.eq.weapon.b !== 'shortbow' || h.eq.armor.b !== 'leather_armor' || D.clsOf(h).abs.map((a) => a.id).join() !== 'volley,trap,leap') out.push('class archer: not a short bow, leather and volley, trap, leap');
         if (ok) { const e = foe(200); let got = 0; h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); if (h.mp >= D.CLASSES.archer.hitMp.hit) got = 1; }
@@ -3481,7 +3523,7 @@
           h.x += 120; const x0 = h.x; h.aim = 0; h.cd.leap = 0; castAbility(S, R, 'leap', {}); for (let i = 0; i < 30; i++) step(S, { keys: [], ...toPx(R, h.x + 300, h.y - 30) });
           if (!(h.x < x0 - D.LEAP.spd * 0.16 * 0.8)) out.push('class archer: the leap does not carry him back from the aim its length'); }
         const a0 = stats(h, S.meta).atk; h.base.agi += 10; const a1 = stats(h, S.meta).atk; h.base.agi -= 10; h.base.str += 10; const a2 = stats(h, S.meta).atk; h.base.str -= 10;
-        if (!(a1 > a0) || a2 !== a0) out.push('class archer: AGI does not grow his bow\'s damage or STR does');
+        if (!(a1 > a0) || !(a2 > a0) || a2 - a0 >= a1 - a0) out.push('class archer: AGI does not grow his bow\'s damage more than STR (TASKS 1913: STR adds a little)');
         if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword');
         // (TASKS 1155) an arrow into a cultist's wind-up breaks it off; a second at once does not
         if (ok) { R.en = []; R.proj = []; R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0]; h.vx = h.vy = 0; const aimed = () => ({ keys: [], ...toPx(R, h.x + 300, h.y - 30) }); const c = foe(150); Object.assign(c, { type: 'cultist', st: 'wind', t0: S.t, cdT: 0 }); h.aim = 0;
@@ -3714,6 +3756,12 @@
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
   const splitCheck = () => { const out = []; SIMX.checkSplit(out); return out; };
+  const stackCheck = () => { const out = []; SIMX.checkStacks(out); return out; };
+  const hudFootCheck = () => { const out = []; SIMX.checkHudFoot(out); return out; };
+  const trkFoldCheck = () => { const out = []; SIMX.checkTrkFold(out); return out; };
+  const testEndCheck = () => { const out = []; SIMX.checkTestEnd(out); return out; };
+  const strCheck = () => { const out = []; SIMX.checkStrUse(out); return out; };
+  const keyWordCheck = () => { const out = []; SIMX.checkKeyWords(out); return out; };
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
   const GEN_PRINT = { 27: '6536c5f1dd1fc12a' };
@@ -3721,7 +3769,7 @@
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
     return p === GEN_PRINT[D.GEN_VERSION] ? [] : [`gen print: the generator lays other floors (${p}) under D.GEN_VERSION ${D.GEN_VERSION}: raise the version and put the print in GEN_PRINT`]; }
-  const PARTS = { splitCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { strCheck, splitCheck, stackCheck, hudFootCheck, trkFoldCheck, keyWordCheck, testEndCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, cartCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

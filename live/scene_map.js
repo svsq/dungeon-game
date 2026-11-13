@@ -27,9 +27,7 @@
     const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
   // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest
 
-  // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1606)
-  const railPts = (m) => { let p = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
-    for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
+  const railPts = D.railPts;
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 8;
