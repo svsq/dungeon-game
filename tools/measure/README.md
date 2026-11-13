@@ -10,6 +10,7 @@
 - `motion/`: анимация, тела для `evalq.mjs` (`gate.js`, `gatet.js`, `flash.js`, `strip14.js` …) и `trace.mjs`.
 - `fidelity/`: сверка с `study/refs/ref_cave_lava.png`, Lab-замеры по кадрам (`mask14.py`, `falledge.py`, `lemon.py`, `shoremap.*` …), общий модуль `labc.py`.
 - `frame/`: кадр, наборы состояний для `shot.mjs` (`set1.js`, `set2.js`, `set3.js`, `shore.js`, `chapter.js`) и разбор (`census.py`, `blobs.py`, `nn.py`, `shore_offset.py`).
+- `balance/`: пробы баланса без правки игры через `NODE_OPTIONS --require` (`probe.cjs`: кривая здоровья, боссы, скорость монстров по `PROBE`) и счётчик ударов героя на убийство обычного монстра (`hits.cjs`).
 
 Новый раунд правит скрипт на месте, старая версия остаётся в истории git. Если скрипт меряет иначе, чем раньше, это пишется в отчёте и в `MAGMA_LIMITS.md` («Замечания к старым замерам»).
 
