@@ -396,13 +396,15 @@
     const o = B[j]; if (o && o.b === A[k].b && o.n >= D.CONSUMABLES[o.b].stack) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.full') }); return; }
     if (!SIMX.movePart(R, A, k, B, j, n)) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.busy') }); return; }
     S.saveN++; ev(S, { k: 'equip', x: R.hero.x, y: R.hero.y }); }
+  // a stack let go on a stack of its kind joins it up to the limit and the rest stays where it came from (TASKS 1999); a full one swaps
+  const joinStack = (R, A, k, B, j) => { const it = A[k], o = B[j]; return !!(it && o && o !== it && isCons(it) && o.b === it.b && SIMX.movePart(R, A, k, B, j, it.n || 1)); };
   // the carried part's step in a window: true while it is held; arrOf gives the list and cell for a target cell, or null
   function carryStep(S, R, inp, keys, x, y, click, b, arrOf) { const dr = S.drag; if (!dr || !dr.carry) return false;
     dr.x = x; dr.y = y; const src = arrOf(dr.from), it = src && src[0][src[1]];
     if (!it || keys.Escape || inp.rclick) { S.drag = null; return true; }
     if (!click) return true; S.drag = null;
     if (!b || b.id === dr.from) return true;
-    if (b.tab !== undefined) { dropPart(S, R, src[0], src[1], R.hero.bag, freeIn(R.hero, b.tab), dr.n, x, y); return true; }
+    if (b.tab !== undefined) { dropPart(S, R, src[0], src[1], R.hero.bag, tabSpot(R.hero, b.tab, it), dr.n, x, y); return true; }
     if (b.id.startsWith('eq:')) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.cons') }); return true; }
     const to = arrOf(b.id); if (to) dropPart(S, R, src[0], src[1], to[0], to[1], dr.n, x, y); return true; }
   SCREEN.stash = (S, inp, keys, x, y, click) => {
@@ -418,11 +420,11 @@
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; }
     else if (S.drag) { const from = S.drag.from, k = +from.split(':')[1], to = b && b.id !== from ? b : null; S.drag = null;
-      if (to && to.tab !== undefined) { if (from.startsWith('bag:')) intoTab(S, R, R.hero, k, false, to.tab, x, y); else { const j = freeIn(R.hero, to.tab); if (j < 0) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); else stashTake(S, R, k, j); } return; }
+      if (to && to.tab !== undefined) { if (from.startsWith('bag:')) intoTab(S, R, R.hero, k, false, to.tab, x, y); else { const j = tabSpot(R.hero, to.tab, T.items[k]); if (j < 0) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); else stashTake(S, R, k, j); } return; }
       const same = to && to.id.split(':')[0] === from.split(':')[0];
       // a drag within one grid moves the piece there, as the window's own line says (TASKS 1413)
-      if (same && from.startsWith('bag:')) { const B = R.hero.bag; [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
-      else if (same) { if (to.i < n) { [T.items[k], T.items[to.i]] = [T.items[to.i] || null, T.items[k]]; S.saveN++; } }
+      if (same && from.startsWith('bag:')) { const B = R.hero.bag; if (!joinStack(R, B, k, B, to.i)) [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
+      else if (same) { if (to.i < n) { if (!joinStack(R, T.items, k, T.items, to.i)) [T.items[k], T.items[to.i]] = [T.items[to.i] || null, T.items[k]]; S.saveN++; } }
       else if (from.startsWith('bag:')) stashPut(S, R, k, to && to.id.startsWith('stash:') && to.i < n ? to.i : undefined);
       else stashTake(S, R, k, to && to.id.startsWith('bag:') ? to.i : undefined); }
     return;
@@ -506,12 +508,16 @@
   const openTab = (S, h) => { const T = D.bagTabs(h.bag.length), k = Math.max(0, Math.min(T.length - 1, S.bagTab | 0)); return T[k]; };
   const sortTab = (S, h, k) => { const T = openTab(S, h), part = h.bag.slice(T.a, T.a + T.n); sortItems(part, T.n, k, true); h.bag.splice(T.a, T.n, ...part); };
   const freeIn = (h, t) => { const T = D.bagTabs(h.bag.length)[t]; if (T) for (let i = T.a; i < T.a + T.n; i++) if (!h.bag[i]) return i; return -1; };
+  // a consumable let go over a tab joins a stack of its kind with room there before it takes a free cell (TASKS 1999)
+  const tabSpot = (h, t, it) => { const T = D.bagTabs(h.bag.length)[t]; if (!T) return -1;
+    if (it && isCons(it)) for (let i = T.a; i < T.a + T.n; i++) { const o = h.bag[i]; if (o && o !== it && o.b === it.b && o.n < D.CONSUMABLES[o.b].stack) return i; }
+    return freeIn(h, t); };
   const tabClick = (S, b, x, y) => { S.bagTab = b.tab; S.hover = ''; ev(S, { k: 'ui', x, y }); };
   // a piece let go over a tab goes to that tab's first free cell (a worn one comes off into it)
   const intoTab = (S, R, h, k, eq, t, x, y) => { const T = D.bagTabs(h.bag.length)[t]; if (!T) return;
     if (!eq && k >= T.a && k < T.a + T.n) { ev(S, { k: 'nope', x, y, s: t ? TXT('sim_ui.inv.same') : TXT('sim_ui.inv.sameBag') }); return; }
-    const j = freeIn(h, t); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
-    if (eq) unequip(S, R, h, k, j); else { h.bag[j] = h.bag[k]; h.bag[k] = null; S.saveN++; ev(S, { k: 'ui', x, y }); } };
+    const j = tabSpot(h, t, eq ? null : h.bag[k]); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
+    if (eq) unequip(S, R, h, k, j); else { if (!joinStack(R, h.bag, k, h.bag, j)) { h.bag[j] = h.bag[k]; h.bag[k] = null; } S.saveN++; ev(S, { k: 'ui', x, y }); } };
   const unequip = (S, R, h, slot, i) => { const it = h.eq[slot]; if (!it) return;
     if (i === undefined ? bagAdd(R, it) : !h.bag[i]) { if (i !== undefined) { it.id = it.id || R.nextId++; h.bag[i] = it; } h.eq[slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot, off: gearName(it) }); } };
   // a press on a bag or worn piece picks it up; letting go over its own cell is the click (use / unequip), over another bag cell
@@ -521,7 +527,7 @@
     if (b && b.tab !== undefined) { intoTab(S, R, h, k, eq, b.tab, dr.x, dr.y); return; }
     const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length, nope = (s) => ev(S, { k: 'nope', x: dr.x, y: dr.y, s });
     if (b && b.id === f) { if (eq) unequip(S, R, h, k); else useItem(S, R, k); }
-    else if (bagTo && !eq) { [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
+    else if (bagTo && !eq) { if (!joinStack(R, h.bag, k, h.bag, b.i)) [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
     else if (bagTo && eq) { const o = h.bag[b.i]; if (!o) unequip(S, R, h, k, b.i); else if (fitsSlot(o, k)) useItem(S, R, b.i); else nope(TXT('sim_ui.inv.swap', { p1: D.SLOT_NAME[k] })); }
     else if (b && b.id.startsWith('eq:') && !eq) { const it = h.bag[k]; if (it && isCons(it)) nope(TXT('sim_ui.inv.cons')); else if (!fitsSlot(it, b.slot)) nope(TXT('sim_ui.inv.slot', { p1: D.SLOT_NAME[b.slot] })); else useItem(S, R, k); } };
   SCREEN.inv = (S, inp, keys, x, y, click) => {

@@ -268,5 +268,34 @@
       else out.push('split: the merchant sells no potions');
       if (g) { h.bag.fill(null); g.n = cap * 2 + 3; h.gold = g.price * g.n; const n = g.n; SIMX.buy(S, R, g, false, n);
         if (hp(h) !== n || over(h.bag) || h.bag.filter(Boolean).length !== 3) out.push(`split: buying ${n} into an empty bag gives ${hp(h)} potions in ${h.bag.filter(Boolean).length} cells, or a stack past its limit`); } } }
-  Object.assign(SIMX, { checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit });
+  // TASKS 1999: potions and scrolls stack to 20; a stack let go on a stack of its kind joins it up to that and the rest stays where it
+  // came from (in the bag, the chest and onto a tab), and everything that puts one into the bag fills the stacks first
+  function checkStacks(out) {
+    for (const [b, q] of Object.entries(D.CONSUMABLES)) if (q.stack !== 20) out.push(`stacks: ${b} stacks to ${q.stack}, not 20`);
+    const c = (R, b, n) => Object.assign(SIMX.potion(b, n), { id: R.nextId++ }), ns = (L0, b = 'hp_potion') => L0.filter((q) => q && q.b === b).map((q) => q.n).sort((p, q) => q - p).join(',');
+    const at = (S, U, id) => mid(S, U.r.find((q) => q.id === id)), drop = (S, U, from, to) => { S.drag = { from, x: 0, y: 0 }; step(S, Object.assign({ keys: [] }, at(S, U, to))); };
+    { const { S, R, h } = playing('warrior'); S.screen = 'inv'; h.bag.fill(null); const U = () => UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab);
+      h.bag[0] = c(R, 'scroll', 5); h.bag[1] = c(R, 'scroll', 2); drop(S, U(), 'bag:1', 'bag:0'); if (ns(h.bag, 'scroll') !== '7' || h.bag[1]) out.push(`stacks: 2 scrolls dropped on 5 give ${ns(h.bag, 'scroll')}, not one stack of 7`);
+      h.bag[2] = c(R, 'hp_potion', 18); h.bag[3] = c(R, 'hp_potion', 5); drop(S, U(), 'bag:3', 'bag:2'); if (h.bag[2].n !== 20 || !h.bag[3] || h.bag[3].n !== 3) out.push(`stacks: 5 potions dropped on 18 give ${ns(h.bag)}, not 20 and 3 left where they were`);
+      drop(S, U(), 'bag:2', 'bag:3'); if (ns(h.bag) !== '20,3') out.push(`stacks: a full stack dropped on a stack of its kind gives ${ns(h.bag)}`);
+      h.bag[4] = c(R, 'mp_potion', 4); const m = h.bag[2]; drop(S, U(), 'bag:4', 'bag:2'); if (h.bag[2] !== h.bag[4] && h.bag[4] !== m) out.push('stacks: a stack dropped on another kind does not swap'); }
+    { const { S, R, h } = playing('warrior'); h.bag = Array(D.BAG.start + D.BAG.pouch).fill(null); S.screen = 'inv'; S.bagTab = 1; const U = () => UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab);
+      h.bag[2] = c(R, 'scroll', 4); h.bag[30] = c(R, 'scroll', 3); drop(S, U(), 'bag:30', 'btab:0'); if (ns(h.bag, 'scroll') !== '7') out.push(`stacks: scrolls let go over the bag's tab give ${ns(h.bag, 'scroll')}, not one stack of 7`); }
+    { const S = townRun(), R = S.run, h = R.hero; S.screen = 'stash'; h.bag.fill(null); const T = SIMX.stashOf(S); T.items = Array(D.STASH.cells).fill(null); const U = () => UI.stash(h.bag.length, S.bagTab);
+      T.items[0] = c(R, 'hp_potion', 15); T.items[1] = c(R, 'hp_potion', 9); drop(S, U(), 'stash:1', 'stash:0'); if (T.items[0].n !== 20 || !T.items[1] || T.items[1].n !== 4) out.push(`stacks: in the chest 9 on 15 give ${ns(T.items)}, not 20 and 4`);
+      h.bag[0] = c(R, 'hp_potion', 17); drop(S, U(), 'stash:1', 'bag:0'); if (h.bag[0].n !== 20 || T.items[1].n !== 1) out.push(`stacks: 4 from the chest on 17 in the bag give ${ns(h.bag)} / ${ns(T.items)}`);
+      h.bag[1] = c(R, 'scroll', 6); T.items[5] = c(R, 'scroll', 16); drop(S, U(), 'bag:1', 'stash:5'); if (T.items[5].n !== 20 || !h.bag[1] || h.bag[1].n !== 2) out.push(`stacks: 6 scrolls on 16 in the chest give ${ns(T.items, 'scroll')} / ${ns(h.bag, 'scroll')}`);
+      h.bag[1].n = 2; h.bag[7] = c(R, 'scroll', 5); step(S, Object.assign({ keys: [], rclick: 1 }, at(S, U(), 'stash:5'))); if (ns(h.bag, 'scroll') !== '20,7' || T.items[5]) out.push(`stacks: 20 scrolls taken from the chest give ${ns(h.bag, 'scroll')}, not 20 on 2 and 7 on 5`); }
+    { const { S, R, h } = playing('warrior'); h.bag.fill(null); h.bag[3] = c(R, 'hp_potion', 5);
+      const pick = (it) => SIMX.takeItem(S, R, { item: it, x: h.x, y: h.y });
+      pick(SIMX.potion('hp_potion')); if (ns(h.bag) !== '6' || !h.bag[3]) out.push(`stacks: a potion picked up beside 5 gives ${ns(h.bag)}, not one stack of 6`);
+      h.bag[3].n = 19; pick(SIMX.potion('hp_potion', 3)); if (ns(h.bag) !== '20,2') out.push(`stacks: 3 potions picked up beside 19 give ${ns(h.bag)}, not 20 and 2`);
+      h.bag[5] = c(R, 'scroll', 5); SIMX.bagAdd(R, SIMX.potion('scroll', 1)); if (ns(h.bag, 'scroll') !== '6') out.push(`stacks: a scroll given beside 5 gives ${ns(h.bag, 'scroll')}`); }
+    { const S = spawn(0, {}); SIMX.begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
+      const R = S.run, h = R.hero, g = R.shop.goods.find((q) => q.n && q.it.b === 'hp_potion');
+      if (!g) out.push('stacks: the merchant sells no potions');
+      else { h.bag.fill(null); h.bag[4] = c(R, 'hp_potion', 19); g.n = 5; h.gold = g.price * 3; SIMX.buy(S, R, g, false, 3); if (ns(h.bag) !== '20,2') out.push(`stacks: 3 potions bought beside 19 give ${ns(h.bag)}, not 20 and 2`);
+        h.bag.fill(null); h.bag[6] = c(R, 'hp_potion', 5); R.shop.back.push({ it: c(R, 'hp_potion', 2), price: 1 }); h.gold = 1; SIMX.buy(S, R, R.shop.back[R.shop.back.length - 1], true);
+        if (ns(h.bag) !== '7') out.push(`stacks: 2 potions bought back beside 5 give ${ns(h.bag)}, not one stack of 7`); } } }
+  Object.assign(SIMX, { checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);
