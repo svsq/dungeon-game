@@ -125,9 +125,9 @@
       return { P, rows: shown, top: t, max, n: rows.length, view, bar,
         heads: shown.filter((r) => r.k === 'ver').map((r) => ({ id: 'ver:' + r.v, v: r.v, x: view.x, y: r.y, w: bar ? bar.track.x - view.x : view.w, h: r.h })),
         r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
-    // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right).
-    // The book is as tall as the settings there are (TASKS 1758: five rows' room held two and stood two thirds empty); the graphics
-    // modes (1372) and the language (1039) will each add a row. «Назад» under the book, off the spine, as on the saves' screen
+    // the settings (TASKS 1302): a wide sheet (1876, no spine), a row a setting across it (its name on the left, its control on the right).
+    // The sheet is as tall as the settings there are (TASKS 1758: five rows' room held two and stood two thirds empty); the graphics
+    // modes (1372) and the language (1039) will each add a row. «Назад» under the sheet, as on the saves' screen
     settings: () => { const K = SETTINGS_BOOK, h = K.top + SETTINGS.length * K.row - 50 + K.foot, y = Math.max(40, Math.round((1080 - h - 150) / 2)), B = { x: K.x, y, w: K.w, h };
       const rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + K.top + i * K.row }, q));
       return { B, rows, r: rows.map((q) => (q.check ? { id: q.id, check: 1, x: 1000, y: q.y - 34, w: 68, h: 68 } : { id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))

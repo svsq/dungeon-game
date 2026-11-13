@@ -1122,10 +1122,10 @@
     for (const [px, py] of [[-8, -8], [8, -8], [0, 0], [-8, 8], [8, 8]]) { const qx = cx + px * c - py * sn, qy = cy2 + px * sn + py * c; L.solid(qx - 3, qy - 3, 6, 6, ink, r, 3, 3); }
     L.uiBox('cl_dice_b', d.x, d.y, d.w, d.h, 0);
   }
-  // the settings (TASKS 1302), look B: an open book over the menu's backdrop, or over the dimmed run when opened from the pause
+  // the settings (TASKS 1302), look B: a wide parchment sheet in a leather board (1876) over the menu's backdrop, or over the dimmed run when opened from the pause
   function settings(S, t) {
     if (S.run && S.setFrom === 'pause') dim(0.6); else menuBack(t);
-    const U = D.UI.settings(), B = KIT.book('st_book', U.B.x, U.B.y, U.B.w, U.B.h), P = { x: U.B.x + 22, y: U.B.y + 22, w: U.B.w - 44, h: U.B.h - 44 };
+    const U = D.UI.settings(), B = KIT.book('st_book', U.B.x, U.B.y, U.B.w, U.B.h, { spine: false }), P = { x: U.B.x + 22, y: U.B.y + 22, w: U.B.w - 44, h: U.B.h - 44 };
     KIT.corners({ x: P.x + 18, y: P.y + 18, w: P.w - 36, h: P.h - 36 }, 0.7);
     KIT.heading('st_t', TXT('hud.settings'), W / 2, U.B.y + 120, { size: 60, wing: 120 });
     for (const q of U.rows) { const r = U.r.find((o) => o.id === q.id), st = KIT.st(S, q.id), i = q.stops.indexOf(S.meta[q.key] ?? q.def), v = q.stops[i < 0 ? q.stops.indexOf(q.def) : i];
