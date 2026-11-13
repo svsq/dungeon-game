@@ -79,6 +79,7 @@
   function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind, ax = sx, ay = sy) {
     const fromHero = byHero; byHero = 0;
     if (e.deadT >= 0 || under(e) || R.town) return;
+    if (fromHero && D.clsOf(R.hero).dmgK) dmg = Math.max(1, Math.round(dmg * D.clsOf(R.hero).dmgK));
     if (fromHero && R.hero.curseT > S.t) dmg = Math.max(1, Math.round(dmg * MOD.curse.k));
     // the war cry's buff and a blow's rage (TASKS 1130)
     if (fromHero && R.hero.cryT > S.t) dmg = Math.round(dmg * D.CRY.buff);
