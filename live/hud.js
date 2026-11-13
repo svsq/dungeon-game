@@ -1253,13 +1253,16 @@
     newAsk(S); updWin(S);
   }
   // the update's window (TASKS 1870): a torn sheet in the middle of the menu, its lines by the state, the download's bar, its buttons
+  // a line wider than its box loses whole words to «…», where the label's own fit would cut the last word in half
+  const wordFit = (id, s, w, size) => { if (lw(id + '_m', s, { size }) <= w) return s; const t = s.replace(/…$/, '').split(' ');
+    while (t.length > 1) { t.pop(); const c = t.join(' ').replace(/[,;:.\s-]+$/, '') + '…'; if (lw(id + '_m', c, { size }) <= w) return c; } return s; };
   function updWin(S) {
     if (!S.updOpen) return;
     const U = D.UI.upd(S.upd), A = U.A, I = KIT.INK; dim(0.5); KIT.panel('up_win', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
     KIT.heading('up_t', TXT('hud.upd'), A.x + A.w / 2, A.y + 74, { size: 44, wing: 60 });
     const dot = (x, y) => L.solid(x - 4, y - 4, 8, 8, [0.49, 0.12, 0.07], 0.7854, 4, 4);
     U.rows.forEach((r, i) => { const id = 'up_r' + i;
-      if (r.k === 'note') { if (r.first) dot(A.x + 92, r.y); KIT.ink(id, r.s, A.x + 108, r.y, { size: 22, fit: A.w - 180 }); }
+      if (r.k === 'note') { if (r.first) dot(A.x + 92, r.y); KIT.ink(id, wordFit(id, r.s, A.w - 180, 22), A.x + 108, r.y, { size: 22, fit: A.w - 180 }); }
       else if (r.k === 'head') KIT.ink(id, r.s, A.x + 80, r.y, { size: 24, col: I.r });
       else KIT.ink(id, r.s, A.x + A.w / 2, r.y, { size: r.k === 'dim' ? 22 : 28, al: 0.5, fit: A.w - 120, col: r.k === 'dim' ? I.d : I.t }); });
     if (U.bar) { const B = U.bar; L.rrect(B.x - 2, B.y - 2, B.w + 4, B.h + 4, 6, [0.42, 0.27, 0.15]); L.rrect(B.x, B.y, B.w, B.h, 5, [0.86, 0.76, 0.58]);

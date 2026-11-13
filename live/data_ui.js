@@ -174,8 +174,10 @@
     // the update's window over the menu (TASKS 1870): its lines by the state, the download's bar, one or two buttons under them
     upd: (u) => { const st = !u || u.st === 'idle' ? 'check' : u.st, v = (u && u.v) || '', A = { w: 760 }, rows = [], LW = 46, NW = 56; let y = 146, bar = null, ids;
       const line = (s, k = 'line') => { for (const q of wrapLine(s, k === 'line' ? LW : NW)) { rows.push({ s: q, k, y }); y += k === 'line' ? 36 : 30; } };
+      // the cut ends on a whole word and «…» is counted in the line's width, so the page never has to clip it mid-word
+      const ellip = (s, n) => { const t = s.split(' '); while (t.length > 1 && t.join(' ').length + 1 > n) t.pop(); return t.join(' ').replace(/[,;:.\s-]+$/, '') + '…'; };
       const notes = () => { const N = (u.notes || []).slice(0, 5); if (!N.length) return; y += 8; line(TXT('hud.upd.news'), 'head');
-        for (const n of N) { const w = wrapLine(n, NW - 8); const two = w.length > 2 ? [w[0], w[1] + '…'] : w; two.forEach((q, i) => { rows.push({ s: q, k: 'note', first: !i, y }); y += 30; }); } };
+        for (const n of N) { const w = wrapLine(n, NW - 8); const two = w.length > 2 ? [w[0], ellip(w[1], NW - 8)] : w; two.forEach((q, i) => { rows.push({ s: q, k: 'note', first: !i, y }); y += 30; }); } };
       if (st === 'check') { line(TXT('hud.upd.check')); ids = ['close']; }
       else if (st === 'none') { line(TXT('hud.upd.none', { v })); ids = ['close']; }
       else if (st === 'avail') { line(TXT('hud.upd.avail', { v })); notes(); ids = ['get', 'later']; }
