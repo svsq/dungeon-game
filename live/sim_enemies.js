@@ -345,12 +345,16 @@
           if (touched && touched.deadT < 0) hush(S, R, touched);
           else { SIMX.breakPots(S, R, bx, by, 24); SIMX.hitProps(S, R, bx, by, 24); }
           ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: touched ? 1 : 0, mine: 1 }); }
-        else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
-          for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, p.dmg, !!p.crit, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
-          SIMX.breakPots(S, R, bx, by, 50); SIMX.hitProps(S, R, bx, by, 50); SIMX.tearWebs(S, R, bx, by - 20, 66, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by }); R.trauma = Math.min(1, R.trauma + 0.2); }
+        else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT, F = touched && !wall && p.frag, dmg = F ? Math.max(1, Math.round(p.dmg * F.first)) : p.dmg, br = p.br || 66;
+          for (const e of R.en) if (e.deadT < 0 && !(p.shard && p.past.includes(e.id)) && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < br + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, dmg, !!p.crit, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
+          SIMX.breakPots(S, R, bx, by, br * 0.75); SIMX.hitProps(S, R, bx, by, br * 0.75); SIMX.tearWebs(S, R, bx, by - 20, br, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by, ...(p.br ? { vr: Math.round(88 * br / 66) } : {}) }); R.trauma = Math.min(1, R.trauma + (p.br ? 0.08 : 0.2));
+          if (F) shatter(S, R, p, touched, F); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
     R.proj = R.proj.filter((p) => !p.dead);
   }
+  function shatter(S, R, p, e, F) { const a0 = Math.atan2(p.vy, p.vx), v = Math.hypot(p.vx, p.vy), dmg = Math.max(1, Math.round(p.dmg * F.k));
+    for (let i = 0; i < F.n; i++) { const a = a0 + (F.n > 1 ? (i / (F.n - 1) - 0.5) * F.a : 0);
+      R.proj.push(Object.assign({}, p, { id: R.nextId++, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: S.t, life: F.life, dmg, r: p.r * 0.6, br: 44, frag: null, past: [e.id], shard: 1, dead: 0 })); } }
   function hush(S, R, e) { const U = D.HUSH, t = S.t;
     if (e.st !== 'wind' || e.kin || e.grab || D.BOSSES[e.type] || !U.kinds.includes(ENEMIES[e.type].kind) || t < (e.hushT ?? 0)) return;
     e.st = 'chase'; e.t0 = t; e.cdT = Math.max(e.cdT || 0, t + U.cd); e.hushT = t + U.every; ev(S, { k: 'hush', x: e.x, y: e.y - ENEMIES[e.type].h * 0.8, id: e.id }); }
@@ -524,17 +528,20 @@
     // corpses are removed once they have faded
     R.en = R.en.filter((e) => e.deadT < 0 || t - e.deadT < 6);
   }
-  // at its post a monster breathes (the rig), looks one way then the other, and now and then shifts a step around the spot
+  // (TASKS 1938: a slow walk about the post at 22 px/s barely moved the legs and the feet slid 8 px) the step eases the body along with
+  // no speed, so the rig can plant one foot after the other; a kind whose rig can't step stays put
+  const AMB_T = D.AMB_T;
   function idle(m, e, E, t) {
     const per = 6 + (e.id % 5), u = (t + e.id * 2.3) % per, n = Math.floor((t + e.id * 2.3) / per);
-    let vx = 0, vy = 0;
-    if (u > 3.2 && u < 3.8 && e.hx !== undefined && !E.ghost) {
-      const a = n * 2.4 + e.id, gx = e.hx + Math.cos(a) * 14 - e.x, gy = e.hy + Math.sin(a) * 8 - e.y, gd = Math.hypot(gx, gy);
-      if (gd > 3) { vx = gx / gd * E.spd * 0.3; vy = gy / gd * E.spd * 0.3; } }
-    const k = 1 - Math.exp(-12 * DT); e.vx += (vx - e.vx) * k; e.vy += (vy - e.vy) * k;
-    const sp = Math.hypot(e.vx, e.vy); if (sp < 1) e.vx = e.vy = 0; else { move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += sp * DT; }
+    e.vx = e.vy = 0;
+    if (u > 3.2 && u < 3.2 + AMB_T && e.hx !== undefined && !E.ghost && E.amble !== 0 && (!e.amb || e.amb.n !== n)) {
+      const a = n * 2.4 + e.id, gx = e.hx + Math.cos(a) * 14, gy = e.hy + Math.sin(a) * 8, trial = { x: e.x, y: e.y };
+      move(m, trial, gx - e.x, gy - e.y, E.r, true);
+      if (Math.hypot(trial.x - e.x, trial.y - e.y) > 3) e.amb = { n, t, x0: e.x, y0: e.y, x1: trial.x, y1: trial.y };
+      else e.amb = { n, t: -9, x0: e.x, y0: e.y, x1: e.x, y1: e.y }; }
+    const A = e.amb, w = A && A.n === n ? (t - A.t) / AMB_T : 2;
+    if (w >= 0 && w <= 1) { const k = w * w * (3 - 2 * w); move(m, e, A.x0 + (A.x1 - A.x0) * k - e.x, A.y0 + (A.y1 - A.y0) * k - e.y, E.r, true); }
     if (u > 1.1 && u < 1.2) e.face = n % 2 ? 1 : -1; else if (u > 4.4 && u < 4.5) e.face = n % 2 ? -1 : 1;
-    else if (sp > 4 && Math.abs(e.vx) > 2) e.face = e.vx > 0 ? 1 : -1;
   }
   function goHome(m, e, E, t) {
     const dx = e.hx - e.x, dy = e.hy - e.y, d = Math.hypot(dx, dy);
@@ -588,5 +595,5 @@
 
   Object.assign(SIMX, {
     MOD, has, rollMods, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, chill, addFire, stepFires, flightReach,
-    stepProjectiles, stepMonsters, ARROW_Y, steer });
+    stepProjectiles, stepMonsters, ARROW_Y, steer, idle });
 })(typeof window !== 'undefined' ? window : globalThis);

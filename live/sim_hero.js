@@ -12,11 +12,12 @@
   // where the hero's weapon hand / spells come from (shared with the rig: SIM.RIG.shoulder above the feet)
   const RIG = { shoulder: 51, arm: 28 };
   // one step's travel: shorter when walking toward / away from the camera, so planted feet keep pace with the ground
-  const stepLen = (ux) => K.STEP * (0.82 + 0.18 * Math.min(1, ux));
+  const stepLen = (ux) => K.STEP * (0.9 + 0.1 * Math.min(1, ux));   // (TASKS 1802: at 0.82 walking down he stepped 10.7 times a second)
   const hand = (h) => [h.x + Math.cos(h.aim) * 23, h.y - RIG.shoulder + 8 + Math.sin(h.aim) * 15];
   function bagAdd(R, it) {
     const h = R.hero;
-    if (isCons(it)) { let n = it.n || 1; const cap = CONSUMABLES[it.b].stack; for (const st of h.bag) { if (!st || st.b !== it.b || st.n >= cap) continue; const q = Math.min(n, cap - st.n); st.n += q; n -= q; if (!n) return true; } it.n = n; }
+    if (isCons(it)) { let n = it.n || 1; const cap = CONSUMABLES[it.b].stack; for (const st of h.bag) { if (!st || st.b !== it.b || st.n >= cap) continue; const q = Math.min(n, cap - st.n); st.n += q; n -= q; if (!n) return true; }
+      for (let j; n > cap && (j = h.bag.indexOf(null)) >= 0; n -= cap) h.bag[j] = Object.assign({}, it, { id: R.nextId++, n: cap }); it.n = n; if (n > cap) return false; }
     const i = h.bag.indexOf(null); if (i < 0) return false; if (!it.id) it.id = R.nextId++; h.bag[i] = it; return true;
   }
   function gainXp(S, R, n) {
@@ -33,11 +34,13 @@
     if (!(o.shield > 0 && S.t < o.shieldUntil)) return dmg;
     const n = Math.min(o.shield, dmg); o.shield -= n; ev(S, Object.assign({ k: 'absorb', x: o.x, y: o.y, n }, extra)); if (o.shield <= 0) ev(S, { k: 'shield_break', x: o.x, y: o.y }); return dmg - n;
   }
+  // (deadT is -1 while alive and may go negative when a QA state kills at S.t - 0.8, so only -1 itself means alive)
+  function killHero(S, R) { const h = R.hero; if (h.deadT !== -1) return; h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
   function hurtHero(S, R, dmg, sx, sy, kind, src, actor) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr || R.town) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
     if (kind !== 'spike' && src !== 'lava' && rnd(R) * 100 < heroSt(S).dodge + (dashing ? BAL.dodge.dash : 0)) { ev(S, { k: 'dodge', x: h.x, y: h.y, dash: dashing ? 1 : 0 }); return; }
-    if (h.read) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.hurtHero.s') }); }
+    if (h.read) { const P = heroSt(S).poise; if (!(P && rnd(R) * 100 < P)) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.hurtHero.s') }); } }
     // a weapon a fire priest set alight (TASKS 410): a harder blow that sets the hero burning
     if (actor && actor.fireT > S.t && kind === undefined && !/ (bolt|blast|pillar)$/.test(src || '')) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
     // a monster the war cry shook hits softer (TASKS 1130)
@@ -51,13 +54,13 @@
     // shield takes is no part of it)
     const capped = actor && ((ENEMIES[actor.type] || {}).boom || {}).capped && / blast$/.test(src || '');
     if (capped) { const C = BAL.cap.blast, win = (R.blastWin || []).filter(([t]) => S.t - t < C.t), room = Math.round(st.maxHp * C.share) - win.reduce((n, [, v]) => n + v, 0);
-      dmg = Math.min(dmg, room); R.blastWin = win; if (dmg <= 0) { const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260; R.trauma = Math.min(1, R.trauma + 0.35); return; } }   // (a blast past the cap still throws and shakes: no action without an answer)
+      dmg = Math.min(dmg, room); R.blastWin = win; if (dmg <= 0) { const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1, shove = 260 * (1 - st.poise / 100); h.vx += dx / d * shove; h.vy += dy / d * shove; R.trauma = Math.min(1, R.trauma + 0.35); return; } }   // (a blast past the cap still throws and shakes: no action without an answer)
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
     const blow = dmg;
     const shielded = h.shield > 0 && S.t < h.shieldUntil; dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (shielded) SIMX.firePowers(S, R, 'shieldHit', { x: h.x, y: h.y }); if (shielded && h.shield <= 0) SIMX.firePowers(S, R, 'shieldBreak', { x: h.x, y: h.y }); if (capped && dmg > 0) R.blastWin.push([S.t, dmg]); if (dmg <= 0) return;
     if (D.clsOf(h).res === 'rage') { h.mp = Math.min(D.RAGE.max, h.mp + dmg / st.maxHp * 100 * D.RAGE.hurt); h.fightT = S.t; }
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
-    const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
+    const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1, shove = 260 * (1 - st.poise / 100); h.vx += dx / d * shove; h.vy += dy / d * shove;
     if (kind === 'poison') h.poison = S.t + 3;
     if (kind === 'fire') { if (h.burn <= S.t) ev(S, { k: 'ignite', x: h.x, y: h.y }); h.burn = Math.max(h.burn, S.t + 3); }
     if (kind === 'water') { h.slowT = S.t + ORB.t; ev(S, { k: 'soak', x: h.x, y: h.y - 38 }); }
@@ -67,7 +70,7 @@
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
     if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
       ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: TXT('sim_hero.hurtHero.msg.s'), t: S.t }; return; }
-    if (h.hp <= 0) { h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
+    if (h.hp <= 0) killHero(S, R);
   }
   // (ax, ay): where the blow came from on the floor, when not its source (a bolt bursts at the height of the body it hit)
   // the hero's own blows (a swing, the whirl, a fireball's burst): what a reflecting or cursing elite answers (TASKS 387)
@@ -84,6 +87,7 @@
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     if (D.BOSSES[e.type] && e.openUntil > S.t) dmg *= e.type === 'boss_serpent' ? 1.4 : D.BOSSES[e.type].moves.fists.open;
     let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ((e.elite && ENEMIES[e.type].armor.elite) || ENEMIES[e.type].armor.k))); e.armT = S.t; }
+    if (e.st === 'rise' && ENEMIES[e.type].riseGuard) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].riseGuard)); e.armT = S.t; arm = true; }
     // a golem's crust takes the blow and a plate of it comes off (TASKS 409); its fire doesn't
     const CR0 = ENEMIES[e.type].crust; if (CR0 && kind !== 'burn' && kind !== 'thorns' && crustOf(e, ENEMIES[e.type]) > 0) { dmg = Math.max(1, Math.round(dmg * CR0.k)); const n0 = crustOf(e, ENEMIES[e.type]); e.crust = n0 - 1; e.growT = S.t; e.armT = S.t; arm = true;
       (e.plateT = e.plateT || {})[n0] = S.t; (e.plateA = e.plateA || {})[n0] = Math.atan2(e.y - sy, e.x - sx); }   // (which plate went when, and which way: the render throws it off)
@@ -348,7 +352,7 @@
     if (h.shield > 0 && t > h.shieldUntil) { const left = h.shield; h.shield = 0; SIMX.firePowers(S, R, 'shieldEnd', { x: h.x, y: h.y, left }); }
     // spikes: up for 0.7 s of every 2.4 s; a plate is 2×2 cells, feet a little inside its edge count
     for (const tr of m.traps) { const ph = ((t / 2.4 + tr.ph) % 1 + 1) % 1, up = ph < 0.29;
-      if (up && onPlate(h, tr) && !dashing && t - h.spikeT > 0.7) { h.spikeT = t; hurtHero(S, R, heroSt(S).maxHp * BAL.spike, h.x, h.y - 20, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); }
+      if (up && onPlate(h, tr) && !dashing && t - h.spikeT > 0.7) { h.spikeT = t; hurtHero(S, R, heroSt(S).maxHp * (m.biome === 'magma' ? D.ARCH.plateau.guard.hit : BAL.spike), h.x, h.y - 20, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); }
       // the spikes don't care whose feet are on them: lure or knock monsters onto a plate
       if (up) for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onPlate(e, tr) && t - (e.spikeT ?? -9) > 0.7) {
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (dep(R) - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
@@ -398,6 +402,6 @@
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
 
   Object.assign(SIMX, {
-    heroSt, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
+    heroSt, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, killHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
     stepPlay });
 })(typeof window !== 'undefined' ? window : globalThis);

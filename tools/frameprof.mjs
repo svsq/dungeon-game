@@ -37,7 +37,7 @@ await page.addInitScript(() => {
   hook('createFramebuffer', function (o, a) { C.fbs++; return o.apply(this, a); });
   hook('deleteFramebuffer', function (o, a) { C.fbs--; return o.apply(this, a); });
   hook('drawArrays', function (o, a) { if (C.onDraw) C.onDraw(); return o.apply(this, a); });
-  hook('drawArraysInstanced', function (o, a) { if (C.onDraw) C.onDraw(a[3]); return o.apply(this, a); });   // G.drawN (TASKS 1910): one call, a[3] copies
+  hook('drawArraysInstanced', function (o, a) { if (C.onDraw) C.onDraw(a[3]); return o.apply(this, a); });   // G.drawN (TASKS 2010): one call, a[3] copies
 });
 let result;
 try {
@@ -71,7 +71,7 @@ try {
     let pass = {}, prog = {};
     const gDraw = G.draw; G.draw = (P, U, xf, flip) => { drawP = P; drawXf = xf; gDraw(P, U, xf, flip); };
     const gDrawN = G.drawN; G.drawN = (P, U, xf, flip, off, n) => { drawP = P; drawXf = xf; gDrawN(P, U, xf, flip, off, n); };
-    // a batch of flat rectangles (G.solid, TASKS 1911) goes out from G.flush, not from a G.draw: its own program and summed area
+    // a batch of flat rectangles (G.solid, TASKS 2011) goes out from G.flush, not from a G.draw: its own program and summed area
     // (review of PR 62: it was booked to the last G.draw's program and quad)
     let batch = null; G.onFlush = (P, R, n) => { let a = 0; for (let i = 0; i < n; i++) a += Math.abs(R[4 * i + 2] * R[4 * i + 3]); batch = { P, a }; };
     C.onDraw = (copies = 1) => { if (batch) { const { P, a } = batch; batch = null; const k = tg ? tg.w * tg.h / (tg.vw * tg.vh) : 1, q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 });
@@ -97,7 +97,7 @@ try {
       for (let i = 0; i < 20; i++) SCENE.render(S.t + 0.01 + i / 60); gl.finish();
       lookAt(S, R); for (let i = 0; i < 10; i++) SCENE.render(S.t + 0.02 + i / 60); gl.finish();
       const cpu = []; for (let i = 0; i < frames; i++) { const a = performance.now(); SCENE.render(S.t + 0.1 + i / 60); cpu.push(performance.now() - a); } gl.finish();
-      // thru (TASKS 1910): frames drawn back to back with one finish at the end, CPU and GPU overlapping as in play: the frame time a player gets
+      // thru (TASKS 2010): frames drawn back to back with one finish at the end, CPU and GPU overlapping as in play: the frame time a player gets
       { const a = performance.now(); for (let i = 0; i < frames; i++) SCENE.render(S.t + 0.1 + i / 60); gl.finish(); var thruMs = (performance.now() - a) / frames; }
       pass = {}; prog = {}; fin = true; const full = [];
       for (let i = 0; i < frames; i++) { const a = performance.now(); SCENE.render(S.t + 0.1 + i / 60); gl.finish(); full.push(performance.now() - a); } fin = false;

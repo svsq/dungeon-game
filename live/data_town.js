@@ -4,9 +4,9 @@
   const D = root.DATA || (root.DATA = {});
   const { plural, runOf, stageOf, xpNeed } = D;
   const QUESTS = {
-    cull: { kind: 'side', type: 'kill', name: TXT('QUESTS.cull.name'), need: (f) => 10 + 2 * f, text: (q) => TXT('QUESTS.cull.text', { need: q.need, p2: TXT.n('QUESTS.cull.text.2', q.need), f: q.f }), rw: ['scroll', 'xp'] },
-    elites: { kind: 'side', type: 'kill', elite: 1, name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item', 'xp'] },
-    sweep: { kind: 'side', type: 'clear', name: TXT('QUESTS.sweep.name'), need: (f) => 3 + Math.floor(f / 4), text: (q) => TXT('QUESTS.sweep.text', { need: q.need, p2: TXT.n('QUESTS.sweep.text.2', q.need), f: q.f }), rw: ['xp', 'shards'] },
+    cull: { kind: 'side', type: 'kill', count: (q) => q.need + ' ' + TXT.n('QUESTS.cull.text.2', q.need), name: TXT('QUESTS.cull.name'), need: (f) => 10 + 2 * f, text: (q) => TXT('QUESTS.cull.text', { need: q.need, p2: TXT.n('QUESTS.cull.text.2', q.need), f: q.f }), rw: ['scroll', 'xp'] },
+    elites: { kind: 'side', type: 'kill', elite: 1, count: (q) => q.need + ' ' + TXT.n('QUESTS.elites.count', q.need), name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item', 'xp'] },
+    sweep: { kind: 'side', type: 'clear', count: (q) => q.need + ' ' + TXT.n('QUESTS.sweep.text.2', q.need), name: TXT('QUESTS.sweep.name'), need: (f) => 3 + Math.floor(f / 4), text: (q) => TXT('QUESTS.sweep.text', { need: q.need, p2: TXT.n('QUESTS.sweep.text.2', q.need), f: q.f }), rw: ['xp', 'shards'] },
     descent: { kind: 'side', type: 'reach', name: TXT('QUESTS.descent.name'), need: () => 1, ahead: 2, text: (q) => TXT('QUESTS.descent.text', { f: q.f }), rw: ['scroll', 'shards', 'xp'] },
     // the named foe from the 3rd floor (TASKS 1024: on the 1st it killed the bot's level-1 hero on two seeds in six)
     named: { kind: 'side', type: 'named', name: TXT('QUESTS.named.name'), need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => TXT('QUESTS.named.text', { f: q.f, title: q.title }), rw: ['scroll', 'item', 'xp'], item: 3 },
@@ -30,8 +30,10 @@
   // says). The Keeper gives the story chain (1022) and may give a side quest too
   const QUEST_GIVE = { n: [2, 3], from: ['smith', 'porter', 'sweeper', 'child', 'guard', 'keeper'], pool: ['named', 'fetch', 'room', 'cull', 'elites', 'sweep', 'descent'] };
   // the townsfolk's words around a quest: the ask, the thanks on the turn-in, and the keepsake each would have back (1020)
-  const SAY_OF = (r, ic) => { const T = TXT.talk(r); return { done: T.done, asks: T.asks, boss: T.boss, thanks: T.thanks, thing: T.thing || TXT('QUEST_SAY.keeper.thing'), ic }; };
+  const SAY_OF = (r, ic) => { const T = TXT.talk(r); return { done: T.done, asks: T.asks, boss: T.boss, thanks: T.thanks, turnin: T.turnin, thing: T.thing || TXT('QUEST_SAY.keeper.thing'), ic }; };
   const QUEST_SAY = Object.fromEntries(Object.entries({'smith': 'qi_casket', 'porter': 'qi_casket', 'sweeper': 'qi_locket', 'child': 'qi_horse', 'guard': 'qi_casket', 'keeper': 'qi_locket'}).map(([r, ic]) => [r, SAY_OF(r, ic)]));
+  const turnArgs = (q) => { const Q = QUESTS[q.key]; return { f: q.f, count: Q.count ? Q.count(q) : q.need, title: q.title, thing: q.thing, who: Q.who && FOLK[Q.who].name, boss: Q.type === 'boss' ? D.ENEMIES[stageOf('campaign', q.f).boss].name : undefined }; };
+  const turnFill = (s, q) => { const A = turnArgs(q); return s.replace(/\{(\w+)\}/g, (m, k) => (A[k] != null ? String(A[k]) : m)); };
   // the named foes (1019): a name and what it is, drawn for the quest; it walks as a strong elite of its floor's kind
 
   // the Keeper's story chain (TASKS 1022, a stub for R-04): a run's chapters as quests in order — each boss of the run's floors
@@ -86,5 +88,22 @@
   const chainOf = (n) => n.id.split('_')[0] + ':' + n.chain, CHAINS = {};
   for (const n of NOTE_LIST) if (n.chain) (CHAINS[chainOf(n)] = CHAINS[chainOf(n)] || [])[n.part - 1] = n.id;
   const NOTES = { lift: { table: 36, bookshelf: 58 }, n: [3, 5], era: { dungeon: 'cellar', crypt: 'crypt', lava: 'forge', arcane: 'halls', cave: 'flooded', magma: 'magma' }, list: NOTE_LIST, byId: Object.fromEntries(NOTE_LIST.map((n) => [n.id, n])), chains: CHAINS, chainOf };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
+  // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1606)
+  const railPts = (m) => { const TILE = D.TILE; let p = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
+    for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
+  // TASKS 1781: the cart has two paintings, the 3/4 view (its wheel line 23 degrees up to the right) and the front one (travel
+  // plumb into the screen), and no view between. A sprite turned in the screen's plane tips over, so the 3/4 one turns no more than
+  // `roll` and narrows to the front one's width (`squash`, its long side foreshortening as it turns away) to keep its wheels on the
+  // bend; the front one never turns: its uprights stay plumb and only its axle tilts (a shear) to lie square to the rails on the
+  // floor squashed to the view's depth (`floor`, as the floor discs). One painting at a time: a cross-fade showed both carts at once
+  const CART = { side: 23, front: 58, straight: 45, roll: 30, squash: 0.8, floor: 0.68, reach: 14 };
+  const cartView = (pts, s) => {
+    const tot = pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0),
+      at = (d) => { d = Math.max(0, Math.min(tot, d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } },
+      q0 = at(s - CART.reach), q1 = at(s + CART.reach), th = Math.atan2(Math.abs(q1[1] - q0[1]), Math.abs(q1[0] - q0[0])) * 180 / Math.PI, R2D = 180 / Math.PI;
+    if (th < CART.front) { const k = Math.max(0, Math.min(1, (th - CART.straight) / (CART.front - CART.straight))), sx = 1 - (1 - CART.squash) * k;
+      return { th, side: 1, sx, rot: -(th - Math.atan(Math.tan(CART.side / R2D) / sx) * R2D), tilt: 0 }; }
+    return { th, side: 0, sx: 1, rot: 0, tilt: Math.atan(CART.floor * CART.floor / Math.tan(th / R2D)) * R2D };
+  };
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, railPts, CART, cartView });
 })(typeof window !== 'undefined' ? window : globalThis);

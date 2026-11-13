@@ -2,7 +2,7 @@
 // targets, pixel-space quads (y down) with an affine transform. Everything the scene draws is a quad with a shader.
 (function () {
   const G = (window.G = {});
-  let gl, quadBuf, cur = null;
+  let gl, quadBuf, cur = null, PAR = null;
   const progs = {}, texs = {};
   let dropBinds = () => {};
 
@@ -11,6 +11,7 @@
     gl = G.gl = canvas.getContext('webgl2', { premultipliedAlpha: true, alpha: false, antialias: false, preserveDrawingBuffer: true });
     if (!gl) throw new Error('WebGL2 not available');
     gl.getExtension('EXT_color_buffer_float'); gl.getExtension('EXT_color_buffer_half_float'); gl.getExtension('OES_texture_float_linear');
+    PAR = gl.getExtension('KHR_parallel_shader_compile');
     quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
     G.W = W; G.H = H;
@@ -21,22 +22,25 @@
   G.oy = 0;
   const onScreen = (xf) => { if (!G.oy || cur) return xf; const q = xf.slice(); q[7] += G.oy; return q; };
 
-  // nearest: NEAREST min/mag, no mipmaps (pixel art: crisp texels; lod bias has no effect)
-  G.load = (name, url, { repeat = false, nearest = false } = {}) => new Promise((res, rej) => {
-    const im = new Image();
-    im.onload = () => {
-      dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
-      if (!nearest) gl.generateMipmap(gl.TEXTURE_2D);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
-      const wr = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
-      texs[name] = { t, w: im.width, h: im.height }; res(texs[name]);
-    };
-    im.onerror = () => rej(new Error('failed to load ' + url)); im.src = url;
-  });
+  // the time spent in texture uploads on the page's thread, for the start's log (TASKS 2004)
+  G.upMs = 0;
+  // the PNG is unpacked by createImageBitmap off the page's thread (TASKS 2004): from an <img>, texImage2D unpacked each one on it,
+  // 1.2 of the start's 1.9 s on a Mac; the same pixels either way (qashot frames compared). nearest: NEAREST min/mag, no mipmaps
+  // (pixel art: crisp texels; lod bias has no effect)
+  const viaImg = (name, url, o) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(upload(name, im, o)); im.onerror = () => rej(new Error('failed to load ' + url)); im.src = url; });
+  G.load = (name, url, o = {}) => (!window.createImageBitmap ? viaImg(name, url, o) : fetch(url).then((r) => { if (!r.ok) throw new Error('failed to load ' + url); return r.blob(); })
+    .then((b) => createImageBitmap(b, { premultiplyAlpha: 'premultiply', colorSpaceConversion: 'default' })).then((im) => { const r = upload(name, im, o); im.close(); return r; }));
+  const upload = (name, im, { repeat = false, nearest = false } = {}) => {
+    dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    const t0 = performance.now(); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+    if (!nearest) gl.generateMipmap(gl.TEXTURE_2D); G.upMs += performance.now() - t0;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
+    const wr = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
+    return (texs[name] = { t, w: im.width, h: im.height });
+  };
   G.canvasTex = (name, cv) => {
     dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -50,6 +54,16 @@
   G.canvas = () => document.createElement('canvas');
   G.params = new URLSearchParams(location.search);   // the render's dev switches (?fx=0, ?only=…)
   G.canvasUpdate = (rec, cv) => { if (qn) G.flush(); dropBinds(); gl.bindTexture(gl.TEXTURE_2D, rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); };
+  // filled on the CPU already premultiplied, so a dark colour at low alpha keeps its 8 bits; sampled texel for texel
+  G.dataTex = (name, w, h, data) => { if (qn) G.flush(); dropBinds(); let r = texs[name];
+    if (!r) { r = texs[name] = { t: gl.createTexture(), w: 0, h: 0 }; gl.bindTexture(gl.TEXTURE_2D, r.t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); }
+    else gl.bindTexture(gl.TEXTURE_2D, r.t);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    if (r.w === w && r.h === h) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    else { r.w = w; r.h = h; gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data); }
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); return r; };
   G.tex = (n) => { const t = texs[n]; if (!t) throw new Error('no texture ' + n); return t; };
 
   const VS_HEAD = `#version 300 es
@@ -57,13 +71,13 @@ in vec2 a_pos; uniform vec2 u_res; uniform mat3 u_xf; uniform vec2 u_flip;
 out vec2 v_uv; out vec2 v_px;
 `, VS_TAIL = `  v_px = p.xy; v_uv = mix(a_pos, 1.0 - a_pos, u_flip);
   gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0); }`;
-  // the vertex shaders: 'one' every program's, the two batched ones apart (TASKS 1911: their uniform arrays in every program cost
+  // the vertex shaders: 'one' every program's, the two batched ones apart (TASKS 2011: their uniform arrays in every program cost
   // each draw on ANGLE's Vulkan, which uploads a program's whole uniform block when any of it changes)
   const VSS = {
     one: VS_HEAD + 'void main(){ vec3 p = u_xf * vec3(a_pos, 1.0);\n' + VS_TAIL,
-    // G.drawN: copy k of the quad shifted by u_off[k] px (an outline's ink copies, TASKS 1910)
+    // G.drawN: copy k of the quad shifted by u_off[k] px (an outline's ink copies, TASKS 2010)
     off: VS_HEAD + 'uniform vec2 u_off[16];\nvoid main(){ vec3 p = u_xf * vec3(a_pos, 1.0); p.xy += u_off[gl_InstanceID];\n' + VS_TAIL,
-    // G.solid's batch: rect k is x, y, w, h in view px, its colour rgb and alpha (TASKS 1911)
+    // G.solid's batch: rect k is x, y, w, h in view px, its colour rgb and alpha (TASKS 2011)
     rect: VS_HEAD + 'uniform vec4 u_rect[64], u_rcol[64]; flat out vec4 v_rc;\nvoid main(){ vec4 r = u_rect[gl_InstanceID]; vec3 p = vec3(r.xy + a_pos * r.zw, 1.0); v_rc = u_rcol[gl_InstanceID];\n' + VS_TAIL,
   };
   const COMMON = `#version 300 es
@@ -71,6 +85,11 @@ precision highp float;
 in vec2 v_uv; in vec2 v_px; out vec4 o;
 uniform vec2 u_res; uniform float u_t;
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+// soft effects on the art grid (TASKS 1792): u_fxpx > 0 samples a quad once per u_fxpx view px and lays its level in four steps,
+// grained where two steps meet, as the world's pixel art is; 0 keeps it smooth (the HUD, the light map)
+uniform float u_fxpx; uniform vec4 u_fxq;
+vec2 fxuv(){ if (u_fxpx <= 0.0 || u_fxq.z <= 0.0) return v_uv; return ((floor(v_px / u_fxpx) + 0.5) * u_fxpx - u_fxq.xy) / u_fxq.zw; }
+float fxq(float g){ if (u_fxpx <= 0.0) return g; return floor(clamp(g, 0.0, 1.0) * 4.0 + 0.25 + 0.5 * hash(floor(v_px / u_fxpx))) / 4.0; }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1,0)), u.x), mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x), u.y); }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a * vnoise(p); p = p * 2.03 + vec2(17.1, 9.7); a *= 0.5; } return s; }
@@ -78,18 +97,31 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
 `;
   G.COMMON = COMMON;
 
-  // programs are kept by name: a name asked again with another vertex shader is an error, not the old program (review of PR 62)
-  G.program = (name, fs, vs = 'one') => {
-    if (progs[name]) { if (progs[name].vs !== vs) throw new Error(name + ': made with the vertex shader ' + progs[name].vs + ', asked with ' + vs); return progs[name]; }
-    const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(name + ': ' + gl.getShaderInfoLog(s)); return s; };
-    const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VSS[vs])); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, COMMON + fs));
-    gl.bindAttribLocation(p, 0, 'a_pos'); gl.linkProgram(p);
+  // G.defer (TASKS 2004): a program is compiled and linked but not asked whether it compiled until G.settle or its first draw. A
+  // status query right after a compile waits for that one shader, so the forty of the start compiled one after another; on Windows
+  // ANGLE turns each into HLSL for D3D11, much slower than on a Mac. Asked all at the end, the driver compiles them side by side
+  G.defer = false;
+  const unchecked = new Set();
+  const finish = (P) => { const { p, sh, name } = P; unchecked.delete(P);
+    for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(name + ': ' + gl.getShaderInfoLog(s));
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(name + ': ' + gl.getProgramInfoLog(p));
     const loc = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const u = gl.getActiveUniform(p, i); loc[u.name.replace('[0]', '')] = { l: gl.getUniformLocation(p, u.name), type: u.type }; }
-    return (progs[name] = { p, loc, name, vs });
+    P.loc = loc; P.sh = null; };
+  // programs are kept by name: a name asked again with another vertex shader is an error, not the old program (review of PR 62)
+  G.program = (name, fs, vs = 'one') => {
+    if (progs[name]) { if (progs[name].vs !== vs) throw new Error(name + ': made with the vertex shader ' + progs[name].vs + ', asked with ' + vs); return progs[name]; }
+    const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+    const p = gl.createProgram(), sh = [mk(gl.VERTEX_SHADER, VSS[vs]), mk(gl.FRAGMENT_SHADER, COMMON + fs)]; for (const s of sh) gl.attachShader(p, s);
+    gl.bindAttribLocation(p, 0, 'a_pos'); gl.linkProgram(p);
+    const P = (progs[name] = { p, loc: null, name, sh, vs }); unchecked.add(P); if (!G.defer) finish(P); return P;
   };
+  // waits, a frame at a time, until the driver has compiled every deferred program (KHR_parallel_shader_compile; without it they are
+  // asked at once), then checks them; returns how many there were
+  G.settle = async () => { const n = unchecked.size, done = (P) => gl.getProgramParameter(P.p, PAR.COMPLETION_STATUS_KHR);
+    if (PAR) while ([...unchecked].some((P) => !done(P))) await new Promise((r) => requestAnimationFrame(r));
+    for (const P of [...unchecked]) finish(P); G.defer = false; return n; };
+  G.parallel = () => !!PAR;
 
   // view: the coordinate space draws use (default w×h), e.g. a W/k × H/k target drawn in W×H view px; nearest: sample it crisp
   G.target = (w, h, float = false, { view = [w, h], nearest = false } = {}) => {
@@ -168,6 +200,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (qn) G.flush();
     if (G.outside(xf)) return;
     xf = onScreen(xf);
+    if (!P.loc) finish(P);
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
@@ -184,6 +217,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (qn) G.flush();
     if (n <= 0) return;
     xf = onScreen(xf);
+    if (!P.loc) finish(P);
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
@@ -192,7 +226,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (!attrSet) { attrSet = true; gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
   };
-  // G.solid (TASKS 1911): flat rectangles in a row go out in one instanced call, 64 at most, in their order. The cave's moss is
+  // G.solid (TASKS 2011): flat rectangles in a row go out in one instanced call, 64 at most, in their order. The cave's moss is
   // hundreds of 2 px squares a frame and each was a draw of its own. Anything else that draws, binds, clips or changes the blend
   // sends the batch first, and SCENE.render ends with G.flush(); L.solid keeps a plain draw while G.rec records or for a turned rectangle
   const QN = 64, QR = new Float32Array(4 * QN), QC = new Float32Array(4 * QN); let qn = 0, qP = null, qBlend = '';
@@ -208,6 +242,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   G.flush = () => {
     if (!qn) return; const n = qn, P = qP; qn = 0;
     if (G.onFlush) G.onFlush(P, QR, n);   // tools (frameprof): the batch's program and rectangles
+    if (!P.loc) finish(P);
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
     setU(P, 'u_res', res);

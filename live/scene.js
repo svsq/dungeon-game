@@ -6,8 +6,11 @@
 (function () {
   const SCX = window.SCX, {
     BRIDGE, CANDLE, D, DEPTH_K, GLOW_COL, GOLD_TINT, HERO, L, PIX, RIM, SC, SS, STAND, SZ, TILE, bake, emitted, glowBeat, glowOf,
-    swimTex, rnd, seenTex, spellFloor, torchCol, views, whirlP } = SCX;
+    swimTex, rnd, seenTex, spellFloor, torchCol, torchZ, sconceK, views, whirlP } = SCX;
   // ---------------- render ----------------
+  const LAVA_D = new WeakMap(), lavaField = (m) => { const g = (m.lava || 0) + ':' + (m.geometry || 0), q = LAVA_D.get(m); if (q && q.g === g) return q.d; const d = new Float64Array(m.W * m.H).fill(9);
+    for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) { const cx = k % m.W, cy = Math.floor(k / m.W); for (let j = Math.max(-6, -cy); j <= Math.min(6, m.H - 1 - cy); j++) for (let i = Math.max(-6, -cx); i <= Math.min(6, m.W - 1 - cx); i++) { const n = (cy + j) * m.W + cx + i, h = Math.hypot(i, j); if (h < d[n]) d[n] = h; } }
+    LAVA_D.set(m, { g, d }); return d; };
   SC.render = (t) => {
     G.drop();   // (third review of PR 62)
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
@@ -32,7 +35,7 @@
       spell('whirl', e.x, y, radius + 32, radius + 32, { u_center: [e.x, y], u_origin: [e.x, e.y], u_radius: radius, u_age: a, u_angle: angle, u_col: weaponCol(e.rar || 0), u_mode: mode });
     };
     const blastFx = (e, a, mode) => {
-      const x = e.gx ?? e.x, y = e.gy ?? e.y + 24, radius = e.big ? 140 : 88;
+      const x = e.gx ?? e.x, y = e.gy ?? e.y + 24, radius = e.vr ?? (e.big ? 140 : 88);
       spell('blast', x, y, radius + 12, radius + 12, { u_center: [x, y], u_origin: [x, y], u_radius: radius, u_age: a, u_seed: e.t * 13, u_mode: mode });
     };
     const fireFx = (p) => {
@@ -55,17 +58,17 @@
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
     const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), big = tc.kind === 'fire', f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1) * (big ? B.bigK || 1 : B.town ? 0.72 + 0.056 * (i * 37 % 11) : 1), gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
-      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * ((B.cave || B.town) && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
-      const tr = tc.kind === 'wall' ? B.torchR || 1 : 1;   // the town's torches light pools ≈115 px across (TASKS 1029), its fire stays wide
+      const pool = col[0] < 0.5 && tc.kind === 'brazier', hk = (pool && torchZ(m, tc).hearth) || [1, 1], pr = (pool ? 0.6 * hk[0] : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 * hk[1] : 1) * ((B.cave || B.town) && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
+      const tr = (tc.kind === 'wall' ? B.torchR || 1 : 1) * sconceK(m, tc);   // the town's torches light pools ≈115 px across (TASKS 1029), its fire stays wide
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr * tr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
-      TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr, pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]);
+      TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr * sconceK(m, tc), pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]);
       // (TASKS 1036) the reference's brightest stone is the ruin by a fire, its face and its top grey in a wide soft spill: the town's
       // fires add one up over the masonry behind them; the floor's pools and the shadows between stay as they were
       if (B.spill) TL.push([tc.x, tc.y - (big ? 60 : 30), (big ? 380 : 190) * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * f / (B.fireK || 1) * (big ? 0.7 : 1), 1.4]); });
     for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
-      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) : d.n === 'candelabra' ? 150 : 125), col, (tp ? (B.town ? 0.7 + 0.06 * Math.floor(d.x * 37 / 32 % 11) : 1.0) : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
+      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) * sconceK(m, d) : d.n === 'candelabra' ? 150 : 125), col, (tp ? (B.town ? 0.7 + 0.06 * Math.floor(d.x * 37 / 32 % 11) : 1.0) : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]);
       if (tp && B.spill) TL.push([d.x, d.y - up, 190 * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * flick(d.x), 1.4]); }
     // a cave bridge's fire posts (TASKS 306): the crossing's warm light, on the deck and in the water under it
@@ -96,8 +99,10 @@
     // well turned the steel khaki over a river and violet on a slab, the bones blue and the golem lilac; away from it (TASKS 1035,
     // as the lit pass's own nearness to the lava) the tint takes the torches' boosted light back as everywhere else
     const lavaD = (px, py) => { if (!m.cliff) return 9; const cx0 = Math.floor(px / TILE), cy0 = Math.floor(py / TILE); let d = 9;
+      if (cx0 >= 0 && cy0 >= 0 && cx0 < m.W && cy0 < m.H) return lavaField(m)[cy0 * m.W + cx0];
       for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.Q.cell(m, cx0 + i, cy0 + j) === 3) d = Math.min(d, Math.hypot(i, j)); return d; };
     HERO.lavaNear = (px, py) => SS(5.5, 2, lavaD(px, py));   // (as far as the lava's own light reaches, 170 px)
+    HERO.lavaWarm = (px, py) => SS(7, 2.5, lavaD(px, py));   // (a basalt block's warm foot, TASKS 1793: a little farther than its light)
     // (the take-back is held to 0.75–1.3 a channel: up to 1.8 under the crypt's green torch it pushed red ~1.7× and every warm paint went
     // flat orange, the archer's ochre whole, TASKS 1124 critic)
     HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2], wl = HERO.lavaNear(px, py);
@@ -109,12 +114,12 @@
       whirlFx };
     SCX.worldPass(F);
     SCX.lightPass(F);
-    SCX.fxPass(F);
+    L.FXPX = PIX; try { SCX.fxPass(F); } finally { L.FXPX = 0; }
     // ===== bloom + grade (on the lit target) =====
     const scr = screenFx(ST, R, h, st, GT);
     const comp = L.T.comp; L.T.comp = SCX.LT.lit; L.finish(t, Object.assign({ bloom: [0.18, 0.14], vignette: 0.85, warm: 0.2, roll: 1, dither: 1, bright: (ST.meta && ST.meta.bright) || 1 }, scr)); L.T.comp = comp;
     if (window.HUD) HUD.draw(ST, t, { cx, cy, sx: (x) => (x - cx) * SCX.Z, sy: (y) => (y - cy) * SCX.Z, k: SCX.Z, st });
-    G.flush();   // (TASKS 1911: the last flat rectangles of the frame)
+    G.flush();   // (TASKS 2011: the last flat rectangles of the frame)
   };
 
   // full-screen responses: pain tints the rim red by the share of health lost, a low health throbs, a roar flashes it,

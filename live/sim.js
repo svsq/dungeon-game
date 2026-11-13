@@ -36,7 +36,7 @@
   const outOfPlay = () => false;
 
   // one rule for L and the HUD's map (TASKS 1794): with two, L could fold a legend the HUD had already folded and open it instead
-  const legShown = (S, R) => R.mapLeg === 1 || (R.legAuto && S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9)));
+  const legShown = (S, R) => R.mapLeg === 1 || (R.legAuto && S.t - (R.enteredT ?? -1e9) < 5 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9)));
   const REPEATS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'PageUp', 'PageDown', 'Backspace']);
   function step(S, inp = {}) {
     if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
@@ -45,6 +45,8 @@
     const t = S.t + DT; S.t = t;
     // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1877): a browser tab cannot, so «Выход» waits for its word
     if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
+    // the update's state (TASKS 1870) comes from the page as a new object on every change, its own count n; never saved
+    if (inp.upd !== undefined && (inp.upd ? !S.upd || S.upd.n !== inp.upd.n : S.upd)) S.upd = inp.upd ? Object.assign({}, inp.upd, { notes: (inp.upd.notes || []).slice(0, 5).map(String) }) : null;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
     for (const k of inp.rep || []) if (REPEATS.has(k)) keys[k] = 1;
@@ -55,13 +57,15 @@
     S.uiPtr = [inp.px, inp.py - uiDy(S.screen)];
     // M mutes from any screen (TASKS 1863 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
     if (keys.KeyM && !S.demo && !SIMX.typing(S)) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
+    // the tracker's fold button (TASKS 1992): the page turns a click on it into this key, so the click swings at nothing
+    if (keys.TrkFold && S.run && !S.demo && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkFold = S.meta.trkFold ? 0 : 1; S.saveN++; }
     if (S.screen === 'play' && S.run) {
       // never a window's key (uiKey gives 'play:::'), so the first step of any window opened from play takes no pointer move
       S.uiWas = 'play'; S.uiKey = 'play'; SIMX.commitDraft(S);
       if (keys.Backquote && !S.demo) S.debug = !S.debug;
       const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
-      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for 10 s once a run for the floors and once for the
+      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for 5 s (the player's decision 11.11.2026, TASKS 1934) once a run for the floors and once for the
       // town (TASKS 1887 и: opening on every floor got in the way), on its first such entry (legKnown)
       if (keys.KeyL && !S.demo) { const R = S.run, open = legShown(S, R); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
       if ((keys.Escape || inp.away) && !S.demo) { S.screen = 'pause'; S.pauseAsk = 0; }
@@ -114,7 +118,7 @@
   root.SIM.Q = {
     depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
     noteNear, captiveNear, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
-    exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
+    exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, crackSpan: SIMX.crackSpan, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, typing: SIMX.typing, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot, talkWalk: SIMX.talkWalk, talkFirst: SIMX.talkFirst, boardRows: SIMX.boardRows, legShown };
   Object.assign(SIMX, {
     spawn, step, scriptInput, persist });

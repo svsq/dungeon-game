@@ -34,8 +34,10 @@
   function readStep(S, R, moved, dashing) { const h = R.hero, q = h.read;
     if (moved || dashing || h.deadT >= 0 || h.atkT > q.t0 || (h.castT ?? -9) > q.t0) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.readStep.s') }); return; }
     if (S.t - q.t0 < READ_T) return;
-    const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; if (--it.n <= 0) h.bag[q.i] = null; SIMX.firePowers(S, R, 'scroll', { x: h.x, y: h.y });
-    R.portal = { f: R.floor, x: h.x, y: h.y }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
+    const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; const n0 = it.n, at = { x: h.x, y: h.y }; if (--it.n <= 0) h.bag[q.i] = null;
+    // (a way home that does not open keeps the scroll and gives nothing of its reading, review of PR 69)
+    const was = R.portal; R.portal = { f: R.floor, x: h.x, y: h.y }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; R.hero.bag[q.i] = Object.assign(it, { n: n0 }); return; }
+    SIMX.firePowers(S, R, 'scroll', at); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   function useItem(S, R, idx) {
     const h = R.hero, it = h.bag[idx]; if (!it) return;
     if (it.b === 'hp_potion' || it.b === 'mp_potion') { usePotion(S, R, it.b); return; }
@@ -318,11 +320,14 @@
   const secretHow = (q) => (q.kind === 'puzzle' ? q.pz.k : q.kind === 'lever' ? q.trig.k : q.kind);
   // a puzzle (TASKS 1692): the piece the hero stands at, three levers on a wall or three candles on the floor worked in the order their scratches count
   function puzzleNear(R) { const h = R.hero, m = R.map; let best = null, bd = 1e9; for (const q of m.secrets || []) { if (q.open || !q.pz) continue; q.pz.items.forEach((it, i) => { if (it.on) return; const lev = q.pz.k === 'levers', d = lev ? Math.abs(h.x - it.x) : Math.hypot(h.x - it.x, h.y - it.y); if ((lev ? d < 36 && h.y > it.y && h.y - it.y < 90 : d < 46) && d < bd) { bd = d; best = { q, i }; } }); } return best; }
-  function resetPuzzle(m, q) { q.pz.step = 0; q.pz.items.forEach((it, j) => { it.on = 0; if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === j); if (d) d.outUntil = 1e9; } }); }
-  function usePuzzle(S, R, q, i) { const m = R.map, it = q.pz.items[i];
-    if (it.n !== q.pz.step + 1) { resetPuzzle(m, q); ev(S, { k: 'click', x: it.x, y: it.y }); ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: q.pz.k === 'levers' ? TXT('sim_world.pz.levers') : TXT('sim_world.pz.candles') }); return; }
-    it.on = 1; q.pz.step++; if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === i); if (d) d.outUntil = 0; }
-    ev(S, { k: 'click', x: it.x, y: it.y }); if (q.pz.step === q.pz.items.length) openSecret(S, R, q); }
+  function resetPuzzle(m, q) { q.pz.step = 0; q.pz.items.forEach((it, j) => { it.on = 0; delete it.at; if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === j); if (d) d.outUntil = 1e9; } }); }
+  // the order is judged at a point set by difficulty (TASKS 1989): easy at every piece, normal from the second, hard once all are worked;
+  // until then any piece takes, so a wrong order cannot be found piece by piece
+  function usePuzzle(S, R, q, i) { const m = R.map, it = q.pz.items[i], n = q.pz.items.length, at = R.diff === 'hard' ? n : R.diff === 'easy' ? 1 : 2;
+    it.on = 1; it.at = ++q.pz.step; ev(S, { k: 'click', x: it.x, y: it.y });
+    if (q.pz.step >= at && q.pz.items.some((o) => o.on && o.n !== (o.at ?? o.n))) { resetPuzzle(m, q); ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.pz.nope') }); return; }
+    if (q.pz.k === 'candles') { const d = m.decor.find((o) => o.pz === m.secrets.indexOf(q) && o.pzI === i); if (d) d.outUntil = 0; }
+    if (q.pz.step === n) openSecret(S, R, q); }
   function openChest(S, R, c) {
     if (c.open) return;
     if (c.mimic) { wakeMimic(S, R, c); return; }
@@ -348,7 +353,7 @@
     ev(S, { k: 'mimicwake', x: c.x, y: c.y, id }); R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.mimic.msg'), t: S.t, d: 2 }; }
   function mimicLoot(S, R, e) { const c = R.chests.find((o) => o.woke === e.id); if (!c) return;
     for (const it of c.loot || []) drop(R, e.x, e.y, { kind: 'item', item: it, pre: true }); c.loot = [];
-    drop(R, e.x, e.y, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * 3) }); }
+    drop(R, e.x, e.y, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * 4) }); }
   // a trapped chest's blast, its fuse lit by the opening: it hurts, but it does not end a run on its own
   function stepChestTraps(S, R) { const h = R.hero, T = D.CHEST_TRAP;
     for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; c.bangT = S.t; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); ev(S, { k: 'boom', x: c.x, y: c.y - 20, big: 1, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.5);

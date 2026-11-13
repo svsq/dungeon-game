@@ -19,9 +19,6 @@
     rod: { tex: 'ui_b_scroll_rod', art: [240, 24], cut: [24, 0, 24, 0] },
     ribbon: { tex: 'ui_b_ribbon', art: [24, 120], cut: [0, 12, 0, 28] },
     gutter: { tex: 'ui_b_book_gutter', art: [40, 160], cut: [0, 16, 0, 16] },
-    // the main menu's leaf (TASKS 1755): a vertical 3-slice, its plain band y 120–169 takes the two heights of D.UI.menuSheet; box:
-    // the inside its texts are checked against, as the torn sheet's
-    menu: { tex: 'ui_b_menu_leaf', art: [310, 289], cut: [0, 120, 0, 120], box: [13, 13, 13, 13] },
   };
   K.PART = PART;
   const has = (n) => !!(window.ASSETS && window.ASSETS[n]);
@@ -83,16 +80,19 @@
   };
   // an open book: a leather cover, two pages of parchment with the gutter between, a brass clasp on the right edge; returns
   // the two pages' writing areas and the whole spread
-  // the cover has a board's thickness: its back board in shadow a little lower, and the block of pages' edges at the foot (TASKS 1758)
+  // the cover has a board's thickness: its back board in shadow a little lower, and the block of pages' edges at the foot (TASKS 1758).
+  // o.spine false: one wide parchment sheet in a leather board, no gutter, page block or clasp (TASKS 1876: the spine cut the
+  // settings' title and rows in two)
   K.book = (id, x, y, w, h, o = {}) => {
+    const spine = o.spine !== false;
     K.nine('leather', x + 4, y + 12, w, h, { u: { grade: [0.42, 0.8, 0, 1] } });
     K.nine('leather', x, y, w, h);
     const m = 22, px = x + m, py = y + m, pw = w - 2 * m, ph = h - 2 * m, gw = 56;
-    for (let i = 0; i < 3; i++) L.solid(px + 6 + i * 4, py + ph + 2 + i * 4, pw - 12 - i * 8, 3, [0.80 - i * 0.07, 0.69 - i * 0.07, 0.50 - i * 0.06]);
+    if (spine) for (let i = 0; i < 3; i++) L.solid(px + 6 + i * 4, py + ph + 2 + i * 4, pw - 12 - i * 8, 3, [0.80 - i * 0.07, 0.69 - i * 0.07, 0.50 - i * 0.06]);
     K.paper(px, py, pw, ph);
     L.solid(px, py + ph - 3, pw, 3, [0.36, 0.23, 0.13]); L.solid(px, py, pw, 2, [0.62, 0.48, 0.32], 0, 0, 0, 0.6);
-    K.nine('gutter', x + w / 2 - gw / 2, py - 4, gw, ph + 8);
-    if (o.clasp !== false) K.part('ui_b_clasp', [48, 32], x + w - 18, y + h / 2 - 32);
+    if (spine) K.nine('gutter', x + w / 2 - gw / 2, py - 4, gw, ph + 8);
+    if (spine && o.clasp !== false) K.part('ui_b_clasp', [48, 32], x + w - 18, y + h / 2 - 32);
     const pad = o.pad || 40, L0 = { x: px + pad, y: py + pad, w: pw / 2 - gw / 2 - pad * 1.5, h: ph - pad * 2 }, R0 = { x: x + w / 2 + gw / 2 + pad / 2, y: py + pad, w: pw / 2 - gw / 2 - pad * 1.5, h: ph - pad * 2 };
     const all = { x: px + pad, y: py + pad, w: pw - pad * 2, h: ph - pad * 2 };
     L.uiBox(id, all.x, all.y, all.w, all.h, 0); return { L: L0, R: R0, all };

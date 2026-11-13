@@ -7,9 +7,16 @@ canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-r
 canvas{cursor:crosshair}
 #dev{position:absolute;left:10px;bottom:8px;font:12px ui-monospace,Menlo,monospace;color:#fff;background:#0008;padding:5px 8px;border-radius:6px;opacity:.55;white-space:pre}
 #dev:hover{opacity:1}
+#boot{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b0806;color:#e8d3a8;font-family:Georgia,'Times New Roman',serif;z-index:5;user-select:none}
+#boot .t{font-size:clamp(28px,5vw,64px);letter-spacing:.04em;color:#f0d9a6;text-shadow:0 2px 0 #3a1a0c}
+#boot .s{font-size:clamp(14px,1.8vw,24px);margin-top:.3em;color:#b89a6e;font-style:italic}
+#boot .bar{width:min(420px,60vw);height:8px;margin-top:2.4em;background:#2a1a10;border:1px solid #5a3a22;border-radius:2px;overflow:hidden}
+#boot .bar i{display:block;height:100%;width:0;background:linear-gradient(#e0a24a,#a8601e)}
+#boot .n{margin-top:.8em;font-size:16px;color:#9c8462;font-variant-numeric:tabular-nums}
 #flash{position:absolute;right:12px;bottom:10px;font:600 13px -apple-system,sans-serif;color:#9f9;background:#000a;padding:4px 10px;border-radius:6px;opacity:0;transition:opacity .6s}
 </style>
 </head><body><canvas id="c"></canvas>
+<div id="boot"><div class="t">The Elder Deep</div><div class="s">Below the Ages</div><div class="bar"><i></i></div><div class="n">Загрузка…</div></div>
 <div id="dev"></div><div id="flash">reloaded</div>
 <script>
 // LIVE PREVIEW. Scripts and images load with a cache-buster; the page polls its sources and reloads itself when any of
@@ -17,10 +24,25 @@ canvas{cursor:crosshair}
 // Dev keys: P pause, [ ] speed (0.1 / 0.25 / 0.5 / 1), . single step, Esc back to the demo, R restart.
 // ?render=1 exposes window.__renderAt(t) for render.mjs (no loop, no polling).
 const V = Date.now(), STATIC = !!window.__STATIC__;          // STATIC: packed build (no polling, no dev overlay)
-const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V; s.onload = res; s.onerror = () => rej(new Error('failed ' + src)); document.head.appendChild(s); });
+// the start's screen and log (TASKS 2004): a title and a bar from the first paint, so the window is never a black one while the
+// scripts, the textures and the shaders load; every stage's time goes to the console and, in the desktop build, to boot.log
+const BOOT = { el: document.getElementById('boot'), done: 0, all: 1, t: performance.now() };
+const bootStep = (n = 1) => { BOOT.done += n; const f = Math.min(1, BOOT.done / BOOT.all); if (!BOOT.el) return; BOOT.el.querySelector('i').style.width = (f * 100).toFixed(1) + '%'; BOOT.el.querySelector('.n').textContent = `Загрузка… ${Math.round(f * 100)} %`; };
+const bootLog = (s) => { console.info('[boot] ' + s); try { if (window.desktop && desktop.bootLog) desktop.bootLog(s); } catch (e) {} };
+const mark = (k, more = '') => { const now = performance.now(); bootLog(`${k.padEnd(9)} ${(now - BOOT.t).toFixed(0).padStart(6)} ms  (at ${now.toFixed(0)} ms)${more ? '  ' + more : ''}`); BOOT.t = now; };
+const bootEnd = () => { if (BOOT.el) { BOOT.el.remove(); BOOT.el = null; } };
+// the scripts download side by side and still run in the list's order (async = false); one after another, each waited for its own
+// round trip into the desktop build's archive
+const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V; s.async = false; s.onload = () => { bootStep(); res(); }; s.onerror = () => rej(new Error('failed ' + src)); document.head.appendChild(s); });
 (async () => {
+  mark('page', `${navigator.userAgent.match(/(Electron|Chrome)\/[\d.]+/g) || ''}`);
   // sizes.js: window.SIZES (display size per sprite in view px, engine.md §7); audio.js: sound synthesised from the event bus
-  await load('modules.js'); for (const f of MODULES.page) await load(f);
+  // the bar's steps: a script, a texture each; the fonts, the shaders and the first frame 20, 40 and 20 (the textures' count is
+  // known once assets.js has run: 900 till then)
+  const steps = (nTex) => MODULES.page.length + 20 + nTex + 40 + 20;
+  await load('modules.js'); BOOT.all = steps(900);
+  await Promise.all(MODULES.page.map(load)); BOOT.all = steps(Object.keys(ASSETS).length);
+  mark('scripts', `${MODULES.page.length} files`);
   const q = new URLSearchParams(location.search), render = q.has('render');
   // the view's height follows the window's aspect (TASKS 1861): the sim keeps the size, the page tells it the window's and lets the
   // canvas take the aspect that comes out; the scene rebuilds its targets on the next frame
@@ -28,14 +50,18 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   fitView(); addEventListener('resize', fitView);
   const VW = SIM.VIEW.W, VH = SIM.VIEW.H;
   G.init(document.getElementById('c'), VW, VH);
+  { const g = G.gl, dbg = g.getExtension('WEBGL_debug_renderer_info'); mark('gl', `${dbg ? g.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)}  parallel shaders ${G.parallel() ? 'yes' : 'no'}`); }
   await Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))));
+  bootStep(20); mark('fonts');
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
-  await Promise.all(Object.keys(ASSETS).map((n) => G.load(n, 'assets/' + n + '.png?v=' + V, { repeat: rep.has(n), nearest: near(n) })));
-  SCENE.programs();
+  const px = Object.values(ASSETS).reduce((a, o) => a + o.w * o.h, 0);
+  await Promise.all(Object.keys(ASSETS).map((n) => G.load(n, 'assets/' + n + '.png?v=' + V, { repeat: rep.has(n), nearest: near(n) }).then((r) => { bootStep(); return r; })));
+  mark('textures', `${Object.keys(ASSETS).length} png, ${(px * 4 / 1048576).toFixed(0)} MB as RGBA, uploads ${G.upMs.toFixed(0)} ms of it`);
+  G.defer = true; SCENE.programs(); mark('programs'); const nSh = await G.settle(); bootStep(40); mark('shaders', `${nSh} programs`);
   window.__duration = SIM.L;
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
+  if (render) { bootEnd(); window.__ready = true; return; }
   window.__ready = true;
-  if (render) return;
 
   const keys = {}, dev = document.getElementById('dev'), flash = document.getElementById('flash');
   const SPEEDS = [0.1, 0.25, 0.5, 1];
@@ -52,9 +78,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run');
       localStorage.setItem('dc2_slot', JSON.stringify(p.slot || 0)); localStorage.setItem('dc2_saves', JSON.stringify(p.saves || [])); } catch (e) { console.warn('save failed', e); } };
   addEventListener('beforeunload', () => { if (play && play.screen === 'play' && play.run && !play.demo) { play.saved = play.run; persist(); play.saved = null; } });
-  const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; };
+  const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; updReqN = play.updReq ? play.updReq.n : 0; };
   // a finished run's log goes to the browser's downloads as crypt-run-<date>.json, for the balance analysis
-  let loggedN = 0, loggedReq = 0, quitN = 0;
+  let loggedN = 0, loggedReq = 0, quitN = 0, updReqN = 0;
   const downloadLog = (res) => { const d = new Date(), pad = (n) => String(n).padStart(2, '0'), stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
     const body = Object.assign({ date: d.toISOString() }, res.log, { result: Object.assign({}, res, { log: undefined }) });
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(body, null, 1)], { type: 'application/json' })); a.download = `crypt-run-${stamp}.json`; a.click(); };
@@ -62,7 +88,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   try { const sv = JSON.parse(sessionStorage.getItem('live2') || 'null');                     // restore across live reloads
     if (sv) { simT = sv.simT; speed = sv.speed; paused = sv.paused; if (sv.play) { play = Object.assign(SIM.create(), sv.play); }
       flash.style.opacity = 1; setTimeout(() => (flash.style.opacity = 0), 1200); } } catch (e) {}
-  if (play) { loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; }
+  if (play) { loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; updReqN = play.updReq ? play.updReq.n : 0; }
   const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
@@ -96,6 +122,17 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (desk) { desk.setFull(want); return; }
     const p = want ? document.documentElement.requestFullscreen && document.documentElement.requestFullscreen() : document.exitFullscreen && document.exitFullscreen();
     if (p && p.catch) p.catch(() => { fullAsked = null; if (changed) fullBack(fullNow()); }); };
+  // the update (TASKS 1870): the desktop build's state comes from its main process, the browser's from GitHub's newest release (the
+  // packed build only, the live preview reloads too often); a found version's short notes come from its release, and the sim's
+  // asks (play.updReq) go back to the main process or open the release's page
+  const REL = 'https://api.github.com/repos/svsq/dungeon-game/releases', notesOf = {};
+  let updBase = null, upd, updN = Date.now();
+  const getJson = (u) => fetch(u, { headers: { accept: 'application/vnd.github+json' } }).then((r) => (r.ok ? r.json() : null));
+  const updSet = () => { const v = updBase.v; upd = Object.assign({}, updBase, { notes: notesOf[v] || [], n: ++updN });
+    if (updBase.st === 'avail' && v && !(v in notesOf)) { notesOf[v] = []; getJson(`${REL}/tags/v${v}`).then((j) => { if (j) { notesOf[v] = DATA.relNotes(j.body); if (updBase) updSet(); } }).catch(() => {}); } };
+  if (desk && desk.update) { desk.update.on((st) => { updBase = st; updSet(); }); desk.update.state().then((st) => { if (st && !updBase) { updBase = st; updSet(); } }).catch(() => {}); }
+  else if (STATIC || q.has('upd')) getJson(`${REL}/latest`).then((j) => { const v = j && String(j.tag_name || '').replace(/^v/, '');
+    if (v && DATA.verNewer(v, DATA.VERSION)) { notesOf[v] = DATA.relNotes(j.body); updBase = { web: 1, st: 'web', v, url: j.html_url }; updSet(); } }).catch(() => {});
   document.addEventListener('fullscreenchange', () => fullBack(!!document.fullscreenElement));
   if (desk) desk.onFull((on) => fullBack(on));
   // pointer in view pixels (VW×VH); click is true for exactly one sim step
@@ -112,6 +149,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   addEventListener('pointermove', toView);
   addEventListener('pointerdown', (e) => { toView(e, true); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
     fullSync(true);
+    if (e.button !== 2 && window.HUD && HUD.trkFoldAt && HUD.trkFoldAt(ptr.x, ptr.y)) { pend.keys.push('TrkFold'); return; }
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
   // a lost window or a hidden tab pauses a run through the sim's input, the way Esc does (TASKS 1882)
@@ -133,13 +171,15 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (play) {
       acc += dt; if (!padCursor) viewPtr();   // (the pad's pointer is its own while the pad leads, pad.js)
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
-        now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away };
+        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, shift: !!(keys.ShiftLeft || keys.ShiftRight), slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
+        now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away, upd };
       while (acc >= SIM.DT) { if (pad) pad.stepBegin(); SIM.step(play, inp); if (pad) pad.stepEnd(); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       // «Выход» (TASKS 1877): the save is written just above, then the desktop build closes its window
       if ((play.quitReq || 0) !== quitN) { quitN = play.quitReq || 0; if (desk && desk.quit) desk.quit(); }
+      // the update's asks (TASKS 1870): the save above is written before a restart is asked for
+      const ur = play.updReq; if (ur && ur.n !== updReqN) { updReqN = ur.n; if (ur.k === 'open') { if (updBase && updBase.url) window.open(updBase.url, '_blank'); } else if (desk && desk.update) desk.update.ask(ur.k); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
@@ -152,7 +192,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (devShown) { const raw = pad && pad.state.raw; dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (raw ? `\nPAD ${pad.state.n} «${raw.id}» ${pad.state.map}  ax ${raw.ax.join(' ')}  b[${raw.b.join(' ')}]  ${pad.state.mode}` : ''); }
     requestAnimationFrame(loop);
   };
-  loop();
+  loop(); bootStep(20); mark('frame', 'the first one, menu or demo'); bootLog(`ready in ${performance.now().toFixed(0)} ms`); bootEnd();
   if (STATIC) { dev.style.display = 'none'; return; }
   const WATCH = ['index.html', 'modules.js', ...MODULES.page], stamp = {};
   const poll = async () => {
@@ -163,7 +203,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     setTimeout(poll, 700);
   };
   poll();
-})().catch((e) => { console.error(e); document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:absolute;top:0;left:0;background:#000c;padding:12px;font:13px monospace;white-space:pre-wrap">' + e.stack + '</pre>');
+})().catch((e) => { console.error(e); bootLog('failed: ' + (e && e.stack || e)); if (BOOT.el) { BOOT.el.style.zIndex = 0; BOOT.el.querySelector('.n').textContent = 'Не удалось загрузить игру'; }
+  document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:absolute;top:0;left:0;background:#000c;padding:12px;font:13px monospace;white-space:pre-wrap">' + e.stack + '</pre>');
   const f = ['index.html', 'modules.js', ...((window.MODULES && MODULES.page) || [])], st = {};               // keep polling: fixing the error reloads by itself
   setInterval(async () => { for (const x of f) { try { const r = await fetch(x + '?p=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified');
     if (st[x] && st[x] !== m) location.reload(); st[x] = m; } catch (e) {} } }, 800); });

@@ -17,15 +17,33 @@
   const wrapLine = (s, n) => { const out = []; let cur = '';
     for (const w of s.split(' ')) { if (cur && cur.length + 1 + w.length > n) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; }
     return cur ? out.concat([cur]) : out; };
-  let newsMemo = null;
-  const newsRows = () => { if (newsMemo && newsMemo.src === D.CHANGES) return newsMemo.rows; const rows = [];
-    for (const e of D.CHANGES || []) { rows.push({ k: 'ver', v: e.v, date: e.date, h: NEWS.h.ver });
+  // only the versions in `open` show their points (TASKS 1971); with no `open` only the newest one does
+  let newsMemo = { src: null, by: {} };
+  const newsRows = (open) => { const top = (D.CHANGES[0] || {}).v, on = open || { [top]: 1 }, key = (D.CHANGES || []).filter((e) => on[e.v]).map((e) => e.v).join('|');
+    if (newsMemo.src !== D.CHANGES) newsMemo = { src: D.CHANGES, by: {} };
+    if (newsMemo.by[key]) return newsMemo.by[key]; const rows = [];
+    for (const e of D.CHANGES || []) { rows.push({ k: 'ver', v: e.v, date: e.date, open: !!on[e.v], h: NEWS.h.ver });
+      if (!on[e.v]) continue;
       for (const g of e.groups) { rows.push({ k: 'group', s: g.name, h: NEWS.h.group });
         for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
-    newsMemo = { src: D.CHANGES, rows }; return rows; };
+    return (newsMemo.by[key] = rows); };
   const MENU_SHEET = { x: 48, w: 620, bottom0: 1012, top: 92, row: 56, sub: 26, gap: 34, bottom: 78, inX: 56 };
-  const MENU_ITEMS = [['continue', 'campaign', 'load'], ['stats', 'settings'], ['quit']];
-  const MENU_LABEL = { continue: () => TXT('UI.menu'), load: () => TXT('UI.menu.load'), stats: () => TXT('UI.menu.stats'), settings: () => TXT('UI.menu.settings'), quit: () => TXT('UI.menu.quit') };
+  const MENU_ITEMS = [['continue', 'campaign', 'load'], ['stats', 'settings'], ['update', 'quit']];
+  const MENU_LABEL = { update: (u) => (u && u.web ? TXT('UI.menu.update.web', { v: u.v }) : TXT('UI.menu.update')), continue: () => TXT('UI.menu'), load: () => TXT('UI.menu.load'), stats: () => TXT('UI.menu.stats'), settings: () => TXT('UI.menu.settings'), quit: () => TXT('UI.menu.quit') };
+  // the update's item (TASKS 1870) and its small mark under the label: a version found, its download, the restart it waits for
+  const updShown = (u) => !!u && (!!u.can || (!!u.web && u.st === 'web'));
+  const updMark = (u) => (!u || u.web ? '' : u.st === 'avail' ? TXT('hud.menu.upd.avail', { v: u.v }) : u.st === 'down' ? TXT('hud.menu.upd.down', { pct: Math.floor(u.pct || 0) }) : u.st === 'ready' ? TXT('hud.menu.upd.ready') : '');
+  // a release's short «Что нового» from its notes on GitHub, which are the CHANGELOG entry: the first section's points (the menu's
+  // «Самое главное» where the entry has it), markup dropped, a point's wrapped lines joined
+  const relNotes = (body, n = 5) => { const out = []; let cur = -1, secs = 0;
+    for (const l of String(body || '').replace(/\r/g, '').split('\n')) {
+      if (/^#{2,4} /.test(l)) { if (secs++ && out.length) break; cur = -1; continue; }
+      if (/^[-*] /.test(l)) { if (out.length >= n) break; cur = out.push(l.slice(2).trim()) - 1; continue; }
+      if (/^\s+\S/.test(l) && cur >= 0) { out[cur] += ' ' + l.trim(); continue; }
+      if (l.trim()) cur = -1; }
+    return out.map((s) => s.replace(/\*\*|`/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')); };
+  const verNewer = (a, b) => { const p = (v) => String(v || '').replace(/^v/, '').split('.').map((x) => parseInt(x, 10) || 0); const A = p(a), B = p(b);
+    for (let i = 0; i < 3; i++) if ((A[i] || 0) !== (B[i] || 0)) return (A[i] || 0) > (B[i] || 0); return false; };
   const NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42, link: { gap: 14, w: 320, h: 36 } };
   // the sort buttons beside a grid: by type, rarity, level, stacked from (x, y)
   const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
@@ -74,17 +92,20 @@
     return f.filter((e, i) => !(e.k === 'nope' && e.s && f.some((q, j) => j > i && q.k === 'nope' && q.s === e.s))).slice(-n); };
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   const UI = {
+    // the bottom panel's height and its gap to the view's foot: the HUD lays it out by them and the camera keeps the hero above it (TASKS 1911)
+    bp: { h: 122, foot: 6 },
     // full: every save slot holds a run, so a new one takes the place of the one played longest ago (TASKS 1311, 1785)
     // quit: the game can close its own window (the desktop build, TASKS 1877); a browser tab cannot, and there «Выход» is not shown
-    menu: (hasRun, diff, zoom, full = hasRun, quit = false) => { const F = UI.newsFrame();
-      return UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2'), quit).r.concat(F ? [Object.assign({ id: 'news', label: F.linkLabel, on: true, link: true }, F.link)] : []); },
+    // upd: the update's state from the page (TASKS 1870): the desktop build always has its item, the browser one only once a newer version is out
+    menu: (hasRun, diff, zoom, full = hasRun, quit = false, upd = null) => { const F = UI.newsFrame();
+      return UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2'), quit, upd).r.concat(F ? [Object.assign({ id: 'news', label: F.linkLabel, on: true, link: true }, F.link)] : []); },
     // the main menu (TASKS 1301), look B: small ink items on a parchment sheet in the bottom-left corner, as on ref_ui_menu_b; the
     // sheet stands on its bottom edge, so without «Продолжить» it is shorter and the rest keep their places. Groups are cut by a
     // rule: the run, then the books, then «Выход» where there is one
-    menuSheet: (hasRun, newLabel = TXT('UI.menu.2'), quit = false) => { const M = MENU_SHEET, r = [], rules = []; let y = M.top;
-      MENU_ITEMS.map((g) => g.filter((id) => (id !== 'continue' || hasRun) && (id !== 'quit' || quit))).filter((g) => g.length).forEach((g, gi) => { if (gi) { rules.push(y + M.gap / 2); y += M.gap; }
-        for (const id of g) { const h = M.row + (id === 'continue' ? M.sub : 0);
-          r.push({ id, label: id === 'campaign' ? newLabel : MENU_LABEL[id](), on: true, x: M.x + M.inX, y, w: M.w - M.inX * 2, h }); y += h; } });
+    menuSheet: (hasRun, newLabel = TXT('UI.menu.2'), quit = false, upd = null) => { const M = MENU_SHEET, r = [], rules = []; let y = M.top;
+      MENU_ITEMS.map((g) => g.filter((id) => (id !== 'continue' || hasRun) && (id !== 'quit' || quit) && (id !== 'update' || updShown(upd)))).filter((g) => g.length).forEach((g, gi) => { if (gi) { rules.push(y + M.gap / 2); y += M.gap; }
+        for (const id of g) { const h = M.row + (id === 'continue' || (id === 'update' && updMark(upd)) ? M.sub : 0);
+          r.push({ id, label: id === 'campaign' ? newLabel : MENU_LABEL[id](upd), on: true, x: M.x + M.inX, y, w: M.w - M.inX * 2, h }); y += h; } });
       const h = y + M.bottom, y0 = M.bottom0 - h; r.forEach((b) => { b.y += y0; });
       return { P: { x: M.x, y: y0, w: M.w, h }, r, rules: rules.map((v) => v + y0) }; },
     // the version's sheet on the menu's right (TASKS 1305, 1873): «Версия N» over its main lines, wrapped to the frame, and the
@@ -111,15 +132,19 @@
     tests: (hasRun, full = hasRun) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !full ? fresh : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
       .concat([{ id: 'back', label: TXT('UI.tests.back.label'), on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
     // the rows that fit from row `top`, and the last top that still fills the view (the end of the list sits at its bottom)
-    news: (top) => { const P = NEWS.P, rows = newsRows(), vh = P.h - NEWS.top - NEWS.bottom; let max = rows.length, fill = 0;
+    news: (top, open) => { const P = NEWS.P, rows = newsRows(open), vh = P.h - NEWS.top - NEWS.bottom; let max = rows.length, fill = 0;
       while (max > 0 && fill + rows[max - 1].h <= vh) fill += rows[--max].h;
       const t = Math.max(0, Math.min(max, top || 0)), shown = []; let y = P.y + NEWS.top;
       for (let i = t; i < rows.length && y + rows[i].h <= P.y + NEWS.top + vh; i++) { shown.push(Object.assign({ y }, rows[i])); y += rows[i].h; }
-      return { P, rows: shown, top: t, max, n: rows.length, view: { x: P.x + 60, y: P.y + NEWS.top, w: P.w - 120, h: vh },
+      const view = { x: P.x + 60, y: P.y + NEWS.top, w: P.w - 120, h: vh }, sx = P.x + P.w - 56;
+      // the scroll's track and thumb for both the sim's drag and the HUD (TASKS 1971); the track's hit is wider than its ink rule
+      const th = Math.max(60, vh * vh / (vh + max * 34)), bar = max > 0 ? { track: { id: 'track', x: sx - 14, y: view.y, w: 31, h: vh }, thumb: { x: sx - 4, y: view.y + (vh - th) * (t / max), w: 11, h: th }, x: sx } : null;
+      return { P, rows: shown, top: t, max, n: rows.length, view, bar,
+        heads: shown.filter((r) => r.k === 'ver').map((r) => ({ id: 'ver:' + r.v, v: r.v, x: view.x, y: r.y, w: bar ? bar.track.x - view.x : view.w, h: r.h })),
         r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
-    // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right).
-    // The book is as tall as the settings there are (TASKS 1758: five rows' room held two and stood two thirds empty); the language
-    // (1039) will add a row. «Назад» under the book, off the spine, as on the saves' screen
+    // the settings (TASKS 1302): a wide sheet (1876, no spine), a row a setting across it (its name on the left, its control on the right).
+    // The sheet is as tall as the settings there are (TASKS 1758: five rows' room held two and stood two thirds empty); the graphics
+    // modes (1372) and the language (1039) will each add a row. «Назад» under the sheet, as on the saves' screen
     settings: () => { const K = SETTINGS_BOOK, h = K.top + SETTINGS.length * K.row - 50 + K.foot, y = Math.max(40, Math.round((1080 - h - 150) / 2)), B = { x: K.x, y, w: K.w, h };
       const rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + K.top + i * K.row }, q));
       return { B, rows, r: rows.map((q) => (q.check ? { id: q.id, check: 1, x: 1000, y: q.y - 34, w: 68, h: 68 } : { id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))
@@ -143,20 +168,40 @@
       { id: 'dbg_loot', label: S && S.dbgLoot ? TXT('UI.debug.dbg_loot.label') : TXT('UI.debug.dbg_loot.label.2'), on: true, x: 970, y: 16, w: 430, h: 60 }],
     // past the campaign's last boss (TASKS 1150) the run is no longer given up but ended, won
     // the run's end sits apart under a rule, smaller than the rest, and asks first (TASKS 1853)
-    pause: (zoom, done) => [['resume', TXT('UI.pause')], ['settings', TXT('UI.pause.settings')], ['save', TXT('UI.pause.3')]]
+    // a test run (TASKS 1916) is not given up but ended: the same button and question, in its own words
+    pause: (zoom, done, test) => [['resume', TXT('UI.pause')], ['settings', TXT('UI.pause.settings')], ['save', TXT('UI.pause.3')]]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 404 + i * 88, w: 480, h: 72 }))
-      .concat([done ? { id: 'finish', label: TXT('UI.pause.5') } : { id: 'abandon', label: TXT('UI.pause.4') }].map((b) => Object.assign(b, { on: true, x: 780, y: 714, w: 360, h: 56, size: 22 }))),
+      .concat([done ? { id: 'finish', label: TXT('UI.pause.5') } : { id: 'abandon', label: test ? TXT('UI.pause.test') : TXT('UI.pause.4') }].map((b) => Object.assign(b, { on: true, x: 780, y: 714, w: 360, h: 56, size: 22 }))),
     // a new run over five taken slots (TASKS 1785): the question in the middle of the menu, «Нет» on the right as in the pause's
+    // the update's window over the menu (TASKS 1870): its lines by the state, the download's bar, one or two buttons under them
+    upd: (u) => { const st = !u || u.st === 'idle' ? 'check' : u.st, v = (u && u.v) || '', A = { w: 760 }, rows = [], LW = 46, NW = 56; let y = 146, bar = null, ids;
+      const line = (s, k = 'line') => { for (const q of wrapLine(s, k === 'line' ? LW : NW)) { rows.push({ s: q, k, y }); y += k === 'line' ? 36 : 30; } };
+      // the cut ends on a whole word and «…» is counted in the line's width, so the page never has to clip it mid-word
+      const ellip = (s, n) => { const t = s.split(' '); while (t.length > 1 && t.join(' ').length + 1 > n) t.pop(); return t.join(' ').replace(/[,;:.\s-]+$/, '') + '…'; };
+      const notes = () => { const N = (u.notes || []).slice(0, 5); if (!N.length) return; y += 8; line(TXT('hud.upd.news'), 'head');
+        for (const n of N) { const w = wrapLine(n, NW - 8); const two = w.length > 2 ? [w[0], ellip(w[1], NW - 8)] : w; two.forEach((q, i) => { rows.push({ s: q, k: 'note', first: !i, y }); y += 30; }); } };
+      if (st === 'check') { line(TXT('hud.upd.check')); ids = ['close']; }
+      else if (st === 'none') { line(TXT('hud.upd.none', { v })); ids = ['close']; }
+      else if (st === 'avail') { line(TXT('hud.upd.avail', { v })); notes(); ids = ['get', 'later']; }
+      else if (st === 'web') { line(TXT('hud.upd.avail', { v })); notes(); y += 16; line(TXT('hud.upd.web.2')); ids = ['open', 'close']; }
+      else if (st === 'down') { line(TXT('hud.upd.down', { v })); bar = { y: y + 4, h: 24, pct: Math.max(0, Math.min(100, u.pct || 0)) }; y += 60; line(TXT('hud.upd.down.2'), 'dim'); ids = ['hide']; }
+      else if (st === 'ready') { line(TXT('hud.upd.ready', { v })); line(TXT('hud.upd.ready.2'), 'dim'); ids = ['run', 'later']; }
+      else { line(u.err === 'down' ? TXT('hud.upd.err.down') : TXT('hud.upd.err')); line(u.err === 'net' ? TXT('hud.upd.err.net') : u.err === 'down' ? TXT('hud.upd.err.cut') : TXT('hud.upd.err.other'), 'dim'); ids = ['retry', 'close']; }
+      A.h = y + 24 + 64 + 44; A.x = 960 - A.w / 2; A.y = Math.max(316, Math.round((540 - A.h / 2) / 2) * 2);
+      const BW = 330, gap = 30, x0 = 960 - (ids.length * BW + (ids.length - 1) * gap) / 2;
+      const LABEL = { get: () => TXT('UI.upd.get'), later: () => TXT('UI.upd.later'), hide: () => TXT('UI.upd.hide'), run: () => TXT('UI.upd.run'), retry: () => TXT('UI.upd.retry'), close: () => TXT('UI.upd.close'), open: () => TXT('UI.upd.open') };
+      return { A, st, rows: rows.map((r) => Object.assign(r, { y: A.y + r.y })), bar: bar && Object.assign(bar, { x: A.x + 110, w: A.w - 260, y: A.y + bar.y }),
+        r: ids.map((id, i) => ({ id, label: LABEL[id](), on: true, size: 24, x: x0 + i * (BW + gap), y: A.y + A.h - 108, w: BW, h: 64 })) }; },
     newAsk: () => { const A = { x: 680, y: 390, w: 560, h: 380 };
       return { A, r: [{ id: 'yes', label: TXT('UI.menu.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
-    pauseAsk: (done) => { const A = { x: 680, y: 480, w: 560, h: 300 };
-      return { A, r: [{ id: 'yes', label: done ? TXT('UI.pause.ask.yesDone') : TXT('UI.pause.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
+    pauseAsk: (done, test) => { const A = { x: 680, y: 480, w: 560, h: 300 };
+      return { A, r: [{ id: 'yes', label: done || test ? TXT('UI.pause.ask.yesDone') : TXT('UI.pause.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
     // a run through the town (R-17, TASKS 1006) goes back there with a new hero, and the button says so (TASKS 1812)
     end: (hasLog, town) => [['menu', TXT('UI.end'), true], ['again', town ? TXT('UI.end.2') : TXT('UI.end.3'), true], ['log', TXT('UI.end.4'), !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
     // the discoveries tab (TASKS 394): two columns of rows under the same tab button
-    unlocks: () => D.UNLOCKS.map((U, i) => ({ id: 'un:' + i, un: i, on: true, x: 200 + (i % 2) * 770, y: 276 + Math.floor(i / 2) * 76, w: 750, h: 68 })),
-    meta: (cls, tab) => { const back = { id: 'back', label: TXT('UI.meta.back.label'), on: true, x: 810, y: 890, w: 300, h: 70 }, cx = { id: 'codex', label: TXT('UI.codex.open'), on: true, x: 180, y: 120, w: 260, h: 60 }, tb = [['up', TXT('UI.meta.tab.up')], ['open', TXT('UI.meta.tab.open')]].map(([t, label], i) => ({ id: 'tab:' + t, tab: t, label, on: true, x: 1300 + i * 222, y: 124, w: 212, h: 56 })); if (tab === 'open') return UI.unlocks().concat([back, ...tb, cx]); const list = D.metaFor(cls), rows = Math.ceil(list.length / 2), step = Math.min(112, Math.floor(580 / rows));
-      return list.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 276 + (i % rows) * step, w: 760, h: step - 10 })).concat([back, ...tb, cx]); },
+    unlocks: () => D.UNLOCKS.map((U, i) => ({ id: 'un:' + i, un: i, on: true, x: 200 + (i % 2) * 770, y: 276 + Math.floor(i / 2) * 76, w: 750, h: 72 })),
+    meta: (cls, tab) => { const back = { id: 'back', label: TXT('UI.meta.back.label'), on: true, x: 810, y: 890, w: 300, h: 70 }, cx = { id: 'codex', label: TXT('UI.codex.open'), on: true, x: 180, y: 120, w: 260, h: 60 }, tb = [['up', TXT('UI.meta.tab.up')], ['open', TXT('UI.meta.tab.open')]].map(([t, label], i) => ({ id: 'tab:' + t, tab: t, label, on: true, x: 1300 + i * 222, y: 124, w: 212, h: 56 })); if (tab === 'open') return UI.unlocks().concat([back, ...tb, cx]); const list = D.metaFor(cls), rows = Math.ceil(list.length / 2), step = Math.min(112, Math.floor(572 / rows));
+      return list.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 276 + (i % rows) * step, w: 760, h: step - 4 })).concat([back, ...tb, cx]); },
     fork: () => [0, 1].map((i) => ({ id: 'fork:' + i, i, on: true, x: 460 + i * 520, y: 340, w: 480, h: 390 })),
     // the codex (TASKS 395): its pages' entries in three columns, tabs over them, the pager and the way back under them
     codex: (tab, page) => { const list = D.codexList(tab), pages = Math.max(1, Math.ceil(list.length / D.CODEX_PAGE)), p = Math.min(page || 0, pages - 1);
@@ -233,6 +278,12 @@
       r.push({ id: 'close', x: Rp.x + Rp.w - 92, y: Rp.y + 34, w: 52, h: 52 }, ...sortCol('sort', Rp.x + 76 + COLS * STEP + 40, Rp.y + 130));
       return { P: { x: Lp.x, y: Lp.y, w: Rp.x + Rp.w - Lp.x, h: Lp.h }, L: Lp, R: Rp, r };
     },
+    // an ability card's lines in a card h tall (TASKS 2001): the cost at the foot, the fork line over it, the rank's text in its n
+    // wrapped lines (split: its head on a line of its own) raised with its rule before it would reach the fork line, which drops
+    // under the text only when the text cannot rise further
+    abCard: (h, n, split, fork) => { const LH = 27, cost = h - 34, span = n <= 1 ? 0 : (split ? 30 : LH) + LH * (n - 2);
+      const y0 = Math.max(116, Math.min(146, (fork ? h - 66 : cost) - LH - span)), f = fork ? Math.min(cost - 22, Math.max(h - 66, y0 + span + LH)) : null;
+      return { rule: y0 - 24, y0, d1: y0 + 30, last: y0 + span, fork: f, cost }; },
     // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the
     // right; every slot has its price line under it
     shop: (nGoods, len, tab) => {
@@ -247,9 +298,18 @@
       const by = Math.max(...r.filter((q) => q.id.startsWith('sell:')).map((q) => q.y + q.h)) + 40, card = { x: P.x + 700, y: by, w: P.w - 740, h: P.y + P.h - 20 - by, bot: 1036 };
       return { P, r, card };
     },
+    // a legendary's sale asks first (TASKS 1978): a sheet in the middle of the shop, clear of the merchant's button, «Оставить» on the right
+    sellAsk: () => { const A = { x: 660, y: 320, w: 600, h: 380 }, cell = { id: 'sellAsk_it', x: A.x + A.w / 2 - CELL / 2, y: A.y + 56, w: CELL, h: CELL };
+      return { A, cell, q: { x: A.x + 40, y: A.y + 150, w: A.w - 80, h: 90 }, r: [{ id: 'sellYes', label: TXT('UI.shop.sellYes'), on: true, x: A.x + 50, y: A.y + A.h - 100, w: 230, h: 64 },
+        { id: 'sellNo', label: TXT('UI.shop.sellNo'), on: true, x: A.x + A.w - 280, y: A.y + A.h - 100, w: 230, h: 64 }] }; },
+    // how many of a stack (TASKS 1988): the count between − and +, the answer under them, «Отмена» on the right
+    split: () => { const A = { x: 710, y: 340, w: 500, h: 340 };
+      return { A, cell: { id: 'split_it', x: A.x + A.w / 2 - CELL / 2, y: A.y + 40, w: CELL, h: CELL }, num: { x: A.x + A.w / 2 - 80, y: A.y + 136, w: 160, h: 64 },
+        r: [{ id: 'spOk', label: '', on: true, x: A.x + 40, y: A.y + A.h - 96, w: 200, h: 60 }, { id: 'spNo', label: TXT('UI.split.no'), on: true, x: A.x + A.w - 240, y: A.y + A.h - 96, w: 200, h: 60 },
+          { id: 'spMinus', label: '\u2212', on: true, x: A.x + A.w / 2 - 150, y: A.y + 140, w: 56, h: 56 }, { id: 'spPlus', label: '+', on: true, x: A.x + A.w / 2 + 94, y: A.y + 140, w: 56, h: 56 }] }; },
   };
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
   const uiAt = (scr, meta) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes(meta));
-  Object.assign(D, { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
+  Object.assign(D, { updShown, updMark, relNotes, verNewer, VIEW_H, uiDy, feedOf, bagTabs, bagTabOf, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
 })(typeof window !== 'undefined' ? window : globalThis);

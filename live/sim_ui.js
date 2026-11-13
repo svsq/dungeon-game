@@ -23,7 +23,7 @@
     const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless && !test) S.meta.bestEndless = Math.max(deepBest, deep);
     S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' && !R.campaignWon ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
-      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
+      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), test: test ? 1 : 0, record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log && !test) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; pickLatest(S); S.screen = how; S.saveN++;
@@ -34,10 +34,12 @@
   // past the serpent, down the stairs (TASKS 354): the campaign is won on the spot — its reward (gold and the win's shards), a win,
   // its record — and the same run goes on as the endless descent from the 13th, the hero as he is; the descent's depth is its record
   function descend(S, R) {
-    const W2 = runReward(R, 'win'); S.meta.shards += W2.base; if (!R.test) { S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, R.floor); }
-    tally(S, R, 'wins'); tally(S, R, 'shards', W2.base); tally(S, R, 'best', R.floor, 1);
-    R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; S.saveN++;
-    ev(S, { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: R.floor }); enterFloor(S, R, R.floor + 1);
+    // (the win is counted once the way down opens: a step that fails leaves the run as it was, review of PR 69)
+    const W2 = runReward(R, 'win'), f0 = R.floor, e = { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: f0 };
+    const was = { goldBanked: R.goldBanked, campaignWon: R.campaignWon, mode: R.mode };
+    R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; if (!enterFloor(S, R, f0 + 1)) { Object.assign(R, was); return; }
+    S.meta.shards += W2.base; if (!R.test) { S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, f0); }
+    tally(S, R, 'wins'); tally(S, R, 'shards', W2.base); tally(S, R, 'best', f0, 1); S.saveN++; ev(S, e);
     R.msg = { s: TXT('sim_ui.descend.msg.s', { base: W2.base, floor: R.floor, p3: D.floorName(R.floor, R.mode, R.seed, FROM(R)) }), t: S.t, d: 5 }; }
   // the checks of the dungeon's own workings start from the menu as before and play its 1st floor laid out without the town (a
   // merchant on the floor, no stairs up), the run's seed kept (TASKS 1026: the campaign itself now starts in the town)
@@ -71,7 +73,7 @@
   // the floor waits under its name a moment as on an arrival (TASKS 1812): an elite left at arm's length struck at once. The hero
   // waits with it (holdClocks), so nothing a load gives can be chained into a dodge
   function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.potAsk = null; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t };
-    R.holdT = S.t + RESUME_HOLD; }
+    SIMX.mendRun(S, R); R.holdT = S.t + RESUME_HOLD; }
   const RESUME_HOLD = 1.2;
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
@@ -113,9 +115,28 @@
   const SCREEN = {};
   // the main menu (TASKS 1301): ↑↓ walk the items and «Что нового», Enter presses the focused one; with no item focused Enter
   // presses the first, as before the focus (continue the saved run, or a new one)
+  // the update's window (TASKS 1870): its buttons ask the page (S.updReq, a count and a kind), the page asks the main process and
+  // sends the new state back through the input; ←→ walk the buttons, Enter presses the lit one, Escape closes the window
+  const updAsk = (S, k) => { S.updReq = { n: ((S.updReq && S.updReq.n) || 0) + 1, k }; };
+  const updClose = (S) => { S.updOpen = 0; S.focus = 'update'; S.hover = ''; };
+  const updWin = (S, inp, keys, x, y, click) => { const U = UI.upd(S.upd), ids = U.r.map((q) => q.id), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (b && inp.moved) S.focus = b.id;
+    if (!ids.includes(S.focus)) S.focus = ids[0];
+    const mv = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv && ids.length > 1) { S.focus = ids[(ids.indexOf(S.focus) + mv + ids.length) % ids.length]; ev(S, { k: 'ui', x, y }); return; }
+    if (keys.Escape) { updClose(S); ev(S, { k: 'ui', x, y }); return; }
+    const id = click ? (b && b.id) : keys.Enter ? S.focus : null; if (!id) return;
+    ev(S, { k: 'ui', x, y });
+    if (id === 'get') updAsk(S, 'get');
+    else if (id === 'open') updAsk(S, 'open');
+    else if (id === 'retry') updAsk(S, S.upd && S.upd.err === 'down' ? 'get' : 'check');
+    // the restart: a run still in play is saved as «Выход» saves it, and the page writes the save before it asks for the restart
+    else if (id === 'run') { if (S.run) saveRun(S); S.saveN++; updAsk(S, 'run'); }
+    else updClose(S); };
   SCREEN.menu = (S, inp, keys, x, y, click) => {
     if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
-    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    if (S.updOpen) { updWin(S, inp, keys, x, y, click); return; }
+    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit, S.upd), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     const order = U.map((q) => q.id);
     if (b && inp.moved) S.focus = b.id;
     if (order.includes(S.focus)) S.menuAt = S.focus;
@@ -124,11 +145,13 @@
       if (id === 'continue') resume(S, S.saved);
       if (id === 'load') openLoad(S);
       if (D.RUNS[id]) pressRun(S, id);
-      if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
+      if (id === 'news') openNews(S);
       if (id === 'settings') openSettings(S, 'menu');
       // «Выход» (TASKS 1877): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
       // and then closes the window on quitReq
       if (id === 'quit' && S.canQuit) { if (S.run) saveRun(S); S.quitReq = (S.quitReq || 0) + 1; S.saveN++; }
+      // a check is asked for unless one is under way or its answer waits to be taken; the browser's item only shows the news
+      if (id === 'update' && D.updShown(S.upd)) { S.updOpen = 1; S.focus = ''; S.hover = ''; if (!S.upd.web && ['idle', 'none', 'err'].includes(S.upd.st)) updAsk(S, 'check'); }
       if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y }); };
     if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
@@ -230,10 +253,20 @@
     else if (st) { S.focus = (S.focus || '').startsWith('slot:') ? (has ? 'go' : 'back') : 'slot:' + sel; tick(); }
     if ((S.focus || '').startsWith('slot:')) S.loadSel = +S.focus.slice(5);
   };
-  // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back
+  // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back.
+  // Every opening shows only the newest version's points (the player's decision 13.11.2026, TASKS 1971): the past ones wait folded
+  // under their headers, and what was unfolded is not kept
+  const openNews = (S) => { S.screen = 'news'; S.newsTop = 0; S.newsDrag = null; S.newsOpen = { [(D.CHANGES[0] || {}).v]: 1 }; };
   SCREEN.news = (S, inp, keys, x, y, click) => {
-    const N = UI.news(S.newsTop), b = D.hitUI(N.r, x, y), page = Math.max(1, N.rows.length - 2); S.hover = b ? b.id : '';
-    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
+    const N = UI.news(S.newsTop, S.newsOpen), hd = D.hitUI(N.heads, x, y), b = D.hitUI(N.r, x, y) || hd || (N.bar && D.hitUI([N.bar.track], x, y)), page = Math.max(1, N.rows.length - 2); S.hover = b ? b.id : '';
+    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; S.newsDrag = null; if (click) ev(S, { k: 'ui', x, y }); return; }
+    if (click && hd) { const o = Object.assign({}, S.newsOpen); if (o[hd.v]) delete o[hd.v]; else o[hd.v] = 1; S.newsOpen = o;
+      S.newsTop = UI.news(N.top, o).top; ev(S, { k: 'ui', x, y }); return; }
+    // the thumb is taken where it was grabbed; a press on the track elsewhere brings the thumb's middle there and goes on dragging
+    const B = N.bar;
+    if (click && B && D.hitUI([B.track], x, y)) S.newsDrag = y >= B.thumb.y && y <= B.thumb.y + B.thumb.h ? y - B.thumb.y : B.thumb.h / 2;
+    if (!inp.press || !B) S.newsDrag = null;
+    if (S.newsDrag != null) { S.newsTop = Math.max(0, Math.min(N.max, Math.round((y - S.newsDrag - N.view.y) / (N.view.h - B.thumb.h) * N.max))); return; }
     const d = (inp.wheel || 0) + (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0) + (keys.PageDown ? page : 0) - (keys.PageUp ? page : 0) + (keys.End ? N.n : 0) - (keys.Home ? N.n : 0);
     if (d) S.newsTop = Math.max(0, Math.min(N.max, N.top + d));
   };
@@ -357,21 +390,62 @@
     if (click && b && b.id === 'do') craft(S, R);
     return;
   };
+  // a stack split (TASKS 1988): Shift+click asks how many, Shift+right click takes half at once. The part rides the pointer until the
+  // next click lays it down; the source keeps it all till then. At the merchant the same question sells or buys that many
+  const cellItem = (S, R, id) => { const [p, i] = id.split(':'), k = +i; return p === 'bag' || p === 'sell' ? R.hero.bag[k] : p === 'stash' ? stashOf(S).items[k] : p === 'buy' ? R.shop.goods[k] : null; };
+  const stackOf = (S, R, id) => { const q = cellItem(S, R, id); return q && (q.it ? (q.n ? q : null) : isCons(q) && q.n > 1 ? q : null); };
+  const splitOpen = (S, R, id, act, x, y) => { const q = stackOf(S, R, id); if (!q) return false; const it = q.it || q, h = R.hero;
+    const hi = act === 'take' ? it.n - 1 : act === 'sell' ? it.n : Math.min(q.n, Math.floor(h.gold / q.price), SIMX.roomFor(h, it.b));
+    if (act === 'buy' && hi < 1) { buy(S, R, q, 0); return true; }
+    S.split = { id, key: it.id, act, hi, n: act === 'take' ? Math.ceil(it.n / 2) : 1 }; S.focus = 'spOk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return true; };
+  const carry = (S, R, id, n, x, y) => { S.drag = { from: id, x, y, n, carry: 1 }; ev(S, { k: 'ui', x, y }); };
+  const halfOff = (S, R, id, x, y) => { const q = stackOf(S, R, id); if (!q || q.it) return false; carry(S, R, id, Math.ceil(q.n / 2), x, y); return true; };
+  // true while the question is up: it takes the step's input
+  function splitStep(S, R, inp, keys, x, y, click) { const A = S.split; if (!A) return false; const q = cellItem(S, R, A.id), it = q && (q.it || q);
+    if (!it || it.id !== A.key) { S.split = null; S.focus = ''; return true; }
+    const U = UI.split(), b = D.hitUI(U.r, x, y), P = U.A; S.hover = b ? b.id : '';
+    const d = (b && click && b.id === 'spPlus' ? 1 : 0) - (b && click && b.id === 'spMinus' ? 1 : 0) - (inp.wheel || 0) + (keys.ArrowRight || keys.ArrowUp ? 1 : 0) - (keys.ArrowLeft || keys.ArrowDown ? 1 : 0);
+    if (d) { const n = Math.max(1, Math.min(A.hi, A.n + d)); if (n !== A.n) { A.n = n; ev(S, { k: 'ui', x, y }); } }
+    const out = click && !(x >= P.x && x < P.x + P.w && y >= P.y && y < P.y + P.h);
+    if (keys.Escape || out || (click && b && b.id === 'spNo')) { S.split = null; S.focus = ''; ev(S, { k: 'ui', x, y }); return true; }
+    if (keys.Enter || (click && b && b.id === 'spOk')) { S.split = null; S.focus = '';
+      if (A.act === 'take') carry(S, R, A.id, A.n, x, y); else if (A.act === 'sell') sell(S, R, +A.id.split(':')[1], A.n); else buy(S, R, q, 0, A.n); }
+    return true; }
+  // the part held is laid down by the next click: a free cell or a stack of its kind takes it, another piece refuses it; Esc or the
+  // right button, a click on its own cell or off the cells put it back
+  function dropPart(S, R, A, k, B, j, n, x, y) { if (!B) return; if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
+    const o = B[j]; if (o && o.b === A[k].b && o.n >= D.CONSUMABLES[o.b].stack) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.full') }); return; }
+    if (!SIMX.movePart(R, A, k, B, j, n)) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.busy') }); return; }
+    S.saveN++; ev(S, { k: 'equip', x: R.hero.x, y: R.hero.y }); }
+  // a stack let go on a stack of its kind joins it up to the limit and the rest stays where it came from (TASKS 1999); a full one swaps
+  const joinStack = (R, A, k, B, j) => { const it = A[k], o = B[j]; return !!(it && o && o !== it && isCons(it) && o.b === it.b && SIMX.movePart(R, A, k, B, j, it.n || 1)); };
+  // the carried part's step in a window: true while it is held; arrOf gives the list and cell for a target cell, or null
+  function carryStep(S, R, inp, keys, x, y, click, b, arrOf) { const dr = S.drag; if (!dr || !dr.carry) return false;
+    dr.x = x; dr.y = y; const src = arrOf(dr.from), it = src && src[0][src[1]];
+    if (!it || keys.Escape || inp.rclick) { S.drag = null; return true; }
+    if (!click) return true; S.drag = null;
+    if (!b || b.id === dr.from) return true;
+    if (b.tab !== undefined) { dropPart(S, R, src[0], src[1], R.hero.bag, tabSpot(R.hero, b.tab, it), dr.n, x, y); return true; }
+    if (b.id.startsWith('eq:')) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.cons') }); return true; }
+    const to = arrOf(b.id); if (to) dropPart(S, R, src[0], src[1], to[0], to[1], dr.n, x, y); return true; }
   SCREEN.stash = (S, inp, keys, x, y, click) => {
     const R = S.run, U = R && UI.stash(R.hero.bag.length, S.bagTab), b = U && D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
-    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
+    if (!R || ((keys.Escape || keys.KeyE) && !S.split && !(S.drag && S.drag.carry)) || (click && b && b.id === 'close' && !S.split)) { S.screen = 'play'; S.drag = null; S.split = null; return; }
     const T = stashOf(S);
+    if (splitStep(S, R, inp, keys, x, y, click)) return;
+    if (carryStep(S, R, inp, keys, x, y, click, b, (id) => { const [p, i] = id.split(':'), k = +i; return p === 'bag' && k < R.hero.bag.length ? [R.hero.bag, k] : p === 'stash' && k < n ? [T.items, k] : null; })) return;
+    if (b && !S.drag && inp.shift && (b.id.startsWith('bag:') || b.id.startsWith('stash:')) && ((click && splitOpen(S, R, b.id, 'take', x, y)) || (inp.rclick && halfOff(S, R, b.id, x, y)))) return;
     if (click && b && b.tab !== undefined && !S.drag) { tabClick(S, b, x, y); return; }
     if (inp.rclick && b && !S.drag) { if (b.id.startsWith('bag:') && R.hero.bag[b.i]) { stashPut(S, R, b.i); return; } if (b.id.startsWith('stash:') && T.items[b.i]) { stashTake(S, R, b.i); return; } }
     if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortTab(S, R.hero, b.k); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; }
     else if (S.drag) { const from = S.drag.from, k = +from.split(':')[1], to = b && b.id !== from ? b : null; S.drag = null;
-      if (to && to.tab !== undefined) { if (from.startsWith('bag:')) intoTab(S, R, R.hero, k, false, to.tab, x, y); else { const j = freeIn(R.hero, to.tab); if (j < 0) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); else stashTake(S, R, k, j); } return; }
+      if (to && to.tab !== undefined) { if (from.startsWith('bag:')) intoTab(S, R, R.hero, k, false, to.tab, x, y); else { const j = tabSpot(R.hero, to.tab, T.items[k]); if (j < 0) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); else stashTake(S, R, k, j); } return; }
       const same = to && to.id.split(':')[0] === from.split(':')[0];
       // a drag within one grid moves the piece there, as the window's own line says (TASKS 1413)
-      if (same && from.startsWith('bag:')) { const B = R.hero.bag; [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
-      else if (same) { if (to.i < n) { [T.items[k], T.items[to.i]] = [T.items[to.i] || null, T.items[k]]; S.saveN++; } }
+      if (same && from.startsWith('bag:')) { const B = R.hero.bag; if (!joinStack(R, B, k, B, to.i)) [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
+      else if (same) { if (to.i < n) { if (!joinStack(R, T.items, k, T.items, to.i)) [T.items[k], T.items[to.i]] = [T.items[to.i] || null, T.items[k]]; S.saveN++; } }
       else if (from.startsWith('bag:')) stashPut(S, R, k, to && to.id.startsWith('stash:') && to.i < n ? to.i : undefined);
       else stashTake(S, R, k, to && to.id.startsWith('bag:') ? to.i : undefined); }
     return;
@@ -398,8 +472,14 @@
     return;
   };
   SCREEN.shop = (S, inp, keys, x, y, click) => {
-    const R = S.run, sh = R.shop, U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, sh = R.shop;
+    if (S.sellAsk) { const a = askAnswer(S, UI.sellAsk(), keys, x, y, click, inp.moved), A = S.sellAsk, it = R.hero.bag[A.i];
+      if (a) { S.sellAsk = null; S.focus = ''; S.hover = ''; if (a > 0 && it && it.id === A.id) sell(S, R, A.i); else ev(S, { k: 'ui', x, y }); }
+      return; }
+    if (splitStep(S, R, inp, keys, x, y, click)) return;
+    const U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (click && b && inp.shift && ((b.id.startsWith('sell:') && splitOpen(S, R, b.id, 'sell', x, y)) || (b.id.startsWith('buy:') && splitOpen(S, R, b.id, 'buy', x, y)))) return;
     if (inp.rclick && b && b.id.startsWith('sell:')) { sellAsk(S, R, b.i, x, y); return; }
     if (!click || !b) return;
     if (b.id === 'talk' && !sh.wander) { S.talk = { role: 'merchant', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.merchant.topics, menu: 1 }; S.screen = 'talk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
@@ -409,9 +489,9 @@
     if (b.id.startsWith('sell:')) sellAsk(S, R, b.i, x, y);
     return;
   };
-  // a legendary or better goes on a second press (TASKS 1863 г): the merchant buys it back only while it is among his last few
+  // a legendary or better asks first (TASKS 1863 г, 1978): the merchant buys it back only while it is among his last few
   const sellAsk = (S, R, i, x, y) => { const it = R.hero.bag[i]; if (!it) return;
-    if ((it.rar || 0) < 4 || again(S, 'sell', it)) sell(S, R, i); else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.shop.sellAsk', { p1: SIMX.itemName(it) }) }); };
+    if ((it.rar || 0) < 4) sell(S, R, i); else { S.sellAsk = { i, id: it.id }; S.focus = 'sellNo'; S.hover = ''; ev(S, { k: 'ui', x, y }); } };
   // one way out of every window (TASKS 1863 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
   // the rows stand as the board opened until it closes (TASKS 1885): a taken one stays in place with its button out, so the rows
@@ -449,12 +529,16 @@
   const openTab = (S, h) => { const T = D.bagTabs(h.bag.length), k = Math.max(0, Math.min(T.length - 1, S.bagTab | 0)); return T[k]; };
   const sortTab = (S, h, k) => { const T = openTab(S, h), part = h.bag.slice(T.a, T.a + T.n); sortItems(part, T.n, k, true); h.bag.splice(T.a, T.n, ...part); };
   const freeIn = (h, t) => { const T = D.bagTabs(h.bag.length)[t]; if (T) for (let i = T.a; i < T.a + T.n; i++) if (!h.bag[i]) return i; return -1; };
+  // a consumable let go over a tab joins a stack of its kind with room there before it takes a free cell (TASKS 1999)
+  const tabSpot = (h, t, it) => { const T = D.bagTabs(h.bag.length)[t]; if (!T) return -1;
+    if (it && isCons(it)) for (let i = T.a; i < T.a + T.n; i++) { const o = h.bag[i]; if (o && o !== it && o.b === it.b && o.n < D.CONSUMABLES[o.b].stack) return i; }
+    return freeIn(h, t); };
   const tabClick = (S, b, x, y) => { S.bagTab = b.tab; S.hover = ''; ev(S, { k: 'ui', x, y }); };
   // a piece let go over a tab goes to that tab's first free cell (a worn one comes off into it)
   const intoTab = (S, R, h, k, eq, t, x, y) => { const T = D.bagTabs(h.bag.length)[t]; if (!T) return;
     if (!eq && k >= T.a && k < T.a + T.n) { ev(S, { k: 'nope', x, y, s: t ? TXT('sim_ui.inv.same') : TXT('sim_ui.inv.sameBag') }); return; }
-    const j = freeIn(h, t); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
-    if (eq) unequip(S, R, h, k, j); else { h.bag[j] = h.bag[k]; h.bag[k] = null; S.saveN++; ev(S, { k: 'ui', x, y }); } };
+    const j = tabSpot(h, t, eq ? null : h.bag[k]); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
+    if (eq) unequip(S, R, h, k, j); else { if (!joinStack(R, h.bag, k, h.bag, j)) { h.bag[j] = h.bag[k]; h.bag[k] = null; } S.saveN++; ev(S, { k: 'ui', x, y }); } };
   const unequip = (S, R, h, slot, i) => { const it = h.eq[slot]; if (!it) return;
     if (i === undefined ? bagAdd(R, it) : !h.bag[i]) { if (i !== undefined) { it.id = it.id || R.nextId++; h.bag[i] = it; } h.eq[slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot, off: gearName(it) }); } };
   // a press on a bag or worn piece picks it up; letting go over its own cell is the click (use / unequip), over another bag cell
@@ -464,12 +548,15 @@
     if (b && b.tab !== undefined) { intoTab(S, R, h, k, eq, b.tab, dr.x, dr.y); return; }
     const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length, nope = (s) => ev(S, { k: 'nope', x: dr.x, y: dr.y, s });
     if (b && b.id === f) { if (eq) unequip(S, R, h, k); else useItem(S, R, k); }
-    else if (bagTo && !eq) { [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
+    else if (bagTo && !eq) { if (!joinStack(R, h.bag, k, h.bag, b.i)) [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
     else if (bagTo && eq) { const o = h.bag[b.i]; if (!o) unequip(S, R, h, k, b.i); else if (fitsSlot(o, k)) useItem(S, R, b.i); else nope(TXT('sim_ui.inv.swap', { p1: D.SLOT_NAME[k] })); }
     else if (b && b.id.startsWith('eq:') && !eq) { const it = h.bag[k]; if (it && isCons(it)) nope(TXT('sim_ui.inv.cons')); else if (!fitsSlot(it, b.slot)) nope(TXT('sim_ui.inv.slot', { p1: D.SLOT_NAME[b.slot] })); else useItem(S, R, k); } };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
     const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (splitStep(S, R, inp, keys, x, y, click)) return;
+    if (carryStep(S, R, inp, keys, x, y, click, b, (id) => { const [p, i] = id.split(':'), k = +i; return p === 'bag' && k < h.bag.length ? [h.bag, k] : null; })) return;
     if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
+    if (b && !S.drag && inp.shift && b.id.startsWith('bag:') && ((click && splitOpen(S, R, b.id, 'take', x, y)) || (inp.rclick && halfOff(S, R, b.id, x, y)))) return;
     if (click && b && (b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') && h.eq[b.slot])) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; return; }
     if (S.drag) { dropInv(S, R, h, b); return; }
@@ -507,7 +594,7 @@
   // moved: the pointer moved since the last step, and only then takes the focus onto what it is over (TASKS 1754), so a pointer
   // resting over an item does not take it back from the keyboard. A window or question just opened never counts it (review of
   // PR 57): a pointer left over «Сдаться» took the gate's focus off «Остаться» as the window came up, and Enter gave the run up
-  const uiKey = (S) => [S.screen, S.newAsk || '', S.delAsk ?? '', S.pauseAsk || ''].join(':');
+  const uiKey = (S) => [S.screen, S.newAsk || '', S.delAsk ?? '', S.pauseAsk || '', S.updOpen || ''].join(':');
   function stepUI(S, inp, keys) {
     const f = SCREEN[S.screen], moved = !!inp.moved && S.uiKey === uiKey(S), py = S.uiPtr ? S.uiPtr[1] : inp.py - SIMX.uiDy(S.screen);
     if (S.screen === 'menu' && S.uiWas !== 'menu') S.focus = MENU_SUBS.includes(S.uiWas) && S.menuAt ? S.menuAt : '';

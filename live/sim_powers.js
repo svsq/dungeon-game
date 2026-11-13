@@ -18,6 +18,8 @@
     split(S, R, P, ctx) { for (const p of (ctx.projs || []).slice()) for (const s of [-1, 1]) { const a = Math.atan2(p.vy, p.vx) + s * P.a, v = Math.hypot(p.vx, p.vy);
       R.proj.push(Object.assign({}, p, { id: R.nextId++, vx: Math.cos(a) * v, vy: Math.sin(a) * v, dmg: Math.max(1, Math.round(p.dmg * P.k)) })); } },
     pierce(S, R, P, ctx) { for (const p of ctx.projs || []) p.pierce = (p.pierce || 0) + P.n; },
+    // the most shards of all it holds, so the comet over the plain shatter gives the same ball whatever order they were taken in
+    shatter(S, R, P, ctx) { for (const p of ctx.projs || []) if (!p.frag || p.frag.n < P.n) p.frag = { n: P.n, a: P.a, k: P.k, first: P.first, life: P.life }; },
     chain(S, R, P, ctx) { let c = ctx.e; const dmg = atk(S, P, ctx), done = new Set(c ? [c.id] : []); for (let i = 0; c && i < P.n; i++) { const n = targets(R, c.x, c.y, P.r).filter((e) => !done.has(e.id)).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0]; if (!n) return;
       done.add(n.id); hitEnemy(S, R, n, dmg, false, c.x, c.y, 0.3, 'thorns'); ev(S, { k: 'pop', x: n.x, y: n.y - ENEMIES[n.type].h * 0.5, c: 'bolt', hit: 1, mine: 1 }); c = n; } },
     burnGround(S, R, P, ctx) { const [x, y] = pos(R, ctx), dmg = atk(S, P, ctx);
