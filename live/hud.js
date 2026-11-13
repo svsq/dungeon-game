@@ -846,10 +846,10 @@
     const U = D.UI.split(), A = U.A, N = U.num, keys = TXT('hud.split.keys'), ky = A.y + A.h + 40, kw = lw('sp_keys_w', keys, { size: 26 }), act = A0.act;
     dim(0.45); L.uiCover('sp_cover', Math.min(A.x, W / 2 - kw / 2 - 12), A.y, W - 2 * Math.min(A.x, W / 2 - kw / 2 - 12), ky + 20 - A.y);
     KIT.panel('sp_ask', A.x, A.y, A.w, A.h, 'torn'); slot(S, U.cell, Object.assign({}, it, { n: 1 }));
-    KIT.ink('sp_q', TXT('hud.split.' + act), A.x + A.w / 2, A.y + 128, { size: 24, al: 0.5, col: KIT.INK.t, bold: true });
+    KIT.ink('sp_q', (act === 'sell' ? TXT('hud.split.sell') : act === 'buy' ? TXT('hud.split.buy') : TXT('hud.split.take')), A.x + A.w / 2, A.y + 128, { size: 24, al: 0.5, col: KIT.INK.t, bold: true });
     KIT.ink('sp_n', String(A0.n), N.x + N.w / 2, N.y + N.h / 2 + 6, { size: 40, al: 0.5, col: KIT.INK.t, bold: true });
     if (act !== 'take') { const pr = (g ? g.price : D.sellPrice(it, SIM.Q.tradeDepth(R))) * A0.n; KIT.ink('sp_pr', TXT('hud.split.price', { n: pr }), A.x + A.w / 2, N.y + N.h + 20, { size: 22, al: 0.5, col: KIT.INK.d }); }
-    for (const b of U.r) KIT.button('sp_' + b.id, b.id === 'spOk' ? Object.assign({}, b, { label: TXT('hud.split.ok.' + act) }) : b, askSt(S, U, b.id));
+    for (const b of U.r) KIT.button('sp_' + b.id, b.id === 'spOk' ? Object.assign({}, b, { label: (act === 'sell' ? TXT('hud.split.ok.sell') : act === 'buy' ? TXT('hud.split.ok.buy') : TXT('hud.split.ok.take')) }) : b, askSt(S, U, b.id));
     L.uiBox('sp_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('sp_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
