@@ -346,7 +346,7 @@
           else { SIMX.breakPots(S, R, bx, by, 24); SIMX.hitProps(S, R, bx, by, 24); }
           ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: touched ? 1 : 0, mine: 1 }); }
         else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT, F = touched && !wall && p.frag, dmg = F ? Math.max(1, Math.round(p.dmg * F.first)) : p.dmg, br = p.br || 66;
-          for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < br + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, dmg, !!p.crit, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
+          for (const e of R.en) if (e.deadT < 0 && !(p.shard && p.past.includes(e.id)) && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < br + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, dmg, !!p.crit, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
           SIMX.breakPots(S, R, bx, by, br * 0.75); SIMX.hitProps(S, R, bx, by, br * 0.75); SIMX.tearWebs(S, R, bx, by - 20, br, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by, ...(p.br ? { vr: Math.round(88 * br / 66) } : {}) }); R.trauma = Math.min(1, R.trauma + (p.br ? 0.08 : 0.2));
           if (F) shatter(S, R, p, touched, F); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
@@ -354,7 +354,7 @@
   }
   function shatter(S, R, p, e, F) { const a0 = Math.atan2(p.vy, p.vx), v = Math.hypot(p.vx, p.vy), dmg = Math.max(1, Math.round(p.dmg * F.k));
     for (let i = 0; i < F.n; i++) { const a = a0 + (F.n > 1 ? (i / (F.n - 1) - 0.5) * F.a : 0);
-      R.proj.push(Object.assign({}, p, { id: R.nextId++, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: S.t, life: F.life, dmg, r: p.r * 0.6, br: 44, frag: null, past: [e.id], dead: 0 })); } }
+      R.proj.push(Object.assign({}, p, { id: R.nextId++, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: S.t, life: F.life, dmg, r: p.r * 0.6, br: 44, frag: null, past: [e.id], shard: 1, dead: 0 })); } }
   function hush(S, R, e) { const U = D.HUSH, t = S.t;
     if (e.st !== 'wind' || e.kin || e.grab || D.BOSSES[e.type] || !U.kinds.includes(ENEMIES[e.type].kind) || t < (e.hushT ?? 0)) return;
     e.st = 'chase'; e.t0 = t; e.cdT = Math.max(e.cdT || 0, t + U.cd); e.hushT = t + U.every; ev(S, { k: 'hush', x: e.x, y: e.y - ENEMIES[e.type].h * 0.8, id: e.id }); }

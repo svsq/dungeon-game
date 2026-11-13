@@ -121,7 +121,7 @@
       // the scroll's track and thumb for both the sim's drag and the HUD (TASKS 1971); the track's hit is wider than its ink rule
       const th = Math.max(60, vh * vh / (vh + max * 34)), bar = max > 0 ? { track: { id: 'track', x: sx - 14, y: view.y, w: 31, h: vh }, thumb: { x: sx - 4, y: view.y + (vh - th) * (t / max), w: 11, h: th }, x: sx } : null;
       return { P, rows: shown, top: t, max, n: rows.length, view, bar,
-        heads: shown.filter((r) => r.k === 'ver').map((r) => ({ id: 'ver:' + r.v, v: r.v, x: view.x, y: r.y, w: view.w, h: r.h })),
+        heads: shown.filter((r) => r.k === 'ver').map((r) => ({ id: 'ver:' + r.v, v: r.v, x: view.x, y: r.y, w: bar ? bar.track.x - view.x : view.w, h: r.h })),
         r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
     // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right).
     // The book is as tall as the settings there are (TASKS 1758: five rows' room held two and stood two thirds empty); the graphics

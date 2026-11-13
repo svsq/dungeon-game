@@ -2574,7 +2574,12 @@
             if (!(dr > 0)) out.push('news: dragging the scroll thumb does not scroll the list');
             step(U, { keys: ['Home'] }); const ty = B.track.y + B.track.h - 4 + SIMX.uiDy('news');
             step(U, { keys: [], px: gx, py: ty, click: 1, press: 1 }); step(U, { keys: [], px: gx, py: ty });
-            if (U.newsTop !== UI.news(0, U.newsOpen).max) out.push(`news: a press at the track's end scrolls to ${U.newsTop}, not to the end`); }
+            if (U.newsTop !== UI.news(0, U.newsOpen).max) out.push(`news: a press at the track's end scrolls to ${U.newsTop}, not to the end`);
+            step(U, { keys: ['Home'] }); step(U, { keys: [], px: gx, py: gy }); if (U.hover !== 'track') out.push(`news: the pointer over the scroll track does not light it (${U.hover})`);
+            const N0 = UI.news(0, U.newsOpen), hv = N0.heads[0], o0 = JSON.stringify(U.newsOpen);
+            if (N0.heads.some((h) => h.x + h.w > B.track.x)) out.push('news: a version header\'s press zone runs under the scroll track');
+            if (hv) { const hy = hv.y + hv.h / 2 + SIMX.uiDy('news'); step(U, { keys: [], px: B.track.x + 2, py: hy, click: 1, press: 1 }); const grab = U.newsDrag != null; step(U, { keys: [], px: B.track.x + 2, py: hy });
+              if (!grab || JSON.stringify(U.newsOpen) !== o0) out.push('news: a press on the track beside a version header folds the version instead of taking the thumb'); } }
           step(U, { keys: ['Escape'] }); press(U, UI.menu(true).find((b) => b.id === 'news'));
           if (Object.keys(U.newsOpen || {}).length !== 1 || U.newsTop) out.push('news: a second opening keeps what was unfolded or scrolled'); }
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }

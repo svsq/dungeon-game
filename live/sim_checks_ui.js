@@ -256,6 +256,8 @@
       const gi = R.shop.goods.findIndex((q) => q.n && q.it.b === 'hp_potion'), g = R.shop.goods[gi];
       if (g) { g.n = Math.max(g.n, 5); h.gold = g.price * 3 + 7; const n0 = g.n, c0 = hp(h); go(S, U(), 'buy:' + gi, { click: 1, shift: 1 }); step(S, { keys: ['ArrowRight'] }); step(S, { keys: ['ArrowRight'] }); step(S, { keys: [], wheel: -5 }); step(S, { keys: ['Enter'] });
         if (h.gold !== 7 || hp(h) !== c0 + 3 || (R.shop.goods.includes(g) ? g.n : 0) !== n0 - 3 || over(h.bag)) out.push(`split: buying 3 at the merchant leaves ${h.gold} gold (7) and ${hp(h) - c0} potions`); }
-      else out.push('split: the merchant sells no potions'); } }
+      else out.push('split: the merchant sells no potions');
+      if (g) { h.bag.fill(null); g.n = cap * 2 + 3; h.gold = g.price * g.n; const n = g.n; SIMX.buy(S, R, g, false, n);
+        if (hp(h) !== n || over(h.bag) || h.bag.filter(Boolean).length !== 3) out.push(`split: buying ${n} into an empty bag gives ${hp(h)} potions in ${h.bag.filter(Boolean).length} cells, or a stack past its limit`); } } }
   Object.assign(SIMX, { checkReview57, checkResize, checkMapCut, checkSplit });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -131,7 +131,11 @@
     // TASKS 1982: the pierce once traded the blast for a pass through and did less against a pack than the plain ball
     { const plain = crowdFire([]), shat = crowdFire(['fire_pierce']); if (shat.shards !== D.SHARDS.n) out.push(`power: the ball broke into ${shat.shards} shards, not ${D.SHARDS.n}`);
       if (!(plain.dmg > 0) || shat.dmg < plain.dmg) out.push(`power: the shattering ball dealt the pack ${shat.dmg}, the plain one ${plain.dmg}`);
-      const S2 = crowdFire(['fire_split', 'fire_pierce']); if (S2.shards > 3 * D.SHARDS.n) out.push(`power: shards shatter again (${S2.shards} from three balls)`); }
+      const S2 = crowdFire(['fire_split', 'fire_pierce']); if (S2.shards > 3 * D.SHARDS.n) out.push(`power: shards shatter again (${S2.shards} from three balls)`);
+      const c = stage('mage'), m = c.R.map, e = foe(c.R, c.h, 60), wx = Math.floor(e.x / TILE) + 1, cy = Math.floor(c.h.y / TILE); for (let y = cy - 7; y <= cy + 7; y++) m.cells[y * m.W + wx] = 0;
+      own(c, 'fire_pierce'); c.h.aim = 0; c.S.ev = []; const hit0 = SIMX.heroHit; let n = 0; SIMX.heroHit = (...a) => { if (a[2] === e) n++; return hit0(...a); };
+      try { castAbility(c.S, c.R, 'fireball', {}); for (let i = 0; i < 120 && c.R.proj.length; i++) { c.S.t += SIMX.DT; SIMX.stepProjectiles(c.S, c.R); } } finally { SIMX.heroHit = hit0; }
+      const sb = c.S.ev.filter((q) => q.k === 'boom' && q.vr).length; if (!sb || n !== 1) out.push(`power: a shard bursting at the wall behind the first foe struck it again (${n} blows, ${sb} shard blasts)`); }
     { const c = stage('mage'); own(c, 'shield_burst'); const e = foe(c.R, c.h, 50), hp = e.hp; SIMX.firePowers(c.S, c.R, 'shieldEnd', { x: c.h.x, y: c.h.y, left: 40 }); if (hp - e.hp < 40) out.push(`power: the shield's end took ${hp - e.hp}`); }
     { const c = stage('mage'); own(c, 'shield_feed'); castAbility(c.S, c.R, 'shield', {}); const u = c.h.shieldUntil; killEnemy(c.S, c.R, foe(c.R, c.h)); if (Math.abs(c.h.shieldUntil - u - 1) > 1e-6) out.push('power: a kill does not feed the shield'); c.h.shield = 0; const u2 = c.h.shieldUntil; killEnemy(c.S, c.R, foe(c.R, c.h)); if (c.h.shieldUntil !== u2) out.push('power: a kill feeds a shield that is down'); }
     { const c = stage('archer'); own(c, 'volley_pierce'); castAbility(c.S, c.R, 'volley', {}); if (c.R.proj.length !== D.VOLLEY.n || c.R.proj.some((p) => p.pierce < 1)) out.push('power: the volley does not pierce'); }

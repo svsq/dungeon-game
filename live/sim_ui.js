@@ -237,7 +237,7 @@
   // under their headers, and what was unfolded is not kept
   const openNews = (S) => { S.screen = 'news'; S.newsTop = 0; S.newsDrag = null; S.newsOpen = { [(D.CHANGES[0] || {}).v]: 1 }; };
   SCREEN.news = (S, inp, keys, x, y, click) => {
-    const N = UI.news(S.newsTop, S.newsOpen), hd = D.hitUI(N.heads, x, y), b = D.hitUI(N.r, x, y) || hd, page = Math.max(1, N.rows.length - 2); S.hover = b ? b.id : '';
+    const N = UI.news(S.newsTop, S.newsOpen), hd = D.hitUI(N.heads, x, y), b = D.hitUI(N.r, x, y) || hd || (N.bar && D.hitUI([N.bar.track], x, y)), page = Math.max(1, N.rows.length - 2); S.hover = b ? b.id : '';
     if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; S.newsDrag = null; if (click) ev(S, { k: 'ui', x, y }); return; }
     if (click && hd) { const o = Object.assign({}, S.newsOpen); if (o[hd.v]) delete o[hd.v]; else o[hd.v] = 1; S.newsOpen = o;
       S.newsTop = UI.news(N.top, o).top; ev(S, { k: 'ui', x, y }); return; }
