@@ -14,7 +14,7 @@ const server = http.createServer((q, r) => {
   });
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--max-old-space-size=8192'] });   // (SCENE.QA() past V8's default heap stalls on the Steam Deck, TASKS 1373)
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 try {
@@ -33,6 +33,14 @@ try {
       const r = draw(p, u, xf, ...a);
       if (comp && drawPixels) { const pixel = new Float32Array(4); gl.readPixels(489, target.h - 238, 1, 1, gl.RGBA, gl.FLOAT, pixel); pixelTrace.push([...pixel]); }
       return r;
+    };
+    // flat rectangles (the moss) go in batches (G.solid, TASKS 2011): while tracing, each is sent at once and traced as a draw was
+    // (review of PR 62: the batch went out past the hook, and the pixel was read before it)
+    const solid = G.solid; G.solid = (p, xf, col, al) => {
+      const comp = target === LIB.T.comp;
+      if (comp) trace.push(JSON.stringify([p.name, { u_col: col, u_a: al }, xf, []]));
+      solid(p, xf, col, al); G.flush();
+      if (comp && drawPixels) { const pixel = new Float32Array(4); gl.readPixels(489, target.h - 238, 1, 1, gl.RGBA, gl.FLOAT, pixel); pixelTrace.push([...pixel]); }
     };
     const snapshot = () => {
       const out = {};
@@ -60,7 +68,7 @@ try {
         }
         previous = current;
       }
-    } finally { G.bind = bind; G.draw = draw; LIB.beginComp = beginComp; }
+    } finally { G.bind = bind; G.draw = draw; G.solid = solid; LIB.beginComp = beginComp; }
     const drawDifferences = traces[0].flatMap((a, i) => a === traces[1][i] ? [] : [{ i, first: a, second: traces[1][i] }]);
     const pixelDifferences = pixelTraces[0].flatMap((a, i) => JSON.stringify(a) === JSON.stringify(pixelTraces[1][i]) ? [] : [{ i, first: a, second: pixelTraces[1][i], draw: traces[0][i] }]);
     return { pure: before === JSON.stringify(S), differences, drawCounts: traces.map((t) => t.length), drawDifferences, pixelDifferences: pixelDifferences.slice(0, 6), urls, browser: navigator.userAgent };
