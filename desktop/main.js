@@ -12,7 +12,8 @@ app.setPath('userData', path.join(app.getPath('appData'), 'Глубины Кри
 // A fixed privileged origin keeps localStorage (meta progress, the saved run) stable across launches and app updates.
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
-if (!app.requestSingleInstanceLock()) app.quit();
+// a second instance must exit before the log below: only the lock holder may write boot.log
+if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 // the start's log (TASKS 2004): the window's and the page's stages with their times, rewritten at every launch, so a player whose
 // game takes long to open can send boot.log from the save folder

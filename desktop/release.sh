@@ -7,6 +7,9 @@
 #   --no-check                          # skip tune.cjs (it refuses to pack a sim whose selfCheck fails)
 #   --publish                           # with --head: upload the built files and their update feeds to the GitHub release v<version>
 #                                       # (created from the CHANGELOG entry if it is not there yet; the tag must be pushed first)
+#                                       # needs every feed built: mac win win7 linux ("all" does not include win7)
+#   --partial                           # with --publish: allow a target set that lacks some of them; the installed builds on the missing
+#                                       # feeds then fail to update (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND), so the warning names them
 # Updates from the game's menu (TASKS 1870): Windows builds an nsis installer, macOS a zip next to the dmg, each with latest*.yml;
 # the Windows 7 build has its own feed, win7.yml, so it is never offered the installer that does not start there
 set -euo pipefail
@@ -14,12 +17,13 @@ DESK="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$DESK")"
 SKILL="${REF2GAME:-$HOME/.claude/skills/ref2game}"
 
-head=0; check=1; publish=0; targets=()
+head=0; check=1; publish=0; partial=0; targets=()
 for a in "$@"; do
   case "$a" in
     --head) head=1 ;;
     --no-check) check=0 ;;
     --publish) publish=1 ;;
+    --partial) partial=1 ;;
     all) targets+=(mac win linux) ;;
     mac|win|linux|run|win7) targets+=("$a") ;;
     *) echo "unknown argument: $a" >&2; exit 64 ;;
@@ -27,6 +31,26 @@ for a in "$@"; do
 done
 [ ${#targets[@]} -gt 0 ] || targets=(mac)
 [ $publish = 0 ] || [ $head = 1 ] || { echo "--publish needs --head: a release is built from a commit, not from the working tree" >&2; exit 64; }
+# every installed build reads its own feed from the release (TASKS 1870): one missing makes its updater fail on that release
+if [ $publish = 1 ]; then
+  missing=()
+  for need in mac win win7 linux; do
+    have=0; for t in "${targets[@]}"; do [ "$t" = "$need" ] && have=1; done
+    [ $have = 1 ] || missing+=("$need")
+  done
+  if [ ${#missing[@]} -gt 0 ]; then
+    feeds=(); for m in "${missing[@]}"; do case "$m" in
+      mac) feeds+=("macOS builds (latest-mac.yml)") ;; win) feeds+=("Windows 10+ builds (latest.yml)") ;;
+      win7) feeds+=("Windows 7 builds (win7.yml)") ;; linux) feeds+=("Linux builds (latest-linux.yml)") ;; esac; done
+    if [ $partial = 0 ]; then
+      echo "--publish needs every update feed in the release; missing targets: ${missing[*]}" >&2
+      echo "add them (all does not include win7), or pass --partial to publish without them" >&2
+      exit 64
+    fi
+    echo "!!! WARNING: --partial publish without: ${missing[*]}" >&2
+    printf '!!! installed %s will fail to update (ERR_UPDATER_CHANNEL_FILE_NOT_FOUND) until a release with that feed is published\n' "${feeds[@]}" >&2
+  fi
+fi
 # the installed games take an update only from the certificate that signed them (TASKS 1870): with no such one here the mac
 # build stops instead of signing with another of the keychain's identities
 MAC_ID="$(node -p "require('$DESK/package.json').build.mac.identity")"
