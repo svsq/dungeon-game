@@ -55,6 +55,8 @@
     S.uiPtr = [inp.px, inp.py - uiDy(S.screen)];
     // M mutes from any screen (TASKS 1863 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
     if (keys.KeyM && !S.demo && !SIMX.typing(S)) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
+    // the tracker's fold button (TASKS 1992): the page turns a click on it into this key, so the click swings at nothing
+    if (keys.TrkFold && S.run && !S.demo && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkFold = S.meta.trkFold ? 0 : 1; S.saveN++; }
     if (S.screen === 'play' && S.run) {
       // never a window's key (uiKey gives 'play:::'), so the first step of any window opened from play takes no pointer move
       S.uiWas = 'play'; S.uiKey = 'play'; SIMX.commitDraft(S);

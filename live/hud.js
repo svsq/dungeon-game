@@ -587,16 +587,29 @@
     return { k, cut, mw, mh, title, bw, legend, pw, x0, y0, py, px: x0 + Math.round((pw - mw) / 2), lg0, rule, bot, box: [x0, 4, pw, bot - 4] };
   }
   function mmBox(S, R) { return mmGeo(S, R, legOpen(S, R)).box; }
-  // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands
-  const trkAll = (R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned'), trkRows = (R) => trkAll(R).slice(0, 4), trkMore = (R) => Math.max(0, trkAll(R).length - 4);
-  function trkBox(S, R) { const Q = trkRows(R); if (!Q.length || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R);
-    const w = Math.max(280, ...Q.map((q, i) => Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.Q.questLine(q, R), { size: 20 })))) + 32;
-    return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50 + (trkMore(R) ? 26 : 0)]; }
-  function tracker(S, R) { const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B;
-    plate('qtrack', x0 - 4, y0 - 4, w + 8, h + 8, { k: 0.35, pad: 8 }); lab('qt_t', TXT('hud.tracker'), x0 + 14, y0 + 20, { size: 20, col: C.dim }); if (trkMore(R)) lab('qt_more', TXT('hud.tracker.more', { n: trkMore(R) }), x0 + 14, y0 + h - 16, { size: 20, col: C.dim });
-    trkRows(R).forEach((q, i) => { const y = y0 + 48 + i * 50, done = q.st === 'done', Q = D.QUESTS[q.key];
-      lab('qt_n' + i, Q.name, x0 + 14, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
-      lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14, y + 22, { size: 20, col: done ? '#8fd98a' : C.text }); }); }
+  // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands. A done one is ticked in its
+  // box, and a button on the heading folds the done ones away and back (TASKS 1992); the fold is the player's, kept in the meta
+  const trkDone = (R) => SIM.Q.journalOf(R).filter((q) => q.st === 'done').length, trkFolded = (S, R) => !!S.meta.trkFold && trkDone(R) > 0;
+  const trkAll = (S, R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done')), trkRows = (S, R) => trkAll(S, R).slice(0, 4), trkMore = (S, R) => Math.max(0, trkAll(S, R).length - 4);
+  const TRK_BOX = 20, TRK_IN = TRK_BOX + 10, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
+  function trkBox(S, R) { const Q = trkRows(S, R), nd = trkDone(R); if (!(Q.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R);
+    const head = lw('qt_t', TXT('hud.tracker'), { size: 20 }) + (nd ? 24 + lw('qt_fold', trkFoldLab(S, R), { size: 18 }) + 20 : 0);
+    const w = Math.max(280, head, ...Q.map((q, i) => TRK_IN + Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.Q.questLine(q, R), { size: 20 })))) + 32;
+    return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50 + (trkMore(S, R) ? 26 : 0) - (Q.length ? 0 : 8)]; }
+  // the fold button's box in view px, from the last frame drawn: the page asks it on a click and turns the click into the fold's key
+  let TRK_FOLD = null;
+  HUD.trkFoldAt = (x, y) => !!TRK_FOLD && x >= TRK_FOLD[0] && x <= TRK_FOLD[0] + TRK_FOLD[2] && y >= TRK_FOLD[1] && y <= TRK_FOLD[1] + TRK_FOLD[3];
+  function trkTick(x, y, s, col) { L.solid(x + s * 0.18, y + s * 0.5, s * 0.34, 3, col, 0.785, 0, 1.5); L.solid(x + s * 0.4, y + s * 0.74, s * 0.62, 3, col, -0.96, 0, 1.5); }
+  function tracker(S, R) { TRK_FOLD = null; const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B, nd = trkDone(R);
+    plate('qtrack', x0 - 4, y0 - 4, w + 8, h + 8, { k: 0.35, pad: 8 }); lab('qt_t', TXT('hud.tracker'), x0 + 14, y0 + 20, { size: 20, col: C.dim }); if (trkMore(S, R)) lab('qt_more', TXT('hud.tracker.more', { n: trkMore(S, R) }), x0 + 14, y0 + h - 16, { size: 20, col: C.dim });
+    if (nd) { const s = trkFoldLab(S, R), bw = lw('qt_fold', s, { size: 18 }) + 20, b = TRK_FOLD = [x0 + w - 10 - bw, y0 + 6, bw, 28], on = !!S.ptr && HUD.trkFoldAt(S.ptr[0], S.ptr[1]);
+      L.rrect(b[0], b[1], b[2], b[3], 8, on ? [0.30, 0.22, 0.14] : [0.17, 0.13, 0.10], on ? [0.24, 0.17, 0.11] : [0.12, 0.09, 0.07]);
+      lab('qt_fold', s, b[0] + bw / 2, b[1] + 14, { size: 18, al: 0.5, col: on ? C.gold : C.dim }); L.uiBox('qt_fold_b', b[0], b[1], b[2], b[3], 0); }
+    trkRows(S, R).forEach((q, i) => { const y = y0 + 48 + i * 50, done = q.st === 'done', Q = D.QUESTS[q.key], bx = x0 + 14, by = y - TRK_BOX / 2 + 1;
+      L.rrect(bx, by, TRK_BOX, TRK_BOX, 4, [0.07, 0.055, 0.05], [0.05, 0.04, 0.035]); for (const [a, b2, c, d] of [[0, 0, TRK_BOX, 2], [0, TRK_BOX - 2, TRK_BOX, 2], [0, 0, 2, TRK_BOX], [TRK_BOX - 2, 0, 2, TRK_BOX]]) L.solid(bx + a, by + b2, c, d, done ? [0.56, 0.85, 0.54] : [0.55, 0.5, 0.44]);
+      if (done) trkTick(bx, by, TRK_BOX, [0.56, 0.85, 0.54]);
+      lab('qt_n' + i, Q.name, x0 + 14 + TRK_IN, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14 + TRK_IN, y + 22, { size: 20, col: done ? C.dim : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
     const hid = SIM.Q.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');

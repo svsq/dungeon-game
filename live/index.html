@@ -107,6 +107,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   addEventListener('pointermove', toView);
   addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
     fullSync(true);
+    if (e.button !== 2 && window.HUD && HUD.trkFoldAt && HUD.trkFoldAt(ptr.x, ptr.y)) { pend.keys.push('TrkFold'); return; }
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
   // a lost window or a hidden tab pauses a run through the sim's input, the way Esc does (TASKS 1882)
