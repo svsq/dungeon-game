@@ -200,10 +200,11 @@
     { id: 'summoner', name: TXT('ELITE_MODS.summoner.name'), col: [0.72, 0.4, 1.0], every: 8, n: 2, cap: 3 },
     { id: 'explosive', name: TXT('ELITE_MODS.explosive.name'), col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
     // deep: only in the endless descent past ELITE.deepFrom (TASKS 387, R-22): something new to meet below the campaign's depth.
-    // reflect: a share of each of the hero's blows (not its fire's ticks) comes back to him, never the last of his health;
+    // reflect: a share of each of the hero's blows (not its fire's ticks) comes back to him, never the last of his health; at most
+    // `cap` of his health per blow and one blow per `gap` s, or a strong hero's split fireball takes most of his health at once (TASKS 1999);
     // blink: every `every` s, `min`–`max` px off with a clear line, it steps to `gap` px before him and holds its blow `calm` s (melee only);
     // ward: a shield of `share` of its health takes the blows from before it, one from behind breaks it; curse: its blow cuts the hero's for `t` s
-    { id: 'reflect', name: TXT('ELITE_MODS.reflect.name'), col: [0.88, 0.92, 1.0], k: 0.1, deep: 1 },
+    { id: 'reflect', name: TXT('ELITE_MODS.reflect.name'), col: [0.88, 0.92, 1.0], k: 0.1, cap: 0.08, gap: 0.5, deep: 1 },
     { id: 'blink', name: TXT('ELITE_MODS.blink.name'), col: [0.2, 0.95, 0.85], every: 6, min: 150, max: 450, gap: 70, calm: 0.7, deep: 1, melee: 1 },
     { id: 'ward', name: TXT('ELITE_MODS.ward.name'), col: [0.3, 0.42, 1.0], share: 0.25, deep: 1 },
     { id: 'curse', name: TXT('ELITE_MODS.curse.name'), col: [0.5, 0.85, 0.2], k: 0.7, t: 3, deep: 1 },

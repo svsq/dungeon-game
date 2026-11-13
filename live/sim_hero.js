@@ -103,8 +103,8 @@
     ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
     const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
-    if (fromHero && has(e, 'reflect') && kind !== 'burn') { const h = R.hero, n = Math.min(Math.round(dmg * MOD.reflect.k), Math.max(0, Math.ceil(h.hp) - 1));
-      if (n > 0 && h.deadT < 0) { h.hp -= n; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, blow: n, side: h.x > e.x ? 1 : -1, src: e.type + ' reflect', reflect: 1 }); } }
+    if (fromHero && has(e, 'reflect') && kind !== 'burn' && !(e.reflT > S.t - MOD.reflect.gap)) { const h = R.hero, n = Math.min(Math.round(dmg * MOD.reflect.k), Math.round(st.maxHp * MOD.reflect.cap), Math.max(0, Math.ceil(h.hp) - 1));
+      if (n > 0 && h.deadT < 0) { h.hp -= n; e.reflT = S.t; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, blow: n, side: h.x > e.x ? 1 : -1, src: e.type + ' reflect', reflect: 1 }); } }
     if (fromHero && R.hero.powers && kind !== 'burn' && kind !== 'thorns') { const ctx = { e, x: e.x, y: e.y, hit: dmg }; SIMX.firePowers(S, R, 'hit', ctx); if (crit) SIMX.firePowers(S, R, 'crit', ctx); }
     if (e.hp <= 0 && e.deadT < 0) { e.dieA = Math.atan2(dy, dx); killEnemy(S, R, e); }   // the killing blow's direction: bones fly that way
   }

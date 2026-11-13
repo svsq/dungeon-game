@@ -618,8 +618,12 @@
       // health; a warded one's shield takes a blow from before it and breaks under one from behind; a cursing one's blow cuts the
       // hero's blows for its time; a blinking one steps up to the hero from afar and holds its blow a moment
       put(); const rf = el(['reflect'], 40, { cdT: 1e9, hp: 4000, max: 4000 }); let a0 = h.hp; h.mp = 0, heroHit(S, R, rf, 300, false, h.x, h.y);
-      if (a0 - h.hp !== Math.round(300 * MOD.reflect.k) || rf.hp !== 3700) out.push(`a reflecting elite returns ${a0 - h.hp} of a 300 blow`);
-      h.hp = 5; h.mp = 0, heroHit(S, R, rf, 1000, false, h.x, h.y); if (h.hp !== 1) out.push('a reflecting elite kills the hero');
+      if (a0 - h.hp !== Math.min(Math.round(300 * MOD.reflect.k), Math.round(heroSt(S).maxHp * MOD.reflect.cap)) || rf.hp !== 3700) out.push(`a reflecting elite returns ${a0 - h.hp} of a 300 blow`);
+      a0 = h.hp; h.mp = 0, heroHit(S, R, rf, 300, false, h.x, h.y); if (h.hp !== a0) out.push(`a reflecting elite answers a second blow within ${MOD.reflect.gap} s`);
+      // a strong hero's split fireball (TASKS 1999): a huge blow comes back at most `cap` of his health, the next spark not at all
+      put(); const rg = el(['reflect'], 40, { cdT: 1e9, hp: 1e6, max: 1e6 }); a0 = h.hp; h.mp = 0, heroHit(S, R, rg, 50000, false, h.x, h.y); h.mp = 0, heroHit(S, R, rg, 50000, false, h.x, h.y);
+      if (a0 - h.hp !== Math.round(heroSt(S).maxHp * MOD.reflect.cap)) out.push(`a reflecting elite returns ${a0 - h.hp} of two 50000 blows, not ${MOD.reflect.cap} of the hero's health`);
+      rf.reflT = -9; h.hp = 5; h.mp = 0, heroHit(S, R, rf, 1000, false, h.x, h.y); if (h.hp !== 1) out.push('a reflecting elite kills the hero');
       put(); hitEnemy(S, R, el(['reflect'], 40, { cdT: 1e9, hp: 4000, max: 4000 }), 300, false, h.x, h.y); if (h.hp < heroSt(S).maxHp) out.push('a reflecting elite answers a blow that is not the hero\'s');
       put(); const wd = el(['ward'], 40, { cdT: 1e9, face: -1, ward: 100 }); h.mp = 0, heroHit(S, R, wd, 60, false, h.x, h.y);
       if (wd.hp !== 400 || wd.ward !== 40) out.push(`a ward does not take a blow from before (hp ${wd.hp}, ward ${wd.ward})`);
