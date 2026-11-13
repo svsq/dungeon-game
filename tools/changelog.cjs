@@ -1,5 +1,6 @@
 // node tools/changelog.cjs [--check] [--draft [from]] — the player's changelog (TASKS 1038). CHANGELOG.md is the one source:
-//   (no flag)  rebuild live/data_changes.js (DATA.CHANGES, read by the «Что нового» screen) from it, then check
+//   (no flag)  rebuild live/data_changes.js (DATA.CHANGES, read by the «Что нового» screen) from it, set desktop/package.json's
+//              version to DATA.VERSION (the one version, TASKS 1870: the desktop build and its updates compare by it), then check
 //   --check    only check: the data file is current, the top entry is DATA.VERSION, versions fall and dates are real; exit 2 on failure
 //   --draft    the commits since the last version tag (or `from`) with their task numbers and those tasks' titles from
 //              TASKS_COMPLETED.md / TASKS.md: the raw material for the next entry, which is written by hand by the header's rules
@@ -54,7 +55,12 @@ const txt = emit(C);
 if (!arg.includes('--check') && !fails.length) { fs.writeFileSync(OUT, txt); console.log('wrote', path.relative(ROOT, OUT)); }
 if (!fs.existsSync(OUT) || fs.readFileSync(OUT, 'utf8') !== txt) fails.push('live/data_changes.js is not built from CHANGELOG.md: run node tools/changelog.cjs');
 global.TXT = Object.assign(() => '', { n: () => '' }); require(path.join(ROOT, 'live', 'data_core.js'));
-const VERSION = globalThis.DATA.VERSION, key = (v) => v.split('.').map(Number).reduce((a, x) => a * 1000 + x, 0);
+const VERSION = globalThis.DATA.VERSION, PKG = path.join(ROOT, 'desktop', 'package.json');
+if (fs.existsSync(PKG)) { const src = fs.readFileSync(PKG, 'utf8'), m = /^(  "version": ")([^"]*)(",)$/m.exec(src);
+  if (!m) fails.push('desktop/package.json: no "version" line');
+  else if (m[2] !== VERSION) { if (arg.includes('--check')) fails.push(`desktop/package.json is at ${m[2]}, DATA.VERSION is ${VERSION}: run node tools/changelog.cjs`);
+    else { fs.writeFileSync(PKG, src.replace(m[0], m[1] + VERSION + m[3])); console.log('wrote desktop/package.json', VERSION); } } }
+const key = (v) => v.split('.').map(Number).reduce((a, x) => a * 1000 + x, 0);
 if (!C.length) fails.push('CHANGELOG.md holds no version');
 else if (C[0].v !== VERSION) fails.push(`the top entry is ${C[0].v}, DATA.VERSION is ${VERSION}`);
 C.forEach((e, i) => {

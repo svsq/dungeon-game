@@ -45,6 +45,8 @@
     const t = S.t + DT; S.t = t;
     // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1877): a browser tab cannot, so «Выход» waits for its word
     if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
+    // the update's state (TASKS 1870) comes from the page as a new object on every change, its own count n; never saved
+    if (inp.upd !== undefined && (inp.upd ? !S.upd || S.upd.n !== inp.upd.n : S.upd)) S.upd = inp.upd ? Object.assign({}, inp.upd, { notes: (inp.upd.notes || []).slice(0, 5).map(String) }) : null;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
     for (const k of inp.rep || []) if (REPEATS.has(k)) keys[k] = 1;
@@ -55,6 +57,8 @@
     S.uiPtr = [inp.px, inp.py - uiDy(S.screen)];
     // M mutes from any screen (TASKS 1863 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
     if (keys.KeyM && !S.demo && !SIMX.typing(S)) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
+    // the tracker's fold button (TASKS 1992): the page turns a click on it into this key, so the click swings at nothing
+    if (keys.TrkFold && S.run && !S.demo && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkFold = S.meta.trkFold ? 0 : 1; S.saveN++; }
     if (S.screen === 'play' && S.run) {
       // never a window's key (uiKey gives 'play:::'), so the first step of any window opened from play takes no pointer move
       S.uiWas = 'play'; S.uiKey = 'play'; SIMX.commitDraft(S);

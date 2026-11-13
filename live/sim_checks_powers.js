@@ -156,13 +156,13 @@
       const sb = c.S.ev.filter((q) => q.k === 'boom' && q.vr).length; if (!sb || n !== 1) out.push(`power: a shard bursting at the wall behind the first foe struck it again (${n} blows, ${sb} shard blasts)`); }
     { const c = stage('mage'); own(c, 'shield_burst'); const e = foe(c.R, c.h, 50), hp = e.hp; SIMX.firePowers(c.S, c.R, 'shieldEnd', { x: c.h.x, y: c.h.y, left: 40 }); if (hp - e.hp < 40) out.push(`power: the shield's end took ${hp - e.hp}`); }
     { const c = stage('mage'); own(c, 'shield_feed'); castAbility(c.S, c.R, 'shield', {}); const u = c.h.shieldUntil; killEnemy(c.S, c.R, foe(c.R, c.h)); if (Math.abs(c.h.shieldUntil - u - 1) > 1e-6) out.push('power: a kill does not feed the shield'); c.h.shield = 0; const u2 = c.h.shieldUntil; killEnemy(c.S, c.R, foe(c.R, c.h)); if (c.h.shieldUntil !== u2) out.push('power: a kill feeds a shield that is down'); }
-    { const c = stage('archer'); own(c, 'volley_pierce'); castAbility(c.S, c.R, 'volley', {}); if (c.R.proj.length !== D.VOLLEY.n || c.R.proj.some((p) => p.pierce !== 1)) out.push(`power: the volley's arrows pierce ${c.R.proj.map((p) => p.pierce)}, not the first one as its line says`); }
+    { const c = stage('archer'); own(c, 'volley_pierce'); castAbility(c.S, c.R, 'volley', {}); SIMX.looseVolley(c.S, c.R); if (c.R.proj.length !== D.VOLLEY.n || c.R.proj.some((p) => p.pierce !== 1)) out.push(`power: the volley's arrows pierce ${c.R.proj.map((p) => p.pierce)}, not the first one as its line says`); }
     { const c = stage('archer'); own(c, 'trap_burst'); const a = foe(c.R, c.h, 30), b = foe(c.R, c.h, 70), hb = b.hp; c.R.htraps = [{ id: 9, x: a.x, y: a.y, t0: c.S.t - 1, dmg: 100, crit: 0 }]; SIMX.stepTraps(c.S, c.R); if (!(b.hp < hb)) out.push('power: the trap does not reach its neighbours'); }
     { const c = stage('archer'); own(c, 'leap_trap'); castAbility(c.S, c.R, 'leap', {}); if ((c.R.htraps || []).length !== 1) out.push('power: no trap left by the leap'); }
     { const c = stage(); own(c, 'dash_trail'); SIMX.firePowers(c.S, c.R, 'dash', { x: c.h.x, y: c.h.y, dx: 0, dy: 0, len: 100 }); if (!c.R.fires.some((f) => f.own === 'hero')) out.push('power: no fire behind the dash'); }
     { const c = stage(); own(c, 'dash_strike'); const e = foe(c.R, c.h, 5), hp = e.hp; c.h.dashT = c.S.t; SIMX.dashTouch(c.S, c.R); const h1 = e.hp; SIMX.dashTouch(c.S, c.R); if (!(h1 < hp) || e.hp !== h1) out.push(`power: the dash struck ${hp - e.hp}, once expected`); }
   }
-  // the second pack (TASKS 2000): each power changes what its blow or ability does, and the warrior's blow is his alone
+  // the second pack (TASKS 2019): each power changes what its blow or ability does, and the warrior's blow is his alone
   function checkSecondPack(out) {
     const own = (c, ...ids) => { c.h.powers = Object.fromEntries(ids.map((i) => [i, 1])); c.h.powerN = {}; c.h.powerT = {}; };
     const step = (c, n = 120) => { for (let i = 0; i < n && c.R.proj.length; i++) { c.S.t += SIMX.DT; SIMX.stepProjectiles(c.S, c.R); } };
@@ -188,9 +188,9 @@
     { const c = stage('mage'); own(c, 'fire_blaze'); c.h.aim = 0; foe(c.R, c.h, 120, 20); castAbility(c.S, c.R, 'fireball', {}); step(c); if (!c.R.fires.some((f) => f.own === 'hero')) out.push('pack2: the ball left no fire where it burst');
       const d = stage('mage'); own(d); d.h.aim = 0; foe(d.R, d.h, 120, 20); castAbility(d.S, d.R, 'fireball', {}); step(d); if (d.R.fires.length) out.push('pack2: a plain ball set the floor alight'); }
     { const c = stage('mage'); own(c, 'frost_step'); c.h.aim = 0; castAbility(c.S, c.R, 'frost', {}); if (c.h.dashT !== c.S.t || !(c.h.dashX < -0.9)) out.push('pack2: the wave does not step the mage back'); }
-    { const c = stage('archer'); own(c, 'volley_chill'); c.h.aim = 0; c.h.mx = c.h.x + 150; c.h.my = c.h.y - 30; const e = foe(c.R, c.h, 150, 0); castAbility(c.S, c.R, 'volley', {}); step(c); if (!(e.chillT > c.S.t)) out.push('pack2: the volley chills no one');
-      const d = stage('archer'); own(d); d.h.aim = 0; d.h.mx = d.h.x + 150; d.h.my = d.h.y - 30; const f = foe(d.R, d.h, 150, 0); castAbility(d.S, d.R, 'volley', {}); step(d); if (f.chillT > d.S.t) out.push('pack2: a plain volley chills'); }
-    { const c = stage('archer'); own(c, 'volley_bounce'); c.h.aim = 0; c.h.mx = c.h.x + 300; c.h.my = c.h.y - 30; castAbility(c.S, c.R, 'volley', {}); let back = 0; for (let i = 0; i < 150 && c.R.proj.length; i++) { c.S.t += SIMX.DT; SIMX.stepProjectiles(c.S, c.R); if (c.R.proj.some((p) => p.vx < 0)) back = 1; }
+    { const c = stage('archer'); own(c, 'volley_chill'); c.h.aim = 0; c.h.mx = c.h.x + 150; c.h.my = c.h.y - 30; const e = foe(c.R, c.h, 150, 0); castAbility(c.S, c.R, 'volley', {}); SIMX.looseVolley(c.S, c.R); step(c); if (!(e.chillT > c.S.t)) out.push('pack2: the volley chills no one');
+      const d = stage('archer'); own(d); d.h.aim = 0; d.h.mx = d.h.x + 150; d.h.my = d.h.y - 30; const f = foe(d.R, d.h, 150, 0); castAbility(d.S, d.R, 'volley', {}); SIMX.looseVolley(d.S, d.R); step(d); if (f.chillT > d.S.t) out.push('pack2: a plain volley chills'); }
+    { const c = stage('archer'); own(c, 'volley_bounce'); c.h.aim = 0; c.h.mx = c.h.x + 300; c.h.my = c.h.y - 30; castAbility(c.S, c.R, 'volley', {}); SIMX.looseVolley(c.S, c.R); let back = 0; for (let i = 0; i < 150 && c.R.proj.length; i++) { c.S.t += SIMX.DT; SIMX.stepProjectiles(c.S, c.R); if (c.R.proj.some((p) => p.vx < 0)) back = 1; }
       if (!back) out.push('pack2: no arrow of the volley came back off the wall'); }
     { const c = stage('archer'); own(c, 'trap_lure'); const a = foe(c.R, c.h, 40), b = foe(c.R, c.h, 180); SIMX.firePowers(c.S, c.R, 'trapsnap', { e: a, x: a.x, y: a.y, dmg: 10 }); if (!(b.kbx < 0)) out.push('pack2: the trap lures no one'); }
     { const c = stage('archer'); own(c, 'trap_chain'); const a = foe(c.R, c.h, 40), bs = [80, 120, 160, 400].map((dx) => foe(c.R, c.h, dx)); SIMX.firePowers(c.S, c.R, 'trapsnap', { e: a, x: a.x, y: a.y, dmg: 10 });
@@ -214,7 +214,7 @@
       h.powers = {}; h.powerN = {}; h.eq.weapon = SIMX.uniqueItem(c.R, 'u_forge_w', 5);
       if (blows() !== 1 || (h.powers || {}).kit_hammer) out.push('unique: a worn unique\'s power does not fire, or becomes the hero\'s own');
       h.eq.weapon = SIMX.rollItem(c.R, 5, 0, 'weapon'); if (blows() !== 0) out.push('unique: its power stays after it is taken off'); }
-    // TASKS 358, 2010: every base holds one floors' unique for each class a legendary of it may be for, each with a power no other unique
+    // TASKS 358, 2029: every base holds one floors' unique for each class a legendary of it may be for, each with a power no other unique
     // has, and every legendary found is the unique of the base it rolled
     const floor = Object.values(D.UNIQUES).filter((U) => !U.boss), seen = {}, CL = ['warrior', 'mage', 'archer'];
     const forCls = (b) => (D.BASES[b].cls ? [D.BASES[b].cls[0]] : CL), want = Object.keys(D.BASES).reduce((n, b) => n + forCls(b).length, 0);
@@ -229,7 +229,7 @@
       const R0 = JSON.parse(JSON.stringify(c.R)), it1 = SIMX.rollItem(c.R, 6, 0, undefined, { min: 4, lo: 1, hi: 1, lag: 2 }), f0 = D.floorUnique;
       D.floorUnique = () => null; const it0 = SIMX.rollItem(R0, 6, 0, undefined, { min: 4, lo: 1, hi: 1, lag: 2 }); D.floorUnique = f0;
       if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || it0.b !== it1.b) out.push(`unique: a ${cl}'s legendary takes other draws than a plain one`); }
-    // a save from before 2010 may hold a unique on another base than its own: it loads, is named and powers the hero as before
+    // a save from before 2029 may hold a unique on another base than its own: it loads, is named and powers the hero as before
     { const c = stage('warrior'), old = JSON.parse(JSON.stringify(Object.assign(SIMX.uniqueItem(c.R, 'u_w_weapon', 5), { b: 'axe' })));
       try { c.h.eq.weapon = old; delete c.R.itemBalance; SIMX.rebalanceRun(c.R); if (SIMX.itemName(old) !== D.UNIQUES.u_w_weapon.name || !(SIMX.heroPowers(c.h) || {})[D.UNIQUES.u_w_weapon.power]) out.push('unique: an old unique on another base loses its name or power'); }
       catch (e) { out.push(`unique: an old unique on another base breaks the load: ${e.message}`); } }

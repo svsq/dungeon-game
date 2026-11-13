@@ -72,12 +72,7 @@
     R.shop = !m.shop ? null : SIMX.stockShop(R, d, m.wander ? 'wander' : undefined);
     R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = SIMX.chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s)); SIMX.eventsBuild(R);
     // a big monster's post can graze a prop: the post is where it can actually stand
-    { const sol = SIMX.solids(R), clear = (x, y, r) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r);
-      for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost || ENEMIES[e.type].deep || ENEMIES[e.type].lake) continue; if (ENEMIES[e.type].kind === 'salamander') { e.hx = e.x; e.hy = e.y; continue; } shove(m, e, r, true, sol);
-        // squeezed between two props, the push only rocks it back and forth: take the nearest spot where it fits
-        if (!clear(e.x, e.y, r)) find: for (let d = 4; d <= 96; d += 4) for (let a = 0; a < 16; a++) { const x = e.x + Math.cos(a * Math.PI / 8) * d, y = e.y + Math.sin(a * Math.PI / 8) * d;
-          if (clear(x, y, r)) { e.x = x; e.y = y; break find; } }
-        e.hx = e.x; e.hy = e.y; } }
+    { const sol = SIMX.solids(R); for (const e of R.en) seatFoe(R, e, sol); }
     R.seen = new Array(m.W * m.H).fill(R.town); R.rseen = m.rooms.map(() => R.town);
   }
   // ---------------- floors kept as they were left (TASKS 1008, 1027; R-19) ----------------
@@ -148,6 +143,18 @@
         if (same) { M.seen = seen; M.rseen = rseen; } old = true; } }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
     R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); return old; }
+  function seatFoe(R, e, sol = SIMX.solids(R), room) { const m = R.map, E = ENEMIES[e.type], r = E.r, x0 = e.x, y0 = e.y, fits = (x, y) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r),
+      clear = (x, y) => (room === undefined || DG.inRm(m.rooms[room], Math.floor(x / D.TILE), Math.floor(y / D.TILE))) && fits(x, y);
+    if (E.ghost || E.deep || E.lake) return; if (E.kind === 'salamander') { e.hx = e.x; e.hy = e.y; return; } shove(m, e, r, true, sol);
+    // squeezed between two props, the push only rocks it back and forth: take the nearest spot where it fits
+    let ok = clear(e.x, e.y); if (!ok) find: for (let d = 4; d <= 96; d += 4) for (let a = 0; a < 16; a++) { const x = e.x + Math.cos(a * Math.PI / 8) * d, y = e.y + Math.sin(a * Math.PI / 8) * d;
+      if (clear(x, y)) { e.x = x; e.y = y; ok = true; break find; } }
+    // a quest's foe is pointed at by its room: past the ring its spot is still sought there, never beyond the doorway
+    if (!ok && room !== undefined) { const T = D.TILE, rm = m.rooms[room], cells = [];
+      for (const [rx, ry, rw, rh] of [[rm.x, rm.y, rm.w, rm.h], ...(rm.wings || [])]) for (let ty = ry; ty < ry + rh; ty++) for (let tx = rx; tx < rx + rw; tx++) cells.push([(tx + 0.5) * T, (ty + 0.5) * T]);
+      const far = ([x, y]) => Math.hypot(x - x0, (y - y0) * 1.6);
+      [e.x, e.y] = cells.sort((a, b) => far(a) - far(b)).find(([x, y]) => fits(x, y)) || [x0, y0]; }
+    e.hx = e.x; e.hy = e.y; }
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
@@ -213,7 +220,7 @@
     else if (how === 'down' && m.up) [hx, hy] = m.biome === 'magma' && !m.up.free ? standNear(R, m.up.x + 34, m.up.y + 46 + D.TILE) : standNear(R, m.up.x, m.up.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
-    h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null;
+    h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null; h.volleyT = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; snapCam(R);
@@ -373,6 +380,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, genApart, standNear, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

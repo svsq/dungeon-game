@@ -12,7 +12,7 @@ const files = fs.readdirSync(LIVE).filter((f) => f.endsWith('.js'));
 const LOGIC = files.filter((f) => /^(data|text|dungeon|sim)(_\w+)?\.js$/.test(f) || f === 'modules.js');
 const RENDER = files.filter((f) => /^scene(_\w+)?\.js$/.test(f) || ['hud.js', 'monsters.js', 'lib.js'].includes(f));
 const PAGE = /(?<![.\w$])(document|localStorage|sessionStorage|navigator|location|performance|Date)\b(?!\s*:)|(?<![.\w$])(addEventListener|requestAnimationFrame|fetch|setTimeout|setInterval)\s*\(|Math\.random/;
-const REGISTRY = new Set(['ASSETS', 'SIZES', 'RIGS', 'HUD', 'SCENE', 'LIB', 'MONSTERS', 'SCX', '__UI', '__ANCHORS']);
+const REGISTRY = new Set(['ASSETS', 'SIZES', 'RIGS', 'HUD', 'SCENE', 'LIB', 'MONSTERS', 'SCX', '__UI', '__ANCHORS', 'PAD']);   // PAD: the gamepad's state for the hints and its drawn pointer (pad.js), read only
 const SIM_CONST = /^[A-Z][A-Z0-9_]*$/;
 const scan = (f, each) => code(fs.readFileSync(path.join(LIVE, f), 'utf8'), true).split('\n').forEach((l, i) => each(l, `${f}:${i + 1}`));
 for (const f of LOGIC) scan(f, (l, at) => {

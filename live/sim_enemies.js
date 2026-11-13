@@ -326,7 +326,7 @@
       p.x += p.vx * DT; p.y += p.vy * DT; const age = S.t - p.t0;
       const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE));
       let wall = projWall(m, x0, y0, p.x, p.y, gz);
-      // a ricochet (TASKS 2000) turns on the wall's face it crossed, a fresh flight from where it struck
+      // a ricochet (TASKS 2019) turns on the wall's face it crossed, a fresh flight from where it struck
       if (wall && p.bounce > 0 && p.own === 'hero' && age <= p.life) { const wx = projWall(m, x0, y0, p.x, y0, gz), wy = projWall(m, x0, y0, x0, p.y, gz);
         p.bounce--; if (wx || !wy) p.vx = -p.vx; if (wy || !wx) p.vy = -p.vy; p.x = x0; p.y = y0; p.t0 = S.t; p.past = []; wall = false; ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: 0, mine: 1, thru: 1 }); }
       if (p.own === 'hero' && p.k === 'arrow') SIMX.arrowWebs(S, R, p.x, p.y + gz);

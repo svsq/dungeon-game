@@ -60,9 +60,9 @@
   // the chance of a find above the hero's level: `base`, `per` more for each floor he is ahead of it, at most `cap`; at most `up` levels above
   const LOOT_OVER = { base: 0.04, per: 0.06, cap: 0.3, up: 4 };
   const CONSUMABLES = {
-    hp_potion: { name: TXT('CONSUMABLES.hp_potion.name'), icon: 'it_hp', heal: 0.4, stack: 9 },
-    mp_potion: { name: TXT('CONSUMABLES.mp_potion.name'), icon: 'it_mp', mana: 0.5, stack: 9 },
-    scroll: { name: TXT('CONSUMABLES.scroll.name'), icon: 'it_scroll', stack: 5 },
+    hp_potion: { name: TXT('CONSUMABLES.hp_potion.name'), icon: 'it_hp', heal: 0.4, stack: 20 },
+    mp_potion: { name: TXT('CONSUMABLES.mp_potion.name'), icon: 'it_mp', mana: 0.5, stack: 20 },
+    scroll: { name: TXT('CONSUMABLES.scroll.name'), icon: 'it_scroll', stack: 20 },
   };
   const RARITY = [
     { id: 'common', name: TXT('RARITY.common.name'), col: [0.78, 0.76, 0.72], affixes: 0 },
@@ -143,7 +143,7 @@
     u_a_boots: { id: 'u_a_boots', cls: 'archer', b: 'boots', power: 'dash_trail', name: TXT('UNIQUES.u_a_boots.name'), lore: TXT('UNIQUES.u_a_boots.lore') },
     u_a_ring: { id: 'u_a_ring', cls: 'archer', b: 'ring', power: 'ev_mines', name: TXT('UNIQUES.u_a_ring.name'), lore: TXT('UNIQUES.u_a_ring.lore') },
     u_a_amulet: { id: 'u_a_amulet', cls: 'archer', b: 'amulet', power: 'f_leap_3b', name: TXT('UNIQUES.u_a_amulet.name'), lore: TXT('UNIQUES.u_a_amulet.lore') },
-    // TASKS 2010: a legendary keeps the base it rolled, so every base has its floors' unique; a base anyone wears has one for each class,
+    // TASKS 2029: a legendary keeps the base it rolled, so every base has its floors' unique; a base anyone wears has one for each class,
     // as the class a find is for is the hero's there (sim_items itemCls)
     u_w_longsword: { id: 'u_w_longsword', cls: 'warrior', b: 'longsword', power: 'blow_echo', name: TXT('UNIQUES.u_w_longsword.name'), lore: TXT('UNIQUES.u_w_longsword.lore') },
     u_w_axe: { id: 'u_w_axe', cls: 'warrior', b: 'axe', power: 'blow_finisher', name: TXT('UNIQUES.u_w_axe.name'), lore: TXT('UNIQUES.u_w_axe.lore') },

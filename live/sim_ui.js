@@ -23,7 +23,7 @@
     const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless && !test) S.meta.bestEndless = Math.max(deepBest, deep);
     S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' && !R.campaignWon ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
-      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
+      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), test: test ? 1 : 0, record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log && !test) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; pickLatest(S); S.screen = how; S.saveN++;
@@ -115,9 +115,28 @@
   const SCREEN = {};
   // the main menu (TASKS 1301): ↑↓ walk the items and «Что нового», Enter presses the focused one; with no item focused Enter
   // presses the first, as before the focus (continue the saved run, or a new one)
+  // the update's window (TASKS 1870): its buttons ask the page (S.updReq, a count and a kind), the page asks the main process and
+  // sends the new state back through the input; ←→ walk the buttons, Enter presses the lit one, Escape closes the window
+  const updAsk = (S, k) => { S.updReq = { n: ((S.updReq && S.updReq.n) || 0) + 1, k }; };
+  const updClose = (S) => { S.updOpen = 0; S.focus = 'update'; S.hover = ''; };
+  const updWin = (S, inp, keys, x, y, click) => { const U = UI.upd(S.upd), ids = U.r.map((q) => q.id), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (b && inp.moved) S.focus = b.id;
+    if (!ids.includes(S.focus)) S.focus = ids[0];
+    const mv = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv && ids.length > 1) { S.focus = ids[(ids.indexOf(S.focus) + mv + ids.length) % ids.length]; ev(S, { k: 'ui', x, y }); return; }
+    if (keys.Escape) { updClose(S); ev(S, { k: 'ui', x, y }); return; }
+    const id = click ? (b && b.id) : keys.Enter ? S.focus : null; if (!id) return;
+    ev(S, { k: 'ui', x, y });
+    if (id === 'get') updAsk(S, 'get');
+    else if (id === 'open') updAsk(S, 'open');
+    else if (id === 'retry') updAsk(S, S.upd && S.upd.err === 'down' ? 'get' : 'check');
+    // the restart: a run still in play is saved as «Выход» saves it, and the page writes the save before it asks for the restart
+    else if (id === 'run') { if (S.run) saveRun(S); S.saveN++; updAsk(S, 'run'); }
+    else updClose(S); };
   SCREEN.menu = (S, inp, keys, x, y, click) => {
     if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
-    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    if (S.updOpen) { updWin(S, inp, keys, x, y, click); return; }
+    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit, S.upd), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     const order = U.map((q) => q.id);
     if (b && inp.moved) S.focus = b.id;
     if (order.includes(S.focus)) S.menuAt = S.focus;
@@ -131,6 +150,8 @@
       // «Выход» (TASKS 1877): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
       // and then closes the window on quitReq
       if (id === 'quit' && S.canQuit) { if (S.run) saveRun(S); S.quitReq = (S.quitReq || 0) + 1; S.saveN++; }
+      // a check is asked for unless one is under way or its answer waits to be taken; the browser's item only shows the news
+      if (id === 'update' && D.updShown(S.upd)) { S.updOpen = 1; S.focus = ''; S.hover = ''; if (!S.upd.web && ['idle', 'none', 'err'].includes(S.upd.st)) updAsk(S, 'check'); }
       if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y }); };
     if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
@@ -190,14 +211,16 @@
     const wasd = !typing, arV = keys.ArrowDown || keys.ArrowUp, arH = keys.ArrowLeft || keys.ArrowRight;
     const mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
     const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r + ':' + cls);
-    if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); ev(S, { k: 'ui', x, y }); return; }
+    // a sound for a key that changed nothing told the player it had done something (TASKS 1905)
+    const was = () => JSON.stringify([S.focus, S.meta.diff, S.meta.cls, S.meta.kit]), w0 = was(), tick = () => { if (was() !== w0) ev(S, { k: 'ui', x, y }); };
+    if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); tick(); return; }
     if (!st) return;
     if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
     if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
     if (r0 === 'kit') stepKit(S, cls, st);
     if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
     if (r0 === 'nm') S.focus = st > 0 ? 'dice' : arH ? 'name' : S.focus;
-    ev(S, { k: 'ui', x, y });
+    tick();
   };
   // the statistics (TASKS 1309): a tab or ←→ picks whose counters the book shows, ↑↓ go between the tabs and «Назад»; «Назад»,
   // Escape or Enter on «Назад» go back to the menu
@@ -396,13 +419,15 @@
     const o = B[j]; if (o && o.b === A[k].b && o.n >= D.CONSUMABLES[o.b].stack) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.full') }); return; }
     if (!SIMX.movePart(R, A, k, B, j, n)) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.split.busy') }); return; }
     S.saveN++; ev(S, { k: 'equip', x: R.hero.x, y: R.hero.y }); }
+  // a stack let go on a stack of its kind joins it up to the limit and the rest stays where it came from (TASKS 1999); a full one swaps
+  const joinStack = (R, A, k, B, j) => { const it = A[k], o = B[j]; return !!(it && o && o !== it && isCons(it) && o.b === it.b && SIMX.movePart(R, A, k, B, j, it.n || 1)); };
   // the carried part's step in a window: true while it is held; arrOf gives the list and cell for a target cell, or null
   function carryStep(S, R, inp, keys, x, y, click, b, arrOf) { const dr = S.drag; if (!dr || !dr.carry) return false;
     dr.x = x; dr.y = y; const src = arrOf(dr.from), it = src && src[0][src[1]];
     if (!it || keys.Escape || inp.rclick) { S.drag = null; return true; }
     if (!click) return true; S.drag = null;
     if (!b || b.id === dr.from) return true;
-    if (b.tab !== undefined) { dropPart(S, R, src[0], src[1], R.hero.bag, freeIn(R.hero, b.tab), dr.n, x, y); return true; }
+    if (b.tab !== undefined) { dropPart(S, R, src[0], src[1], R.hero.bag, tabSpot(R.hero, b.tab, it), dr.n, x, y); return true; }
     if (b.id.startsWith('eq:')) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.cons') }); return true; }
     const to = arrOf(b.id); if (to) dropPart(S, R, src[0], src[1], to[0], to[1], dr.n, x, y); return true; }
   SCREEN.stash = (S, inp, keys, x, y, click) => {
@@ -418,11 +443,11 @@
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; }
     else if (S.drag) { const from = S.drag.from, k = +from.split(':')[1], to = b && b.id !== from ? b : null; S.drag = null;
-      if (to && to.tab !== undefined) { if (from.startsWith('bag:')) intoTab(S, R, R.hero, k, false, to.tab, x, y); else { const j = freeIn(R.hero, to.tab); if (j < 0) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); else stashTake(S, R, k, j); } return; }
+      if (to && to.tab !== undefined) { if (from.startsWith('bag:')) intoTab(S, R, R.hero, k, false, to.tab, x, y); else { const j = tabSpot(R.hero, to.tab, T.items[k]); if (j < 0) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); else stashTake(S, R, k, j); } return; }
       const same = to && to.id.split(':')[0] === from.split(':')[0];
       // a drag within one grid moves the piece there, as the window's own line says (TASKS 1413)
-      if (same && from.startsWith('bag:')) { const B = R.hero.bag; [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
-      else if (same) { if (to.i < n) { [T.items[k], T.items[to.i]] = [T.items[to.i] || null, T.items[k]]; S.saveN++; } }
+      if (same && from.startsWith('bag:')) { const B = R.hero.bag; if (!joinStack(R, B, k, B, to.i)) [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
+      else if (same) { if (to.i < n) { if (!joinStack(R, T.items, k, T.items, to.i)) [T.items[k], T.items[to.i]] = [T.items[to.i] || null, T.items[k]]; S.saveN++; } }
       else if (from.startsWith('bag:')) stashPut(S, R, k, to && to.id.startsWith('stash:') && to.i < n ? to.i : undefined);
       else stashTake(S, R, k, to && to.id.startsWith('bag:') ? to.i : undefined); }
     return;
@@ -510,12 +535,16 @@
   const openTab = (S, h) => { const T = D.bagTabs(h.bag.length), k = Math.max(0, Math.min(T.length - 1, S.bagTab | 0)); return T[k]; };
   const sortTab = (S, h, k) => { const T = openTab(S, h), part = h.bag.slice(T.a, T.a + T.n); sortItems(part, T.n, k, true); h.bag.splice(T.a, T.n, ...part); };
   const freeIn = (h, t) => { const T = D.bagTabs(h.bag.length)[t]; if (T) for (let i = T.a; i < T.a + T.n; i++) if (!h.bag[i]) return i; return -1; };
+  // a consumable let go over a tab joins a stack of its kind with room there before it takes a free cell (TASKS 1999)
+  const tabSpot = (h, t, it) => { const T = D.bagTabs(h.bag.length)[t]; if (!T) return -1;
+    if (it && isCons(it)) for (let i = T.a; i < T.a + T.n; i++) { const o = h.bag[i]; if (o && o !== it && o.b === it.b && o.n < D.CONSUMABLES[o.b].stack) return i; }
+    return freeIn(h, t); };
   const tabClick = (S, b, x, y) => { S.bagTab = b.tab; S.hover = ''; ev(S, { k: 'ui', x, y }); };
   // a piece let go over a tab goes to that tab's first free cell (a worn one comes off into it)
   const intoTab = (S, R, h, k, eq, t, x, y) => { const T = D.bagTabs(h.bag.length)[t]; if (!T) return;
     if (!eq && k >= T.a && k < T.a + T.n) { ev(S, { k: 'nope', x, y, s: t ? TXT('sim_ui.inv.same') : TXT('sim_ui.inv.sameBag') }); return; }
-    const j = freeIn(h, t); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
-    if (eq) unequip(S, R, h, k, j); else { h.bag[j] = h.bag[k]; h.bag[k] = null; S.saveN++; ev(S, { k: 'ui', x, y }); } };
+    const j = tabSpot(h, t, eq ? null : h.bag[k]); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
+    if (eq) unequip(S, R, h, k, j); else { if (!joinStack(R, h.bag, k, h.bag, j)) { h.bag[j] = h.bag[k]; h.bag[k] = null; } S.saveN++; ev(S, { k: 'ui', x, y }); } };
   const unequip = (S, R, h, slot, i) => { const it = h.eq[slot]; if (!it) return;
     if (i === undefined ? bagAdd(R, it) : !h.bag[i]) { if (i !== undefined) { it.id = it.id || R.nextId++; h.bag[i] = it; } h.eq[slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot, off: gearName(it) }); } };
   // a press on a bag or worn piece picks it up; letting go over its own cell is the click (use / unequip), over another bag cell
@@ -525,7 +554,7 @@
     if (b && b.tab !== undefined) { intoTab(S, R, h, k, eq, b.tab, dr.x, dr.y); return; }
     const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length, nope = (s) => ev(S, { k: 'nope', x: dr.x, y: dr.y, s });
     if (b && b.id === f) { if (eq) unequip(S, R, h, k); else useItem(S, R, k); }
-    else if (bagTo && !eq) { [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
+    else if (bagTo && !eq) { if (!joinStack(R, h.bag, k, h.bag, b.i)) [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
     else if (bagTo && eq) { const o = h.bag[b.i]; if (!o) unequip(S, R, h, k, b.i); else if (fitsSlot(o, k)) useItem(S, R, b.i); else nope(TXT('sim_ui.inv.swap', { p1: D.SLOT_NAME[k] })); }
     else if (b && b.id.startsWith('eq:') && !eq) { const it = h.bag[k]; if (it && isCons(it)) nope(TXT('sim_ui.inv.cons')); else if (!fitsSlot(it, b.slot)) nope(TXT('sim_ui.inv.slot', { p1: D.SLOT_NAME[b.slot] })); else useItem(S, R, k); } };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
@@ -571,7 +600,7 @@
   // moved: the pointer moved since the last step, and only then takes the focus onto what it is over (TASKS 1754), so a pointer
   // resting over an item does not take it back from the keyboard. A window or question just opened never counts it (review of
   // PR 57): a pointer left over «Сдаться» took the gate's focus off «Остаться» as the window came up, and Enter gave the run up
-  const uiKey = (S) => [S.screen, S.newAsk || '', S.delAsk ?? '', S.pauseAsk || ''].join(':');
+  const uiKey = (S) => [S.screen, S.newAsk || '', S.delAsk ?? '', S.pauseAsk || '', S.updOpen || ''].join(':');
   function stepUI(S, inp, keys) {
     const f = SCREEN[S.screen], moved = !!inp.moved && S.uiKey === uiKey(S), py = S.uiPtr ? S.uiPtr[1] : inp.py - SIMX.uiDy(S.screen);
     if (S.screen === 'menu' && S.uiWas !== 'menu') S.focus = MENU_SUBS.includes(S.uiWas) && S.menuAt ? S.menuAt : '';

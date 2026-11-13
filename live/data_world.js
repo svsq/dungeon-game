@@ -267,7 +267,7 @@
       // hero to the floor's merchant, who takes `off` off his prices, or with no merchant on the floor to the spawn by the stairs up, where
       // he pays shards[0] + shards[1] × depth. He never fights: he stops while a waking monster is within `fear`, and `hits` blows from
       // monsters at his side (one each `cd` s) send him running off alone, unpaid. He waits where he stands while the floor is left.
-      // gap: how near he keeps; reach: how near the goal ends it; rig: his figure, a townsfolk rig (his own is TASKS 2006)
+      // gap: how near he keeps; reach: how near the goal ends it; rig: his figure, a townsfolk rig (his own is TASKS 2025)
       captive: { w: 2, minF: 1, room: 'combat', ask: 1, goal: 1, near: 84, tag: 130, cage: 1, r: 11, spd: 150, gap: 64, fear: 150, hits: 3, cd: 0.9, reach: 90,
         off: 0.25, shards: [4, 1], rig: 'town_porter', lead: 1,
         name: TXT('EVENTS.captive.name'), say: TXT('EVENTS.captive.say'), yes: TXT('EVENTS.captive.yes'), no: TXT('EVENTS.captive.no'), prompt: TXT('EVENTS.captive.prompt') },

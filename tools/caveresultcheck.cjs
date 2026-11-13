@@ -45,8 +45,8 @@ for (const seed of [1, 7, 26837]) for (const mode of ['cave', 'campaign']) for (
     R.freeze = 0; h.x = R.map.exit.x; h.y = R.map.exit.y;
     SIM.step(S, { keys: ['KeyE'] });
   } else if (how === 'dead') {
-    globalThis.SIMX.killHero(S, R);
-    for (let i = 0; i < 220 && S.run; i++) SIM.step(S, { keys: [] });
+    h.ifr = 0;
+    for (let i = 0; i < 220 && S.run; i++) { if (h.deadT < 0) R.proj.push({ id: R.nextId++, k: 'fire', who: 'boss', x: h.x, y: h.y - 38, vx: 0, vy: 0, t0: S.t, life: 1, dmg: 1e6, own: 'en', r: 6 }); SIM.step(S, { keys: [] }); }
   } else {
     S.screen = 'pause'; click(S, DATA.UI.pause(S.meta.zoom), 'abandon'); click(S, DATA.UI.pauseAsk(false).r, 'yes');
   }

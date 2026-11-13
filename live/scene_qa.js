@@ -29,6 +29,17 @@
       ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'stats'; S.hover = 'settings'; })],
       // the desktop build's menu (TASKS 1877): «Выход» last, in focus
       ['menu_quit', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.focus = 'quit'; })],
+      // the update (TASKS 1870): the desktop item quiet, focused, and with its mark for a version found, its download and the restart;
+      // the browser's item; the window in every state, the longest notes the changelog's menu lines may make (five of 80 characters)
+      ...(() => { const U = (o) => Object.assign({ can: 1, st: 'idle', n: 1, v: '0.5.0' }, o), long = Array.from({ length: 5 }, (_, i) => TXT('QA.states.newsMain').slice(0, 80 - i));
+        const menu = (n, u, f) => [n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.upd = u; S.focus = f || ''; })];
+        const win = (n, u, f) => [n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.upd = u; S.updOpen = 1; S.focus = f || ''; })];
+        return [menu('menu_upd', U(), 'update'), menu('menu_upd_avail', U({ st: 'avail' })), menu('menu_upd_down', U({ st: 'down', pct: 42 }), 'update'), menu('menu_upd_ready', U({ st: 'ready' })),
+          ['menu_upd_web', mk((S) => { S.saved = null; S.upd = { web: 1, st: 'web', v: '0.5.0', n: 1 }; S.focus = 'update'; })],
+          win('upd_check', U({ st: 'check' })), win('upd_none', U({ st: 'none', v: DATA.VERSION })), win('upd_avail', U({ st: 'avail', notes: (DATA.CHANGES[0] || {}).main || [] })),
+          win('upd_avail_long', U({ st: 'avail', notes: long }), 'later'), win('upd_avail_bare', U({ st: 'avail' })), win('upd_down', U({ st: 'down', pct: 42 })), win('upd_down_0', U({ st: 'down', pct: 0 })),
+          win('upd_ready', U({ st: 'ready' })), win('upd_err_net', U({ st: 'err', err: 'net' })), win('upd_err_other', U({ st: 'err', err: 'other' }), 'close'), win('upd_err_down', U({ st: 'err', err: 'down' })),
+          ['upd_web', mk((S) => { S.saved = null; S.upd = { web: 1, st: 'web', v: '0.5.0', n: 1, notes: long }; S.updOpen = 1; })]]; })(),
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
       // the news frame on the menu (TASKS 1305): the longest it may get (five lines of 80 characters), none at all, the link hovered
@@ -90,6 +101,7 @@
         return [['load_empty', mk((S) => { S.screen = 'load'; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
           ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
+          ['load_test', mk((S) => { fill(S, 5); S.saved.test = 1; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
           ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'yes'; S.hover = 'yes'; })],
           ['load_ask_rest', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })],
@@ -102,6 +114,9 @@
       ['play_bright_lo', play((S) => { S.meta.bright = DATA.SETTINGS.find((q) => q.id === 'bright').stops[0]; })],
       ['play_bright_hi', play((S) => { const q = DATA.SETTINGS.find((o) => o.id === 'bright'); S.meta.bright = q.stops[q.stops.length - 1]; })],
       ['settings_bright', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'bright'; S.meta.bright = 1.4; })],
+      ['settings_gfx', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'gfx'; S.meta.gfx = 0; })],   // (TASKS 1372)
+      ['play_gfx_lo', play((S) => { S.meta.gfx = 0; })],
+      ['play_gfx_mid', play((S) => { S.meta.gfx = 1; })],
       ['settings_vol', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'vol'; S.meta.vol = 0.25; })],
       ['settings_full', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'full'; S.hover = 'full'; S.meta.full = 1; })],
       ['play_zoom15', play((S) => { S.meta.zoom = 1.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
@@ -164,6 +179,7 @@
     }
     { const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.log = { fl: [] }; S.hover = 'log'; states.push(['dead_log_tip', S]); }
     const abandoned = structuredClone(states.find(([n]) => n === 'dead')[1]); abandoned.result.abandoned = true; states.push(['end_abandoned', abandoned]);
+    { const S = structuredClone(abandoned); Object.assign(S.result, { test: 1, mode: 'magma' }); states.push(['end_test', S]); }
     for (const b of ['longsword', 'axe', 'hammer', 'staff', 'fist']) {
       const S = structuredClone(states.find(([n]) => n === 'win')[1]);
       S.result.hero.eq.weapon = b === 'fist' ? null : { b, rar: 4, lvl: 8, mods: {} }; S.result.heroStats = SIM.stats(S.result.hero, S.meta);
@@ -1270,7 +1286,8 @@
       }
     }
     const eventT = (prep, kill, ty) => { const fr = []; let S = playOf(ty)(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
-    const heroDies = (S) => SIMX.killHero(S, S.run);
+    // a real death comes with the killing blow's shove on top of his own speed (TASKS 1991): the pose must read the speed, not the shove
+    const heroDies = (S) => { const h = S.run.hero; SIMX.killHero(S, S.run); h.vx -= 260 * h.face; };
     transitions.hero_death = eventT((S) => { S.run.en = []; S.run.msg = null; }, heroDies);
     // (killed mid-run, the run held to the kill: set only at the start he was braked to a stop before it and fell as from standing, TASKS 1803)
     transitions.hero_death_run = (() => { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; const h = S.run.hero; h.vx = SIM.K.RUN; h.gp = 1.3; });
@@ -1770,7 +1787,7 @@
       R.msg = null; h.hp = hp0; R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2];
       if (stage < 0) { const g = E.gates[0], [vx, vy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[g.dir], [cx, cy] = g.cells[0]; h.x = (cx + 0.5 + vx * 2) * TILE; h.y = (cy + 0.5 + vy * 2) * TILE; R.cam = [g.x - SCX.VW / 2, g.y - SCX.VH / 2]; } });
     for (const [nm, mode, st] of [['trial_door', 'campaign', -1], ['trial_room', 'campaign', 0], ['trial_fight', 'campaign', 1], ['trial_won', 'campaign', 2], ['trial_fight_cave', 'cave', 1], ['trial_fight_magma', 'magma', 1]]) { const S = trialS(mode, st); if (S.run && (S.run.events || []).some((q) => q.id === 'trial')) states.push([nm, S]); }
-    // (TASKS 2002) its mark on the map and the legend's line, the legend opened by the pointer over the map in the pause
+    // (TASKS 2021) its mark on the map and the legend's line, the legend opened by the pointer over the map in the pause
     { const S = trialS('campaign', 0); if (S.run && (S.run.events || []).length) { S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; states.push(['trial_map', S]); } }
     // an event of the pool on its own (TASKS 363, 364): the room as it is come upon (its prop, the prompt), its question, and after «yes»
     // (pre(R, E) sets what the event needs first, a fountain's fate)
@@ -1875,6 +1892,9 @@
         if (name === 'cave_water') { m.water = []; m.waterBridges = []; m.crossings = []; m.cells = m.cells.map((c) => (c === 6 ? 1 : c)); } off.push(clean); }
       anim[name] = { on, off, box: name === 'cave_water' ? [400, 200, 1120, 680] : [880, 420, 160, 180], min: 0.003 };
     }
+    // the low and middle graphics (TASKS 1372) where they differ: the lava's light and embers, the cave's moss, an elite's aura
+    for (const name of ['magma_lava', 'cave_bridge', 'elite_brawl']) { const base = states.find(([n]) => n === name)?.[1]; if (!base) continue;
+      for (const g of [1, 0]) { const S = structuredClone(base); S.meta.gfx = g; states.push([name + '_gfx' + g, S]); } }
     // the magma caves' lava flows, bubbles and shimmers, its fall pours and steams (TASKS 403): without them the frame goes still
     for (const name of ['magma_lava', 'magma_fall']) {
       const base = states.find(([n]) => n === name)?.[1]; if (!base) continue;
@@ -1996,7 +2016,7 @@
     // (TASKS 1153: the pointer turned in the wind-up; a wand's shots 0.36 s apart with the aim flipped)
     transitions.hero_mage_shoot_turn = mageT(0, null, 1, [7, 1.2]); transitions.hero_mage_wand_flip = mageT(0, (S, h) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'wand' }); }, [5, 30], [20, Math.PI]);
     transitions.hero_mage_hurt = mageT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; });
-    transitions.hero_mage_death = mageT(0, (S) => SIMX.killHero(S, S.run));
+    transitions.hero_mage_death = mageT(0, heroDies);
     // the archer (TASKS 1125): the same sequences with his bow; the volley and the leap through the sim
     const asArcher = (S, b = 'shortbow') => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
     const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__') || /^it_(bow_[sl]|crossbow)(_h)?$/.test(a)).concat(['skel_arrow']);
@@ -2021,7 +2041,7 @@
     // hero_charge_strike: the charge up to the press that starts the swing; the swing, pull and strike, stays sharp (the player's call,
     // TASKS 1774: no eased blow fits the 0.13 s to the hit: the strike popped the grip 12.9 px, the pull 5.4), its path the attack checks' to judge
     transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28, 30); transitions.hero_cry = warT(0, 3);
-    transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S) => SIMX.killHero(S, S.run));
+    transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, heroDies);
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
     Object.assign(out.subject, doorSubj);
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);

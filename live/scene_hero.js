@@ -127,7 +127,7 @@
       return (-b * SS(0, Math.max(0.06, rel), T) * (1 - out) + f * out) * (1 - SS(rel + 0.12, rel + 0.42, T)); };
     const stepOf = (T, rel) => (T >= 0 && T < rel + 0.45 ? SS(0, 0.09, T) * (1 - SS(rel + 0.2, rel + 0.45, T)) : 0);
     const RB = !shooter ? [0.08, 0.14] : xbow ? [-0.05, -0.1] : bowArm ? [0.12, 0.1] : [0.07, 0.13];
-    const CK = { frost: [0.08, 0.16, 0.07], fireball: [shooter ? 0.14 : 0.18, 0.1, 0.14], volley: [0.12, 0.12, 0.08] }[h.castK];
+    const CK = { frost: [0.08, 0.16, 0.07], fireball: [shooter ? 0.14 : 0.18, 0.1, 0.14], volley: [D.VOLLEY.loose, 0.12, 0.08] }[h.castK];
     const pShot = shooter && h.patkT < h.atkT ? GT - h.patkT : -1, shotLean = shooter && swinging ? rangedOf(atkT, BT, RB[0], RB[1]) + rangedOf(pShot, BT, RB[0], RB[1]) * (1 - SS(0, 0.08, atkT)) : 0;
     const castLean = casting && CK ? rangedOf(castT, CK[0], CK[1], CK[2]) : 0;
     const rangedLean = (shotLean + castLean) * face, rangedStep = Math.max(shooter && swinging ? Math.max(stepOf(atkT, BT), stepOf(pShot, BT)) : 0, casting && CK ? stepOf(castT, CK[0]) : 0) * (1 - run);
@@ -138,8 +138,8 @@
     // accelerating but slowed just before the floor so it lands with a small bounce instead of a board's slap
     // (TASKS 1803) killed on the run (over half his running speed) he pitches forward the way he ran; the
     // mage sinks to his knees before he goes over; the archer twists a quarter round, his back to us, and falls forward onto his face
-    const du = h.deadT >= 0 ? GT - h.deadT : -1, cls = D.clsOf(h).look.rig, dsp = Math.hypot(h.vx, h.vy), ran = du >= 0 && dsp > 0.5 * SIM.K.RUN;
-    const twist = cls === 'archer' && !ran, fDir = ran ? (Math.abs(h.vx) > 0.3 * dsp ? Math.sign(h.vx) * face : 1) : twist ? 1 : -1, kneel = cls === 'mage' && !ran ? 0.22 : 0, late = kneel + (twist ? 0.14 : 0);
+    const du = h.deadT >= 0 ? GT - h.deadT : -1, cls = D.clsOf(h).look.rig, dv = h.deadRun || [h.vx, h.vy], dsp = Math.hypot(dv[0], dv[1]), ran = du >= 0 && dsp > 0.5 * SIM.K.RUN;
+    const twist = cls === 'archer' && !ran, fDir = ran ? (Math.abs(dv[0]) > 0.3 * dsp ? Math.sign(dv[0]) * face : 1) : twist ? 1 : -1, kneel = cls === 'mage' && !ran ? 0.22 : 0, late = kneel + (twist ? 0.14 : 0);
     const buckle = du >= 0 ? SS(0, 0.15 + kneel, du) : 0, fq = Math.min(1, Math.max(0, (du - 0.12 - late) / 0.35));
     const fallR = du < 0 ? 0 : fDir * face * (0.1 * buckle + 1.32 * (2.4 * fq * fq - 1.4 * fq * fq * fq) - (du > 0.47 + late ? 0.03 * Math.sin(Math.PI * Math.min(1, (du - 0.47 - late) / 0.16)) : 0));
     const fc = Math.cos(fallR), fs = Math.sin(fallR);
@@ -173,9 +173,9 @@
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0] + hipDx, Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
     // the face is painted on the world's art grid (one texture cell, RIGS.hero.h / 42 px, is one world pixel): the cell of the near
     // eye is kept on a world pixel through the torso's lean, or the one-cell eye lands across two pixels and drops out of the snap.
-    // Arms ride on hipS and move with it. Off the world's grid (the menu's arch, scaled ×3 on the smooth HUD, TASKS 1874) the snap
-    // only jerked the body by 2 world px (6 on screen) off the unsnapped legs
-    if (du < 0 && !o.menu) { const C = RG.h / 42, EY = D.clsOf(h).look.eye || [13.5, 6.5], ex = fX * ((EY[0] * C) - Hc[0]) * s, ey = (EY[1] * C - Hc[1]) * s, r = fallR + bodyR;
+    // Arms ride on hipS and move with it. Under a pre-transform (L.pre: the menu's arch, scaled ×3 on the smooth HUD, TASKS 1874; the
+    // victory screen's hero, ×1.5, TASKS 1896) there is no world grid to snap to, and the snap only jerked the body off the legs
+    if (du < 0 && !L.pre) { const C = RG.h / 42, EY = D.clsOf(h).look.eye || [13.5, 6.5], ex = fX * ((EY[0] * C) - Hc[0]) * s, ey = (EY[1] * C - Hc[1]) * s, r = fallR + bodyR;
       const qx = hipS[0] + ex * Math.cos(r) - ey * Math.sin(r), qy = hipS[1] + ex * Math.sin(r) + ey * Math.cos(r);
       hipS[0] += 2 * Math.round((qx - 1) / 2) + 1 - qx; hipS[1] += 2 * Math.round((qy - 1) / 2) + 1 - qy; }
     const R2U = (px, py, dy = 0) => { const p = R2S(px + hipDx, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };

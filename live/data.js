@@ -12,7 +12,7 @@
     'ITEM_BAL', 'STASH', 'CRAFT', 'CAPTIVES', 'NOTES', 'STORY', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'turnFill', 'NAMED', 'storyChain', 'plural', 'reqLvl',
     'CONSUMABLES', 'RARITY', 'AFFIXES', 'AFFIX_W', 'LOOT_OVER', 'LEGEND_NAMES', 'UNIQUES', 'bossUniques', 'floorUnique', 'EPIC_POWER', 'epicPool', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'EVENTS', 'CLASSES', 'clsOf', 'classesReady', 'uiAt', 'CLASS_LOOT', 'wears', 'clsNames', 'ABILITIES', 'CRIT', 'AB_MAX', 'abRank', 'MASTERY', 'ranksFull', 'masteryK', 'masteryTake', 'SHIELD_T',
     'shieldHp', 'fireDmg', 'FROST', 'frostDmg', 'BOLT', 'SHOTS', 'VOLLEY', 'TRAP', 'LEAP', 'RAGE', 'CHARGE', 'CRY', 'STATS', 'META', 'BAG', 'bagLen', 'metaLine', 'GIFTS', 'POWERS', 'FORKS', 'FORK_RANKS', 'STAT_POWER', 'THRESHOLD', 'forkKey', 'forkPending', 'CODEX_TABS', 'CODEX_PAGE', 'codexList', 'ACHIEVE', 'UNLOCKS', 'isOpen', 'KITS', 'kitsOf', 'kitOf', 'giftPool', 'evosReady', 'hasPower', 'giftBlocked', 'RELIC_MAX', 'relicsOf', 'giftCost', 'rerollCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
-    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'CHEST_TRAP', 'STATUE_SECRET', 'SHELF_SECRET', 'MIMIC', 'WRECK', 'COFFIN', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS', 'AMB_T' ];
+    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'CHEST_TRAP', 'STATUE_SECRET', 'SHELF_SECRET', 'MIMIC', 'WRECK', 'COFFIN', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS', 'AMB_T', 'giftDesc' ];
   const lost = KEYS.filter((k) => !(k in D));
   if (lost.length) throw new Error('data.js: DATA lacks ' + lost.join(', '));
   if (typeof module !== 'undefined') module.exports = D;

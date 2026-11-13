@@ -28,7 +28,7 @@
     cry_push: { id: 'cry_push', name: TXT('POWERS.cry_push.name'), desc: TXT('POWERS.cry_push.desc'), ab: 'cry', trig: 'cast:cry', fx: 'shieldBurst', k: 0, r: 200, kb: 1 },
     frost_freeze: { id: 'frost_freeze', name: TXT('POWERS.frost_freeze.name'), desc: TXT('POWERS.frost_freeze.desc'), ab: 'frost', trig: 'cast:frost', fx: 'freeze', t: 1.5, boss: 0.3 },
     frost_brittle: { id: 'frost_brittle', name: TXT('POWERS.frost_brittle.name'), desc: TXT('POWERS.frost_brittle.desc'), ab: 'frost', trig: 'kill', if: 'chilled', fx: 'slow', r: 110, t: 3, slow: 0.5 },
-    // the second pack (TASKS 2000): the warrior's blow and the abilities that had one or two powers each
+    // the second pack (TASKS 2019): the warrior's blow and the abilities that had one or two powers each
     blow_echo: { id: 'blow_echo', name: TXT('POWERS.blow_echo.name'), desc: TXT('POWERS.blow_echo.desc'), cls: 'warrior', trig: 'every:3', fx: 'chain', n: 2, r: 140, k: 0.4 },
     blow_cinder: { id: 'blow_cinder', name: TXT('POWERS.blow_cinder.name'), desc: TXT('POWERS.blow_cinder.desc'), cls: 'warrior', trig: 'crit', fx: 'burnGround', k: 0.3, t: 2, per: 0.5, icd: 1 },
     blow_reap: { id: 'blow_reap', name: TXT('POWERS.blow_reap.name'), desc: TXT('POWERS.blow_reap.desc'), cls: 'warrior', trig: 'kill', fx: 'pull', r: 150, to: 20 },
