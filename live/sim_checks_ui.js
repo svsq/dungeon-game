@@ -364,5 +364,14 @@
         for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
       if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
     { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
-  Object.assign(SIMX, { checkStrUse, checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
+  // the scene is browser code with no node entry, so its source is read (TASKS 1896): a hero drawn scaled on the smooth HUD
+  // (the menu's arch, the victory screen) passes hud and the face's world-pixel snap stays off for it
+  function checkHudHero(out) { const src = (f) => require('fs').readFileSync(require('path').join(__dirname, f), 'utf8');
+    if (!/if \(du < 0 && !o\.hud\)/.test(src('scene_hero.js'))) out.push('hud hero: the face snap is not gated by o.hud');
+    let n = 0;
+    for (const f of require('fs').readdirSync(__dirname).filter((q) => /^(scene|hud).*\.js$/.test(q))) {
+      const t = src(f), re = /L\.pre = M\.of\([^;]*M\.s\([^;]*;\s*try \{ drawHero\(([^\n]*?)\{([^}]*)\}\)/g; let m;
+      while ((m = re.exec(t))) { n++; if (!/\bhud: 1\b/.test(m[2])) out.push(`hud hero: ${f} draws a scaled hero {${m[2].trim()}} on the world's pixel snap`); } }
+    if (n < 2) out.push(`hud hero: found ${n} scaled heroes, the menu's and the victory's expected`); }
+  Object.assign(SIMX, { checkHudHero, checkStrUse, checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);
