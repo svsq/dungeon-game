@@ -34,10 +34,12 @@
   // past the serpent, down the stairs (TASKS 354): the campaign is won on the spot — its reward (gold and the win's shards), a win,
   // its record — and the same run goes on as the endless descent from the 13th, the hero as he is; the descent's depth is its record
   function descend(S, R) {
-    const W2 = runReward(R, 'win'); S.meta.shards += W2.base; if (!R.test) { S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, R.floor); }
-    tally(S, R, 'wins'); tally(S, R, 'shards', W2.base); tally(S, R, 'best', R.floor, 1);
-    R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; S.saveN++;
-    ev(S, { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: R.floor }); enterFloor(S, R, R.floor + 1);
+    // (the win is counted once the way down opens: a step that fails leaves the run as it was, review of PR 69)
+    const W2 = runReward(R, 'win'), f0 = R.floor, e = { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: f0 };
+    const was = { goldBanked: R.goldBanked, campaignWon: R.campaignWon, mode: R.mode };
+    R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; if (!enterFloor(S, R, f0 + 1)) { Object.assign(R, was); return; }
+    S.meta.shards += W2.base; if (!R.test) { S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, f0); }
+    tally(S, R, 'wins'); tally(S, R, 'shards', W2.base); tally(S, R, 'best', f0, 1); S.saveN++; ev(S, e);
     R.msg = { s: TXT('sim_ui.descend.msg.s', { base: W2.base, floor: R.floor, p3: D.floorName(R.floor, R.mode, R.seed, FROM(R)) }), t: S.t, d: 5 }; }
   // the checks of the dungeon's own workings start from the menu as before and play its 1st floor laid out without the town (a
   // merchant on the floor, no stairs up), the run's seed kept (TASKS 1026: the campaign itself now starts in the town)
@@ -71,7 +73,7 @@
   // the floor waits under its name a moment as on an arrival (TASKS 1812): an elite left at arm's length struck at once. The hero
   // waits with it (holdClocks), so nothing a load gives can be chained into a dodge
   function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.potAsk = null; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t };
-    R.holdT = S.t + RESUME_HOLD; }
+    SIMX.mendRun(S, R); R.holdT = S.t + RESUME_HOLD; }
   const RESUME_HOLD = 1.2;
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }

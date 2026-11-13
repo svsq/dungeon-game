@@ -103,14 +103,18 @@
     finally { for (const k of Object.keys(R)) if (!(k in keep)) delete R[k]; Object.assign(R, keep); R.mode = mode; } }
   // the baseline as JSON, taken when a floor is first built or first restored, so that leaving it again does not generate it a third time
   const BASE = new WeakMap(), snapFloor = (o) => JSON.stringify(Object.fromEntries(FLOOR_KEYS.map((k) => [k, o[k]])));
-  function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1) return;
+  // the print of a floor's layout as built (review of PR 69): a diff laid without an error over a floor built otherwise would still
+  // put its stairs and monsters wrong, so a kept floor whose rebuild has another print is built anew; a floor kept before the print
+  // takes the rebuild's
+  const mapPrint = (m) => { const s = JSON.stringify(m); let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(36); };
+  function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1 || (R.map && R.map.town)) return;
     const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
     M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
   // a floor kept by another generator (an old save): its diff fits a map no longer built, so the floor is built anew and only what
   // can't come back carries over: as many of its monsters stay dead as died there, the nearest the way in first, and a slain
   // boss stays slain with its hall's portal home; the goals of its quests in hand are placed anew; its loot on the floor and what
   // was explored are lost
-  function migrateFloor(R, f, M) { const B = freshFloor(R, f, M), P = (M.d && M.d.p) || {}; BASE.set(M, snapFloor(B));
+  function migrateFloor(R, f, M) { const B = freshFloor(R, f, M), P = (M.d && M.d.p) || {}; BASE.set(M, snapFloor(B)); M.mp = mapPrint(B.map);
     const slain = !!(P.bossDead && P.bossDead.v) || (R.slain || []).includes(f), up = B.map.up || B.map.spawn;
     const far = (a, b) => Math.hypot(a.x - up.x, a.y - up.y) - Math.hypot(b.x - up.x, b.y - up.y), spare = new Set();
     // a hunt or a lair in hand keeps a quarry alive, the farthest that fits, however few were left there
@@ -135,14 +139,45 @@
     const st = R.stats && R.stats[f], counted = st ? st.kills - ((R.slain || []).includes(f) ? 1 : 0) : 0;
     const logged = ((R.log && R.log.fl) || []).filter((v) => v.f === f).reduce((s, v) => s + Object.entries(v.kills || {}).filter(([k]) => !D.BOSSES[k.split(' ')[0]]).reduce((a, [, c]) => a + c, 0), 0);
     return Math.max(deadNow + gone, counted, logged); }
-  function restoreFloor(R, f, M) { const old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
-    else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
+  function restoreFloor(R, f, M) { let old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
+    else { const B = freshFloor(R, f, M), mp = mapPrint(B.map), same = !M.mp || M.mp === mp; if (!M.mp) M.mp = mp;
+      // a diff that no longer fits the floor built now (TASKS 1917): the floor is built anew as an old generator's is, so the way on is
+      // never shut; the explored map stays only on the same layout
+      try { if (!same) throw new Error('the floor is built otherwise than it was kept'); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
+      catch (err) { console.error('restoreFloor', f, 'diff does not fit, floor built anew', err); const seen = M.seen, rseen = M.rseen; BASE.delete(M); migrateFloor(R, f, M);
+        if (same) { M.seen = seen; M.rseen = rseen; } old = true; } }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
     R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); return old; }
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
+  // a floor that fails to build or restore (TASKS 1993) leaves the run as it was before the step: a half-made one, floor N over the
+  // town's map, was saved and loaded back as the town under the floor's name, and the next stash wrote the town into floor N.
+  // The run's top-level objects are refilled in place, so a caller's R.hero or R.map in hand stays the run's own. A run with no floor
+  // yet (newRun) has nothing to go back to, and its failure is thrown on
   function enterFloor(S, R, f, gen, how = 'down') {
+    if (!R.map) { goFloor(S, R, f, gen, how); return true; }
+    const { memo, ...rest } = R, was = structuredClone(rest), refs = Object.assign({}, rest), kept = memo && Object.entries(memo).map(([k, M]) => [k, M, Object.assign({}, M)]);
+    try { goFloor(S, R, f, gen, how); return true; }
+    catch (err) { console.error('enterFloor', f, err);
+      for (const k of Object.keys(R)) if (k !== 'memo') delete R[k];
+      for (const [k, v] of Object.entries(was)) { const o = refs[k];
+        if (Array.isArray(o) && Array.isArray(v)) { o.length = 0; o.push(...v); R[k] = o; }
+        else if (o && v && typeof o === 'object' && typeof v === 'object' && !Array.isArray(o) && !Array.isArray(v)) { for (const q of Object.keys(o)) delete o[q]; R[k] = Object.assign(o, v); }
+        else R[k] = v; }
+      if (memo) { for (const k of Object.keys(memo)) if (!kept.some(([q]) => q === k)) delete memo[k];
+        for (const [k, M, o] of kept) { for (const q of Object.keys(M)) delete M[q]; memo[k] = Object.assign(M, o); } R.memo = memo; } else delete R.memo;
+      S.floorFails = (S.floorFails || 0) + 1; R.msg = { s: f ? TXT('sim_floor.enterFail', { floor: f }) : TXT('sim_floor.enterFail.town'), t: S.t, d: 4 };
+      return false; } }
+  // a save made in that half-made state (TASKS 1993): back to the town with its portal to the floor, and every kept floor whose diff
+  // holds the town's map built anew, with its dead as an old generator's floor keeps them. The map in hand is already the town's, so
+  // the portal is put back even if the town's own arrival fails; it has no spot on the floor, and the hero comes out by the stairs up
+  function mendRun(S, R) { if (!R || !R.viaTown || !(R.floor > 0) || !R.map || !R.map.town) return false; const f = R.floor;
+    for (const M of Object.values(R.memo || {})) { const p = M.d && M.d.p && M.d.p.map && M.d.p.map.p; if (!p || !p.town) continue; M.gv = -1; M.d = { p: { en: { p: {}, n: 0 } } }; M.drops = []; M.seen = null; M.rseen = null; }
+    R.floor = 0; R.town = 1; R.portal = null;
+    const ok = enterFloor(S, R, 0, undefined, 'portal'); R.portal = { f };
+    if (ok) R.msg = { s: TXT('sim_floor.mended', { floor: f }), t: S.t, d: 5 }; return ok; }
+  function goFloor(S, R, f, gen, how) {
     if (R.map && R.viaTown) stashFloor(R);
     if (R.map && R.town && R.shop) R.townShop = R.shop;
     R.htraps = [];   // (a set trap stays where it was set: kept, it sprang on the new floor at the old floor's spot, PR 36 review)
@@ -150,7 +185,7 @@
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { const mig = restoreFloor(R, f, M); SIMX.dropMarks(R, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
-    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); SIMX.questPlace(S, R); } }
+    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); R.memo[f].mp = mapPrint(R.map); SIMX.questPlace(S, R); } }
     if (f > 0) SIMX.captivePlace(S, R);
     if (f > 0) SIMX.notePlace(S, R);
     if (f > 0) SIMX.nameElites(R);
@@ -175,7 +210,7 @@
     if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     // (in the magma wall he steps out a cell lower and aside, TASKS 1930: straight below the opening he hid its steps)
     else if (how === 'down' && m.up) [hx, hy] = m.biome === 'magma' && !m.up.free ? standNear(R, m.up.x + 34, m.up.y + 46 + D.TILE) : standNear(R, m.up.x, m.up.y + 46);
-    else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
+    else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
@@ -190,7 +225,7 @@
   // version of the game from the RNG and ids it was first built with, so a change to the deep floors is measured without playing
   // the floors before them again
   function rebuildArrival(S) { const R = S.run, f = R.floor, M = R.memo && R.memo[f]; if (!M || !R.arrived) return false;
-    R.rs = M.rs; R.nextId = M.id; M.gv = D.GEN_VERSION; buildFloor(R, f, M.gen || undefined); BASE.set(M, snapFloor(R));
+    R.rs = M.rs; R.nextId = M.id; M.gv = D.GEN_VERSION; buildFloor(R, f, M.gen || undefined); BASE.set(M, snapFloor(R)); M.mp = mapPrint(R.map);
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     SIMX.questPlace(S, R); R.stats[f] = floorStat(R); arrive(S, R, R.arrived); return true; }
 
@@ -337,6 +372,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, genApart, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, genApart, standNear, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

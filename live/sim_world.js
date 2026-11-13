@@ -34,8 +34,10 @@
   function readStep(S, R, moved, dashing) { const h = R.hero, q = h.read;
     if (moved || dashing || h.deadT >= 0 || h.atkT > q.t0 || (h.castT ?? -9) > q.t0) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.readStep.s') }); return; }
     if (S.t - q.t0 < READ_T) return;
-    const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; if (--it.n <= 0) h.bag[q.i] = null; SIMX.firePowers(S, R, 'scroll', { x: h.x, y: h.y });
-    R.portal = { f: R.floor, x: h.x, y: h.y }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
+    const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; const n0 = it.n, at = { x: h.x, y: h.y }; if (--it.n <= 0) h.bag[q.i] = null;
+    // (a way home that does not open keeps the scroll and gives nothing of its reading, review of PR 69)
+    const was = R.portal; R.portal = { f: R.floor, x: h.x, y: h.y }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; R.hero.bag[q.i] = Object.assign(it, { n: n0 }); return; }
+    SIMX.firePowers(S, R, 'scroll', at); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   function useItem(S, R, idx) {
     const h = R.hero, it = h.bag[idx]; if (!it) return;
     if (it.b === 'hp_potion' || it.b === 'mp_potion') { usePotion(S, R, it.b); return; }
