@@ -8,6 +8,7 @@
   let W = SIM.VIEW.W, H = SIM.VIEW.H, VH = H;
   const framed = (oy, fn) => { const o = G.oy, h = H; G.oy = oy; H = VH - oy; try { fn(); } finally { G.oy = o; H = h; } };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
+  const dotHalves = (str, size) => { const p = str.split(' · '), w = (q) => L.labelW(0, q.join(' · '), { size }); let k = 1, b = Infinity; for (let i = 1; i < p.length; i++) { const m = Math.max(w(p.slice(0, i)), w(p.slice(i))); if (m < b) { b = m; k = i; } } return [p.slice(0, k).join(' · '), p.slice(k).join(' · ')].filter(Boolean); };
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
   const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map(), MARKS = new WeakMap(), MARK_HOLD = 1.2;
   HUD.init = () => {};
@@ -795,7 +796,7 @@
       { const d0 = parts[0] + ':', d1 = parts[1] || ''; if (lw('ab_d' + i, d0, { size: 20 }) > b.w - 40) wrapLab('ab_e' + i, ds, b.x + 20, b.y + 146, b.w - 40, 20, C.text);
         else { lab('ab_d' + i, d0, b.x + 20, b.y + 146, { size: 20, col: C.dim }); wrapLab('ab_e' + i, d1, b.x + 20, b.y + 176, b.w - 40, 20, C.text); } }
       if (can) { L.rrect(b.x + b.w - 52, b.y + b.h - 52, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 36, b.y + b.h - 36, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
-    { const p = TXT('hud.inv.drag').split(' · '), n = Math.ceil(p.length / 2); [p.slice(0, n), p.slice(n)].forEach((q, i) => KIT.ink('inv_help' + i, q.join(' · '), Rp.x + Rp.w / 2, Rp.y + Rp.h - 84 + i * 28, { size: 26, al: 0.5, col: I.d })); }
+    { const s = TXT('hud.inv.drag'), fw = Rp.w - 80, q = L.labelW(0, s, { size: 26 }) > fw ? dotHalves(s, 26) : [s]; q.forEach((v, i) => KIT.ink('inv_help' + i, v, Rp.x + Rp.w / 2, Rp.y + Rp.h - 56 - (q.length - 1 - i) * 28, { size: 26, fit: fw, al: 0.5, col: I.d })); }
     closeBtn('inv_x', U, S);
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 32; plate('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 36);
       lab('sle', s, he.x + he.w / 2, he.y + he.h + 25, { size: 20, al: 0.5 }); }
@@ -1378,13 +1379,15 @@
       KIT.nine('torn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : can ? [1, 1, 0, 1] : POOR } }); L.uiBox('al_g' + i, b.x + 20, b.y + 20, b.w - 40, b.h - 40, 0);
       if (Gf.relic || Gf.evo) KIT.seal(b.x + b.w - 40, b.y + 40, 1);
       KIT.cell('al_cl' + i, cx - 64, b.y + 44, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52, 112, can ? undefined : { alpha: 0.5 });
-      KIT.ink('al_n' + i, Gf.name, cx, b.y + 214, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
       // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1861)
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
-      const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, nf(Gf.v * (rank + 1))) : Gf.desc, lines = wrapWords(ds, iw, 21);
-      lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + k * 25, { size: 21, al: 0.5, col: can ? I.t : I.d }));
+      const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, nf(Gf.v * (rank + 1))) : Gf.desc;
+      // a fourth line would run into the price: a long text drops to the 20 px floor, packs its lines and lifts the name (review of PR 72)
+      const w21 = wrapWords(ds, iw, 21), long = w21.length > 3, lines = long ? wrapWords(ds, iw, 20) : w21, ny = long ? -18 : 0;
+      KIT.ink('al_n' + i, Gf.name, cx, b.y + 214 + ny, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
+      const dl = long ? 22 : 25; lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + ny + k * dl, { size: long ? 20 : 21, al: 0.5, col: can ? I.t : I.d }));
       const wn = rank ? TXT('hud.altar.rank', { p1: rank, p2: rank + 1 }) : Gf.relic ? TXT('hud.altar.relic') : Gf.evo ? TXT('hud.altar.evo') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5');
-      KIT.ink('al_w' + i, wn, cx, b.y + Math.max(306, 256 + lines.length * 25), { size: 18, fit: iw, al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
+      KIT.ink('al_w' + i, wn, cx, b.y + Math.max(306, 256 + ny + lines.length * dl), { size: 18, fit: iw, al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
       const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, x0 = cx - cw / 2;
       icon('crystal', x0, b.y + b.h - 66, 30); KIT.ink('al_c' + i, cs, x0 + 40, b.y + b.h - 50, { size: 28, col: can ? SOUL : I.d }); });
     KIT.button('al_leave', byId('leave'), stN(S, 'leave'));
@@ -1526,7 +1529,7 @@
     bagTabs('st_tb', U, S);
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? rest(h.bag[b.i], dr) : h.bag[b.i]);
     sortBtns('st_', U, S);
-    { const s = TXT('hud.stash.6'), p = s.split(' · '), n = Math.ceil(p.length / 2), q = L.labelW(0, s, { size: 26 }) > P.w - 120 ? [p.slice(0, n).join(' · '), p.slice(n).join(' · ')] : [s]; q.forEach((v, i) => lab('st_help' + i, v, W / 2, P.y + P.h - 36 - (q.length - 1 - i) * 30, { size: 26, al: 0.5, col: '#b8a48a' })); }
+    { const s = TXT('hud.stash.6'), q = L.labelW(0, s, { size: 26 }) > P.w - 120 ? dotHalves(s, 26) : [s]; q.forEach((v, i) => lab('st_help' + i, v, W / 2, P.y + P.h - 36 - (q.length - 1 - i) * 30, { size: 26, al: 0.5, col: '#b8a48a' })); }
     closeBtn('st_x', U, S);
     if (S.split) { refusal(S, W / 2, P.y + 476); return splitAsk(S, R); }
     if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) held1(it, dr); dropChip(S, U); refusal(S, W / 2, P.y + 476); return; }
