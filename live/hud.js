@@ -1042,7 +1042,9 @@
     L.solid(b.x + b.w / 2 - tw / 2, cy + 12, tw, 2, lit ? [0.49, 0.12, 0.07] : [0.35, 0.23, 0.14], 0, 0, 0, lit ? 1 : 0.7);
     L.uiBox('mb_news_b', b.x, b.y, b.w, b.h, 0);
   }
-  const savedLine = (S) => TXT('hud.savedLine', { p1: S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ', p2: S.saved.floor ? TXT('hud.savedLine.2', { floor: S.saved.floor }) : TXT('hud.savedLine.3'), lvl: S.saved.hero.lvl });
+  // a test run's place says it is one (TASKS 1916): «Тест: Магмовые пещеры, этаж 3», so a saved one is found among the slots
+  const runTag = (R) => (R.mode === 'campaign' ? '' : (R.test ? TXT('hud.load.test', { name: D.runOf(R.mode).name }) : D.runOf(R.mode).name) + ', ');
+  const savedLine = (S) => TXT('hud.savedLine', { p1: runTag(S.saved), p2: S.saved.floor ? TXT('hud.savedLine.2', { floor: S.saved.floor }) : TXT('hud.savedLine.3'), lvl: S.saved.hero.lvl });
   // the test runs (TASKS 417): a press over a saved run asks again, as on the main menu, so the save is named here too
   function tests(S, t) {
     menuBack(t, false, false, S);
@@ -1173,7 +1175,7 @@
     KIT.light('sa_keys', TXT('hud.stats.keys'), W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   const stamp = (ms) => { if (!ms) return TXT('hud.load.nodate'); const d = D.dateOf(ms), p2 = (n) => String(n).padStart(2, '0'); return TXT('hud.load.date', { d: p2(d.d), m: p2(d.m), y: d.y, h: p2(d.h), mi: p2(d.mi) }); };
-  const whereOf = (R) => (R.mode === 'campaign' ? '' : D.runOf(R.mode).name + ', ') + (R.floor ? TXT('hud.load.floor', { n: R.floor }) : TXT('hud.load.town'));
+  const whereOf = (R) => runTag(R) + (R.floor ? TXT('hud.load.floor', { n: R.floor }) : TXT('hud.load.town'));
   // the saved games (TASKS 1311), look B: the slots as parchment strips down the left page (portrait, class, level, place, date,
   // time in play), the chosen slot's page on the right; the delete question on a torn sheet over the right page's buttons
   function load(S, t) {
@@ -1233,7 +1235,7 @@
     for (const b of items) { const lx = b.x + 46, ly = b.y + 30, maxW = b.x + b.w - lx - 6;
       const tw = KIT.ink('mb_' + b.id, b.label, lx, ly, { size: 32, fit: maxW, col: b.id === cur ? KIT.INK.r : KIT.INK.t });
       if (b.id === cur) { KIT.seal(b.x + 16, ly, 0.5); L.solid(lx, ly + 20, tw, 3, [0.49, 0.12, 0.07]); }
-      if (b.id === 'continue' && S.saved) { const R = S.saved, s0 = TXT('hud.menu.saved', { p1: R.mode === 'campaign' ? '' : D.runOf(R.mode).name + ', ', p2: R.floor ? TXT('hud.savedLine.2', { floor: R.floor }) : TXT('hud.savedLine.3'), lvl: R.hero.lvl }), s1 = s0[0].toUpperCase() + s0.slice(1);
+      if (b.id === 'continue' && S.saved) { const R = S.saved, s0 = TXT('hud.menu.saved', { p1: runTag(R), p2: R.floor ? TXT('hud.savedLine.2', { floor: R.floor }) : TXT('hud.savedLine.3'), lvl: R.hero.lvl }), s1 = s0[0].toUpperCase() + s0.slice(1);
         KIT.ink('mb_sv', s1, lx, ly + 40, { size: 18, fit: maxW, col: KIT.INK.d }); }
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     // «Сохранить и выйти» answers on the menu it lands on (TASKS 1863 б)
@@ -1291,12 +1293,12 @@
     // whose run is paused (TASKS 1879): the hero's name, class and level under the title
     if (S.run) { const h = S.run.hero; KIT.ink('p_who', h.name ? TXT('hud.pause.who', { name: h.name, cls: D.clsOf(h).name.toLowerCase(), lvl: h.lvl }) : TXT('hud.pause.cls', { cls: D.clsOf(h).name, lvl: h.lvl }), W / 2, 384, { size: 22, fit: 520, al: 0.5, col: KIT.INK.d }); }
     // while it asks, the question's sheet takes the buttons' place under the title, as the load screen's does (TASKS 1853)
-    const done = !!S.run && SIM.Q.campaignDone(S.run);
-    if (!S.pauseAsk) { for (const b of D.UI.pause(S.meta.zoom, done)) KIT.button('pb_' + b.id, b, stN(S, b.id), b.id === 'resume' ? 'wax' : 'parch');
+    const done = !!S.run && SIM.Q.campaignDone(S.run), test = !!S.run && !!S.run.test;
+    if (!S.pauseAsk) { for (const b of D.UI.pause(S.meta.zoom, done, test)) KIT.button('pb_' + b.id, b, stN(S, b.id), b.id === 'resume' ? 'wax' : 'parch');
       KIT.rule(780, 692, 360, 0.7); return; }
-    const U = D.UI.pauseAsk(done), A = U.A; dim(0.35); KIT.panel('pa_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
-    KIT.ink('pa_ask_q', done ? TXT('hud.pause.askDone') : TXT('hud.pause.ask'), A.x + A.w / 2, A.y + 80, { size: 32, al: 0.5, col: KIT.INK.r });
-    const s = done ? TXT('hud.pause.askDone.who') : TXT('hud.pause.ask.who');
+    const U = D.UI.pauseAsk(done, test), A = U.A; dim(0.35); KIT.panel('pa_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
+    KIT.ink('pa_ask_q', done ? TXT('hud.pause.askDone') : test ? TXT('hud.pause.askTest') : TXT('hud.pause.ask'), A.x + A.w / 2, A.y + 80, { size: 32, al: 0.5, col: KIT.INK.r });
+    const s = done ? TXT('hud.pause.askDone.who') : test ? TXT('hud.pause.askTest.who') : TXT('hud.pause.ask.who');
     halves(s).forEach((v, i) => KIT.ink('pa_ask_w' + i, v, A.x + A.w / 2, A.y + 124 + i * 30, { size: 22, fit: A.w - 80, al: 0.5, col: KIT.INK.d }));
     for (const b of U.r) KIT.button('pa_' + b.id, b, askSt(S, U, b.id));
     // the keys right under the question's sheet, as the gate's are under its window (TASKS 1887 л), not 280 px below over the panel
@@ -1596,9 +1598,9 @@
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     backdrop(t);
-    const title = win ? TXT('hud.end') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3');
+    const quit = r.abandoned && r.test, title = win ? TXT('hud.end') : quit ? TXT('hud.end.test') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3');
     KIT.banner('e_t', W / 2, 18, Math.max(560, lw('e_t_m', title, { size: 52, bold: true }) + 300), title, { h: 108, size: 52 });
-    KIT.light('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : r.abandoned ? TXT('hud.end.7a') : TXT('hud.end.7'), W / 2, 168, { size: 26, al: 0.5, col: '#d9c8a8' });
+    KIT.light('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : quit ? TXT('hud.end.test.2') : r.abandoned ? TXT('hud.end.7a') : TXT('hud.end.7'), W / 2, 168, { size: 26, al: 0.5, col: '#d9c8a8' });
     KIT.panel('e_story', 200, 220, 420, 650, 'leather', { pad: 0 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {
       const words = String(s).split(' '), lines = []; let line = '';
@@ -1612,7 +1614,7 @@
     // a portrait that fails must not take the rest of the screen with it: the buttons are the only way to save the run's log (TASKS 1335)
     if (!r.abandoned) try { SCENE.endActors(r, win, t, 410, 490); } catch (e) { if (!endErr) { endErr = e; console.error(e); } L.pre = L.sp = null; G.blend(); }
     if (!win && (!last || !last.actor || r.abandoned)) icon(r.abandoned ? 'it_scroll' : last && last.src === 'spike' ? 'trap_spike' : 'bf_burn', 346, 340, 128);
-    const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || TXT('hud.end.name')) : r.abandoned ? TXT('hud.end.name.2') : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.Q.damageName(last && last.src);
+    const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || TXT('hud.end.name')) : quit ? TXT('hud.end.test.name') : r.abandoned ? TXT('hud.end.name.2') : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.Q.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
       lab('e_last', TXT('hud.end.11', { p1: Math.round(last.n) }), 410, y + 12, { size: 24, al: 0.5, col: KIT.INK.gold, out: '#2a0d08' });

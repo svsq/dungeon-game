@@ -23,7 +23,7 @@
     const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless && !test) S.meta.bestEndless = Math.max(deepBest, deep);
     S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' && !R.campaignWon ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
-      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
+      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), test: test ? 1 : 0, record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log && !test) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; pickLatest(S); S.screen = how; S.saveN++;

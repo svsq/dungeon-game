@@ -311,6 +311,14 @@
   function checkTrkFold(out) { const { S } = playing('warrior'), f0 = S.meta.trkFold ? 1 : 0;
     step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) === f0) out.push('tracker: the fold key does not fold the done quests in play');
     S.screen = 'pause'; step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) !== f0) out.push('tracker: the fold key does not unfold them on the pause'); }
+  // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
+  function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
+    const ab = UI.pause(S.meta.zoom, false, true).find((b) => b.id === 'abandon');
+    if (!R.test) out.push('test end: a run from the tests screen is not marked a test');
+    if (!ab || ab.label !== TXT('UI.pause.test')) out.push(`test end: the pause's end button of a test run reads ${ab && ab.label}`);
+    press(S, ab); if (!S.pauseAsk) { out.push('test end: the end button asks nothing'); return; }
+    press(S, UI.pauseAsk(false, true).r.find((b) => b.id === 'yes'));
+    if (!S.result || !S.result.test || !S.result.abandoned) out.push(`test end: an ended test leaves the result ${JSON.stringify(S.result && { test: S.result.test, abandoned: S.result.abandoned })}`); }
   // an offer's key words (TASKS 1995): every page of every giver's offer opens and shuts its **…** marks, the giver's name in it is
   // marked whole, and a name never marks a longer word it starts
   function checkKeyWords(out) { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { town: 1 }); S.run = R;
@@ -321,5 +329,5 @@
         for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
       if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
     { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
-  Object.assign(SIMX, { checkKeyWords, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
+  Object.assign(SIMX, { checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);

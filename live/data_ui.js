@@ -151,14 +151,15 @@
       { id: 'dbg_loot', label: S && S.dbgLoot ? TXT('UI.debug.dbg_loot.label') : TXT('UI.debug.dbg_loot.label.2'), on: true, x: 970, y: 16, w: 430, h: 60 }],
     // past the campaign's last boss (TASKS 1150) the run is no longer given up but ended, won
     // the run's end sits apart under a rule, smaller than the rest, and asks first (TASKS 1853)
-    pause: (zoom, done) => [['resume', TXT('UI.pause')], ['settings', TXT('UI.pause.settings')], ['save', TXT('UI.pause.3')]]
+    // a test run (TASKS 1916) is not given up but ended: the same button and question, in its own words
+    pause: (zoom, done, test) => [['resume', TXT('UI.pause')], ['settings', TXT('UI.pause.settings')], ['save', TXT('UI.pause.3')]]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 404 + i * 88, w: 480, h: 72 }))
-      .concat([done ? { id: 'finish', label: TXT('UI.pause.5') } : { id: 'abandon', label: TXT('UI.pause.4') }].map((b) => Object.assign(b, { on: true, x: 780, y: 714, w: 360, h: 56, size: 22 }))),
+      .concat([done ? { id: 'finish', label: TXT('UI.pause.5') } : { id: 'abandon', label: test ? TXT('UI.pause.test') : TXT('UI.pause.4') }].map((b) => Object.assign(b, { on: true, x: 780, y: 714, w: 360, h: 56, size: 22 }))),
     // a new run over five taken slots (TASKS 1785): the question in the middle of the menu, «Нет» on the right as in the pause's
     newAsk: () => { const A = { x: 680, y: 390, w: 560, h: 380 };
       return { A, r: [{ id: 'yes', label: TXT('UI.menu.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
-    pauseAsk: (done) => { const A = { x: 680, y: 480, w: 560, h: 300 };
-      return { A, r: [{ id: 'yes', label: done ? TXT('UI.pause.ask.yesDone') : TXT('UI.pause.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
+    pauseAsk: (done, test) => { const A = { x: 680, y: 480, w: 560, h: 300 };
+      return { A, r: [{ id: 'yes', label: done || test ? TXT('UI.pause.ask.yesDone') : TXT('UI.pause.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
     // a run through the town (R-17, TASKS 1006) goes back there with a new hero, and the button says so (TASKS 1812)
     end: (hasLog, town) => [['menu', TXT('UI.end'), true], ['again', town ? TXT('UI.end.2') : TXT('UI.end.3'), true], ['log', TXT('UI.end.4'), !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
     // the discoveries tab (TASKS 394): two columns of rows under the same tab button
