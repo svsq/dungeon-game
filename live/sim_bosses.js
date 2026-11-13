@@ -67,7 +67,7 @@
     // the campaign's last boss leaves one too (TASKS 514): a run through the town ends in the town
     if (R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
     if (lastFloor(R) && R.arena && R.arena.gate) R.msg = { s: ENEMIES[e.type].name + TXT('sim_bosses.finishArena.msg.s'), t: S.t };
-    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e) && !R.chests.some((c) => c.boss)) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
+    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e) && !R.chests.some((c) => c.boss)) drop(R, e.x, e.y, { kind: 'item', item: SIMX.bossPrize(R, e, rollItem(R, dep(R), 2)) }); }
   }
   // the portal home a chapter boss leaves (TASKS 383): in its hall, kept clear of the stairs and the altar so E never picks the wrong one
   function bossGate(R, e) { const r = R.map.rooms[e.room], cx = (r.x + r.w / 2) * TILE, cy = (r.y + r.h / 2) * TILE, far = [R.map.exit, ...(R.map.down ? [R.map.down] : []), ...R.shrines];

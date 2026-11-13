@@ -160,6 +160,23 @@
     { const c = stage(); own(c, 'dash_trail'); SIMX.firePowers(c.S, c.R, 'dash', { x: c.h.x, y: c.h.y, dx: 0, dy: 0, len: 100 }); if (!c.R.fires.some((f) => f.own === 'hero')) out.push('power: no fire behind the dash'); }
     { const c = stage(); own(c, 'dash_strike'); const e = foe(c.R, c.h, 5), hp = e.hp; c.h.dashT = c.S.t; SIMX.dashTouch(c.S, c.R); const h1 = e.hp; SIMX.dashTouch(c.S, c.R); if (!(h1 < hp) || e.hp !== h1) out.push(`power: the dash struck ${hp - e.hp}, once expected`); }
   }
+  // TASKS 1818: each chapter boss holds a unique for each class, drops it every time, and its power works only while it is worn
+  function checkUniques(out) {
+    const BOSS = ['boss_spider', 'boss_necro', 'boss_forge', 'boss', 'boss_serpent', 'boss_colossus'];
+    for (const U of Object.values(D.UNIQUES)) { const P = D.POWERS[U.power], C = D.CLASSES[U.cls];
+      if (!D.BASES[U.b] || !D.wears(U.cls, U.b)) out.push(`unique ${U.id}: a ${U.cls} cannot wear its ${U.b}`);
+      if (!P || !P.name || !P.desc) out.push(`unique ${U.id}: power ${U.power} has no name or text`);
+      else if (P.ab && !C.abs.some((a) => a.id === P.ab)) out.push(`unique ${U.id}: its power is for ${P.ab}, not a ${U.cls}'s`);
+      if (!U.name || !U.lore || /[{}]/.test(U.name + U.lore)) out.push(`unique ${U.id}: name or lore missing or unfilled`); }
+    for (const cl of ['warrior', 'mage', 'archer']) for (const type of BOSS) {
+      if (!D.bossUniques(type, cl).length) { out.push(`unique: ${type} has none for a ${cl}`); continue; }
+      const c = stage(cl), its = SIMX.bossLoot(c.R, { type, x: c.h.x, y: c.h.y }), u = its.find((it) => it.u);
+      if (!u || D.UNIQUES[u.u].boss !== type || D.UNIQUES[u.u].cls !== cl || u.rar !== 4 || SIMX.itemName(u) !== D.UNIQUES[u.u].name) out.push(`unique: ${type}'s chest holds no ${cl} unique`); }
+    { const c = stage('warrior'), h = c.h, e = foe(c.R, h), blows = () => { c.S.ev = []; for (let i = 0; i < 4; i++) heroHit(c.S, c.R, e, 1, false, h.x, h.y); return hits(c.S, 'kit_hammer'); };
+      h.powers = {}; h.powerN = {}; h.eq.weapon = SIMX.uniqueItem(c.R, 'u_forge_w', 5);
+      if (blows() !== 1 || (h.powers || {}).kit_hammer) out.push('unique: a worn unique\'s power does not fire, or becomes the hero\'s own');
+      h.eq.weapon = SIMX.rollItem(c.R, 5, 0, 'weapon'); if (blows() !== 0) out.push('unique: its power stays after it is taken off'); }
+  }
   function checkPowers(out) {
     const T = '__t', drive = (trig, act, extra = {}) => { const c = stage(extra.cls); grant(c.h, T, Object.assign({ trig, fx: 'mana', v: 0 }, extra.p)); c.S.ev = []; act(c); const n = hits(c.S, T); delete D.POWERS[T]; return n; };
     const cases = {
@@ -181,7 +198,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAbilityPowers(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAbilityPowers(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out); checkUniques(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -360,7 +360,7 @@
       if (Math.hypot(h.x - c.x, h.y - c.y) < T.r && h.hp > 1) { SIMX.hurtHero(S, R, Math.min(SIMX.heroSt(S).maxHp * T.hp, h.hp - 1), c.x, c.y - 10, 'spike'); if (S.t === h.hurtT) R.msg = { s: TXT('sim_world.chestTrap.msg'), t: S.t }; } } }
   // a boss's own chest holds what the boss used to drop (TASKS 1356): the same items in a better place, no new loot
   // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
-  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : LOOT.mini.items.map((o) => rollItem(R, dep(R), o.q, undefined, o)); for (const it of its) it.id = R.nextId++; return its; }
+  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : LOOT.mini.items.map((o) => rollItem(R, dep(R), o.q, undefined, o)); its[0] = SIMX.bossPrize(R, b, its[0]); for (const it of its) it.id = R.nextId++; return its; }
   function chestLoot(R, c) { if (c.boss) return [];
     const LT = c.mimic ? Object.assign({}, LOOT.chest[3], { n: LOOT.chest[c.tier].n }) : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)

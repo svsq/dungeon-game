@@ -927,6 +927,8 @@
   function tooltip(S, it, b, h, deal, at, box) {
     const bx = box || [10, 10, W - 10, H - 10], cons = SIM.Q.isCons(it), B = cons ? null : D.BASES[it.b];
     const make = (compact) => { const lines = [];
+      const U = !cons && D.UNIQUES[it.u], UPW = U && D.POWERS[U.power];
+      const wrap = (txt, col, z) => { let ln = ''; for (const w of txt.split(' ')) { if ((ln + ' ' + w).length > 40) { lines.push([ln, col, z]); ln = w; } else ln = ln ? ln + ' ' + w : w; } if (ln) lines.push([ln, col, z]); };
       lines.push([SIM.Q.itemName(it), hex(D.RARITY[it.rar].col), 28]);
       if (!cons) { lines.push([TXT('hud.tooltip', { name: D.RARITY[it.rar].name, p2: D.SLOT_NAME[B.slot], lvl: it.lvl }), C.dim, 20]);
         if (B.cls) lines.push([TXT('hud.tooltip.cls', { p1: D.clsNames(it.b) }), D.wears(D.clsOf(h).id, it.b) ? C.dim : '#ff6a5a', 20]);
@@ -936,11 +938,12 @@
         const typed = SIM.Q.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
         mod(typed, C.text); mod(it.mods, '#8fd98a');
         for (const e of it.ench || []) lines.push([TXT('hud.tooltip.6', { p1: D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) }), '#9cc8ff', 22]);
+        if (UPW) { lines.push([TXT('hud.tooltip.power', { name: UPW.name }), '#ffb347', 22]); if (!compact) wrap(UPW.desc, '#ffd9a0', 19); }
         const own = D.wears(D.clsOf(h).id, it.b);
         if (h.eq[B.slot] !== it && own) compare(S, it, B.slot, h, lines, { dim: h.lvl < rq, compact });
         if (!deal) lines.push([b.id.startsWith('eq:') ? TXT('hud.tooltip.7') : !own ? TXT('hud.tooltip.cls2') : h.lvl < rq ? TXT('hud.tooltip.8', { rq }) : TXT('hud.tooltip.9'), '#8a7d6c', 18]); }
       else { lines.push([it.b === 'hp_potion' ? TXT('hud.tooltip.10') : it.b === 'mp_potion' ? TXT('hud.tooltip.11') : S.run && S.run.viaTown ? TXT('hud.tooltip.12') : TXT('hud.tooltip.13'), C.text, 20]); if (!deal) lines.push([TXT('hud.tooltip.14'), '#8a7d6c', 18]); }
-      if (!cons && !compact && it.rar === 4) { const L0 = TXT.talk('legends'), lore = L0[it.b] || L0[B.slot]; if (lore) { let ln = ''; for (const w of lore.split(' ')) { if ((ln + ' ' + w).length > 40) { lines.push([ln, '#c9b79c', 18]); ln = w; } else ln = ln ? ln + ' ' + w : w; } if (ln) lines.push([ln, '#c9b79c', 18]); } }
+      if (!cons && !compact && it.rar === 4) { const L0 = TXT.talk('legends'), lore = U ? U.lore : L0[it.b] || L0[B.slot]; if (lore) wrap(lore, '#c9b79c', 18); }
       if (deal) lines.push([deal[0], deal[1], 22]);
       return lines; };
     const size = (lines) => [Math.max(...lines.map(([s, , z], i) => lw('tt' + i, s, { size: z }))) + 60, lines.reduce((a, l) => a + l[2] * 1.45, 0) + 56];

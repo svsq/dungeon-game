@@ -39,10 +39,10 @@
     ev_glacier: { id: 'ev_glacier', name: TXT('POWERS.ev_glacier.name'), desc: TXT('POWERS.ev_glacier.desc'), ab: 'frost', trig: 'kill', if: 'chilled', fx: 'nova', k: 0.6, spell: 1, r: 110, kb: 0.5 },
     // the kits' passives (TASKS 393): the same engine, carried from the first step of the run
     kit_axe: { id: 'kit_axe', trig: 'crit', fx: 'stun', t: 0.6, boss: 0.2, icd: 1 },
-    kit_hammer: { id: 'kit_hammer', trig: 'every:4', fx: 'nova', k: 0.6, r: 90, kb: 1 },
+    kit_hammer: { id: 'kit_hammer', name: TXT('POWERS.kit_hammer.name'), desc: TXT('POWERS.kit_hammer.desc'), trig: 'every:4', fx: 'nova', k: 0.6, r: 90, kb: 1 },
     kit_wand: { id: 'kit_wand', trig: 'cast:fireball', fx: 'mana', v: 0.08 },
     kit_ash: { id: 'kit_ash', trig: 'kill', fx: 'burnGround', k: 0.3, t: 1.5, per: 0.5 },
-    kit_long: { id: 'kit_long', trig: 'hit', p: 0.15, fx: 'slow', t: 2, slow: 0.6 },
+    kit_long: { id: 'kit_long', name: TXT('POWERS.kit_long.name'), desc: TXT('POWERS.kit_long.desc'), trig: 'hit', p: 0.15, fx: 'slow', t: 2, slow: 0.6 },
     kit_cross: { id: 'kit_cross', trig: 'dash', fx: 'mana', v: 0.1, icd: 1 },
     // the relics (TASKS 1178): a dear tier of its own, a rule of the run changed
     rl_fifth: { id: 'rl_fifth', name: TXT('POWERS.rl_fifth.name'), desc: TXT('POWERS.rl_fifth.desc'), trig: 'kill', each: 5, fx: 'nova', k: 1.5, r: 130, kb: 1, fire: 1 },

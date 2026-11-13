@@ -1729,6 +1729,9 @@
     states.push(['long_names_tracker', keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
       .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; })]);
     states.push(['long_names_craft', craftS('forge', (S, R, h, it) => { Object.assign(it, legend(R, 950)); h.bag[4] = it; S.hover = 'do'; })]);
+    // TASKS 1818: a boss's unique, the longest of name, power text and lore together, its power and lore wrapped under the affixes
+    const uniqL = Object.values(D.UNIQUES).sort((a, b) => (b.name + b.lore + D.POWERS[b.power].desc).length - (a.name + a.lore + D.POWERS[a.power].desc).length)[0];
+    states.push(['unique_card', play((S) => { worst(S); const h = S.run.hero; h.bag[23] = Object.assign(SIM.uniqueItem(S.run, uniqL.id, 12), { id: 3103 }); S.screen = 'inv'; S.hover = 'bag:23'; })]);
     states.push(['long_names_card', play((S) => { worst(S); const h = S.run.hero; h.bag[23] = legend(S.run, 3101); h.eq[D.BASES[legendB].slot] = legend(S.run, 3102); S.screen = 'inv'; S.hover = 'bag:23'; })]);
     // the town's loop for the player (TASKS 1033): the notice board full (every giver with an offer, the longest names) and empty;
     // a townsman answering a blow; the minimap's ! and ?; the scroll slot and its hint at low health on a floor

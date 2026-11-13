@@ -97,6 +97,29 @@
   const LEGEND_NAMES = { sword: TXT('LEGEND_NAMES.sword'), longsword: TXT('LEGEND_NAMES.longsword'), axe: TXT('LEGEND_NAMES.axe'), hammer: TXT('LEGEND_NAMES.hammer'), staff: TXT('LEGEND_NAMES.staff'), wand: TXT('LEGEND_NAMES.wand'), shortbow: TXT('LEGEND_NAMES.shortbow'), longbow: TXT('LEGEND_NAMES.longbow'), crossbow: TXT('LEGEND_NAMES.crossbow'), quiver: TXT('LEGEND_NAMES.quiver'), orb: TXT('LEGEND_NAMES.orb'), robe: TXT('LEGEND_NAMES.robe'), circlet: TXT('LEGEND_NAMES.circlet'),
     cloak: TXT('LEGEND_NAMES.cloak'), weapon: TXT('LEGEND_NAMES.weapon'), offhand: TXT('LEGEND_NAMES.offhand'), helm: TXT('LEGEND_NAMES.helm'), armor: TXT('LEGEND_NAMES.armor'), gloves: TXT('LEGEND_NAMES.gloves'),
     boots: TXT('LEGEND_NAMES.boots'), ring: TXT('LEGEND_NAMES.ring'), amulet: TXT('LEGEND_NAMES.amulet') };
+  // a unique (R-09, TASKS 1818; 358 adds the ones found anywhere): its own name, base, power and lore line, for one class; `boss` is the
+  // chapter boss that always drops it to a hero of that class. Its power works while it is worn (sim_powers heroPowers)
+  const UNIQUES = {
+    u_spider_w: { id: 'u_spider_w', boss: 'boss_spider', cls: 'warrior', b: 'cloak', power: 'f_whirl_6b', name: TXT('UNIQUES.u_spider_w.name'), lore: TXT('UNIQUES.u_spider_w.lore') },
+    u_spider_m: { id: 'u_spider_m', boss: 'boss_spider', cls: 'mage', b: 'robe', power: 'f_shield_6b', name: TXT('UNIQUES.u_spider_m.name'), lore: TXT('UNIQUES.u_spider_m.lore') },
+    u_spider_a: { id: 'u_spider_a', boss: 'boss_spider', cls: 'archer', b: 'shortbow', power: 'kit_long', name: TXT('UNIQUES.u_spider_a.name'), lore: TXT('UNIQUES.u_spider_a.lore') },
+    u_necro_w: { id: 'u_necro_w', boss: 'boss_necro', cls: 'warrior', b: 'ring', power: 'f_cry_6b', name: TXT('UNIQUES.u_necro_w.name'), lore: TXT('UNIQUES.u_necro_w.lore') },
+    u_necro_m: { id: 'u_necro_m', boss: 'boss_necro', cls: 'mage', b: 'wand', power: 'f_fireball_6b', name: TXT('UNIQUES.u_necro_m.name'), lore: TXT('UNIQUES.u_necro_m.lore') },
+    u_necro_a: { id: 'u_necro_a', boss: 'boss_necro', cls: 'archer', b: 'quiver', power: 'rl_fifth', name: TXT('UNIQUES.u_necro_a.name'), lore: TXT('UNIQUES.u_necro_a.lore') },
+    u_forge_w: { id: 'u_forge_w', boss: 'boss_forge', cls: 'warrior', b: 'hammer', power: 'kit_hammer', name: TXT('UNIQUES.u_forge_w.name'), lore: TXT('UNIQUES.u_forge_w.lore') },
+    u_forge_m: { id: 'u_forge_m', boss: 'boss_forge', cls: 'mage', b: 'orb', power: 'ev_bulwark', name: TXT('UNIQUES.u_forge_m.name'), lore: TXT('UNIQUES.u_forge_m.lore') },
+    u_forge_a: { id: 'u_forge_a', boss: 'boss_forge', cls: 'archer', b: 'ring', power: 'f_trap_6b', name: TXT('UNIQUES.u_forge_a.name'), lore: TXT('UNIQUES.u_forge_a.lore') },
+    u_demon_w: { id: 'u_demon_w', boss: 'boss', cls: 'warrior', b: 'amulet', power: 'ev_roar', name: TXT('UNIQUES.u_demon_w.name'), lore: TXT('UNIQUES.u_demon_w.lore') },
+    u_demon_m: { id: 'u_demon_m', boss: 'boss', cls: 'mage', b: 'circlet', power: 'ev_comet', name: TXT('UNIQUES.u_demon_m.name'), lore: TXT('UNIQUES.u_demon_m.lore') },
+    u_demon_a: { id: 'u_demon_a', boss: 'boss', cls: 'archer', b: 'longbow', power: 'rl_quiver', name: TXT('UNIQUES.u_demon_a.name'), lore: TXT('UNIQUES.u_demon_a.lore') },
+    u_serp_w: { id: 'u_serp_w', boss: 'boss_serpent', cls: 'warrior', b: 'tower_shield', power: 'rl_maelstrom', name: TXT('UNIQUES.u_serp_w.name'), lore: TXT('UNIQUES.u_serp_w.lore') },
+    u_serp_m: { id: 'u_serp_m', boss: 'boss_serpent', cls: 'mage', b: 'staff', power: 'f_frost_3a', name: TXT('UNIQUES.u_serp_m.name'), lore: TXT('UNIQUES.u_serp_m.lore') },
+    u_serp_a: { id: 'u_serp_a', boss: 'boss_serpent', cls: 'archer', b: 'amulet', power: 'f_volley_6a', name: TXT('UNIQUES.u_serp_a.name'), lore: TXT('UNIQUES.u_serp_a.lore') },
+    u_col_w: { id: 'u_col_w', boss: 'boss_colossus', cls: 'warrior', b: 'plate_armor', power: 'ev_ram', name: TXT('UNIQUES.u_col_w.name'), lore: TXT('UNIQUES.u_col_w.lore') },
+    u_col_m: { id: 'u_col_m', boss: 'boss_colossus', cls: 'mage', b: 'cloak', power: 'rl_phalanx', name: TXT('UNIQUES.u_col_m.name'), lore: TXT('UNIQUES.u_col_m.lore') },
+    u_col_a: { id: 'u_col_a', boss: 'boss_colossus', cls: 'archer', b: 'crossbow', power: 'f_leap_6b', name: TXT('UNIQUES.u_col_a.name'), lore: TXT('UNIQUES.u_col_a.lore') },
+  };
+  const bossUniques = (type, cls) => Object.values(UNIQUES).filter((u) => u.boss === type && u.cls === cls);
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)
@@ -143,5 +166,5 @@
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
-  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, reqLvl, SHOP, itemPrice, sellPrice });
+  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, reqLvl, SHOP, itemPrice, sellPrice });
 })(typeof window !== 'undefined' ? window : globalThis);
