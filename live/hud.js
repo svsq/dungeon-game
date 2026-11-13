@@ -389,10 +389,10 @@
   // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
   function bpGeo(S, R) {
     const h = R.hero, gold = String(h.gold), shards = String(S.meta.shards), keys = R.keys > 0 ? String(R.keys) : '', np = potsOf(R).length, ns = D.clsOf(h).abs.length;
-    const NW = 136, FW = 62, FH = 92, CS = 84, PS = 64, SEP = 32, PAD = 28, BH = 122, CI = 30;
+    const NW = 136, FW = 62, FH = 92, CS = 84, PS = 64, SEP = 32, PAD = 28, BH = D.UI.bp.h, CI = 30;
     const gw = Math.max(130, lw('gold_count', gold, { size: 26 }) + 70), cw = (id, s) => CI + Math.max(56, lw(id, s, { size: 20 }) + 40), sw = cw('shard_count', shards), kw = keys ? cw('key_count', keys) : 0;
     const mw = Math.max(gw + 44, sw + (kw ? kw + 10 : 0)), vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 12, potW = np * PS + (np - 1) * 12;
-    const w = 2 * PAD + vitW + skW + potW + mw + 3 * SEP, x = Math.round(W / 2 - w / 2), y = H - BH - 6;
+    const w = 2 * PAD + vitW + skW + potW + mw + 3 * SEP, x = Math.round(W / 2 - w / 2), y = H - BH - D.UI.bp.foot;
     const vx = x + PAD, sx = vx + vitW + SEP, px = sx + skW + SEP, mx = px + potW + SEP;
     return { x, y, w, h: BH, NW, FW, FH, CS, PS, vx, sx, px, mx, gw, sw, kw, gold, shards, keys, seps: [sx - SEP / 2, px - SEP / 2, mx - SEP / 2],
       goldC: [mx + 44 + gw / 2, y + 33], shardC: [mx + CI + (sw - CI) / 2, y + 81], CI, xp: [x + 20, y + BH - 18, w - 40, 12] };

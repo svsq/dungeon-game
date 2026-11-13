@@ -76,6 +76,8 @@
     return f.filter((e, i) => !(e.k === 'nope' && e.s && f.some((q, j) => j > i && q.k === 'nope' && q.s === e.s))).slice(-n); };
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   const UI = {
+    // the bottom panel's height and its gap to the view's foot: the HUD lays it out by them and the camera keeps the hero above it (TASKS 1911)
+    bp: { h: 122, foot: 6 },
     // full: every save slot holds a run, so a new one takes the place of the one played longest ago (TASKS 1311, 1785)
     // quit: the game can close its own window (the desktop build, TASKS 1877); a browser tab cannot, and there «Выход» is not shown
     menu: (hasRun, diff, zoom, full = hasRun, quit = false) => { const F = UI.newsFrame();
