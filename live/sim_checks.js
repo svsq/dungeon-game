@@ -3317,6 +3317,22 @@
     return out;
   }
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
+  // TASKS 1781: along the whole rail the cart shows one painting, kept upright: the 3/4 one turned no more than CART.roll with its
+  // wheel line on the rails, the front one never turned and its axle tilted no more than 18 degrees; one change of view at the bend
+  function cartCheck() {
+    const out = [], C = D.CART, R2D = 180 / Math.PI, m = DG.genTown(31), pts = D.railPts(m);
+    let prev = null, swaps = 0;
+    for (let s = 0; s <= 400; s++) { const v = D.cartView(pts, s);
+      if (v.side) { const line = Math.atan(Math.tan(C.side / R2D) / v.sx) * R2D - v.rot;
+        if (Math.abs(v.rot) > C.roll + 0.5 || v.sx < C.squash - 1e-6 || v.sx > 1) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}° or narrowed to ${v.sx.toFixed(2)}`);
+        if (Math.abs(line - v.th) > 1) out.push(`cart: the 3/4 view's wheel line at ${s} px runs ${line.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`); }
+      else if (v.rot || v.sx !== 1 || Math.abs(v.tilt) > 18 || v.th < 55) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}° or its axle tilts ${v.tilt.toFixed(0)}°`);
+      if (prev && prev.side !== v.side) swaps++;
+      else if (prev && (Math.abs(prev.rot - v.rot) > 2 || Math.abs(prev.tilt - v.tilt) > 2 || Math.abs(prev.sx - v.sx) > 0.02)) out.push(`cart: the view jumps at ${s} px`);
+      prev = v; if (out.length > 4) break; }
+    if (swaps !== 1) out.push(`cart: the view changes ${swaps} times along the rails, not once at the bend`);
+    return out;
+  }
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
     for (let sd = 1; sd <= 8; sd++) { const m = DG.genTown(sd * 977), go = (k) => m.cells[k] === 1, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
@@ -3721,7 +3737,7 @@
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
     return p === GEN_PRINT[D.GEN_VERSION] ? [] : [`gen print: the generator lays other floors (${p}) under D.GEN_VERSION ${D.GEN_VERSION}: raise the version and put the print in GEN_PRINT`]; }
-  const PARTS = { splitCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { splitCheck, heroDeathCheck, menuCheck, genPrintCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, cartCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);
