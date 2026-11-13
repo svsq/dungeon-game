@@ -170,9 +170,26 @@
   }
 
   // the event rooms (TASKS 361, data.js EVENTS): marked once the floor is laid and checked, so they never move a wall or a way.
-  // EVENT_PLACE[id](m, r, rnd) → [x, y] (world px) or null puts an event's own things in its room; with none, its spot is the open
+  // EVENT_PLACE[id](m, r, rnd) → [x, y, more?] (world px; more joins the event's record) or null puts an event's own things in its room; with none, its spot is the open
   // cell nearest the room's middle
-  const EVENT_PLACE = {};
+  const EVENT_PLACE = {
+    // the skull door's grates (TASKS 362): one in each run of open cells just past the room's box, the way the boss's arena takes its
+    // doors, so they shut every way in whatever its width (a cave's mouths are seldom two cells). Not a room a secret opens into,
+    // nor one whose ways in are another room's floor or a door's
+    trial: (m, r) => { if (r.wings) return null;
+      const W = m.W, inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, mouth = new Map();
+      if ((m.secrets || []).some((q) => q.host === r.id || q.wall.concat(q.front || []).some(([x, y]) => inRm(r, x, y, 1)))) return null;
+      const doorC = new Set((m.doors || []).flatMap((d) => d.cells.map(([x, y]) => y * W + x)));
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) for (const [dx, dy, dir] of [[0, -1, 'u'], [0, 1, 'd'], [-1, 0, 'l'], [1, 0, 'r']]) {
+        const ox = x + dx, oy = y + dy, k = oy * W + ox; if (inR(ox, oy) || m.cells[k] !== 1) continue;
+        if (doorC.has(k) || m.rooms.some((q) => q !== r && inRm(q, ox, oy))) return null; mouth.set(k, { x: ox, y: oy, dir }); }
+      const gates = [], took = new Set();
+      for (const [k0, p] of mouth) { if (took.has(k0)) continue; const side = p.dir === 'l' || p.dir === 'r', st = side ? W : 1, run = [];
+        let k = k0; while (mouth.has(k - st) && mouth.get(k - st).dir === p.dir) k -= st;
+        for (; mouth.has(k) && mouth.get(k).dir === p.dir && !took.has(k); k += st) { took.add(k); run.push([k % W, Math.floor(k / W)]); }
+        const a = run[0], n = run.length, ex = p.dir === 'l' ? r.x : p.dir === 'r' ? r.x + r.w : 0, ey = p.dir === 'u' ? r.y : p.dir === 'd' ? r.y + r.h : 0;
+        gates.push({ dir: p.dir, cells: run, x: side ? ex * TILE : (a[0] + n / 2) * TILE, y: side ? (a[1] + n / 2) * TILE : ey * TILE }); }
+      const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; } };
   const evOk = (E, depth, mode) => depth >= (E.minF || 1) && depth <= (E.maxF ?? 1e9) && (!E.modes || E.modes.includes(mode));
   function markEvents(m, ST, opts, seed) {
     const EV = D.EVENTS, pool = EV.pool, mode = opts.mode || 'campaign', force = (opts.events || []).filter((id) => pool[id]);
@@ -185,14 +202,16 @@
       let roll = Er() * left.reduce((a, [, E]) => a + E.w, 0), pk = left[0][0]; for (const [id, E] of left) if ((roll -= E.w) < 0) { pk = id; break; } ids.push(pk); }
     const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx);
     const rooms = m.rooms.filter((r) => r.type === 'combat' && !r.hall && !r.locked && !r.pocket && !r.isle && !r.event && r.w * r.h >= EV.area && !way.has(r.id));
+    const big = (r, E) => r.w * r.h >= (E.area || EV.area);
     for (let i = rooms.length - 1; i > 0; i--) { const j = Math.floor(Er() * (i + 1)); [rooms[i], rooms[j]] = [rooms[j], rooms[i]]; }
     const out = [];
     for (const id of ids) { const E = pool[id];
-      for (const r of rooms) { if (r.event) continue;
-        if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit))) continue;
+      for (const r of rooms) { if (r.event || !big(r, E)) continue;
+        // (an elite is a room's reward, TASKS 433: a dead end off the way would be left with none, and a lair floor short of its own)
+        if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit || e.elite))) continue;
         const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er) : eventSpot(m, r); if (!at) continue;
-        r.event = id; if (E.room === 'treasure') m.enemies = m.enemies.filter((e) => e.room !== r.id);
-        out.push({ id, room: r.id, x: at[0], y: at[1] }); break; } }
+        r.event = id; if (E.room === 'treasure') { m.enemies = m.enemies.filter((e) => e.room !== r.id); if (m.webs) m.webs = m.webs.filter((w) => roomAt(m, w.x, w.y) !== r.id); }
+        out.push(Object.assign({ id, room: r.id, x: at[0], y: at[1] }, at[2])); break; } }
     if (out.length) m.events = out;
   }
   // the open cell nearest a room's middle with its eight round it open too: no prop, chest, plate, web, water or doorway on it

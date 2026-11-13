@@ -178,6 +178,7 @@
     const ok = enterFloor(S, R, 0, undefined, 'portal'); R.portal = { f };
     if (ok) R.msg = { s: TXT('sim_floor.mended', { floor: f }), t: S.t, d: 5 }; return ok; }
   function goFloor(S, R, f, gen, how) {
+    if (R.map && R.events) SIMX.eventsLeave(S, R);
     if (R.map && R.viaTown) stashFloor(R);
     if (R.map && R.town && R.shop) R.townShop = R.shop;
     R.htraps = [];   // (a set trap stays where it was set: kept, it sprang on the new floor at the old floor's spot, PR 36 review)

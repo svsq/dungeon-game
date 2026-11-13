@@ -238,12 +238,20 @@
   // under it each step is enough), and flies on (TASKS 1706)
   function arrowWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
   function springAmbush(S, R, P) {
-    const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
-    if (!room || P.fired) return false;
+    const m = R.map, h = R.hero;
+    if (!m.rooms[P.room] || P.fired) return false;
     P.fired = 1;
+    if (!summonPack(S, R, P.room, P.n, 'amb')) return false;
+    P.downT = S.t; ev(S, { k: 'ambush', x: h.x, y: h.y });
+    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.springAmbush.msg.s'), t: S.t, d: 2, room: P.room }; return true;
+  }
+  // n of the floor's roster risen in a room round the hero, out of his blade's reach (an ambush; a skull door's wave, TASKS 362):
+  // all or none, or with `some` as many as find a place. → how many rose
+  function summonPack(S, R, ri0, n, summ, some) {
+    const m = R.map, h = R.hero, f = dep(R), room = m.rooms[ri0];
     const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
-    if (!roster.length) return false;
-    const group = Array.from({ length: P.n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = SIMX.solids(R), block = new Set(m.block || []);
+    if (!roster.length) return 0;
+    const group = Array.from({ length: n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = SIMX.solids(R), block = new Set(m.block || []);
     const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;
     const walk = (x, y) => inside(x, y) && cell(m, x, y) === 1 && !block.has(y * m.W + x);
     const seen = new Set(), queue = [[Math.floor(h.x / TILE), Math.floor(h.y / TILE)]];
@@ -262,16 +270,15 @@
     for (let i = candidates.length - 1; i > 0; i--) { const j = ri(R, 0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
     const positions = [];
     for (const p of candidates) if (positions.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= 2 * radius + 4)) { positions.push(p); if (positions.length === group.length) break; }
-    if (positions.length !== group.length) return false;
+    if (positions.length !== group.length && !some) return 0;
     const sc = BAL.hp * dif(R, 'hp') * D.hpAt(f), dc = BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob;
-    for (let i = 0; i < group.length; i++) {
+    for (let i = 0; i < positions.length; i++) {
       const { x, y } = positions[i], type = group[i], E = ENEMIES[type], hp = Math.round(E.hp * sc);
-      R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: P.room, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
-        cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
+      R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: ri0, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
+        cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ, spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
       ev(S, { k: 'summon', x, y });
     }
-    P.downT = S.t; ev(S, { k: 'ambush', x: h.x, y: h.y });
-    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.springAmbush.msg.s'), t: S.t, d: 2, room: P.room }; return true;
+    return positions.length;
   }
   // a door opens to a press of E or a blow (a kick, it flies open), unless it is locked: a key the hero carries opens the lock for
   // good, a lever opens every door of its lock at once
@@ -372,6 +379,6 @@
 
   Object.assign(SIMX, { setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
     leverNear, pullLever, secretUnder, hitShelf, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

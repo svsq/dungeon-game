@@ -232,7 +232,12 @@
   // of gifts. R-35's shrines come as entries of this pool
   const EVENTS = { n: [1, 2], two: 0.4, cap: 3, area: 30, near: 60,
     pool: {
-      probe: { w: 0, minF: 1, room: 'treasure', ask: 1, name: TXT('EVENTS.probe.name'), say: TXT('EVENTS.probe.say'), yes: TXT('EVENTS.probe.yes'), no: TXT('EVENTS.probe.no'), prompt: TXT('EVENTS.probe.prompt'), done: TXT('EVENTS.probe.done') } } };
+      probe: { w: 0, minF: 1, room: 'treasure', ask: 1, name: TXT('EVENTS.probe.name'), say: TXT('EVENTS.probe.say'), yes: TXT('EVENTS.probe.yes'), no: TXT('EVENTS.probe.no'), prompt: TXT('EVENTS.probe.prompt'), done: TXT('EVENTS.probe.done') },
+      // the skull door (TASKS 362): a skull over each way in and the bones on its floor tell of it from the doorway; «yes» drops a
+      // grate in every way in, and three waves of the floor's own roster rise one after another, wave i n[i] + depth / perF strong,
+      // gap s apart; the last one down lifts the grates and leaves a chest of a cache's tier (`chest`) on its spot
+      trial: { w: 2, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, chest: 4,
+        name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

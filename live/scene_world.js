@@ -638,6 +638,28 @@
     // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
     if (m.town) drawCart(R, m, GT, Y, sx, sy);
     if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
+    // the skull door (TASKS 362): bones on its spot until it is won, a stake with a skull at the end of each way in, and while it is
+    // fought an iron grate in every one, dropped in a blink and lifted at the end. The stakes stand outside, where the hero comes from;
+    // the skull is the bones' own, cut out of them
+    for (const E of R.events || []) { if (E.id !== 'trial') continue; const on = E.st === 'on', e0 = ST.ev.filter((e) => e.k === 'grates' && e.room === E.room && GT >= e.t).pop();
+      const SK = [70 / 168, 4 / 128, 150 / 168, 72 / 128], skW = 22, skH = 19, BH = 76;
+      if (E.st !== 'done' && vis(E.x, E.y)) Y.push([E.y, () => { L.glow(sx(E.x), sy(E.y) - 6, 46, [1, 0.22, 0.1], (on ? 0.16 : 0.07) + 0.03 * Math.sin(t * 2.2), 2.4); L.shadow(sx(E.x), sy(E.y) + 4, 22, 6, 0.4); drawProp('bones', sx(E.x), sy(E.y), { dy: 6, k: 1.5 }); }]);
+      // a grate falls in its first 0.15 s and rises in its last 0.4 s
+      const drop = on ? (e0 && !e0.up ? SS(0, 0.15, GT - e0.t) : 1) : e0 && e0.up ? 1 - SS(0, 0.4, GT - e0.t) : 0;
+      for (const g of E.gates || []) { if (!vis(g.x, g.y)) continue; const side = g.dir === 'l' || g.dir === 'r', n = g.cells.length, ins = g.dir === 'u' || g.dir === 'l' ? 1 : -1;
+        const [kx, ky] = side ? [g.x - ins * 20, g.y - n * TILE / 2 + 12] : [g.x - n * TILE / 2 + 7, g.y + (g.dir === 'd' ? TILE + 20 : -TILE - 4)];
+        Y.push([ky, () => { const X = sx(kx), Yb = sy(ky); L.solid(X - 2, Yb - 44, 4, 44, [0.2, 0.14, 0.1]); L.solid(X - 2, Yb - 44, 1, 44, [0.36, 0.27, 0.19]); L.shadow(X, Yb + 1, 6, 3, 0.5);
+          L.sprite('bones', X - skW / 2, Yb - 44 - skH + 4, { w: skW, h: skH, src: SK }); if (on) L.glow(X, Yb - 44 - skH / 2 + 4, 14, [1, 0.25, 0.1], 0.12 + 0.04 * Math.sin(t * 5), 2.4); }]);
+        if (drop <= 0) continue; const lift = (1 - drop) * BH, iron = [0.13, 0.12, 0.13], lit = [0.32, 0.29, 0.28];
+        if (!side) { const x0 = sx(g.x - n * TILE / 2), w = n * TILE, foot = sy(g.y) + (g.dir === 'd' ? TILE : 0) - lift, key = g.y + (g.dir === 'd' ? TILE : 0);
+          Y.push([key, () => { for (let bx = 4; bx < w - 2; bx += 11) { L.solid(x0 + bx, foot - BH, 3, BH, iron, 0, 0, 0, drop); L.solid(x0 + bx, foot - BH, 1, BH, lit, 0, 0, 0, drop); L.solid(x0 + bx, foot - 2, 3, 4, lit, 0, 0, 0, drop); }
+            for (const hy of [0.18, 0.62]) L.solid(x0, foot - BH * (1 - hy), w, 4, iron, 0, 0, 0, drop); }]); }
+        else { const yT = g.y - n * TILE / 2, X = sx(g.x) - 3;
+          for (let c = 0; c < n; c++) Y.push([yT + (c + 1) * TILE, () => { const y0 = sy(yT + c * TILE) - lift, y1 = sy(yT + (c + 1) * TILE) - lift;
+            // edge-on, its bars stand one behind another: a band of iron, each bar's lit side a tick on it, the rails across
+            L.solid(X - 2, y0 - BH, 8, y1 - y0 + BH, iron, 0, 0, 0, drop);
+            for (let by = 4; by < TILE; by += 10) { L.solid(X - 2, y0 + by - BH, 8, 2, lit, 0, 0, 0, drop); L.solid(X - 2, y0 + by - 2, 8, 3, lit, 0, 0, 0, drop); }
+            for (const hy of [0.18, 0.62]) L.solid(X - 4, y0 - BH * (1 - hy), 12, y1 - y0, lit, 0, 0, 0, 0.7 * drop); }]); } } }
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in

@@ -389,6 +389,8 @@
         const e = pickIn(kin) || pickIn((o) => D.ELITE_GROUP[o.type]);
         if (!e) { q.lost = 1; continue; } if (!q.title || !kin(e)) { q.foe = e.type; q.title = nickOf(e.type, nickHash(R, e)); } const stg = STAGE(R, f), mob = stg.mob || 1;
         e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
+      // (TASKS 362) half the lairs are an event's room whose entry is a `goal` (the skull door): its waves are the lair's, done by its `qevent`
+      else if (Q.type === 'room' && SIMX.eventsOf(R).some((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal) && qhash((R.seed >>> 0) * 7919 + f * 104729 + q.id + 362) / 4294967296 < 0.5) q.room = SIMX.eventsOf(R).find((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal).room;
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
         if (!r) { q.lost = 1; continue; } q.room = r.id; }
       else if (Q.type === 'fetch') { const roomOf = (c) => m.rooms[DG.roomAt(m, c.x, c.y)] || {}, free = R.chests.filter((c) => !c.open && !c.quest && !c.mimic);

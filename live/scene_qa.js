@@ -1759,6 +1759,17 @@
     // an event room (TASKS 361): the probe, asked for on the 1st floor; its prompt at the spot, its question with «Нет» in focus and «Да» lit
     for (const [nm, scr, fo] of [['event_prompt', 'play', ''], ['event_ask', 'event', 'evNo'], ['event_ask_yes', 'event', 'evYes']]) { const S = play((S) => { const R = S.run; SIM.enterFloor(S, R, 1, { events: ['probe'] }); const E = R.events[0]; if (!E) return;
       R.en = []; R.msg = null; R.hero.x = E.x; R.hero.y = E.y + 20; R.seen = R.seen.map(() => 1); R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; R.evAsk = 0; S.screen = scr; S.focus = fo; S.hover = fo; }); if (S.run.events && S.run.events.length) states.push([nm, S]); }
+    // the skull door (TASKS 362): a way in seen from the corridor, the room as it is come upon (bones, the prompt), mid-fight with its
+    // grates down and the first wave up, and won (the grates lifted, the chest on the spot); the fight in a cave and in the magma too
+    const trialS = (mode, stage) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, mode, 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+      for (let f = 1; f <= 4 && !E; f++) { SIM.enterFloor(S, R, f, { events: ['trial'] }); E = (R.events || []).find((q) => q.id === 'trial'); } if (!E) return;
+      const go = (k) => { R.enteredT = -9; SIM.step(S, { keys: k ? [k] : [] }); }, run = (n) => { for (let i = 0; i < n; i++) { h.hp = 1e6; go(); } };
+      const hp0 = h.hp; R.en = []; R.msg = null; h.x = E.x + 55; h.y = E.y + 10; R.seen = R.seen.map(() => 1);
+      if (stage >= 1) { for (const k of ['KeyE', '', 'ArrowLeft', '', 'Enter', '']) go(k); run(140); h.x = E.x + 70; h.y = E.y + 30; }
+      if (stage >= 2) { for (let i = 0; i < 4000 && E.st === 'on'; i++) { run(1); for (const e of R.en) if (e.summ === 'trial' && e.deadT < 0) { e.hp = 0; SIM.killEnemy(S, R, e); } } R.en = R.en.filter((e) => e.deadT < 0); run(80); h.x = E.x + 70; }
+      R.msg = null; h.hp = hp0; R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2];
+      if (stage < 0) { const g = E.gates[0], [vx, vy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[g.dir], [cx, cy] = g.cells[0]; h.x = (cx + 0.5 + vx * 2) * TILE; h.y = (cy + 0.5 + vy * 2) * TILE; R.cam = [g.x - SCX.VW / 2, g.y - SCX.VH / 2]; } });
+    for (const [nm, mode, st] of [['trial_door', 'campaign', -1], ['trial_room', 'campaign', 0], ['trial_fight', 'campaign', 1], ['trial_won', 'campaign', 2], ['trial_fight_cave', 'cave', 1], ['trial_fight_magma', 'magma', 1]]) { const S = trialS(mode, st); if (S.run && (S.run.events || []).some((q) => q.id === 'trial')) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
     states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; S.focus = 'stay'; })]);

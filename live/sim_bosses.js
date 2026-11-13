@@ -28,7 +28,7 @@
     each(R.proj, ['t0']); each(R.lavaPending, ['t', 't0']); each(R.eggs, ['hatchT']); each(R.rocks, ['t0', 't']); each(R.cracks, ['t0']);
     each(R.pyres, ['t0']); each(R.fires, ['t0', 'hitT']); each(R.htraps, ['t0']); each(R.chests, ['openT', 'fuseT', 'bangT', 'hushT', 'nopeT']);
     each(m.doors, ['openT', 'nopeT']); each(m.locks, ['openT']); each(m.secrets, ['openT']); each(m.decor, ['openT', 'brokeT', 'outUntil']); each(m.goo, ['t0']);
-    each(Object.values(m.melt || {}), ['crackT', 'meltT', 'setT']); lag(m.flood, ['t0']); lag(R.arena, ['t0']); lag(R.shop, ['greetT', 'tradeT', 'hitT', 'callT']); lag(R.msgNext, ['t']); lag(R, ['boomT', 'fuseLast']); each(R.blastWin, [0]);
+    each(Object.values(m.melt || {}), ['crackT', 'meltT', 'setT']); lag(m.flood, ['t0']); lag(R.arena, ['t0']); each(R.events, ['t0', 't1', 'waveT']); lag(R.shop, ['greetT', 'tradeT', 'hitT', 'callT']); lag(R.msgNext, ['t']); lag(R, ['boomT', 'fuseLast']); each(R.blastWin, [0]);
     for (const z of m.hazards || []) z.lag = (z.lag || 0) + DT;
     for (const tr of m.traps || []) tr.ph -= DT / 2.4;
     lag(h); lag(h.cd, Object.keys(h.cd)); lag(h.stag, ['t0', 't']); lag(h.sunk, ['t']); lag(h.read, ['t0']); lag(h.dashHit, ['t']); lag(h.leapV, [0]);
