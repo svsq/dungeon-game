@@ -360,8 +360,11 @@
       let a = 0.1 + 0.03 * Math.sin(t * 3.1 + e.id) + 0.16 * crawl * step, z = 2.5 * crawl * step, sq = 1 + 0.02 * Math.sin(t * 2.3 + e.id), tilt = 0.05 * crawl * Math.sin(e.dist / 7), wag = Math.sin(t * 7 + e.id) * 0.25;
       if (e.st === 'rise') { const q = SS(0, E.rise, u); a = lerp(0, 0.6, SS(0.1, 0.55, q)) * (1 - SS(0.7, 1, q)) + 0.1 * SS(0.7, 1, q); z = 14 * Math.sin(Math.PI * SS(0.2, 0.9, q)); sq = 1 - 0.14 * Math.sin(Math.PI * q) ** 2; tilt = 0.1 * Math.sin(u * 38) * (1 - q); }
       else if (e.st === 'wind') { const q = SS(0, ewM, u); a = lerp(a, 0.62, q); sq = lerp(sq, 0.8, q); tilt = lerp(tilt, -0.12, q); }
-      else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * Math.sin(Math.PI * q); a = lerp(0.62, 0.68, SS(0, 0.5, q)) * (1 - SS(0.72, 0.98, q)); sq = 0.8 + 0.34 * SS(0, 0.6, q) - 0.1 * SS(0.6, 1, q); tilt = lerp(-0.12, 0.16, q); }
-      else if (e.st === 'strike') { const v = u - J.t; a = 0.1 * SS(0, J.land, v); sq = 1 - 0.16 * Math.exp(-v / 0.07) * Math.cos(30 * v); tilt = 0.16 * (1 - SS(0, 0.16, v)); }
+      else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * (Math.sin(Math.PI * q) + Math.sin(Math.PI * q) ** 2) / 2; a = lerp(0.62, 0.68, SS(0, 0.5, q)) * (1 - SS(0.3, 0.98, q)); sq = 0.8 + 0.34 * SS(0, 0.6, q) - 0.1 * SS(0.6, 1, q); tilt = lerp(-0.12, 0.16, q); }
+      // it falls on at half the speed of a plain arc and the squash takes that speed on in the lid, then the spring sets it level
+      // (TASKS 1869: it snapped from stretched to squashed in one frame, the lid jumped 17 px and the base stopped dead from full speed)
+      else if (e.st === 'strike') { const v = u - J.t, km = 0.84, k0 = 1.04, tq = 4 * (k0 - km) * mimicLook(e.tier).H * J.t / (Math.PI * J.h), w = 30, tau = 0.07;
+        a = 0.1 * SS(0, J.land, v); sq = v < tq ? km + (k0 - km) * (1 - v / tq) ** 2 : 1 - (1 - km) * Math.exp(-(v - tq) / tau) * (Math.cos(w * (v - tq)) + Math.sin(w * (v - tq)) / (w * tau)); tilt = 0.16 * (1 - SS(0, 0.16, v)); }
       const hA = GT - e.hitT; if (hA >= 0 && hA < 0.3) { tilt -= 0.1 * (1 - hA / 0.3); a += 0.14 * (1 - hA / 0.3); }
       const look = mimicLook(e.tier), u1 = { alpha, grade: hit ? grade : look.grade };
       const J2 = mimicBody({ look, x, y: y + 4, a, face: e.face, z, tilt, sq, wag, tongue: 1, eyes: a > 0.3 && !L.sp, u: u1, id: 'en' + e.id, frame: (parts) => { halo(parts); if (edge) rimFlash(parts); L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }); } });
