@@ -3596,6 +3596,27 @@
     return out;
   }
 
+  // TASKS 1977: attack speed per floor of the campaign, the hero a level ahead of it in rare gear of his level: the typical kit (attack speed on
+  // the weapon and the gloves at a mid roll, the leather pieces' own, a haste gift from floor 4) never passes the cap and nears it only by the
+  // campaign's end; a stacked one (the best roll on every slot, three haste gifts, every point in agility) is held at the cap
+  function aspdCheck() {
+    const out = [], cap = D.ASPD.cap, A = D.AFFIXES.find((a) => a.k === 'aspd'), N = D.RUNS.campaign.floors;
+    for (const cls of ['warrior', 'mage', 'archer']) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 7, { cls }); const h = S.run.hero, C = D.CLASSES[cls], top = {};
+      const slots = {}; for (const k in BASES) if (BASES[k].slot && D.wears(cls, k)) (slots[BASES[k].slot] = slots[BASES[k].slot] || []).push(k);
+      const kit = (f, build) => { const lvl = f + 1, stack = build === 'stack', rar = stack ? 3 : 2, main = build === 'main' ? (cls === 'archer' ? 'agi' : cls === 'mage' ? 'int' : 'str') : 'agi';
+        h.lvl = lvl; h.perks = { haste: stack ? 3 : f >= 4 ? 1 : 0 }; h.base = Object.assign({}, C.base); h.base[main] += (lvl - 1) * C.grow.pts;
+        for (const sl in h.eq) { const ks = slots[sl] || [], bk = ks.find((k) => (BASES[k].typed || {}).aspd) || ks[0]; if (!bk) { h.eq[sl] = null; continue; }
+          const roll = stack ? 1.3 : sl === 'weapon' || sl === 'gloves' ? 1 : 0;
+          h.eq[sl] = itemPower({ id: 1, b: bk, rar, lvl, mods: roll ? { aspd: Math.max(1, Math.round((A.a + A.b * lvl) * roll * (1 + 0.15 * rar))) } : {} }); }
+        return stats(h, S.meta); };
+      for (let f = 1; f <= N; f++) for (const build of ['main', 'agi', 'stack']) { const st = kit(f, build);
+        if (st.aspd > cap + 1e-9) out.push(`aspd: a ${cls} (${build}) on floor ${f} swings ${st.aspd.toFixed(1)} % faster, over the ${cap} % cap`);
+        if (build !== 'stack') { top[build] = st.aspd; if (f <= N / 2 && st.aspd >= 0.75 * cap) out.push(`aspd: a ${cls} (${build}) is at ${st.aspd.toFixed(1)} % by floor ${f}, the cap is near half way down`);
+          if (f <= N - 5 && st.aspd >= cap) out.push(`aspd: a ${cls} (${build}) reaches the cap on floor ${f}`); } }
+      if (!(Math.max(top.main, top.agi) >= 0.8 * cap)) out.push(`aspd: a ${cls} ends the campaign at ${Math.max(top.main, top.agi).toFixed(1)} %, far from the ${cap} % cap`); }
+    return out;
+  }
+
   function heroDeathCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
     const put = (perk) => { R.en = []; S.ev.length = 0; h.hp = heroSt(S).maxHp; h.deadT = -1; h.ifr = 0; h.dashT = -9; h.revived = 0; h.perks = perk ? { [perk]: 1 } : {}; };
@@ -3611,7 +3632,7 @@
 
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
-  const PARTS = { heroDeathCheck, menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { heroDeathCheck, menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, aspdCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

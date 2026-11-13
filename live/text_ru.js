@@ -278,7 +278,7 @@
     'GIFTS.swift.name': 'Лёгкие ноги',
     'GIFTS.swift.desc': '+10% скорости бега',
     'GIFTS.haste.name': 'Быстрая рука',
-    'GIFTS.haste.desc': '+12% скорости атаки',
+    'GIFTS.haste.desc': '+6% скорости атаки',
     'GIFTS.ward.name': 'Каменная кожа',
     'GIFTS.ward.desc': '+6 к защите',
     'GIFTS.crit.name': 'Глаз хищника',

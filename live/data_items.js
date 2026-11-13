@@ -75,7 +75,7 @@
     { k: 'int', label: TXT('AFFIXES.int.label'), a: 1, b: 0.5 }, { k: 'vit', label: TXT('AFFIXES.vit.label'), a: 1, b: 0.5 },
     { k: 'atk', label: TXT('AFFIXES.atk.label'), a: 2, b: 1.0 }, { k: 'def', label: TXT('AFFIXES.def.label'), a: 1, b: 0.6 },
     { k: 'crit', label: TXT('AFFIXES.crit.label'), a: 2, b: 0.4 }, { k: 'critd', label: TXT('AFFIXES.critd.label'), a: 5, b: 1 }, { k: 'hp', label: TXT('AFFIXES.hp.label'), a: 8, b: 4 },
-    { k: 'mp', label: TXT('AFFIXES.mp.label'), a: 5, b: 2 }, { k: 'aspd', label: TXT('AFFIXES.aspd.label'), a: 4, b: 0.8 },
+    { k: 'mp', label: TXT('AFFIXES.mp.label'), a: 5, b: 2 }, { k: 'aspd', label: TXT('AFFIXES.aspd.label'), a: 1, b: 0.62 },
     { k: 'mspd', label: TXT('AFFIXES.mspd.label'), a: 3, b: 0.5 }, { k: 'leech', label: TXT('AFFIXES.leech.label'), a: 1, b: 0.3 },
     { k: 'fire', label: TXT('AFFIXES.fire.label'), a: 6, b: 2 }, { k: 'dodge', label: TXT('AFFIXES.dodge.label'), a: 1, b: 0.25 },
     { k: 'regen', label: TXT('AFFIXES.regen.label'), a: 0.5, b: 0.15 }, { k: 'onhit', label: TXT('AFFIXES.onhit.label'), a: 0.5, b: 0.2 },

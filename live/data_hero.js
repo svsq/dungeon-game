@@ -20,6 +20,9 @@
   // keeps a quarter of its time gain, as its full gain outlasted its own cooldown
   // a critical blow (TASKS 1342): `k` times the damage, the crit-damage property adds to it up to `cap`, so stacking it on every slot stays bounded
   const CRIT = { k: 1.75, cap: 3 };
+  // attack speed (TASKS 1977): one ceiling for every class, the player's call 13.11.2026; per point of agility. Every source adds to the base swing,
+  // none on an already quickened one, yet at 1.2 a point and the affix's old flat 4 a mage stood at +64 % on floor 4 and an archer touched his swing's limit by floor 10
+  const ASPD = { cap: 75, agi: 0.3 };
   const AB_MAX = 15;
   const abRank = (id, r) => { const n = Math.max(0, r - 1), m = Math.min(n, 9);
     return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * m, r: 118 + 6 * m } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * m } : id === 'volley' || id === 'trap' || id === 'leap' || id === 'charge' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'cry' ? { k: 1, cd: 1 - 0.03 * m, t: CRY.t + 0.5 * m + 0.25 * (n - m) } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
@@ -142,7 +145,7 @@
     { id: 'reach', tier: 1, name: TXT('GIFTS.reach.name'), icon: 'it_longsword', v: 12, desc: TXT('GIFTS.reach.desc') },
     { id: 'thrift', tier: 1, name: TXT('GIFTS.thrift.name'), icon: 'it_hp', v: 30, desc: TXT('GIFTS.thrift.desc'), tag: '+{v}%' },
     { id: 'swift', tier: 2, name: TXT('GIFTS.swift.name'), icon: 'it_boots', v: 10, desc: TXT('GIFTS.swift.desc') },
-    { id: 'haste', tier: 2, name: TXT('GIFTS.haste.name'), icon: 'it_gloves', v: 12, desc: TXT('GIFTS.haste.desc') },
+    { id: 'haste', tier: 2, name: TXT('GIFTS.haste.name'), icon: 'it_gloves', v: 6, desc: TXT('GIFTS.haste.desc') },
     { id: 'ward', tier: 2, name: TXT('GIFTS.ward.name'), icon: 'it_shield', v: 6, desc: TXT('GIFTS.ward.desc') },
     { id: 'crit', tier: 2, name: TXT('GIFTS.crit.name'), icon: 'it_ring', v: 8, desc: TXT('GIFTS.crit.desc') },
     { id: 'cleave', tier: 2, name: TXT('GIFTS.cleave.name'), icon: 'ab_whirl', v: 25, desc: TXT('GIFTS.cleave.desc') },
@@ -169,5 +172,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftCost, rerollCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftCost, rerollCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);
