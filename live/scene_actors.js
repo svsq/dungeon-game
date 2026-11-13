@@ -26,7 +26,7 @@
     return { v, dl: 0, dur: 0.35, bounce: 0.025, buckle: 0 }; }
   // a drowned under the shallows (TASKS 307): 1 lying under, 0 standing; it sinks back over 0.9 s when it comes home
   // a monster knocked off a plateau (TASKS 401) goes under the same way: down into the lava as it burns, or dropping into the chasm
-  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0.14, 0.62, (GT - e.coffinT) / D.COFFIN.rise) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
+  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0.14, 0.55, (GT - e.coffinT) / D.COFFIN.rise) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
   // what shows of it then: a dark shape swaying under the surface and bubbles that rise and pop in small rings
   function lurkFx(e, x, y, t, sub, col = [0.42, 0.62, 0.66]) { const k = SS(0.3, 0.9, sub);
     L.shadow(x + 3 * Math.sin(t * 0.7 + e.id), y - 3, 25, 8, 0.4 * k);
@@ -295,8 +295,13 @@
     const INK = [0.024, 0.02, 0.024];
     if (E.kind === 'serpent') return drawSerpent(e, E, x, y, GT, t, { alpha, grade, rim, INK, edgeOf });
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
-    if (e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise) { const q = SS(0.62, 1, (GT - e.coffinT) / D.COFFIN.rise), bx = x + e.coffX - e.x, by = y + e.coffY - e.y - 16; x = bx + (x - bx) * q; y = by + (y - by) * q - 16 * Math.sin(Math.PI * q); }
-    const sub = submerged(e, E, GT), cut = sub > 0 ? { cut: [y + 3, 5, 1] } : {};
+    // out of a coffin he climbs over its front wall: an arc in depth and height that crosses the wall at its top, the wall hiding him
+    // below its rim while he is behind it
+    // (TASKS 1747: he stood on the box with his legs over the wall, then dropped 40 px to the floor with no step)
+    let rimCut = Infinity;
+    if (e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise) { const q = SS(0.55, 1, (GT - e.coffinT) / D.COFFIN.rise), cy = y + e.coffY - e.y, dd = y - cy + 8, f = dd > 8 ? q ** (Math.log(8 / dd) / Math.log(0.5)) : q, dS = cy - 8 + dd * f;
+      x += (e.coffX - e.x) * (1 - f); y = dS - 8 * (1 - q) - 28 * Math.sin(Math.PI * q); if (!(e.y > e.coffY) || dS < cy) rimCut = cy + 4 - SZ('coffin_open')[1] * (1 - COFFIN_RIM); }
+    const sub = submerged(e, E, GT), cutY = Math.min(sub > 0 ? y + 3 : Infinity, rimCut), cut = cutY < Infinity ? { cut: [cutY, cutY === rimCut ? 2 : 5, 1] } : {};
     if (sub > 0 && E.lurk) lurkFx(e, x, y, t, sub);
     if (sub > 0 && E.lake) lurkFx(e, x, y, t, sub, [1, 0.55, 0.18]);
     if (sub > 0.995) { L.joint('en' + e.id, 'ground', [x, y]); return; }
@@ -496,6 +501,7 @@
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   // a coffin that let its tenant out: the box bared, its lid shoved off to one side and left hanging over the edge
+  const COFFIN_RIM = 280 / 762;
   function coffinOpen(d, x, y, a, j) { drawProp('coffin_open', x, y, { dy: 4, j }); const [w, h] = SZ('coffin'), LID = 100 / 241, lh = h * LID, side = (d.x + d.y) % 64 < 32 ? 1 : -1, p = SS(0.08, 0.5, a), shake = a < 0.14 ? Math.sin(a * 90) * 1.5 : 0, px = x + shake + side * w * 0.56 * p, py = y + 4 - h + lh - 5 * Math.sin(Math.PI * Math.min(1, p * 1.2)) + 7 * p, rot = side * 0.2 * p;
     L.inked(() => L.sprite('coffin', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h: lh, pivot: [w / 2, lh], src: [0, 0, 1, LID] }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }
   const NO_INK = new Set(['bones', 'torch_sconce']);
