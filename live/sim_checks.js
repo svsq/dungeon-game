@@ -3763,6 +3763,11 @@
     put(); S.t = 0.3; S.t -= 0.8; SIMX.killHero(S, R); S.t += 0.8; SIMX.killHero(S, R);
     if (dies() !== 1) out.push('hero death: a kill with a negative deadT is let through twice');
     put('phoenix'); hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike'); if (h.deadT >= 0 || dies()) out.push('hero death: a phoenix gift does not save the hero from the first lethal blow');
+    const ran = () => Math.hypot(h.deadRun[0], h.deadRun[1]) > 0.5 * K.RUN;
+    put(); h.vx = h.vy = 0; hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike');
+    if (!(Math.hypot(h.vx, h.vy) > 0.5 * K.RUN) || ran()) out.push(`hero death: killed standing he falls as from a run (shove ${Math.hypot(h.vx, h.vy).toFixed(0)}, deadRun ${h.deadRun})`);
+    put(); h.vx = K.RUN; h.vy = 0; hurtHero(S, R, 1e5, h.x + 30, h.y, 'spike');
+    if (!ran() || h.deadRun[0] !== K.RUN) out.push(`hero death: killed running into the blow he does not fall as from a run (deadRun ${h.deadRun})`);
     return out;
   }
 

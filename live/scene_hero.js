@@ -138,8 +138,8 @@
     // accelerating but slowed just before the floor so it lands with a small bounce instead of a board's slap
     // (TASKS 1803) killed on the run (over half his running speed) he pitches forward the way he ran; the
     // mage sinks to his knees before he goes over; the archer twists a quarter round, his back to us, and falls forward onto his face
-    const du = h.deadT >= 0 ? GT - h.deadT : -1, cls = D.clsOf(h).look.rig, dsp = Math.hypot(h.vx, h.vy), ran = du >= 0 && dsp > 0.5 * SIM.K.RUN;
-    const twist = cls === 'archer' && !ran, fDir = ran ? (Math.abs(h.vx) > 0.3 * dsp ? Math.sign(h.vx) * face : 1) : twist ? 1 : -1, kneel = cls === 'mage' && !ran ? 0.22 : 0, late = kneel + (twist ? 0.14 : 0);
+    const du = h.deadT >= 0 ? GT - h.deadT : -1, cls = D.clsOf(h).look.rig, dv = h.deadRun || [h.vx, h.vy], dsp = Math.hypot(dv[0], dv[1]), ran = du >= 0 && dsp > 0.5 * SIM.K.RUN;
+    const twist = cls === 'archer' && !ran, fDir = ran ? (Math.abs(dv[0]) > 0.3 * dsp ? Math.sign(dv[0]) * face : 1) : twist ? 1 : -1, kneel = cls === 'mage' && !ran ? 0.22 : 0, late = kneel + (twist ? 0.14 : 0);
     const buckle = du >= 0 ? SS(0, 0.15 + kneel, du) : 0, fq = Math.min(1, Math.max(0, (du - 0.12 - late) / 0.35));
     const fallR = du < 0 ? 0 : fDir * face * (0.1 * buckle + 1.32 * (2.4 * fq * fq - 1.4 * fq * fq * fq) - (du > 0.47 + late ? 0.03 * Math.sin(Math.PI * Math.min(1, (du - 0.47 - late) / 0.16)) : 0));
     const fc = Math.cos(fallR), fs = Math.sin(fallR);
