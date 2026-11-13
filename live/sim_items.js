@@ -50,8 +50,13 @@
     // most of what a hero finds is of his class (TASKS 1102): a foreign base is kept at CLASS_LOOT.foreign, else rolled among his own
     const cls = R.hero && D.clsOf(R.hero).id;
     if (cls && !D.wears(cls, bk) && (o.own || rnd(R) >= D.CLASS_LOOT.foreign)) { const own = keys.filter((k) => D.wears(cls, k)); if (own.length) bk = pick(own); }
-    return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: lootLvl(R, floor + (R.mode ? RUN(R).loot || 0 : 0), o), mods: {} }));
+    const lvl = lootLvl(R, floor + (R.mode ? RUN(R).loot || 0 : 0), o), U = rar === 4 && floorUniqueOf(R, bk);
+    return U ? uniqueItem(R, U.id, lvl) : rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl, mods: {} }));
   }
+  // a legendary is the floors' unique of the rolled base's slot (TASKS 358), for the class the base is made for, or the hero's when it is anyone's;
+  // it takes no draw of its own, so every roll after it stays where it was
+  function floorUniqueOf(R, bk) { const B = BASES[bk], cls = R.hero && D.clsOf(R.hero).id, own = B.cls ? (B.cls.includes(cls) ? cls : B.cls[0]) : cls;
+    return own ? D.floorUnique(B.slot, own) : null; }
   // a find's level (the player's note 5.10, TASKS 1345): half way from the floor to a hero who has outgrown it, spread by the source's lo/hi,
   // and never more than the source's `lag` under him; shop stock and rewards name no spread and stay at the floor's own level
   function lootLvl(R, base, o) { if (o.hi === undefined) return base; const h = R.hero, a = base + (h ? Math.round(0.5 * Math.max(0, h.lvl - base)) : 0);

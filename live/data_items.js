@@ -93,7 +93,7 @@
     ring: { crit: 2, critd: 2, atk: 1.5, leech: 1.5, fire: 1.5, int: 1.5, str: 1.5, agi: 1.5, def: 0.5 },
     amulet: { hp: 2, mp: 2, regen: 2, vit: 1.5, int: 1.5, fire: 1.5, def: 0.5 },
   };
-  // by base first: a legendary staff or axe must not be called a blade
+  // by base first: a legendary staff or axe must not be called a blade. Since 358 only a legendary with no unique wears these: one saved before it, or one rolled with no hero
   const LEGEND_NAMES = { sword: TXT('LEGEND_NAMES.sword'), longsword: TXT('LEGEND_NAMES.longsword'), axe: TXT('LEGEND_NAMES.axe'), hammer: TXT('LEGEND_NAMES.hammer'), staff: TXT('LEGEND_NAMES.staff'), wand: TXT('LEGEND_NAMES.wand'), shortbow: TXT('LEGEND_NAMES.shortbow'), longbow: TXT('LEGEND_NAMES.longbow'), crossbow: TXT('LEGEND_NAMES.crossbow'), quiver: TXT('LEGEND_NAMES.quiver'), orb: TXT('LEGEND_NAMES.orb'), robe: TXT('LEGEND_NAMES.robe'), circlet: TXT('LEGEND_NAMES.circlet'),
     cloak: TXT('LEGEND_NAMES.cloak'), weapon: TXT('LEGEND_NAMES.weapon'), offhand: TXT('LEGEND_NAMES.offhand'), helm: TXT('LEGEND_NAMES.helm'), armor: TXT('LEGEND_NAMES.armor'), gloves: TXT('LEGEND_NAMES.gloves'),
     boots: TXT('LEGEND_NAMES.boots'), ring: TXT('LEGEND_NAMES.ring'), amulet: TXT('LEGEND_NAMES.amulet') };
@@ -118,8 +118,34 @@
     u_col_w: { id: 'u_col_w', boss: 'boss_colossus', cls: 'warrior', b: 'plate_armor', power: 'ev_ram', name: TXT('UNIQUES.u_col_w.name'), lore: TXT('UNIQUES.u_col_w.lore') },
     u_col_m: { id: 'u_col_m', boss: 'boss_colossus', cls: 'mage', b: 'cloak', power: 'rl_phalanx', name: TXT('UNIQUES.u_col_m.name'), lore: TXT('UNIQUES.u_col_m.lore') },
     u_col_a: { id: 'u_col_a', boss: 'boss_colossus', cls: 'archer', b: 'crossbow', power: 'f_leap_6b', name: TXT('UNIQUES.u_col_a.name'), lore: TXT('UNIQUES.u_col_a.lore') },
+    // the floors' own (TASKS 358): one for each class in each slot, so any legendary a hero finds has its unique
+    u_w_weapon: { id: 'u_w_weapon', cls: 'warrior', b: 'sword', power: 'whirl_ring', name: TXT('UNIQUES.u_w_weapon.name'), lore: TXT('UNIQUES.u_w_weapon.lore') },
+    u_w_offhand: { id: 'u_w_offhand', cls: 'warrior', b: 'shield', power: 'cry_mirror', name: TXT('UNIQUES.u_w_offhand.name'), lore: TXT('UNIQUES.u_w_offhand.lore') },
+    u_w_helm: { id: 'u_w_helm', cls: 'warrior', b: 'leather_helm', power: 'cry_push', name: TXT('UNIQUES.u_w_helm.name'), lore: TXT('UNIQUES.u_w_helm.lore') },
+    u_w_armor: { id: 'u_w_armor', cls: 'warrior', b: 'leather_armor', power: 'whirl_pull', name: TXT('UNIQUES.u_w_armor.name'), lore: TXT('UNIQUES.u_w_armor.lore') },
+    u_w_gloves: { id: 'u_w_gloves', cls: 'warrior', b: 'gauntlets', power: 'charge_rend', name: TXT('UNIQUES.u_w_gloves.name'), lore: TXT('UNIQUES.u_w_gloves.lore') },
+    u_w_boots: { id: 'u_w_boots', cls: 'warrior', b: 'boots', power: 'dash_strike', name: TXT('UNIQUES.u_w_boots.name'), lore: TXT('UNIQUES.u_w_boots.lore') },
+    u_w_ring: { id: 'u_w_ring', cls: 'warrior', b: 'ring', power: 'ev_storm', name: TXT('UNIQUES.u_w_ring.name'), lore: TXT('UNIQUES.u_w_ring.lore') },
+    u_w_amulet: { id: 'u_w_amulet', cls: 'warrior', b: 'amulet', power: 'f_cry_3a', name: TXT('UNIQUES.u_w_amulet.name'), lore: TXT('UNIQUES.u_w_amulet.lore') },
+    u_m_weapon: { id: 'u_m_weapon', cls: 'mage', b: 'wand', power: 'fire_split', name: TXT('UNIQUES.u_m_weapon.name'), lore: TXT('UNIQUES.u_m_weapon.lore') },
+    u_m_offhand: { id: 'u_m_offhand', cls: 'mage', b: 'orb', power: 'shield_burst', name: TXT('UNIQUES.u_m_offhand.name'), lore: TXT('UNIQUES.u_m_offhand.lore') },
+    u_m_helm: { id: 'u_m_helm', cls: 'mage', b: 'circlet', power: 'frost_freeze', name: TXT('UNIQUES.u_m_helm.name'), lore: TXT('UNIQUES.u_m_helm.lore') },
+    u_m_armor: { id: 'u_m_armor', cls: 'mage', b: 'robe', power: 'shield_feed', name: TXT('UNIQUES.u_m_armor.name'), lore: TXT('UNIQUES.u_m_armor.lore') },
+    u_m_gloves: { id: 'u_m_gloves', cls: 'mage', b: 'leather_gloves', power: 'fire_pierce', name: TXT('UNIQUES.u_m_gloves.name'), lore: TXT('UNIQUES.u_m_gloves.lore') },
+    u_m_boots: { id: 'u_m_boots', cls: 'mage', b: 'boots', power: 'rl_pyre', name: TXT('UNIQUES.u_m_boots.name'), lore: TXT('UNIQUES.u_m_boots.lore') },
+    u_m_ring: { id: 'u_m_ring', cls: 'mage', b: 'ring', power: 'frost_brittle', name: TXT('UNIQUES.u_m_ring.name'), lore: TXT('UNIQUES.u_m_ring.lore') },
+    u_m_amulet: { id: 'u_m_amulet', cls: 'mage', b: 'amulet', power: 'ev_glacier', name: TXT('UNIQUES.u_m_amulet.name'), lore: TXT('UNIQUES.u_m_amulet.lore') },
+    u_a_weapon: { id: 'u_a_weapon', cls: 'archer', b: 'shortbow', power: 'volley_pierce', name: TXT('UNIQUES.u_a_weapon.name'), lore: TXT('UNIQUES.u_a_weapon.lore') },
+    u_a_offhand: { id: 'u_a_offhand', cls: 'archer', b: 'quiver', power: 'f_volley_3a', name: TXT('UNIQUES.u_a_offhand.name'), lore: TXT('UNIQUES.u_a_offhand.lore') },
+    u_a_helm: { id: 'u_a_helm', cls: 'archer', b: 'leather_helm', power: 'trap_burst', name: TXT('UNIQUES.u_a_helm.name'), lore: TXT('UNIQUES.u_a_helm.lore') },
+    u_a_armor: { id: 'u_a_armor', cls: 'archer', b: 'leather_armor', power: 'leap_trap', name: TXT('UNIQUES.u_a_armor.name'), lore: TXT('UNIQUES.u_a_armor.lore') },
+    u_a_gloves: { id: 'u_a_gloves', cls: 'archer', b: 'leather_gloves', power: 'f_volley_6b', name: TXT('UNIQUES.u_a_gloves.name'), lore: TXT('UNIQUES.u_a_gloves.lore') },
+    u_a_boots: { id: 'u_a_boots', cls: 'archer', b: 'boots', power: 'dash_trail', name: TXT('UNIQUES.u_a_boots.name'), lore: TXT('UNIQUES.u_a_boots.lore') },
+    u_a_ring: { id: 'u_a_ring', cls: 'archer', b: 'ring', power: 'ev_mines', name: TXT('UNIQUES.u_a_ring.name'), lore: TXT('UNIQUES.u_a_ring.lore') },
+    u_a_amulet: { id: 'u_a_amulet', cls: 'archer', b: 'amulet', power: 'f_leap_3b', name: TXT('UNIQUES.u_a_amulet.name'), lore: TXT('UNIQUES.u_a_amulet.lore') },
   };
   const bossUniques = (type, cls) => Object.values(UNIQUES).filter((u) => u.boss === type && u.cls === cls);
+  const floorUnique = (slot, cls) => Object.values(UNIQUES).find((u) => !u.boss && u.cls === cls && BASES[u.b].slot === slot);
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)
@@ -166,5 +192,5 @@
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
-  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, reqLvl, SHOP, itemPrice, sellPrice });
+  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, floorUnique, reqLvl, SHOP, itemPrice, sellPrice });
 })(typeof window !== 'undefined' ? window : globalThis);

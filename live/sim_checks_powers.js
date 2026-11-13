@@ -176,6 +176,19 @@
       h.powers = {}; h.powerN = {}; h.eq.weapon = SIMX.uniqueItem(c.R, 'u_forge_w', 5);
       if (blows() !== 1 || (h.powers || {}).kit_hammer) out.push('unique: a worn unique\'s power does not fire, or becomes the hero\'s own');
       h.eq.weapon = SIMX.rollItem(c.R, 5, 0, 'weapon'); if (blows() !== 0) out.push('unique: its power stays after it is taken off'); }
+    // TASKS 358: the floors hold one unique for each class in each slot, each with a power no other unique has, and every legendary found is one
+    const floor = Object.values(D.UNIQUES).filter((U) => !U.boss), seen = {};
+    if (floor.length !== 24) out.push(`unique: ${floor.length} found on the floors, not 24`);
+    for (const U of Object.values(D.UNIQUES)) { if (seen[U.power]) out.push(`unique: ${U.id} and ${seen[U.power]} share ${U.power}`); seen[U.power] = U.id; }
+    for (const U of floor) if (D.BASES[U.b].minF) out.push(`unique ${U.id}: its ${U.b} is not found above floor ${D.BASES[U.b].minF}, a legendary rolled there could not become it`);
+    for (const cl of ['warrior', 'mage', 'archer']) { for (const slot of D.SLOTS) if (floor.filter((U) => U.cls === cl && D.BASES[U.b].slot === slot).length !== 1) out.push(`unique: not one ${slot} for a ${cl} on the floors`);
+      const c = stage(cl);
+      for (let i = 0; i < 40; i++) { const slot = D.SLOTS[i % D.SLOTS.length], it = SIMX.rollItem(c.R, 1 + (i % 12), 0, slot, { min: 4 }), U = D.UNIQUES[it.u];
+        if (!U || U.boss || it.rar !== 4 || D.BASES[it.b].slot !== slot || it.b !== U.b || !D.wears(U.cls, it.b) || SIMX.itemName(it) !== U.name) { out.push(`unique: a ${cl}'s legendary ${slot} is no floor unique`); break; }
+        const back = JSON.parse(JSON.stringify(it)); if (back.u !== it.u || SIMX.itemName(back) !== U.name) { out.push('unique: a saved unique comes back without its name'); break; } }
+      const R0 = JSON.parse(JSON.stringify(c.R)), it1 = SIMX.rollItem(c.R, 6, 0, undefined, { min: 4, lo: 1, hi: 1, lag: 2 }), f0 = D.floorUnique;
+      D.floorUnique = () => null; const it0 = SIMX.rollItem(R0, 6, 0, undefined, { min: 4, lo: 1, hi: 1, lag: 2 }); D.floorUnique = f0;
+      if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || D.BASES[it0.b].slot !== D.BASES[it1.b].slot) out.push(`unique: a ${cl}'s legendary takes other draws than a plain one`); }
   }
   function checkPowers(out) {
     const T = '__t', drive = (trig, act, extra = {}) => { const c = stage(extra.cls); grant(c.h, T, Object.assign({ trig, fx: 'mana', v: 0 }, extra.p)); c.S.ev = []; act(c); const n = hits(c.S, T); delete D.POWERS[T]; return n; };
