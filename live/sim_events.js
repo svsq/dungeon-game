@@ -29,7 +29,13 @@
       const c = { x: E.x, y: E.y, tier: P.chest, open: 0, trial: 1 }; c.loot = SIMX.chestLoot(R, c); R.chests.push(c);
       ev(S, { k: 'grates', room: E.room, x: E.x, y: E.y, up: 1 }); ev(S, { k: 'summon', x: E.x, y: E.y }); },
     leave: trialOff };
-  const EVENT_RULES = { probe: {}, trial: TRIAL };
+  // the blood altar (TASKS 363): the cut is a wound like any other (its flash, its number), but no armour, dodge or shield takes it
+  const BLOOD = {
+    start(S, R, E) { const P = D.EVENTS.pool.blood, h = R.hero, n = Math.max(0, Math.min(h.hp - 1, Math.round(h.hp * P.cost)));
+      h.hp -= n; h.hurtT = S.t; R.trauma = Math.min(1, R.trauma + 0.25); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, blow: n, side: h.x > E.x ? 1 : -1, src: 'blood', actor: null }); },
+    reward(S, R, E) { const P = D.EVENTS.pool.blood, it = SIMX.rollItem(R, SIMX.dep(R), P.item.q, undefined, P.item);
+      SIMX.drop(R, E.x, E.y + 18, { kind: 'item', item: it }); ev(S, { k: 'summon', x: E.x, y: E.y }); } };
+  const EVENT_RULES = { probe: {}, trial: TRIAL, blood: BLOOD };
   const eventsOf = (R) => R.events || [];
   function eventsBuild(R) {
     R.events = (R.map.events || []).map((e) => Object.assign({ st: 'idle' }, e));

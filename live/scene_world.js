@@ -326,6 +326,7 @@
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
     for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y) && !hid(d)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
+    for (const E of R.events || []) if (E.id === 'blood' && vis(E.x, E.y)) { const [w0, h0] = SZ('dc_blood'), k = 92 / Math.max(w0, h0); L.sprite('dc_blood', sx(E.x) - w0 * k / 2, sy(E.y) + 4 - h0 * k / 2, { w: w0 * k, h: h0 * k, u: { alpha: 0.8 } }); }
     // a two-level hall's steps (TASKS 375) lie on the ground: whoever walks them is drawn over them
     for (const d of m.decor) if (d.steps && vis(d.x, d.y) && !hid(d)) drawProp(d.n, sx(d.x), sy(d.y), { dy: 26 });   // down to the foot of the face's plinth (TASKS 1680)
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
@@ -660,6 +661,11 @@
             L.solid(X - 2, y0 - BH, 8, y1 - y0 + BH, iron, 0, 0, 0, drop);
             for (let by = 4; by < TILE; by += 10) { L.solid(X - 2, y0 + by - BH, 8, 2, lit, 0, 0, 0, drop); L.solid(X - 2, y0 + by - 2, 8, 3, lit, 0, 0, 0, drop); }
             for (const hy of [0.18, 0.62]) L.solid(X - 4, y0 - BH * (1 - hy), 12, y1 - y0, lit, 0, 0, 0, 0.7 * drop); }]); } } }
+    // the blood altar (TASKS 363): the altar's stone darkened to old blood and lit from below by a red pulse until it has had its due;
+    // a darker, quieter stone after, so it is never taken for the altar of gifts' grey one
+    for (const E of R.events || []) if (E.id === 'blood' && vis(E.x, E.y)) { const on = E.st !== 'done';
+      Y.push([E.y, () => { if (on) L.glow(sx(E.x), sy(E.y) - 30, 54, [1, 0.12, 0.08], 0.14 + 0.05 * Math.sin(t * 1.7), 2.4);
+        L.shadow(sx(E.x), sy(E.y) + 2, 26, 7, 0.5); drawProp('altar', sx(E.x), sy(E.y), { dy: 6, u: { grade: on ? [0.8, 0.8, 0, 1] : [0.5, 0.5, 0, 1], tint: [0.55, 0.04, 0.05, on ? 0.45 : 0.35] } }); }]); }
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in

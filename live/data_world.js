@@ -237,7 +237,12 @@
       // grate in every way in, and three waves of the floor's own roster rise one after another, wave i n[i] + depth / perF strong,
       // gap s apart; the last one down lifts the grates and leaves a chest of a cache's tier (`chest`) on its spot
       trial: { w: 2, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, chest: 4,
-        name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') } } };
+        name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') },
+      // the blood altar (TASKS 363): `cost` of the health the hero has now (never the last point) for one find of `item`, an epic or
+      // better made for his class, on the altar. Its own reward, not a power: the altar of gifts (a room of its own) gives those.
+      // solid: the prop's radius, it stays when done
+      blood: { w: 2, minF: 1, room: 'treasure', ask: 1, goal: 1, cost: 0.25, solid: 20, item: { q: 3, min: 3, lo: 0, hi: 2, lag: 1, own: 1 },
+        name: TXT('EVENTS.blood.name'), say: TXT('EVENTS.blood.say'), yes: TXT('EVENTS.blood.yes'), no: TXT('EVENTS.blood.no'), prompt: TXT('EVENTS.blood.prompt'), done: TXT('EVENTS.blood.done') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

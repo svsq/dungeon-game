@@ -1772,6 +1772,16 @@
     for (const [nm, mode, st] of [['trial_door', 'campaign', -1], ['trial_room', 'campaign', 0], ['trial_fight', 'campaign', 1], ['trial_won', 'campaign', 2], ['trial_fight_cave', 'cave', 1], ['trial_fight_magma', 'magma', 1]]) { const S = trialS(mode, st); if (S.run && (S.run.events || []).some((q) => q.id === 'trial')) states.push([nm, S]); }
     // (TASKS 2002) its mark on the map and the legend's line, the legend opened by the pointer over the map in the pause
     { const S = trialS('campaign', 0); if (S.run && (S.run.events || []).length) { S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; states.push(['trial_map', S]); } }
+    // an event of the pool on its own (TASKS 363, 364): the room as it is come upon (its prop, the prompt), its question, and after «yes»
+    // (pre(R, E) sets what the event needs first, a fountain's fate)
+    const evS = (id, stage, pre) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+      for (let f = 1; f <= 4 && !E; f++) { SIM.enterFloor(S, R, f, { events: [id] }); E = (R.events || []).find((q) => q.id === id); } if (!E) return;
+      const go = (k) => { R.enteredT = -9; SIM.step(S, { keys: k ? [k] : [] }); };
+      R.en = []; R.msg = null; h.x = E.x + 40; h.y = E.y + 26; R.seen = R.seen.map(() => 1); R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; if (pre) pre(R, E);
+      if (stage === 'ask') { go('KeyE'); go(''); }
+      if (stage === 'done') { for (const k of ['KeyE', '', 'ArrowLeft', '', 'Enter', '']) go(k); for (let i = 0; i < 90; i++) go(); h.x = E.x + 70; }
+      R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; });
+    for (const [nm, id, st] of [['trial_ask', 'trial', 'ask'], ['blood_room', 'blood', 0], ['blood_ask', 'blood', 'ask'], ['blood_done', 'blood', 'done']]) { const S = evS(id, st); if (S.run && (S.run.events || []).some((q) => q.id === id)) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
     states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; S.focus = 'stay'; })]);

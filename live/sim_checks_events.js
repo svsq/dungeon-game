@@ -32,6 +32,10 @@
     // (0.7 since TASKS 362: a room with an elite is no treasure event's, as the elite is the room's reward)
     if (marked < floors * 0.7) out.push(`events: only ${marked} of ${floors} floors find a room for the probe`);
     checkTrialGen(out);
+    // (TASKS 363, 364) every event the pool draws comes on its own on some floor of each run it is for
+    { const seen = {}; for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= Math.min(5, D.RUNS[mode].floors); f++)
+        for (const E of DG.genFloor((sd * 31 + f * 1013) >>> 0, f, Object.assign({ mode, runSeed: sd }, o)).events || []) seen[E.id + ' ' + mode] = 1;
+      for (const [id, P] of Object.entries(D.EVENTS.pool)) if (P.w > 0) for (const [mode] of MODES) if ((!P.modes || P.modes.includes(mode)) && !seen[id + ' ' + mode]) out.push(`events: the pool never draws ${id} in the ${mode} run`); }
     for (const sd of [1, 2, 3]) for (let f = 1; f <= 4; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'magma', runSeed: sd }), sp = DG.specials(m);
       if (m.rooms.some((r) => r.hall && !sp.some((q) => q.src === 'hall' && q.room === r.id && q.id === r.hall))) out.push(`events: magma ${sd}/${f}: a hall missing from the floor's special rooms`);
       if (m.rooms.some((r) => r.type === 'shrine' && !sp.some((q) => q.src === 'altar' && q.room === r.id))) out.push(`events: magma ${sd}/${f}: the altar missing from the floor's special rooms`); }
@@ -119,5 +123,32 @@
       h.x = E.x; h.y = E.y + 10; SIMX.eventStart(S, R, E); h.hp = 0; h.deadT = S.t; const n = R.en.length; for (let i = 0; i < 150; i++) SIMX.stepEvents(S, R);
       if (R.en.length !== n) out.push('trial play: a wave rises for a dead hero'); }
   }
-  Object.assign(SIMX, { checkEventGen, checkEventPlay, checkTrialPlay });
+  // an event of the pool asked for on floors 1–4 of a run, the hero by it, its enemies gone; ask(S) answers its question «yes»
+  function evRun(mode, o, id) { const S = spawn(0, {}); S.run = newRun(S, mode, 77, Object.assign({ allFree: 1 }, o)); S.screen = 'play'; const R = S.run; let E = null;
+    for (let f = 1; f <= Math.min(4, D.RUNS[mode].floors) && !E; f++) { enterFloor(S, R, f, { events: [id] }); R.en = []; E = (R.events || []).find((q) => q.id === id); }
+    if (E) { R.hero.x = E.x + 30; R.hero.y = E.y + 30; }
+    const key = (k) => { R.enteredT = -9; step(S, { keys: [k] }); step(S, { keys: [] }); };
+    return { S, R, E, key, ask: () => { key('KeyE'); key('ArrowLeft'); S.ev.length = 0; key('Enter'); } }; }
+  // the blood altar (TASKS 363) in each run: «no» takes nothing; «yes» takes a quarter of the health he has (never the last point),
+  // lays one epic or better of his class by the altar, and sends one `qevent`; it asks no more, the altar stands in the way, and a
+  // save keeps it done
+  function checkBloodPlay(out) {
+    const P = D.EVENTS.pool.blood;
+    for (const [mode, o] of MODES) { const tag = `blood altar ${mode}${o.town ? ' (town)' : ''}`, { S, R, E, key, ask } = evRun(mode, o, 'blood'), h = R && R.hero;
+      if (!E) { out.push(`${tag}: no floor of 1–4 lays it asked for`); continue; }
+      const st = SIMX.heroSt(S); h.hp = Math.round(st.maxHp * 0.8); const hp0 = h.hp, d0 = R.drops.length;
+      key('KeyE'); key('Enter'); if (E.st !== 'idle' || Math.abs(h.hp - hp0) > 2) out.push(`${tag}: «no» leaves it ${E.st} and the hero at ${h.hp} of ${hp0}`);
+      ask(); const got = R.drops.slice(d0).filter((p) => p.kind === 'item'), q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'blood'), cls = D.clsOf(h).id;
+      // (the health mends a little while the keys are pressed: the cut is judged by its wound against what he had as it fell)
+      const cut = S.ev.filter((e) => e.k === 'hurt' && e.src === 'blood'), was = h.hp + (cut[0] ? cut[0].n : 0);
+      if (cut.length !== 1 || Math.abs(cut[0].n - Math.round(was * P.cost)) > 1 || Math.abs(was - hp0) > 4) out.push(`${tag}: «yes» cuts ${cut.map((e) => e.n)} of about ${hp0}, not a quarter`);
+      if (got.length !== 1 || got[0].item.rar < 3 || !D.wears(cls, got[0].item.b) || Math.hypot(got[0].x - E.x, got[0].y - E.y) > 120) out.push(`${tag}: «yes» lays ${got.map((p) => p.item.b + ' rarity ' + p.item.rar)} for a ${cls}, not one epic or better of his class by the altar`);
+      if (E.st !== 'done' || q.length !== 1) out.push(`${tag}: it ends ${E.st} with ${q.length} qevent`);
+      key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the altar asks again`);
+      if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the altar does not stand in the way`);
+      if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done') out.push(`${tag}: a save forgets it was given its blood`); } }
+    // the last point is never taken: at 1 health «yes» leaves 1, and at 3 it takes 1
+    { const { S, R, E, ask } = evRun('campaign', {}, 'blood'); if (E) { R.hero.hp = 1; ask(); if (R.hero.hp !== 1 || R.hero.deadT >= 0) out.push(`blood altar: a hero at 1 health is left at ${R.hero.hp}`); } }
+  }
+  Object.assign(SIMX, { checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay });
 })(typeof window !== 'undefined' ? window : globalThis);
