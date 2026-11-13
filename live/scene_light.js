@@ -46,8 +46,9 @@
       lt(q.x, q.y + L0.dy, L0.r, L0.col, L0.amt * b); if (L0.core) lt(q.x, q.y + L0.dy, L0.core, L0.col.map((v) => 0.5 + 0.5 * v), L0.amt * b, 2.4); }
     // the magma caves' lava is their main light: wider, and its pools beat slowly instead of flickering like a fire (TASKS 404)
     // (a cell the map's edge bit off throws less, TASKS 490: their light lit a straight red band along the edge)
+    // (TASKS 1372: the low graphics keeps the lava's wide pools and leaves out the small bright one over every cell)
     const edgeK = (x, y) => (m.cliff ? Math.min(1, Math.max(0, (Math.min(x, y, m.W - 1 - x, m.H - 1 - y) - 1.5) / 4)) : 1);
-    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) ltS(x * TILE + 16, y * TILE + 16, m.cliff ? 112 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.86 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); ltS(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
+    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) ltS(x * TILE + 16, y * TILE + 16, m.cliff ? 112 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.86 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); if (L.GFX) ltS(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     // a vent heats up over its warning (TASKS 406); its burst flashes from its event
     for (const z of m.hazards || []) { if (z.k !== 'vent') continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w >= 0) lt(z.x, z.y - 10, 110 + 90 * w / H.warn, [1, 0.45, 0.12], 0.25 + 0.95 * w / H.warn); }

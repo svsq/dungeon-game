@@ -115,8 +115,9 @@
     // The small ones are raised like a summoner's skeletons (summ): a little XP, no loot, no part in the floor's count
     // the mimic (TASKS 367) wakes when its chest is opened or struck (a chest of the floor, flag `mimic`, dungeon_fill), rises in `rise` s,
     // then bites in hops as the slime does; raised like a summoner's skeleton (summ), so it is no part of the floor's count; its
-    // chest's loot falls where it dies
-    mimic: { name: TXT('ENEMIES.mimic.name'), hp: 62, dmg: 12, spd: 26, r: 16, reach: 150, wind: 0.55, cd: 0.95, xp: 18, kind: 'hop', h: 56, blood: 'shell', mimic: 1, rise: 0.7, jump: { t: 0.42, h: 52, land: 0.36 } },
+    // chest's loot falls where it dies. TASKS 2000: it was killed before it felt like an ambush (62 hp, under a plain crab's 58);
+    // now a fight of its own, short of an elite (an elite skeleton has 240): blows on its shut shell while it rises do riseGuard
+    mimic: { name: TXT('ENEMIES.mimic.name'), hp: 110, dmg: 14, spd: 26, r: 16, reach: 150, wind: 0.55, cd: 0.95, xp: 30, kind: 'hop', h: 56, blood: 'shell', mimic: 1, rise: 0.7, riseGuard: 0.4, jump: { t: 0.42, h: 52, land: 0.36 } },
     slime: { name: TXT('ENEMIES.slime.name'), hp: 30, dmg: 8, spd: 40, r: 15, reach: 105, wind: 0.5, cd: 1.5, xp: 9, kind: 'hop', h: 44, blood: 'slime', split: 'slime_s', jump: { t: 0.46, h: 46, land: 0.4 }, puddle: { r: 34, t: 10 } },
     slime_s: { name: TXT('ENEMIES.slime_s.name'), hp: 10, dmg: 4, spd: 52, r: 10, reach: 80, wind: 0.4, cd: 1.3, xp: 2, kind: 'hop', h: 28, blood: 'slime', jump: { t: 0.38, h: 32, land: 0.34 }, puddle: { r: 20, t: 6 } },
     // the armoured crab (TASKS 309) faces its way (fa, rad), turning toward the hero at only `turn` rad/s: a blow, bolt or blast from within
@@ -201,7 +202,7 @@
     { id: 'explosive', name: TXT('ELITE_MODS.explosive.name'), col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
     // deep: only in the endless descent past ELITE.deepFrom (TASKS 387, R-22): something new to meet below the campaign's depth.
     // reflect: a share of each of the hero's blows (not its fire's ticks) comes back to him, never the last of his health; at most
-    // `cap` of his health per blow and one blow per `gap` s, or a strong hero's split fireball takes most of his health at once (TASKS 1999);
+    // `cap` of his health per blow and one blow per `gap` s, or a strong hero's split fireball takes most of his health at once (TASKS 2018);
     // blink: every `every` s, `min`–`max` px off with a clear line, it steps to `gap` px before him and holds its blow `calm` s (melee only);
     // ward: a shield of `share` of its health takes the blows from before it, one from behind breaks it; curse: its blow cuts the hero's for `t` s
     { id: 'reflect', name: TXT('ELITE_MODS.reflect.name'), col: [0.88, 0.92, 1.0], k: 0.1, cap: 0.08, gap: 0.5, deep: 1 },

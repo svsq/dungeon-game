@@ -14,7 +14,7 @@ const server = http.createServer((q, r) => {
   });
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--max-old-space-size=8192'] });   // (SCENE.QA() past V8's default heap stalls on the Steam Deck, TASKS 1373)
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 try {
@@ -48,7 +48,9 @@ try {
       if (name.startsWith('win_cave') || name === 'crab_facings' || (name.startsWith('cave_fireball_') && !name.endsWith('_hit'))) {
         const draw = G.draw, textures = Object.keys(ASSETS).filter((n) => n.startsWith(name.startsWith('win_cave') ? 'serpent__' : 'crab__')).map((n) => G.tex(n));
         G.draw = (p, u, xf, ...args) => { if ((name.startsWith('cave_fireball_') && !name.endsWith('_hit')) ? p === LIB.P.fireball : textures.includes(u.u_tex)) { actorCalls.push({ texture: Object.keys(ASSETS).find((n) => G.tex(n) === u.u_tex), alpha: u.u_alpha, grade: u.u_grade, tint: u.u_tint, snap: u.u_snap, bone0: u.u_bone0, src: u.u_src, cut: u.u_cut, xf }); return; } return draw(p, u, xf, ...args); };
-        try { SCENE.render(S.t + 0.01); actorVisible = url !== canvas.toDataURL(); } finally { G.draw = draw; }
+        // an outline's copies of the same parts go through G.drawN (TASKS 2010): left out with them (re-review of PR 62)
+        const drawN = G.drawN; G.drawN = (p, u, ...args) => (!(name.startsWith('cave_fireball_') && !name.endsWith('_hit')) && textures.includes(u.u_tex) ? undefined : drawN(p, u, ...args));
+        try { SCENE.render(S.t + 0.01); actorVisible = url !== canvas.toDataURL(); } finally { G.draw = draw; G.drawN = drawN; }
       }
       const R = S.run, m = R && R.map, h = R && R.hero;
       const exitValid = name === 'cave_arena_exit' ? R.bossDead && R.en.filter((e) => DATA.BOSSES[e.type]).every((e) => e.deadT >= 0) && !window.__UI.some((u) => u.id === 'bossbar') : null;

@@ -1,6 +1,6 @@
 // live/sim_checks_ui.js — selfCheck's part for the menus and windows found in the review of PR 57. Node only, like sim_checks.js.
 (function (root) {
-  const SIMX = root.SIMX, { D, DT, UI, newRun, spawn, step } = SIMX;
+  const SIMX = root.SIMX, { D, DG, DT, UI, TILE, newRun, spawn, step } = SIMX;
   const mid = (S, b) => ({ px: b.x + b.w / 2, py: b.y + b.h / 2 + SIMX.uiDy(S.screen) });
   const press = (S, b) => { const p = mid(S, b); step(S, Object.assign({ keys: [], click: 1, press: 1 }, p)); step(S, Object.assign({ keys: [] }, p)); };
   const townRun = () => { const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes(S.meta).find((b) => b.id === 'go')); if (S.run) S.run.greet = 'done'; return S; };
@@ -222,7 +222,16 @@
     const lit = S.focus; step(S, Object.assign({ keys: ['Enter'] }, mid(S, fb)));
     if (!S.run || S.screen === 'win') out.push('finish: Enter under the pointer on the finish button ends the run');
     else if (lit === 'next' && S.screen !== 'play') out.push(`finish: Enter does not press the lit ${lit} (${S.screen})`); }
-  function checkReview57(out) { checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
+  // an ability card's rank text, however many lines it wraps to, keeps 22 px clear of the fork line, the fork line of the cost, and
+  // all of them stay under the rank's line and inside the card (TASKS 2001)
+  function checkAbCard(out) {
+    const c = UI.inv().r.find((q) => q.id.startsWith('ab:'));
+    for (const split of [true, false]) for (const fork of [true, false]) for (let n = 1; n <= 4; n++) { const Y = UI.abCard(c.h, n, split, fork), tag = `ability card: ${n} line(s), ${split ? 'split' : 'whole'}, ${fork ? 'fork' : 'no fork'}`;
+      if (Y.rule < 92 || Y.y0 - Y.rule < 20) out.push(`${tag}: the text rises into the rank's line (${Y.rule}, ${Y.y0})`);
+      if (fork && (Y.fork - Y.last < 22 || Y.cost - Y.fork < 22)) out.push(`${tag}: the fork line at ${Y.fork} crowds the text (${Y.last}) or the cost (${Y.cost})`);
+      if (!fork && Y.cost - Y.last < 22) out.push(`${tag}: the text (${Y.last}) reaches the cost (${Y.cost})`);
+      if (Y.cost > c.h - 20) out.push(`${tag}: the cost leaves the card`); } }
+  function checkReview57(out) { checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
   // TASKS 1988: Shift+click asks how many of a stack and the part rides the pointer to the next click, Shift+right click takes half; the
   // total never changes, no stack goes past its limit, a save keeps both parts; the merchant sells and buys the number asked, at its price
   function checkSplit(out) {
@@ -259,5 +268,77 @@
       else out.push('split: the merchant sells no potions');
       if (g) { h.bag.fill(null); g.n = cap * 2 + 3; h.gold = g.price * g.n; const n = g.n; SIMX.buy(S, R, g, false, n);
         if (hp(h) !== n || over(h.bag) || h.bag.filter(Boolean).length !== 3) out.push(`split: buying ${n} into an empty bag gives ${hp(h)} potions in ${h.bag.filter(Boolean).length} cells, or a stack past its limit`); } } }
-  Object.assign(SIMX, { checkReview57, checkResize, checkMapCut, checkSplit });
+  // TASKS 1999: potions and scrolls stack to 20; a stack let go on a stack of its kind joins it up to that and the rest stays where it
+  // came from (in the bag, the chest and onto a tab), and everything that puts one into the bag fills the stacks first
+  function checkStacks(out) {
+    for (const [b, q] of Object.entries(D.CONSUMABLES)) if (q.stack !== 20) out.push(`stacks: ${b} stacks to ${q.stack}, not 20`);
+    const c = (R, b, n) => Object.assign(SIMX.potion(b, n), { id: R.nextId++ }), ns = (L0, b = 'hp_potion') => L0.filter((q) => q && q.b === b).map((q) => q.n).sort((p, q) => q - p).join(',');
+    const at = (S, U, id) => mid(S, U.r.find((q) => q.id === id)), drop = (S, U, from, to) => { S.drag = { from, x: 0, y: 0 }; step(S, Object.assign({ keys: [] }, at(S, U, to))); };
+    { const { S, R, h } = playing('warrior'); S.screen = 'inv'; h.bag.fill(null); const U = () => UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab);
+      h.bag[0] = c(R, 'scroll', 5); h.bag[1] = c(R, 'scroll', 2); drop(S, U(), 'bag:1', 'bag:0'); if (ns(h.bag, 'scroll') !== '7' || h.bag[1]) out.push(`stacks: 2 scrolls dropped on 5 give ${ns(h.bag, 'scroll')}, not one stack of 7`);
+      h.bag[2] = c(R, 'hp_potion', 18); h.bag[3] = c(R, 'hp_potion', 5); drop(S, U(), 'bag:3', 'bag:2'); if (h.bag[2].n !== 20 || !h.bag[3] || h.bag[3].n !== 3) out.push(`stacks: 5 potions dropped on 18 give ${ns(h.bag)}, not 20 and 3 left where they were`);
+      drop(S, U(), 'bag:2', 'bag:3'); if (ns(h.bag) !== '20,3') out.push(`stacks: a full stack dropped on a stack of its kind gives ${ns(h.bag)}`);
+      h.bag[4] = c(R, 'mp_potion', 4); const m = h.bag[2]; drop(S, U(), 'bag:4', 'bag:2'); if (h.bag[2] !== h.bag[4] && h.bag[4] !== m) out.push('stacks: a stack dropped on another kind does not swap'); }
+    { const { S, R, h } = playing('warrior'); h.bag = Array(D.BAG.start + D.BAG.pouch).fill(null); S.screen = 'inv'; S.bagTab = 1; const U = () => UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab);
+      h.bag[2] = c(R, 'scroll', 4); h.bag[30] = c(R, 'scroll', 3); drop(S, U(), 'bag:30', 'btab:0'); if (ns(h.bag, 'scroll') !== '7') out.push(`stacks: scrolls let go over the bag's tab give ${ns(h.bag, 'scroll')}, not one stack of 7`); }
+    { const S = townRun(), R = S.run, h = R.hero; S.screen = 'stash'; h.bag.fill(null); const T = SIMX.stashOf(S); T.items = Array(D.STASH.cells).fill(null); const U = () => UI.stash(h.bag.length, S.bagTab);
+      T.items[0] = c(R, 'hp_potion', 15); T.items[1] = c(R, 'hp_potion', 9); drop(S, U(), 'stash:1', 'stash:0'); if (T.items[0].n !== 20 || !T.items[1] || T.items[1].n !== 4) out.push(`stacks: in the chest 9 on 15 give ${ns(T.items)}, not 20 and 4`);
+      h.bag[0] = c(R, 'hp_potion', 17); drop(S, U(), 'stash:1', 'bag:0'); if (h.bag[0].n !== 20 || T.items[1].n !== 1) out.push(`stacks: 4 from the chest on 17 in the bag give ${ns(h.bag)} / ${ns(T.items)}`);
+      h.bag[1] = c(R, 'scroll', 6); T.items[5] = c(R, 'scroll', 16); drop(S, U(), 'bag:1', 'stash:5'); if (T.items[5].n !== 20 || !h.bag[1] || h.bag[1].n !== 2) out.push(`stacks: 6 scrolls on 16 in the chest give ${ns(T.items, 'scroll')} / ${ns(h.bag, 'scroll')}`);
+      h.bag[1].n = 2; h.bag[7] = c(R, 'scroll', 5); step(S, Object.assign({ keys: [], rclick: 1 }, at(S, U(), 'stash:5'))); if (ns(h.bag, 'scroll') !== '20,7' || T.items[5]) out.push(`stacks: 20 scrolls taken from the chest give ${ns(h.bag, 'scroll')}, not 20 on 2 and 7 on 5`); }
+    { const { S, R, h } = playing('warrior'); h.bag.fill(null); h.bag[3] = c(R, 'hp_potion', 5);
+      const pick = (it) => SIMX.takeItem(S, R, { item: it, x: h.x, y: h.y });
+      pick(SIMX.potion('hp_potion')); if (ns(h.bag) !== '6' || !h.bag[3]) out.push(`stacks: a potion picked up beside 5 gives ${ns(h.bag)}, not one stack of 6`);
+      h.bag[3].n = 19; pick(SIMX.potion('hp_potion', 3)); if (ns(h.bag) !== '20,2') out.push(`stacks: 3 potions picked up beside 19 give ${ns(h.bag)}, not 20 and 2`);
+      h.bag[5] = c(R, 'scroll', 5); SIMX.bagAdd(R, SIMX.potion('scroll', 1)); if (ns(h.bag, 'scroll') !== '6') out.push(`stacks: a scroll given beside 5 gives ${ns(h.bag, 'scroll')}`); }
+    { const S = spawn(0, {}); SIMX.begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
+      const R = S.run, h = R.hero, g = R.shop.goods.find((q) => q.n && q.it.b === 'hp_potion');
+      if (!g) out.push('stacks: the merchant sells no potions');
+      else { h.bag.fill(null); h.bag[4] = c(R, 'hp_potion', 19); g.n = 5; h.gold = g.price * 3; SIMX.buy(S, R, g, false, 3); if (ns(h.bag) !== '20,2') out.push(`stacks: 3 potions bought beside 19 give ${ns(h.bag)}, not 20 and 2`);
+        h.bag.fill(null); h.bag[6] = c(R, 'hp_potion', 5); R.shop.back.push({ it: c(R, 'hp_potion', 2), price: 1 }); h.gold = 1; SIMX.buy(S, R, R.shop.back[R.shop.back.length - 1], true);
+        if (ns(h.bag) !== '7') out.push(`stacks: 2 potions bought back beside 5 give ${ns(h.bag)}, not one stack of 7`); } } }
+  // the bottom panel never covers the hero (TASKS 1911): with him on the lowest walkable cells of the town and of a few floors, at
+  // every zoom and view height and the cursor pulling the look down, his feet stay over the panel's top
+  function checkHudFoot(out) { const h0 = SIMX.VIEW.H, top = D.UI.bp.h + D.UI.bp.foot;
+    const lowest = (m, ok) => { const r = []; for (let x = 0; x < m.W; x++) for (let y = m.H - 1; y >= 0; y--) if (ok[y * m.W + x]) { r.push([x, y]); break; } return r.sort((p, q) => q[1] - p[1]).slice(0, 6); };
+    const runs = [townRun().run].concat([3, 8].map((f) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 91 + f); SIMX.enterFloor(S, R, f); return R; }));
+    for (const R of runs) { const m = R.map, ok = m.town ? DG.townWalk(m) : m.cells.map((c) => c === 1), h = R.hero;
+      for (const vh of D.VIEW_H) { SIMX.setView(vh); for (const z of D.ZOOMS) { R.zoom = z; const w = SIMX.WIN(R);
+        for (const [x, y] of lowest(m, ok)) { h.x = (x + 0.5) * TILE; h.y = (y + 0.9) * TILE; R.camLook = [0, w.H / 2 * 0.12]; SIMX.snapCam(R);
+          const py = (h.y + SIMX.CAM_FEET - R.cam[1]) * z; if (py > vh - top + 0.5) { out.push(`hud foot: ${m.town ? 'the town' : 'floor ' + R.floor}'s cell ${x},${y} at ×${z}, view ${vh}: the hero's feet at ${py.toFixed(0)} px are under the bottom panel's top ${vh - top}`); return SIMX.setView(h0); } } } } }
+    SIMX.setView(h0); }
+  // the tracker's fold (TASKS 1992): its key flips the player's fold in play and on the pause
+  function checkTrkFold(out) { const { S } = playing('warrior'), f0 = S.meta.trkFold ? 1 : 0;
+    step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) === f0) out.push('tracker: the fold key does not fold the done quests in play');
+    S.screen = 'pause'; step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) !== f0) out.push('tracker: the fold key does not unfold them on the pause'); }
+  // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
+  function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
+    const ab = UI.pause(S.meta.zoom, false, true).find((b) => b.id === 'abandon');
+    if (!R.test) out.push('test end: a run from the tests screen is not marked a test');
+    { const S2 = SIMX.spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S)))); if (!(S2.saved || S2.saves.find(Boolean) || {}).test) out.push('test end: a saved test run loads without its test mark, so the load screen names it a plain run (TASKS 2003)'); }
+    if (!ab || ab.label !== TXT('UI.pause.test')) out.push(`test end: the pause's end button of a test run reads ${ab && ab.label}`);
+    press(S, ab); if (!S.pauseAsk) { out.push('test end: the end button asks nothing'); return; }
+    press(S, UI.pauseAsk(false, true).r.find((b) => b.id === 'yes'));
+    if (!S.result || !S.result.test || !S.result.abandoned) out.push(`test end: an ended test leaves the result ${JSON.stringify(S.result && { test: S.result.test, abandoned: S.result.abandoned })}`); }
+  // STR does something for every class (TASKS 1913): a point more moves a number the class's own weapon uses, the mage's poise softens a
+  // blow's shove, and no class's affix pool leaves STR out
+  function checkStrUse(out) { for (const cl of ['warrior', 'mage', 'archer']) { const S = spawn(0, {}), R = newRun(S, 'campaign', 7, { cls: cl }), h = R.hero; S.run = R;
+    const a = SIMX.stats(h, S.meta), b = SIMX.stats(Object.assign({}, h, { base: Object.assign({}, h.base, { str: h.base.str + 1 }) }), S.meta);
+    if (!(b.atk > a.atk || b.poise > a.poise)) out.push(`str: a point of STR changes nothing a ${cl} with ${a.wtype} uses`);
+    if (D.CLASSES[cl].dead.mods.includes('str')) out.push(`str: a ${cl}'s items never roll STR`);
+    if (cl === 'mage') { if (!(b.poise > a.poise)) out.push('str: STR gives the mage no poise');
+      const shove = (str) => { const S2 = spawn(0, {}), R2 = newRun(S2, 'campaign', 7, { cls: cl }), q = R2.hero; S2.run = R2; S2.screen = 'play'; S2.t = R2.t = 10; q.base.str = str; q.ifr = 0; q.dashT = -9; q.hp = 1e4; q.vx = q.vy = 0; q.base.agi = 0;
+        let n = 0; while (q.vx === 0 && n++ < 50) SIMX.hurtHero(S2, R2, 5, q.x - 30, q.y); return q.vx; };
+      if (!(shove(20) < shove(0))) out.push('str: a strong mage is thrown as far as a weak one'); } } }
+  // an offer's key words (TASKS 1995): every page of every giver's offer opens and shuts its **…** marks, the giver's name in it is
+  // marked whole, and a name never marks a longer word it starts
+  function checkKeyWords(out) { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { town: 1 }); S.run = R;
+    const own = R.offers; for (const [role, key] of own.map((o) => [o.from, o.key]).concat(...Object.keys(D.QUEST_SAY).map((r) => Object.keys(D.QUESTS).filter((k) => D.QUESTS[k].kind === 'side').map((k) => [r, k])))) {
+      R.offers = own.some((o) => o.from === role && o.key === key) ? own : [{ key, from: role, q: 0 }]; const qt = SIMX.questTalk(R, role); if (!qt || !qt.act || qt.act.k !== 'take') continue;
+      for (const p of qt.pages) { const n = (p.match(/\*\*/g) || []).length;
+        if (n % 2 || /\*/.test(p.replace(/\*\*/g, ''))) out.push(`key words: ${role}/${key} leaves a mark open: ${p.slice(0, 80)}`);
+        for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
+      if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
+    { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
+  Object.assign(SIMX, { checkStrUse, checkKeyWords, checkTestEnd, checkTrkFold, checkHudFoot, checkAbCard, checkReview57, checkResize, checkMapCut, checkSplit, checkStacks });
 })(typeof window !== 'undefined' ? window : globalThis);

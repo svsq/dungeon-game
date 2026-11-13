@@ -2,15 +2,20 @@
 // oscillators and filtered noise, panned and attenuated by where it happens on screen, through one shared dungeon reverb.
 // The ambience is a per-biome bed (a low drone, air, drips / embers / shimmer) and a heartbeat on low health.
 // AUDIO.update(S) runs once a frame from the live loop; the volume and M's mute are the sim's (S.meta.vol, S.meta.mute). Sound starts on the first key or click,
-// as browsers require, and stays silent in the attract demo.
+// as browsers require (the context is made ahead, suspended), and stays silent in the attract demo.
 (function () {
   const W = 1920, H = 1080;
   let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, gainNow = 0, amb = null, beatT = 0;
   const recent = {};
   let waterAmb = null, lavaAmb = null, echo = null, dripT = -1;
 
-  function init() {
-    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  // The graph is built ahead, suspended, when the browser is idle after the live loop's first frame (TASKS 2012): built on the first
+  // key, the context and the reverb's two seconds of noise took 150–370 ms on the Steam Deck, and that frame swallowed the key's
+  // own answer (a pad's press opening the journal fell into it). The first key or click only resumes it; until then nothing plays
+  let live = false, asked = false;
+  function init() { live = true; if (!ctx) prepare(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+  function prepare() {
+    if (ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     ctx = new AC();
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.connect(ctx.destination);
@@ -371,7 +376,10 @@
   }
 
   function update(S) {
-    if (!ctx || !S || S.demo) { if (S) lastT = S.t; return; }
+    // (re-review of PR 62) idle time may never come at 60 fps on the Deck: built within a second anyway; and nothing is played
+    // until the context runs: sounds queued on a suspended one all went off at once when it resumed
+    if (!ctx && !asked) { asked = true; if (window.requestIdleCallback) requestIdleCallback(prepare, { timeout: 1000 }); else setTimeout(prepare, 0); }
+    if (!ctx || !live || ctx.state !== 'running' || !S || S.demo) { if (S) lastT = S.t; return; }
     const M = S.meta || {}, g = M.mute ? 0 : 0.7 * (M.vol ?? 1); muted = !!M.mute;
     if (g !== gainNow) { master.gain.setTargetAtTime(g, ctx.currentTime, 0.05); gainNow = g; }
     if (S.run !== lastRun && S.run && lastRun && S.t < lastT) lastT = -1;
@@ -382,5 +390,5 @@
     ambience(S);
   }
 
-  window.AUDIO = { update, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
+  window.AUDIO = { update, start: init, get live() { return live; }, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();
