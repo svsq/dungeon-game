@@ -165,6 +165,7 @@
     const nt = noteNear(R); if (nt) { openNote(S, R, nt); return; }
     const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56) && !SIMX.overLava(m, h.x, h.y, c2.x, c2.y)); if (c) { openChest(S, R, c); return; }
     if (atCounter(R)) { if (shopShut(R)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.shopShut') }); else openShop(S, R); return; }
+    const evN = SIMX.eventNear(R); if (evN) { SIMX.eventUse(S, R, evN); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (sh && !arenaSealed(R)) { openAltar(S, R, sh); return; }
     const sq = sq0 && sq0.kind !== 'shelf' ? sq0 : null; if (sq) { if (sq.slide && SIMX.heroOnPath(R, sq)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.statueBlocked') }); return; } if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }

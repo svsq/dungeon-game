@@ -165,7 +165,54 @@
     const m = DGX.fill(GF);
     // a modifier only raises a cap or a chance, so a floor may have no room for it; the banner must never name one the floor lacks
     if (m && m.mod && MOD_HELD[m.mod] && !MOD_HELD[m.mod](m)) { if (strict) return null; m.mod = null; }
+    if (m) markEvents(m, ST, opts, seed);
     return m;
+  }
+
+  // the event rooms (TASKS 361, data.js EVENTS): marked once the floor is laid and checked, so they never move a wall or a way.
+  // EVENT_PLACE[id](m, r, rnd) → [x, y] (world px) or null puts an event's own things in its room; with none, its spot is the open
+  // cell nearest the room's middle
+  const EVENT_PLACE = {};
+  const evOk = (E, depth, mode) => depth >= (E.minF || 1) && depth <= (E.maxF ?? 1e9) && (!E.modes || E.modes.includes(mode));
+  function markEvents(m, ST, opts, seed) {
+    const EV = D.EVENTS, pool = EV.pool, mode = opts.mode || 'campaign', force = (opts.events || []).filter((id) => pool[id]);
+    const draw = Object.entries(pool).filter(([id, E]) => E.w > 0 && evOk(E, ST.depth, mode) && !force.includes(id));
+    if (!force.length && !draw.length) return;
+    const Er = mul32((seed ^ 0x3610) >>> 0), taken = specials(m).length;
+    let want = Math.min(EV.n[0] + (Er() < EV.two ? 1 : 0), Math.max(0, EV.cap - taken)); want = Math.max(want, force.length);
+    const ids = force.slice();
+    while (ids.length < want) { const left = draw.filter(([id]) => !ids.includes(id)); if (!left.length) break;
+      let roll = Er() * left.reduce((a, [, E]) => a + E.w, 0), pk = left[0][0]; for (const [id, E] of left) if ((roll -= E.w) < 0) { pk = id; break; } ids.push(pk); }
+    const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx);
+    const rooms = m.rooms.filter((r) => r.type === 'combat' && !r.hall && !r.locked && !r.pocket && !r.isle && !r.event && r.w * r.h >= EV.area && !way.has(r.id));
+    for (let i = rooms.length - 1; i > 0; i--) { const j = Math.floor(Er() * (i + 1)); [rooms[i], rooms[j]] = [rooms[j], rooms[i]]; }
+    const out = [];
+    for (const id of ids) { const E = pool[id];
+      for (const r of rooms) { if (r.event) continue;
+        if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit))) continue;
+        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er) : eventSpot(m, r); if (!at) continue;
+        r.event = id; if (E.room === 'treasure') m.enemies = m.enemies.filter((e) => e.room !== r.id);
+        out.push({ id, room: r.id, x: at[0], y: at[1] }); break; } }
+    if (out.length) m.events = out;
+  }
+  // the open cell nearest a room's middle with its eight round it open too: no prop, chest, plate, web, water or doorway on it
+  function eventSpot(m, r) {
+    const W = m.W, busy = new Set(m.block || []), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE);
+    for (const o of [...m.chests, ...m.pots, ...m.shrines, ...(m.webs || []), ...(m.ambush || [])]) busy.add(cellOf(o));
+    for (const t of m.traps) for (let j = -1; j <= 0; j++) for (let i = -1; i <= 0; i++) busy.add(cellOf(t) + j * W + i);
+    for (const d of m.doors || []) for (const [x, y] of d.cells) busy.add(y * W + x);
+    for (const k of m.water || []) busy.add(k);
+    let best = null, bd = 1e9;
+    for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) {
+      let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1; i++) { const k = (y + j) * W + x + i; if (m.cells[k] !== 1 || busy.has(k) || !inRm(r, x + i, y + j)) { ok = false; break; } }
+      const d = Math.hypot(x - r.cx, y - r.cy); if (ok && d < bd) { bd = d; best = [x, y]; } }
+    return best && [best[0] * TILE + TILE / 2, best[1] * TILE + TILE / 2];
+  }
+  // a floor's special rooms (TASKS 1817), one list for the lair quest and the vows: { src: 'event' | 'hall' | 'altar', id, room }
+  function specials(m) {
+    const out = [];
+    for (const r of m.rooms) { if (r.event) out.push({ src: 'event', id: r.event, room: r.id }); if (r.hall) out.push({ src: 'hall', id: r.hall, room: r.id }); if (r.type === 'shrine') out.push({ src: 'altar', id: 'altar', room: r.id }); }
+    return out;
   }
   const MOD_HELD = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
 
@@ -355,7 +402,7 @@
   // k: how much wider the oval is (the player's decision on 1636: arriving on a magma floor shows more of it)
   const FOG_ARRIVE = 2.4, inFogOval = (x, y, fx, fy, k = 1) => ((x + 0.5 - fx) / (8.5 * k)) ** 2 + ((y + 0.5 - fy) / (6.5 * k)) ** 2 <= (0.72 + 0.28 * fogNoise(x, y) + (fogHash(x + 31, y + 17) - 0.5) * 0.2) ** 2;
   const fogReach = (x, y) => 1.6 + 1.6 * fogNoise(x, y) + (fogHash(x + 7, y + 91) - 0.5) * 1.4;
-  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, eventSpot, EVENT_PLACE, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { archLegs, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });

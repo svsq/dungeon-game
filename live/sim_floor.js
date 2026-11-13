@@ -70,7 +70,7 @@
     for (const d of m.doors || []) if (!d.open) for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5;
     R.keys = 0;
     R.shop = !m.shop ? null : SIMX.stockShop(R, d, m.wander ? 'wander' : undefined);
-    R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = SIMX.chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s));
+    R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = SIMX.chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s)); SIMX.eventsBuild(R);
     // a big monster's post can graze a prop: the post is where it can actually stand
     { const sol = SIMX.solids(R), clear = (x, y, r) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r);
       for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost || ENEMIES[e.type].deep || ENEMIES[e.type].lake) continue; if (ENEMIES[e.type].kind === 'salamander') { e.hx = e.x; e.hy = e.y; continue; } shove(m, e, r, true, sol);
@@ -84,7 +84,7 @@
   // a run through the town can go back up the stairs or home through a portal and come back: each floor it leaves is kept as the
   // diff of its changing parts against the same floor rebuilt fresh (the RNG and ids it was first built with are in R.memo[f]),
   // the loot on its floor and its explored cells run-length coded; nothing comes back to life
-  const FLOOR_KEYS = ['map', 'en', 'chests', 'pots', 'shrines', 'shop', 'keys', 'bossDead', 'arena', 'eggs'];
+  const FLOOR_KEYS = ['map', 'en', 'chests', 'pots', 'shrines', 'events', 'shop', 'keys', 'bossDead', 'arena', 'eggs'];
   const jclone = (o) => JSON.parse(JSON.stringify(o === undefined ? null : o));
   function fdiff(a, b) {
     if (a === b) return undefined;

@@ -126,6 +126,7 @@
     if (S.screen === 'altar' && R) altar(S, R, t);
     if (S.screen === 'gate' && R) gate(S, R, t);
     if (S.screen === 'leave' && R) leave(S, R);
+    if (S.screen === 'event' && R) eventAsk(S, R);
     if (S.screen === 'stash' && R) stash(S, R, t);
     if (S.screen === 'craft' && R) craft(S, R, t);
     if (S.screen === 'talk' && R && S.talk) talk(S, R, t);
@@ -348,6 +349,7 @@
     const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
     if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, SIM.Q.shopShut(R) ? TXT('hud.world.shut') : TXT('hud.world.6')];
     const noteP = SIM.Q.noteNear(R); if (noteP) pr = [noteP.x, noteP.y - 40, TXT('hud.world.note')];
+    const evP = SIM.Q.eventNear(R); if (evP) pr = [evP.x, evP.y - 70, D.EVENTS.pool[evP.id].prompt];
     const capP = SIM.Q.captiveNear(R); if (capP) pr = [capP.x, capP.y - 122, TXT('hud.world.captive')];
     if (SIM.Q.craftShut(R)) pr = [h.x, h.y - 110, TXT('hud.world.note')];
     const dr = SIM.Q.doorNear(R, 64); if (dr) { const lk = SIM.Q.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? TXT('hud.world.7') : lk.kind === 'key' ? (R.keys > 0 ? TXT('hud.world.8') : TXT('hud.world.9')) : TXT('hud.world.10')]; }
@@ -1554,6 +1556,16 @@
     KIT.button('lv_go', Object.assign({}, U.r[0], { label: done ? TXT('hud.leave.goDone') : TXT('hud.leave.goGive') }), askSt(S, U, 'go'));
     KIT.button('lv_stay', U.r[1], askSt(S, U, 'stay'));
     KIT.light('lv_help', TXT('hud.leave.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
+  }
+  // an event's question (TASKS 361): its name, what it asks, and the two answers its entry words
+  function eventAsk(S, R) {
+    const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], U = D.UI.event(), P = U.P;
+    dim(0.6); KIT.panel('event', P.x, P.y, P.w, P.h, 'leather');
+    KIT.banner('ev_t', W / 2, P.y + 16, 460, P0.name, { h: 76, size: 36 });
+    wrapLab('ev_s', P0.say, P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
+    KIT.button('ev_yes', Object.assign({}, U.r[0], { label: P0.yes }), askSt(S, U, 'evYes'));
+    KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
+    KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   function gate(S, R, t) {
     const o = SIM.Q.gateWays(R), U = D.UI.gate(o.length), P = U.P, I = KIT.INK;

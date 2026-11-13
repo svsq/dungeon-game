@@ -218,6 +218,21 @@
       // (the nest its own pack alone, TASKS 1041: with 2 extra it held 5–7, their blasts a chain; the prison less often: 54 halls of 134)
       nest: { need: 'skel_ember', pack: 'nest', extra: 0, w: 2, pay: { tier: 3, gold: 3 } },
       prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 1, pay: { tier: 2, gold: 1, stash: { hp_potion: 3, mp_potion: 1, scroll: 1 } } } } };
+  // the event rooms (R-12, TASKS 361, 1817): one pool for every run and biome (the crypt's floors, the caves, the magma, a run through
+  // the town). An event is an entry here and a rule in sim_events.js (EVENT_RULES[id]), with an optional placer in
+  // dungeon.js (EVENT_PLACE[id]) for its prop. dungeon.js marks its room (r.event) off the walk from the start to the stairs, in a plain
+  // fight's room only, on a stream of its own, so a floor with no event is laid exactly as before.
+  //   w: weight (0: never drawn; a vow or a check asks for it by opts.events); minF/maxF: the depth (stageOf) it comes from/to;
+  //   room: 'combat' keeps the room's pack, 'treasure' sends it away; modes: the runs it is in (all when absent); ask: E opens a
+  //   yes/no question before it starts; goal: the town's lair quest (1021) may take its room
+  // n: events a floor [least, most], the second with the chance `two`; cap: the floor's special rooms together at most (events, magma
+  // halls, the altar); area: a room's least box, in cells; near: the reach of E at its spot, in px.
+  // The floor's special rooms, read by the lair quest and the vows (DUNGEON.specials): an event of this pool, a magma hall
+  // (MAGMA_HALLS, laid by the magma's own code with its packs and props: moving it here would lay every magma floor anew), the altar
+  // of gifts. R-35's shrines come as entries of this pool
+  const EVENTS = { n: [1, 2], two: 0.4, cap: 3, area: 30, near: 60,
+    pool: {
+      probe: { w: 0, minF: 1, room: 'treasure', ask: 1, name: TXT('EVENTS.probe.name'), say: TXT('EVENTS.probe.say'), yes: TXT('EVENTS.probe.yes'), no: TXT('EVENTS.probe.no'), prompt: TXT('EVENTS.probe.prompt'), done: TXT('EVENTS.probe.done') } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
@@ -311,5 +326,5 @@
   // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2 };
-  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);
