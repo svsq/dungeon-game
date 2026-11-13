@@ -3524,7 +3524,12 @@
           if (!(e.hp < e.max)) out.push('class archer: his bow does not hit a foe out of reach');
           if (!got) out.push('class archer: his arrows that hit give no mana');
           R.en = []; R.proj = []; h.lvl = 4; h.ab.trap = 1; h.ab.leap = 1; h.mp = 500; h.aim = 0; for (const k in h.cd) h.cd[k] = 0;
-          h.mx = h.x + 400; h.my = h.y - 30; castAbility(S, R, 'volley', {}); if (R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
+          // (TASKS 1744) the fan leaves at the loose, D.VOLLEY.loose s after the key, when the scene has the bow up
+          const arrows = () => R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length, aimAt = toPx(R, h.x + 400, h.y - 30);
+          h.mx = h.x + 400; h.my = h.y - 30; castAbility(S, R, 'volley', {}); const t0 = S.t; if (arrows()) out.push('class archer: the volley flies on the key, before the bow is up');
+          for (let i = 0; i < 120 && !arrows(); i++) step(S, { keys: [], ...aimAt }); const lt = S.t - t0;
+          if (lt < D.VOLLEY.loose - 1e-9 || lt > D.VOLLEY.loose + 2 * DT) out.push(`class archer: the volley leaves ${lt.toFixed(3)} s after the key, not at the loose (${D.VOLLEY.loose} s)`);
+          if (arrows() !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
           // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w
           { const vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w + 4) out.push('class archer: the volley does not close on a far cursor'); }
           R.proj = []; h.mx = h.x + 150; h.my = h.y - 30; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0);

@@ -7,7 +7,7 @@
 ## Папки
 
 - `game/`: геймплей, симуляция без браузера (`survey.cjs`, `lib.cjs`, `dbg.cjs`).
-- `motion/`: анимация, тела для `evalq.mjs` (`gate.js`, `gatet.js`, `flash.js`, `strip14.js`, `victor.js`, `pops.js` …) и `trace.mjs`.
+- `motion/`: анимация, тела для `evalq.mjs` (`gate.js`, `gatet.js`, `flash.js`, `strip14.js`, `victor.js`, `pops.js`, `volley.js` …) и `trace.mjs`.
 - `fidelity/`: сверка с `study/refs/ref_cave_lava.png`, Lab-замеры по кадрам (`mask14.py`, `falledge.py`, `lemon.py`, `shoremap.*` …), общий модуль `labc.py`.
 - `frame/`: кадр, наборы состояний для `shot.mjs` (`set1.js`, `set2.js`, `set3.js`, `shore.js`, `chapter.js`) и разбор (`census.py`, `blobs.py`, `nn.py`, `shore_offset.py`).
 
