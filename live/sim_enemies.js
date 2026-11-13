@@ -324,7 +324,11 @@
       // gz: how far over its floor it flies (an eel's jet leaves its mouth high over the water)
       const gz = p.gz ?? 20, x0 = p.x, y0 = p.y;
       p.x += p.vx * DT; p.y += p.vy * DT; const age = S.t - p.t0;
-      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = projWall(m, x0, y0, p.x, p.y, gz);
+      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE));
+      let wall = projWall(m, x0, y0, p.x, p.y, gz);
+      // a ricochet (TASKS 2000) turns on the wall's face it crossed, a fresh flight from where it struck
+      if (wall && p.bounce > 0 && p.own === 'hero' && age <= p.life) { const wx = projWall(m, x0, y0, p.x, y0, gz), wy = projWall(m, x0, y0, x0, p.y, gz);
+        p.bounce--; if (wx || !wy) p.vx = -p.vx; if (wy || !wx) p.vy = -p.vy; p.x = x0; p.y = y0; p.t0 = S.t; p.past = []; wall = false; ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: 0, mine: 1, thru: 1 }); }
       if (p.own === 'hero' && p.k === 'arrow') SIMX.arrowWebs(S, R, p.x, p.y + gz);
       if (pc === 5 && p.own === 'hero') { const d = SIMX.doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) SIMX.openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || projCover(m, p.x, p.y);
@@ -336,13 +340,13 @@
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' bolt', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       // a crossbow's bolt (TASKS 1163) goes through the first it strikes and on to the next
       if (touched && p.pierce > 0 && !wall && age <= p.life) { p.pierce--; (p.past = p.past || []).push(touched.id);
-        SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, p.k === 'fire' ? 'fire' : undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+        SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, p.k === 'fire' ? 'fire' : undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45); chillBy(S, p, touched);
         if (p.mpGain) R.hero.mp = Math.min(SIMX.heroSt(S).maxMp, R.hero.mp + p.mpGain); if (touched.deadT < 0) hush(S, R, touched); ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: 1, mine: 1, thru: 1 }); touched = null; boom = projCover(m, p.x, p.y); }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         // a staff's bolt (TASKS 1110) strikes the one it touched, no blast; at a wall it chips pots and props where it bursts
         if (p.own === 'hero' && p.single) { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
-          if (touched) SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+          if (touched) { SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45); chillBy(S, p, touched); }
           if (touched && p.mpGain) R.hero.mp = Math.min(SIMX.heroSt(S).maxMp, R.hero.mp + p.mpGain);
           if (touched && touched.deadT < 0) hush(S, R, touched);
           else { SIMX.breakPots(S, R, bx, by, 24); SIMX.hitProps(S, R, bx, by, 24); }
@@ -350,10 +354,12 @@
         else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT, F = touched && !wall && p.frag, dmg = F ? Math.max(1, Math.round(p.dmg * F.first)) : p.dmg, br = p.br || 66;
           for (const e of R.en) if (e.deadT < 0 && !(p.shard && p.past.includes(e.id)) && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < br + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, dmg, !!p.crit, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
           SIMX.breakPots(S, R, bx, by, br * 0.75); SIMX.hitProps(S, R, bx, by, br * 0.75); SIMX.tearWebs(S, R, bx, by - 20, br, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by, ...(p.br ? { vr: Math.round(88 * br / 66) } : {}) }); R.trauma = Math.min(1, R.trauma + (p.br ? 0.08 : 0.2));
-          if (F) shatter(S, R, p, touched, F); }
+          if (F) shatter(S, R, p, touched, F);
+          if (p.blaze && D.POWERS[p.blaze]) SIMX.POWER_FX.burnGround(S, R, D.POWERS[p.blaze], { x: bx, y: by }); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
     R.proj = R.proj.filter((p) => !p.dead);
   }
+  const chillBy = (S, p, e) => { if (p.chill && e.deadT < 0) SIMX.chill(S, e, p.chill[0], p.chill[1]); };
   function shatter(S, R, p, e, F) { const a0 = Math.atan2(p.vy, p.vx), v = Math.hypot(p.vx, p.vy), dmg = Math.max(1, Math.round(p.dmg * F.k));
     for (let i = 0; i < F.n; i++) { const a = a0 + (F.n > 1 ? (i / (F.n - 1) - 0.5) * F.a : 0);
       R.proj.push(Object.assign({}, p, { id: R.nextId++, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: S.t, life: F.life, dmg, r: p.r * 0.6, br: 44, frag: null, past: [e.id], shard: 1, dead: 0 })); } }

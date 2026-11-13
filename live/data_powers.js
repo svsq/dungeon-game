@@ -1,7 +1,7 @@
 // live/data_powers.js — the powers (R-21, TASKS 356): what changes how an ability or a blow plays, as data; live/sim_powers.js runs them.
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data, no state; data.js checks the set.
 // A power: trig — what fires it (hit, crit, kill, hurt, lowHp, cast:<ability>, dash, dashTouch, potion, scroll, roomClear, trapsnap,
-// shieldEnd, shieldHit, shieldBreak, chargeHit, every:N for each N-th blow), if? — 'shield' while the hero's shield is up, 'chilled' when the one it fired on is chilled, each? — every each-th trigger, p? — the
+// shieldEnd, shieldHit, shieldBreak, chargeHit, every:N for each N-th blow), if? — 'shield' while the hero's shield is up, 'chilled' when the one it fired on is chilled, 'held' when it is stunned or held, 'dead' when the blow killed it, each? — every each-th trigger, p? — the
 // chance, icd? — seconds between firings, fx — what it does (sim_powers FX) with its numbers; cls or ab — whom it is for.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
@@ -16,7 +16,7 @@
     fire_pierce: { id: 'fire_pierce', name: TXT('POWERS.fire_pierce.name'), desc: TXT('POWERS.fire_pierce.desc'), ab: 'fireball', trig: 'cast:fireball', ...SHARDS },
     shield_burst: { id: 'shield_burst', name: TXT('POWERS.shield_burst.name'), desc: TXT('POWERS.shield_burst.desc'), ab: 'shield', trig: 'shieldEnd', fx: 'shieldBurst', k: 1, r: 130, kb: 1 },
     shield_feed: { id: 'shield_feed', name: TXT('POWERS.shield_feed.name'), desc: TXT('POWERS.shield_feed.desc'), ab: 'shield', trig: 'kill', if: 'shield', fx: 'shieldMore', t: 1 },
-    volley_pierce: { id: 'volley_pierce', name: TXT('POWERS.volley_pierce.name'), desc: TXT('POWERS.volley_pierce.desc'), ab: 'volley', trig: 'cast:volley', fx: 'pierce', n: 1 },
+    volley_pierce: { id: 'volley_pierce', name: TXT('POWERS.volley_pierce.name'), desc: TXT('POWERS.volley_pierce.desc'), ab: 'volley', trig: 'cast:volley', fx: 'pierce', n: 5 },
     trap_burst: { id: 'trap_burst', name: TXT('POWERS.trap_burst.name'), desc: TXT('POWERS.trap_burst.desc'), ab: 'trap', trig: 'trapsnap', fx: 'nova', k: 0.6, r: 90, kb: 0.4 },
     leap_trap: { id: 'leap_trap', name: TXT('POWERS.leap_trap.name'), desc: TXT('POWERS.leap_trap.desc'), ab: 'leap', trig: 'cast:leap', fx: 'dropTrap', k: 1.5 },
     dash_trail: { id: 'dash_trail', name: TXT('POWERS.dash_trail.name'), desc: TXT('POWERS.dash_trail.desc'), trig: 'dash', fx: 'burnGround', shape: 'line', gap: 40, k: 0.15, t: 1.5, per: 0.4, icd: 0.5 },
@@ -28,6 +28,23 @@
     cry_push: { id: 'cry_push', name: TXT('POWERS.cry_push.name'), desc: TXT('POWERS.cry_push.desc'), ab: 'cry', trig: 'cast:cry', fx: 'shieldBurst', k: 0, r: 200, kb: 1 },
     frost_freeze: { id: 'frost_freeze', name: TXT('POWERS.frost_freeze.name'), desc: TXT('POWERS.frost_freeze.desc'), ab: 'frost', trig: 'cast:frost', fx: 'freeze', t: 1.5, boss: 0.3 },
     frost_brittle: { id: 'frost_brittle', name: TXT('POWERS.frost_brittle.name'), desc: TXT('POWERS.frost_brittle.desc'), ab: 'frost', trig: 'kill', if: 'chilled', fx: 'slow', r: 110, t: 3, slow: 0.5 },
+    // the second pack (TASKS 2000): the warrior's blow and the abilities that had one or two powers each
+    blow_echo: { id: 'blow_echo', name: TXT('POWERS.blow_echo.name'), desc: TXT('POWERS.blow_echo.desc'), cls: 'warrior', trig: 'every:3', fx: 'chain', n: 2, r: 140, k: 0.4 },
+    blow_cinder: { id: 'blow_cinder', name: TXT('POWERS.blow_cinder.name'), desc: TXT('POWERS.blow_cinder.desc'), cls: 'warrior', trig: 'crit', fx: 'burnGround', k: 0.3, t: 2, per: 0.5, icd: 1 },
+    blow_reap: { id: 'blow_reap', name: TXT('POWERS.blow_reap.name'), desc: TXT('POWERS.blow_reap.desc'), cls: 'warrior', trig: 'kill', fx: 'pull', r: 150, to: 20 },
+    blow_finisher: { id: 'blow_finisher', name: TXT('POWERS.blow_finisher.name'), desc: TXT('POWERS.blow_finisher.desc'), cls: 'warrior', trig: 'hit', if: 'held', fx: 'strike', k: 0.4, kb: 0 },
+    whirl_parry: { id: 'whirl_parry', name: TXT('POWERS.whirl_parry.name'), desc: TXT('POWERS.whirl_parry.desc'), ab: 'whirl', trig: 'cast:whirl', fx: 'mirror', t: 0.6, k: 0.6 },
+    charge_again: { id: 'charge_again', name: TXT('POWERS.charge_again.name'), desc: TXT('POWERS.charge_again.desc'), ab: 'charge', trig: 'chargeHit', if: 'dead', fx: 'ready' },
+    cry_call: { id: 'cry_call', name: TXT('POWERS.cry_call.name'), desc: TXT('POWERS.cry_call.desc'), ab: 'cry', trig: 'cast:cry', fx: 'pull', r: 260, to: 50 },
+    fire_blaze: { id: 'fire_blaze', name: TXT('POWERS.fire_blaze.name'), desc: TXT('POWERS.fire_blaze.desc'), ab: 'fireball', trig: 'cast:fireball', fx: 'proj', blaze: 1, spell: 1, k: 0.25, t: 2, per: 0.5, fr: 30 },
+    shield_mirror: { id: 'shield_mirror', name: TXT('POWERS.shield_mirror.name'), desc: TXT('POWERS.shield_mirror.desc'), ab: 'shield', trig: 'cast:shield', fx: 'mirror', t: 2, k: 0.5, spell: 1 },
+    frost_step: { id: 'frost_step', name: TXT('POWERS.frost_step.name'), desc: TXT('POWERS.frost_step.desc'), ab: 'frost', trig: 'cast:frost', fx: 'recoil' },
+    volley_chill: { id: 'volley_chill', name: TXT('POWERS.volley_chill.name'), desc: TXT('POWERS.volley_chill.desc'), ab: 'volley', trig: 'cast:volley', fx: 'proj', t: 2, slow: 0.6 },
+    volley_bounce: { id: 'volley_bounce', name: TXT('POWERS.volley_bounce.name'), desc: TXT('POWERS.volley_bounce.desc'), ab: 'volley', trig: 'cast:volley', fx: 'proj', bounce: 1 },
+    trap_lure: { id: 'trap_lure', name: TXT('POWERS.trap_lure.name'), desc: TXT('POWERS.trap_lure.desc'), ab: 'trap', trig: 'trapsnap', fx: 'pull', r: 170, to: 30 },
+    trap_chain: { id: 'trap_chain', name: TXT('POWERS.trap_chain.name'), desc: TXT('POWERS.trap_chain.desc'), ab: 'trap', trig: 'trapsnap', fx: 'chain', n: 3, r: 160, k: 0.5 },
+    leap_fan: { id: 'leap_fan', name: TXT('POWERS.leap_fan.name'), desc: TXT('POWERS.leap_fan.desc'), ab: 'leap', trig: 'cast:leap', fx: 'split', a: 0.25, k: 0.6 },
+    leap_pierce: { id: 'leap_pierce', name: TXT('POWERS.leap_pierce.name'), desc: TXT('POWERS.leap_pierce.desc'), ab: 'leap', trig: 'cast:leap', fx: 'pierce', n: 5 },
     // the evolutions (TASKS 392): two powers held, the altar's dear card is this one
     ev_storm: { id: 'ev_storm', name: TXT('POWERS.ev_storm.name'), desc: TXT('POWERS.ev_storm.desc'), ab: 'whirl', trig: 'cast:whirl', fx: 'nova', k: 0.8, r: 150, fire: 1 },
     ev_comet: { id: 'ev_comet', name: TXT('POWERS.ev_comet.name'), desc: TXT('POWERS.ev_comet.desc'), ab: 'fireball', trig: 'cast:fireball', ...SHARDS, n: 5, a: 0.9 },
@@ -55,8 +72,11 @@
   // a power is taken at an altar as a gift of its tier; `ab` keeps it to the class that has the ability (TASKS 391)
   const GIFT_OF = { whirl_pull: [2, 'ab_whirl'], whirl_ring: [3, 'ab_whirl'], fire_split: [3, 'ab_fire'], fire_pierce: [2, 'ab_fire'], shield_burst: [2, 'ab_shield'], shield_feed: [2, 'ab_shield'],
     volley_pierce: [2, 'ab_volley'], trap_burst: [2, 'ab_trap'], leap_trap: [3, 'ab_leap'], dash_trail: [3, 'it_boots'], dash_strike: [2, 'ab_charge'],
-    charge_quake: [2, 'ab_charge'], charge_rend: [3, 'ab_charge'], cry_mirror: [3, 'ab_cry'], cry_push: [2, 'ab_cry'], frost_freeze: [2, 'ab_frost'], frost_brittle: [3, 'ab_frost'] };
-  for (const [id, [tier, icon]] of Object.entries(GIFT_OF)) { const P = POWERS[id]; D.GIFTS.push({ id, tier, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
+    charge_quake: [2, 'ab_charge'], charge_rend: [3, 'ab_charge'], cry_mirror: [3, 'ab_cry'], cry_push: [2, 'ab_cry'], frost_freeze: [2, 'ab_frost'], frost_brittle: [3, 'ab_frost'],
+    blow_echo: [3, 'it_sword'], blow_cinder: [2, 'bf_burn'], blow_reap: [2, 'it_axe'], blow_finisher: [3, 'it_hammer'], whirl_parry: [2, 'ab_whirl'], charge_again: [3, 'ab_charge'], cry_call: [2, 'ab_cry'],
+    fire_blaze: [2, 'ab_fire'], shield_mirror: [3, 'ab_shield'], frost_step: [2, 'ab_frost'], volley_chill: [2, 'ab_volley'], volley_bounce: [3, 'ab_volley'], trap_lure: [2, 'ab_trap'], trap_chain: [3, 'ab_trap'],
+    leap_fan: [2, 'ab_leap'], leap_pierce: [3, 'ab_leap'] };
+  for (const [id, [tier, icon]] of Object.entries(GIFT_OF)) { const P = POWERS[id]; D.GIFTS.push({ id, tier, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab, cls: P.cls }); }
   for (const [id, icon] of Object.entries({ rl_fifth: 'bf_burn', rl_scroll: 'it_hp', rl_pyre: 'bf_burn', rl_maelstrom: 'ab_whirl', rl_phalanx: 'ab_shield', rl_quiver: 'ab_volley' })) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 4, relic: 1, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
   for (const [id, needs, icon] of [['ev_storm', ['whirl_pull', 'whirl_ring'], 'ab_whirl'], ['ev_comet', ['fire_split', 'fire_pierce'], 'ab_fire'], ['ev_bulwark', ['shield_burst', 'shield_feed'], 'ab_shield'], ['ev_mines', ['trap_burst', 'leap_trap'], 'ab_trap'], ['ev_shoulder', ['dash_trail', 'dash_strike'], 'bf_burn'],
     ['ev_ram', ['charge_quake', 'charge_rend'], 'ab_charge'], ['ev_roar', ['cry_mirror', 'cry_push'], 'ab_cry'], ['ev_glacier', ['frost_freeze', 'frost_brittle'], 'ab_frost']]) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 3, evo: 1, needs, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
@@ -64,8 +84,8 @@
   const hasPower = (h, id) => !!(h.powers || {})[id];
   // an offer is rolled when its altar is first opened, the hero may have changed by the time he comes back to it
   const giftBlocked = (h, g) => (!g.power ? '' : hasPower(h, g.id) ? 'held' : g.relic && relicsOf(h) >= RELIC_MAX ? 'relics' : '');
-  // what an altar may offer this hero of a tier: not another class's power, not one for an ability not yet open, not one already held
-  const giftPool = (h, tier, meta) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && isOpen(meta, 'gift', g.id) && !g.needs && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
+  // what an altar may offer this hero of a tier: not another class's power (by its ability or its `cls`), not one for an ability not yet open, not one already held
+  const giftPool = (h, tier, meta) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && isOpen(meta, 'gift', g.id) && !g.needs && (!g.power || (!hasPower(h, g.id) && (!g.cls || g.cls === D.clsOf(h).id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
   const evosReady = (h) => D.GIFTS.filter((g) => g.needs && !hasPower(h, g.id) && g.needs.every((id) => hasPower(h, id)));
   // a class's starting kits (TASKS 393): the first is the plain start, a weapon of its own class and a passive for the others
   const KITS = [

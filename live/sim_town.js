@@ -486,8 +486,8 @@
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
   // a line (TASKS 391): half the time the tier's offer continues the ability a power already taken belongs to
-  function rollGifts(S, R) { const held = new Set(Object.keys(R.hero.powers || {}).map((id) => (D.POWERS[id] || {}).ab).filter(Boolean));
-    return [1, 2, 3].concat(D.relicsOf(R.hero) < D.RELIC_MAX && D.giftPool(R.hero, 4, S.meta).length ? [4] : []).map((tier) => { const evo = tier === 3 ? D.evosReady(R.hero) : [], pool = D.giftPool(R.hero, tier, S.meta), line = pool.filter((g) => g.power && held.has(g.ab)); return { id: pick(R, evo.length ? evo : line.length && rnd(R) < 0.5 ? line : pool).id, cost: D.giftCost(tier, dep(R)) }; }); }
+  function rollGifts(S, R) { const held = new Set(Object.keys(R.hero.powers || {}).map((id) => (D.POWERS[id] || {}).ab || (D.POWERS[id] || {}).cls).filter(Boolean));
+    return [1, 2, 3].concat(D.relicsOf(R.hero) < D.RELIC_MAX && D.giftPool(R.hero, 4, S.meta).length ? [4] : []).map((tier) => { const evo = tier === 3 ? D.evosReady(R.hero) : [], pool = D.giftPool(R.hero, tier, S.meta), line = pool.filter((g) => g.power && held.has(g.ab || g.cls)); return { id: pick(R, evo.length ? evo : line.length && rnd(R) < 0.5 ? line : pool).id, cost: D.giftCost(tier, dep(R)) }; }); }
   function openAltar(S, R, sh) {
     if (!sh.gifts) sh.gifts = rollGifts(S, R);
     for (const g of sh.gifts) if (g.id === 'greed') g.id = 'alert';

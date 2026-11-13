@@ -34,15 +34,20 @@
     stun(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) hold(S, e, P); },
     freeze(S, R, P, ctx) { for (const e of ctx.cold || []) if (e.deadT < 0) hold(S, e, P); },
     // the hero's charge, not the monster's blow: what the cry turns back strikes as hard as he does, whoever shot it
-    mirror(S, R, P, ctx) { R.hero.mirror = { until: S.t + P.t, dmg: atk(S, P, ctx) }; },
+    mirror(S, R, P, ctx) { const m = R.hero.mirror; R.hero.mirror = { until: Math.max(m ? m.until : 0, S.t + P.t), dmg: atk(S, P, ctx) }; },
     shieldBurst(S, R, P, ctx) { const [x, y] = pos(R, ctx); if (P.k) burst(S, R, x, y, P.r, Math.max(1, Math.round((ctx.left || 0) * P.k)), P.kb ?? 1, 'thorns'); else for (const e of targets(R, x, y, P.r)) { if (heavy(e)) continue; const d = Math.hypot(e.x - x, e.y - y) || 1; e.kbx = (e.x - x) / d * 300 * P.kb; e.kby = (e.y - y) / d * 300 * P.kb; } boom(S, R, x, y); },
     shieldMore(S, R, P) { R.hero.shieldUntil += P.t; },
     shieldAdd(S, R, P) { R.hero.shield = Math.round(R.hero.shield * (1 + P.k)); },
-    proj(S, R, P, ctx) { for (const p of ctx.projs || []) { if (P.dmg) p.dmg = Math.max(1, Math.round(p.dmg * P.dmg)); if (P.spd) { p.vx *= P.spd; p.vy *= P.spd; p.life /= P.spd; } if (P.kb) p.kb = (p.kb ?? 1) * P.kb; } },
+    // chill, bounce and blaze ride on the shot and act where it lands (sim_enemies stepProjectiles)
+    proj(S, R, P, ctx) { for (const p of ctx.projs || []) { if (P.dmg) p.dmg = Math.max(1, Math.round(p.dmg * P.dmg)); if (P.spd) { p.vx *= P.spd; p.vy *= P.spd; p.life /= P.spd; } if (P.kb) p.kb = (p.kb ?? 1) * P.kb;
+      if (P.slow) p.chill = [P.t, P.slow]; if (P.bounce) p.bounce = (p.bounce || 0) + P.bounce; if (P.blaze) p.blaze = P.id; } },
+    ready(S, R, P) { R.hero.cd[P.ab] = S.t; },
+    // the dash's own move and i-frames, backwards from the aim; no 'dash' trigger, so a dash's powers do not ride on a cast
+    recoil(S, R, P, ctx) { const h = R.hero, a = ctx.a ?? h.aim; h.dashT = S.t; h.dashX = -Math.cos(a); h.dashY = -Math.sin(a); ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); },
     strike(S, R, P, ctx) { if (ctx.e) hitEnemy(S, R, ctx.e, atk(S, P, ctx), false, R.hero.x, R.hero.y, P.kb ?? 0.5, 'thorns'); },
     dropTrap(S, R, P, ctx) { const [x, y] = pos(R, ctx); SIMX.setTrap(S, R, x, y + 4, x, y + 4, atk(S, P, ctx), false); },
   };
-  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25, chilled: (S, h, ctx) => !!ctx.e && ctx.e.chillT > S.t };
+  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25, chilled: (S, h, ctx) => !!ctx.e && ctx.e.chillT > S.t, held: (S, h, ctx) => !!ctx.e && ctx.e.deadT < 0 && (ctx.e.rootT || 0) > S.t, dead: (S, h, ctx) => !!ctx.e && ctx.e.deadT >= 0 };
   const onOf = (P) => (P.trig.startsWith('every:') ? 'hit' : P.trig);
   const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.each || 0);
   // what changes a shot goes before what copies it, so the side balls of a split carry every change whatever order the powers were taken in
