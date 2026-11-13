@@ -237,7 +237,7 @@
       // the skull door (TASKS 362): a skull over each way in and the bones on its floor tell of it from the doorway; «yes» drops a
       // grate in every way in, and three waves of the floor's own roster rise one after another, wave i n[i] + depth / perF strong,
       // gap s apart; the last one down lifts the grates and leaves a chest of a cache's tier (`chest`) on its spot
-      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, chest: 4,
+      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, retry: 0.25, tries: 12, chest: 4,
         name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') },
       // the blood altar (TASKS 363): `cost` of the health the hero has now (never the last point) for one find of `item`, an epic or
       // better made for his class, on the altar. Its own reward, not a power: the altar of gifts (a room of its own) gives those.

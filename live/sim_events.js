@@ -12,7 +12,7 @@
     for (const g of E.gates || []) for (const [x, y] of g.cells) m.cells[y * m.W + x] = down ? 5 : 1;
     m.shut = (m.shut || 0) + 1; m.arenaBox = down ? [r.x, r.y, r.x + r.w, r.y + r.h] : null; }
   const trialFoes = (R, E) => R.en.filter((e) => e.summ === 'trial' && e.room === E.room && e.deadT < 0);
-  function trialOff(S, R, E) { grates(R, E, 0); for (const e of trialFoes(R, E)) { e.deadT = S.t; e.hp = 0; } R.en = R.en.filter((e) => !(e.summ === 'trial' && e.room === E.room)); E.st = 'idle'; E.wave = 0; E.waveT = 0; S.saveN++; }
+  function trialOff(S, R, E) { grates(R, E, 0); for (const e of trialFoes(R, E)) { e.deadT = S.t; e.hp = 0; } R.en = R.en.filter((e) => !(e.summ === 'trial' && e.room === E.room)); E.st = 'idle'; E.wave = 0; E.waveT = 0; E.tries = 0; S.saveN++; }
   const TRIAL = {
     start(S, R, E) { const P = D.EVENTS.pool.trial, h = R.hero; grates(R, E, 1); E.wave = 0; E.waveT = S.t + P.gap / 2;
       ev(S, { k: 'ambush', x: h.x, y: h.y }); ev(S, { k: 'grates', room: E.room, x: E.x, y: E.y }); R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('EVENTS.trial.start'), t: S.t, d: 3 }; },
@@ -20,13 +20,15 @@
     // The hero out of the room's box some other way than through a grate (a leap, a blink) ends it as if he had never said «yes»
     step(S, R, E) { const P = D.EVENTS.pool.trial, h = R.hero, r = R.map.rooms[E.room]; if (h.deadT >= 0) return;
       if (!(h.x >= r.x * TILE && h.y >= r.y * TILE && h.x < (r.x + r.w) * TILE && h.y < (r.y + r.h) * TILE)) { trialOff(S, R, E); R.msg = { s: TXT('EVENTS.trial.fail'), t: S.t }; return; }
-      if (E.waveT > 0) { if (S.t < E.waveT) return; E.waveT = 0;
-        SIMX.summonPack(S, R, E.room, P.waves[E.wave] + Math.floor(SIMX.dep(R) / P.perF), 'trial', 1);
-        R.msg = { s: TXT('EVENTS.trial.wave', { n: E.wave + 1, of: P.waves.length }), t: S.t, d: 2 }; S.saveN++; return; }
+      if (E.waveT > 0) { if (S.t < E.waveT) return;
+        const n = SIMX.summonPack(S, R, E.room, P.waves[E.wave] + Math.floor(SIMX.dep(R) / P.perF), 'trial', 1);
+        // a room with no free spot for it (the hero's foot, a crowd) gets another try; past the cap the wave is let go, so it never hangs
+        if (!n && (E.tries = (E.tries || 0) + 1) < P.tries) { E.waveT = S.t + P.retry; return; }
+        E.waveT = 0; E.tries = 0; if (n) R.msg = { s: TXT('EVENTS.trial.wave', { n: E.wave + 1, of: P.waves.length }), t: S.t, d: 2 }; S.saveN++; return; }
       if (trialFoes(R, E).length) return;
       if (++E.wave >= P.waves.length) SIMX.eventDone(S, R, E); else E.waveT = S.t + P.gap; },
     reward(S, R, E) { const P = D.EVENTS.pool.trial; grates(R, E, 0);
-      const c = { x: E.x, y: E.y, tier: P.chest, open: 0, trial: 1 }; c.loot = SIMX.chestLoot(R, c); R.chests.push(c);
+      const c = { x: E.x, y: E.y, tier: P.chest, open: 0, trial: 1 }, f = SIMX.fstat(R); c.loot = SIMX.chestLoot(R, c); R.chests.push(c); f.lootN += c.loot.length;
       ev(S, { k: 'grates', room: E.room, x: E.x, y: E.y, up: 1 }); ev(S, { k: 'summon', x: E.x, y: E.y }); },
     leave: trialOff };
   // the blood altar (TASKS 363): the cut is a wound like any other (its flash, its number), but no armour, dodge or shield takes it

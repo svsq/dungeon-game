@@ -16,7 +16,7 @@
     fire_pierce: { id: 'fire_pierce', name: TXT('POWERS.fire_pierce.name'), desc: TXT('POWERS.fire_pierce.desc'), ab: 'fireball', trig: 'cast:fireball', ...SHARDS },
     shield_burst: { id: 'shield_burst', name: TXT('POWERS.shield_burst.name'), desc: TXT('POWERS.shield_burst.desc'), ab: 'shield', trig: 'shieldEnd', fx: 'shieldBurst', k: 1, r: 130, kb: 1 },
     shield_feed: { id: 'shield_feed', name: TXT('POWERS.shield_feed.name'), desc: TXT('POWERS.shield_feed.desc'), ab: 'shield', trig: 'kill', if: 'shield', fx: 'shieldMore', t: 1 },
-    volley_pierce: { id: 'volley_pierce', name: TXT('POWERS.volley_pierce.name'), desc: TXT('POWERS.volley_pierce.desc'), ab: 'volley', trig: 'cast:volley', fx: 'pierce', n: 5 },
+    volley_pierce: { id: 'volley_pierce', name: TXT('POWERS.volley_pierce.name'), desc: TXT('POWERS.volley_pierce.desc'), ab: 'volley', trig: 'cast:volley', fx: 'pierce', n: 1 },
     trap_burst: { id: 'trap_burst', name: TXT('POWERS.trap_burst.name'), desc: TXT('POWERS.trap_burst.desc'), ab: 'trap', trig: 'trapsnap', fx: 'nova', k: 0.6, r: 90, kb: 0.4 },
     leap_trap: { id: 'leap_trap', name: TXT('POWERS.leap_trap.name'), desc: TXT('POWERS.leap_trap.desc'), ab: 'leap', trig: 'cast:leap', fx: 'dropTrap', k: 1.5 },
     dash_trail: { id: 'dash_trail', name: TXT('POWERS.dash_trail.name'), desc: TXT('POWERS.dash_trail.desc'), trig: 'dash', fx: 'burnGround', shape: 'line', gap: 40, k: 0.15, t: 1.5, per: 0.4, icd: 0.5 },

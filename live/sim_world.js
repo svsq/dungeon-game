@@ -105,7 +105,7 @@
   function stepTraps(S, R) { const T = D.TRAP, t = S.t;
     for (const q of R.htraps) { if (q.done) continue; if (t - q.t0 > T.life) { q.done = 1; continue; } if (t - q.t0 < T.arm) continue;
       const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - q.x, (o.y - q.y) * 1.3) < T.r + ENEMIES[o.type].r * 0.6); if (!e) continue;
-      const hold = D.BOSSES[e.type] ? T.boss : T.root; q.done = 1; e.rootT = t + hold; e.slowK = 0; e.cdT = Math.max(e.cdT || 0, t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
+      const hold = D.BOSSES[e.type] ? T.boss : T.root; q.done = 1; e.rootT = Math.max(e.rootT || 0, t + hold); e.slowK = 0; e.cdT = Math.max(e.cdT || 0, t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
       heroHit(S, R, e, q.dmg, !!q.crit, q.x, q.y, 0); ev(S, { k: 'trapsnap', x: q.x, y: q.y, id: e.id }); SIMX.firePowers(S, R, 'trapsnap', { x: q.x, y: q.y, e, dmg: q.dmg }); }
     R.htraps = R.htraps.filter((q) => !q.done); }
   function breakPots(S, R, x, y, rad, ax, arc) {
@@ -172,7 +172,7 @@
     for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), out = [1, 0.75, 0.5, 0.25, 0].find((k) => !SIMX.boxHit(m, d.x + Math.cos(a) * 56 * k, d.y + 10 + Math.sin(a) * 40 * k, E.r, true)) ?? 0, x = d.x + Math.cos(a) * 56 * out, y = d.y + 10 + Math.sin(a) * 40 * out; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
     R.msg = { s: TXT('sim_world.wreck.msg'), t: S.t, d: 2 }; }
   function hitChests(S, R, x, y, rad, ax, arc) {
-    for (const c of R.chests) { if (c.open || c.sealed || (c.hex !== undefined && !c.hexOk)) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
+    for (const c of R.chests) { if (c.open || c.sealed) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 16) continue; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, c.x, c.y)) continue; openChest(S, R, c); } }
   // a false bookcase gives way to its third blow, as it did before 0.3.0 (TASKS 1852): it needs no room along the wall, so every
   // planned one stays a bookcase. A swing, a whirl, a bolt or a blast counts, as for crates and barrels

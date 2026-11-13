@@ -10,7 +10,7 @@
   function patch(S, R, P, x, y, dmg) { if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) !== 1) return false;
     addFire(R, S, x, y, { own: 'hero', who: 'hero', r: P.fr || 26, ry: P.ry || 0.7, t: P.t, dmg, per: P.per || 0.5, kind: 'flame' }); return true; }
   function burst(S, R, x, y, r, dmg, kb, kind) { for (const e of targets(R, x, y, r)) hitEnemy(S, R, e, dmg, false, x, y, kb, kind); }
-  function hold(S, e, P) { const t = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = S.t + t; e.cdT = Math.max(e.cdT || 0, S.t + t); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } }
+  function hold(S, e, P) { const t = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = Math.max(e.rootT || 0, S.t + t); e.cdT = Math.max(e.cdT || 0, S.t + t); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } }
   function boom(S, R, x, y) { ev(S, { k: 'boom', x, y: y - 20, gx: x, gy: y }); R.trauma = Math.min(1, R.trauma + 0.15); }
   const FX = {
     nova(S, R, P, ctx) { const [x, y] = pos(R, ctx); burst(S, R, x, y, P.r, atk(S, P, ctx), P.kb ?? 0.8, P.fire ? 'fire' : 'thorns'); boom(S, R, x, y); },

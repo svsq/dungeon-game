@@ -110,7 +110,8 @@
       const q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room), ch = R.chests.filter((c) => c.trial);
       if (E.st !== 'done' || waves.join() !== '0,1,2' || q.length !== 1) out.push(`${tag}: it ends ${E.st} after waves ${waves} with ${q.length} qevent`);
       if (!shut(1) || R.map.arenaBox) out.push(`${tag}: the grates stay down after the third wave`);
-      if (ch.length !== 1 || ch[0].tier !== P.chest || ch[0].open) out.push(`${tag}: ${ch.length} reward chests of tier ${ch.map((c) => c.tier)}`); }
+      if (ch.length !== 1 || ch[0].tier !== P.chest || ch[0].open) out.push(`${tag}: ${ch.length} reward chests of tier ${ch.map((c) => c.tier)}`);
+      if (SIMX.lootAudit(R).off) out.push(`${tag}: the reward chest is left out of the floor's loot (audit off ${SIMX.lootAudit(R).off})`); }
     // a hero out of the room ends it with the grates up and its wave gone; a dead one calls no wave
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
       for (let f = 1; f <= 4 && !E; f++) { enterFloor(S, R, f, { events: ['trial'] }); R.en = []; E = (R.events || []).find((q) => q.id === 'trial'); }
@@ -128,6 +129,15 @@
       if (E.st !== 'idle' || R.en.some((e) => e.summ === 'trial') || R.map.arenaBox) out.push(`trial play: the hero out of its room leaves it ${E.st}`);
       h.x = E.x; h.y = E.y + 10; SIMX.eventStart(S, R, E); h.hp = 0; h.deadT = S.t; const n = R.en.length; for (let i = 0; i < 150; i++) SIMX.stepEvents(S, R);
       if (R.en.length !== n) out.push('trial play: a wave rises for a dead hero'); }
+    // a wave with no room to rise in is tried again, never counted or called out empty; one that never finds room is let go
+    for (const fail of [2, 1e9]) { const { S, R, E } = evRun('campaign', {}, 'trial'), h = R && R.hero; if (!E) { out.push('trial play: no skull door for the empty wave'); break; }
+      const real = SIMX.summonPack, said = P.waves.map((_, i) => TXT('EVENTS.trial.wave', { n: i + 1, of: P.waves.length })), risen = [];
+      let left = fail; SIMX.summonPack = (...a) => (left-- > 0 ? 0 : real(...a));
+      try { SIMX.eventStart(S, R, E); for (let i = 0; i < 120 * 60 && E.st === 'on'; i++) { R.msg = null; step(S, { keys: [] }); h.hp = 1e6; h.x = E.x; h.y = E.y + 10;
+        if (R.msg && said.includes(R.msg.s) && !R.en.some((e) => e.summ === 'trial' && e.deadT < 0)) out.push(`trial play: «${R.msg.s}» called out with no wave up`);
+        for (const e of R.en) if (e.summ === 'trial' && e.deadT < 0) { if (risen[risen.length - 1] !== E.wave) risen.push(E.wave); e.hp = 0; SIMX.killEnemy(S, R, e); } } } finally { SIMX.summonPack = real; }
+      if (E.st !== 'done') out.push(`trial play: summons failing ${fail} times leave it ${E.st}`);
+      if (fail < P.tries && risen.join() !== '0,1,2') out.push(`trial play: after ${fail} failed summons the waves risen are ${risen}`); }
   }
   // an event of the pool asked for on floors 1–4 of a run, the hero by it, its enemies gone; ask(S) answers its question «yes»
   function evRun(mode, o, id) { const S = spawn(0, {}); S.run = newRun(S, mode, 77, Object.assign({ allFree: 1 }, o)); S.screen = 'play'; const R = S.run; let E = null;
@@ -150,6 +160,7 @@
       if (cut.length !== 1 || Math.abs(cut[0].n - Math.round(was * P.cost)) > 1 || Math.abs(was - hp0) > 4) out.push(`${tag}: «yes» cuts ${cut.map((e) => e.n)} of about ${hp0}, not a quarter`);
       if (got.length !== 1 || got[0].item.rar < 3 || !D.wears(cls, got[0].item.b) || Math.hypot(got[0].x - E.x, got[0].y - E.y) > 120) out.push(`${tag}: «yes» lays ${got.map((p) => p.item.b + ' rarity ' + p.item.rar)} for a ${cls}, not one epic or better of his class by the altar`);
       if (E.st !== 'done' || q.length !== 1) out.push(`${tag}: it ends ${E.st} with ${q.length} qevent`);
+      if (SIMX.lootAudit(R).off) out.push(`${tag}: its find is left out of the floor's loot (audit off ${SIMX.lootAudit(R).off})`);
       key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the altar asks again`);
       if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the altar does not stand in the way`);
       if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done') out.push(`${tag}: a save forgets it was given its blood`); } }
@@ -172,11 +183,12 @@
       { const rs = R.rs, id = R.nextId, lv = (up) => { R.rs = rs; R.nextId = id; return SIMX.chestLoot(R, Object.assign({}, c, { up })).filter((it) => !SIMX.isCons(it)).map((it) => it.lvl); };
         const a = lv(0), b = lv(c.up); R.rs = rs; R.nextId = id; if (!(Math.max(...b) > Math.max(...a))) out.push(`${tag}: its finds are rolled no deeper (${a} → ${b})`); }
       const n0 = blow(S, R); R.hero.x = E.x + 30; R.hero.y = E.y + 30; R.hero.hp = 100;
-      SIMX.hitChests(S, R, E.x, E.y, 80); if (c.open || S.screen !== 'play') out.push(`${tag}: a blow opens it or its question (${S.screen})`);
+      SIMX.hitChests(S, R, E.x, E.y, 80); if (c.open || S.screen !== 'event') out.push(`${tag}: a blow at it opens ${c.open ? 'the lid' : S.screen}, not its question`); key('Enter');
       key('KeyE'); if (S.screen !== 'event' || c.open) out.push(`${tag}: E at it opens ${S.screen}, the lid ${c.open ? 'up' : 'down'}`);
       key('Enter'); if (c.open || E.st !== 'idle' || SIMX.hexN(R)) out.push(`${tag}: «no» opens it or curses the floor`);
       const d0 = R.drops.length; ask(); const q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'hex'), got = R.drops.slice(d0).filter((p) => p.kind === 'item');
       if (!c.open || E.st !== 'done' || q.length !== 1 || got.length < 2) out.push(`${tag}: «yes» leaves the lid ${c.open ? 'up' : 'down'}, it ${E.st}, ${q.length} qevent, ${got.length} finds out`);
+      if (SIMX.lootAudit(R).off) out.push(`${tag}: its finds are counted off the floor's loot (audit off ${SIMX.lootAudit(R).off})`);
       const n1 = blow(S, R); if (SIMX.hexN(R) !== 1 || n1 <= n0 || Math.abs(n1 - n0 * (1 + D.EVENTS.hex)) > 2) out.push(`${tag}: a blow of ${n0} lands as ${n1} on the cursed floor`);
       const f = R.floor; enterFloor(S, R, f + 1); if (SIMX.hexN(R)) out.push(`${tag}: the curse follows the hero to the next floor`);
       if (o.town) { enterFloor(S, R, f, undefined, 'up'); if (SIMX.hexN(R) !== 1) out.push(`${tag}: the floor come back to forgets its curse`);
@@ -242,6 +254,7 @@
       S.ev.length = 0; for (const e of pack()) { e.hp = 0; SIMX.killEnemy(S, R, e); } for (let i = 0; i < 30; i++) { R.freeze = 0; S.screen = 'play'; step(S, { keys: [] }); }
       const q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dark');
       if (E.st !== 'done' || q.length !== 1) out.push(`${tag}: its pack down leaves it ${E.st} with ${q.length} qevent`);
+      if (SIMX.lootAudit(R).off) out.push(`${tag}: its pack's second drop is left out of the floor's loot (audit off ${SIMX.lootAudit(R).off})`);
       if (o.town) { enterFloor(S, R, f + 1); enterFloor(S, R, f, undefined, 'up'); const B = (R.events || []).find((x) => x.room === E.room); if (!B || B.st !== 'done') out.push(`${tag}: the floor come back to forgets it`);
         const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done') out.push(`${tag}: a save forgets it`); } }
   }
