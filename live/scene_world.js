@@ -7,9 +7,63 @@
     deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   const HERO_RIM = { x: 0, y: 0 };
+  // a colossus's crack in local (along, across) world px, one shape for the wind-up's hairlines and the split that runs (TASKS 1749):
+  // kinks, side branches, chips and lifted bits of tile hashed on the colossus and its aim, its width widest at the feet
+  // (cached per crack or per winding colossus, not per frame: a weak map, as the render may not write the sim's objects)
+  const CRACK_GEO = new WeakMap();
+  SCX.crackGeo = (x0, y0, a, seed, own) => {
+    let G0 = own && CRACK_GEO.get(own); if (G0 && G0.x0 === x0 && G0.y0 === y0 && G0.a === a && G0.seed === seed) return G0;
+    const s = seed * 13 + Math.round(a * 1000), pts = [{ l: 0, j: 0, f: 1 }], br = [], chips = [], lifts = [];
+    for (let k = 1, l = 0, j = 0; l < 540; k++) { l += 12 + 26 * rnd(s, k); j = Math.max(-15, Math.min(15, -0.2 * j + (rnd(s, k + 50) - 0.5) * 32)); pts.push({ l, j, f: 0.6 + 0.65 * rnd(s, k + 100) }); }
+    for (let k = 1; k < pts.length - 1; k++) { const p = pts[k];
+      for (let b = 0; b < 2; b++) { if (rnd(s, k * 3 + b + 150) > (b ? 0.3 : 0.55)) continue;
+        const side = rnd(s, k * 3 + b + 200) < 0.5 ? -1 : 1, n = b ? 1 : 2 + (rnd(s, k + 230) < 0.5 ? 1 : 0), seg = [[p.l, p.j]]; let an = side * (0.5 + 0.6 * rnd(s, k * 3 + b + 250)), u = p.l, v = p.j;
+        for (let i = 0; i < n; i++) { const d = (b ? 6 : 8) + 10 * rnd(s, k * 7 + i + b + 300); an += (rnd(s, k * 7 + i + b + 350) - 0.5) * 0.7; u += Math.cos(an) * d; v += Math.sin(an) * d; seg.push([u, v]); }
+        br.push({ l: p.l, w: b ? 2 : 4, seg }); }
+      for (let i = 0; i < 3; i++) { const side = rnd(s, k * 5 + i + 400) < 0.5 ? -1 : 1, u = p.l + (rnd(s, k * 5 + i + 450) - 0.5) * 18;
+        chips.push({ l: u, side, off: 2 + 7 * rnd(s, k * 5 + i + 500), sz: rnd(s, k * 5 + i + 550) < 0.35 ? 4 : 2, lite: rnd(s, k * 5 + i + 600) < 0.4 }); }
+      if (rnd(s, k + 650) < (p.l < 200 ? 0.7 : 0.35)) lifts.push({ l: p.l + (rnd(s, k + 700) - 0.5) * 10, side: rnd(s, k + 750) < 0.5 ? -1 : 1, w: 8 + 2 * Math.floor(3 * rnd(s, k + 800)), h: 6 + 2 * Math.floor(2 * rnd(s, k + 850)), rot: (rnd(s, k + 900) - 0.5) * 0.6 }); }
+    G0 = { pts, br, chips, lifts, co: Math.cos(a), sn: Math.sin(a), x0, y0, a, seed }; if (own) CRACK_GEO.set(own, G0); return G0; };
+  SCX.crackW = (l, len, front, f) => Math.max(2, (2 + 22 * Math.pow(Math.max(0, 1 - l / Math.max(1, len)), 0.8)) * f * SS(-6, 44, front - l));
+  SCX.crackAt = (g, u, v) => [g.x0 + g.co * u - g.sn * v, g.y0 + g.sn * u + g.co * v];
+  SCX.crackEdge = (seed, n, w) => w < 4 ? [0, 0] : [2 * Math.round(rnd(seed, Math.floor(n / 3) + 900) * 2 - 1), 2 * Math.round(rnd(seed, Math.floor((n + 1) / 2) + 1900) * 2 - 1)];
+  // one walk serves the ground pass and the fx pass, so the dark split and its glow share each step's width and ragged lip through n
+  SCX.crackWalk = (g, len, front, cb) => { let K = g.walk;
+    if (!K || K.len !== len || K.front !== front) { const end = Math.min(front, len), s = g.pts.length * 7 + 3, st = [];
+      for (let k = 0, n = 0; k + 1 < g.pts.length && g.pts[k].l < end; k++) { const p0 = g.pts[k], p1 = g.pts[k + 1];
+        for (let l = n * 2; l < Math.min(p1.l, end); l += 2, n++) { const f = (l - p0.l) / (p1.l - p0.l);
+          st.push(l, p0.j + (p1.j - p0.j) * f, 2 * Math.round(SCX.crackW(l, len, front, p0.f + (p1.f - p0.f) * f) * (0.8 + 0.4 * rnd(s, Math.floor(n / 2))) / 2), n); } }
+      K = g.walk = { len, front, st }; }
+    for (let i = 0; i < K.st.length; i += 4) cb(K.st[i], K.st[i + 1], K.st[i + 2], K.st[i + 3]); };
+  // a 540 px crack drawn a 2 px step at a time was over a thousand draws a frame: its steps are counted on the art grid, laid over
+  // each other layer by layer as the GPU would blend them, and drawn as one texture
+  // (in world px, a texture per live crack, rebuilt only when its front or fade moves: the camera only moves the sprite)
+  // (keyed by the crack's or the wind-up's owner: by draw order, a crack ending or starting shifted the rest onto each other's
+  // textures and rebuilt them all; a slot no one drew last frame goes back to the pool, so ids don't pile textures up)
+  let CNT = new Uint8Array(4096), ACC = new Float32Array(16384), PX = new Uint8Array(16384); const CRACK_RAS = new Map(), CRACK_FREE = []; let crackSlots = 0;
+  const crackSweep = () => { for (const [id, K] of CRACK_RAS) if (K.used) K.used = false; else { CRACK_FREE.push(K.name); CRACK_RAS.delete(id); } };
+  const crackSteps = SCX.crackSteps = (id, key, ox, oy, layersOf, alpha = 1) => { let K = CRACK_RAS.get(id);
+    if (!K) CRACK_RAS.set(id, K = { name: CRACK_FREE.pop() || 'crack_ras' + crackSlots++, key: null });
+    if (!K.key || K.key.length !== key.length || K.key.some((v, i) => v !== key[i])) Object.assign(K, { key }, crackRaster(K.name, layersOf()));
+    K.used = true; if (K.W) L.sprite(K.name, 2 * K.x0 + ox, 2 * K.y0 + oy, { w: 2 * K.W, h: 2 * K.H, u: alpha < 1 ? { snap: 0, alpha } : { snap: 0 } }); };
+  const crackRaster = (name, layers) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; const q = (v) => Math.round(v * 128) / 128;
+    const T = layers.map(([rects]) => rects.map(([x, y, w, h]) => { const r = [Math.ceil((q(x) - 1) / 2), Math.floor((q(y) - 1) / 2) + 1, Math.ceil((q(x + w) - 1) / 2), Math.floor((q(y + h) - 1) / 2) + 1];
+      x0 = Math.min(x0, r[0]); y0 = Math.min(y0, r[1]); x1 = Math.max(x1, r[2]); y1 = Math.max(y1, r[3]); return r; }));
+    const W = x1 - x0, H = y1 - y0, N = W * H; if (!(W > 0 && H > 0)) return { W: 0 };
+    if (CNT.length < N) { CNT = new Uint8Array(N * 2); ACC = new Float32Array(N * 8); PX = new Uint8Array(N * 8); } ACC.fill(0, 0, N * 4);
+    // (each layer touches only its own box: the fx pass's wind-up is a layer per hairline step)
+    layers.forEach(([, col, al], li) => { let a0 = Infinity, b0 = Infinity, a1 = -Infinity, b1 = -Infinity;
+      for (const [c0, r0, c1, r1] of T[li]) { a0 = Math.min(a0, c0); b0 = Math.min(b0, r0); a1 = Math.max(a1, c1); b1 = Math.max(b1, r1); }
+      for (let r = b0; r < b1; r++) CNT.fill(0, (r - y0) * W + a0 - x0, (r - y0) * W + a1 - x0);
+      for (const [c0, r0, c1, r1] of T[li]) for (let r = r0; r < r1; r++) for (let c = c0, o = (r - y0) * W - x0; c < c1; c++) CNT[o + c]++;
+      for (let r = b0; r < b1; r++) for (let i = (r - y0) * W + a0 - x0, e = i + a1 - a0; i < e; i++) { const v = CNT[i]; if (!v) continue; const a = 1 - Math.pow(1 - al, v), k = 1 - a, o = i * 4;
+        ACC[o] = col[0] * a + ACC[o] * k; ACC[o + 1] = col[1] * a + ACC[o + 1] * k; ACC[o + 2] = col[2] * a + ACC[o + 2] * k; ACC[o + 3] = a + ACC[o + 3] * k; } });
+    const px = PX.subarray(0, N * 4); for (let i = 0; i < N * 4; i++) px[i] = Math.round(Math.min(1, ACC[i]) * 255);
+    G.dataTex(name, W, H, px); return { x0, y0, W, H }; };
   SCX.worldPass = (F) => {
     const {
       B, GT, MH, MW, R, ST, TL, blastFx, cx, cy, fireFx, flick, h, hid, known, m, seen, st, sx, sy, t, vis, whirlFx } = F;
+    crackSweep();
     // ===== ground: the baked map, then decals =====
     L.beginBG([0, 0, 0, 1]);
     // only the part of the view that lies on the map (sampling past its edge smears the edge texels into stripes)
@@ -91,8 +145,7 @@
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
     const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c', 'slab_mg_d'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
-    // (TASKS 1926: rows of the same grey cushions, the double row of 1722 doubling the repeat) four slabs, each its own size and a
-    // little slant; a second lane sits half a slab along, and the front face is a shade lighter than the top
+    // (TASKS 1926) slabs all of one size and set square read as rows of the same grey cushions, and the double row of 1722 doubled the repeat
     const basaltSlabs = (c, cells = c.cells) => { const hor = c.axis !== 'y', lane = (k) => hor ? Math.floor(k / m.W) : k % m.W, l0 = Math.min(...c.cells.map(lane)), lanes = new Set(c.cells.map(lane)).size;
       for (const k of cells) { const n = SLAB[Math.floor(4 * rnd(k, 7))], [w0, hh0] = SZ(n), sc = 0.94 + 0.18 * rnd(k, 11), w = w0 * sc, hh = hh0 * sc, half = lanes > 1 && (lane(k) - l0) % 2 ? TILE / 2 : 0;
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8) + (hor ? half : 0), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6) + (hor ? 0 : half), foot = ev2(sy(y) + hh * 0.5);
@@ -101,7 +154,7 @@
       // wide crossing it ruled the slabs into a cobbled road)
       // (the slab stands on the lava, TASKS 1629: flat on it without a lower face or a dark line under it)
       L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: fl, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
-      drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { tint: [1.35, 1.28, 1.25, 1] } }); drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { cut: [foot - hh * 0.3, 2, 1] } });
+      drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { tint: [1.35, 1.28, 1.25, 1] } }); drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { cut: [foot - hh * 0.3, 2, 1] }, warm: HERO.lavaWarm(x, y) });   // (the warm foot by the lava, TASKS 1793)
       basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, fl]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
       // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
@@ -193,7 +246,11 @@
                 if ((k * n + j) % 2) { R4(-6, -4, 12, 4, INKC); R4(-4, -4, 8, 2, G1); }
                 else { for (const [x, y, w, h] of [[-4, -6, 8, 2], [-4, 2, 8, 2], [-6, -4, 2, 6], [4, -4, 2, 6]]) R4(x, y, w, h, INKC);
                   R4(-4, -4, 8, 2, G1); R4(-4, 0, 8, 2, G0); R4(-4, -2, 2, 2, G2); R4(2, -2, 2, 2, G2); } } }
-            else { L.solid(x0, y0 + 1, l + 1, 1, [0.2, 0.13, 0.06], an, 0, 0); L.solid(x0, y0 - 1, l + 1, 2, [0.55, 0.42, 0.22], an, 0, 0); } } }
+            // (TASKS 1793: a rope's shadow falls on the deck under it and it is knotted round each stake; two flat lines read as a
+            // ruled drawing)
+            else { if (hor) L.solid(x0, y0 + hgt + 3, l + 1, 2, [0, 0, 0], an, 0, 0, 0.28);
+              L.solid(x0, y0 + 1, l + 1, 2, [0.16, 0.1, 0.05], an, 0, 0); L.solid(x0, y0 - 1, l + 1, 2, [0.55, 0.42, 0.22], an, 0, 0);
+              if (k === 0) { const kx = ev2(x0), ky = ev2(y0); L.solid(kx - 3, ky - 3, 6, 6, [0.16, 0.1, 0.05]); L.solid(kx - 1, ky - 1, 2, 2, [0.62, 0.48, 0.26]); } } } }
         if (hor) for (const q of stakes) stake(...top(q, 0));
         if (!hor) for (const q of stakes) { const [X, Y] = top(q, 0); stake(X + (side ? 2 : -2), Y); } };
       // a deck running down the screen has its rails at its sides, level with whoever walks it: they draw behind him
@@ -279,6 +336,29 @@
       if (e.k === 'whirl' && a < 0.5) whirlFx(e, a, 1);
       if (e.k === 'boom' && a < 0.6) { G.blend('emit'); blastFx(e, a, 1); G.blend(); }
       if (e.k === 'die') L.puff(sx(e.x) + 6, sy(e.y) + 4, 12 + 30 * SS(0.1, 1.4, a), [0.28, 0.02, 0.02], 0.75, 41); }
+    // a colossus's crack is a dark split in the floor (TASKS 1749: an orange line read as a wire, a row of bars): near-black and uneven,
+    // widest at its feet, side branches off it, chips and lifted bits of tile along its lips; its glow is laid inside it in the fx pass
+    for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, front = Math.min(c.len, u * c.speed), fade = 1 - SS(run + 0.4 * c.linger, run + c.linger, u); if (u < 0 || fade <= 0) continue;
+      const g = SCX.crackGeo(c.x, c.y, c.a, c.owner, c), P = (q, v) => { const [x, y] = SCX.crackAt(g, q, v); return [sx(x), sy(y)]; }, seg = (A, B, w, col, al) => { const d = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d < 0.5) return;
+        L.solid(A[0], A[1] - w / 2, d + w * 0.5, w, col, Math.atan2(B[1] - A[1], B[0] - A[0]), 0, w / 2, al); };
+      // (the sim's whole straight band, w wide, as soot on the floor with chips and hairlines along its two edges: the split bends and
+      // narrows inside it, and a hero hit beside a thin split read as hit by nothing; dark only, so the split stays the crack)
+      { const A = P(10, 0), B = P(front, 0), d = Math.hypot(B[0] - A[0], B[1] - A[1]), an = Math.atan2(B[1] - A[1], B[0] - A[0]), hw = c.w / 2;
+        if (d > 2) { L.solid(Math.round(A[0] / PIX) * PIX, Math.round((A[1] - hw) / PIX) * PIX, Math.round(d / PIX) * PIX, Math.round(c.w / PIX) * PIX, [0.03, 0.02, 0.018], an, 0, Math.round(c.w / PIX) * PIX / 2, 0.22 * fade);
+          for (let l = 14, n = 0; l < front - 4; l += 6, n++) for (const side of [-1, 1]) { const r = rnd(c.owner * 7 + (side > 0 ? 1 : 0), n + 2100); if (r > 0.55) continue;
+            const v = side * (hw - 1 - 2 * Math.floor(2 * rnd(c.owner, n * 2 + (side > 0 ? 1 : 0) + 2200))), [X, Y] = P(l, v);
+            if (r < 0.25) seg([X, Y], P(l + 5 + 4 * r, v + side * (r < 0.12 ? 2 : -2)), 2, [0.04, 0.03, 0.028], 0.75 * fade);
+            else L.solid(Math.round(X / 2) * 2, Math.round(Y / 2) * 2, 2, 2, r < 0.42 ? [0.05, 0.035, 0.03] : [0.4, 0.29, 0.24], 0, 0, 0, 0.8 * fade); } } }
+      for (const q of g.lifts) { if (q.l > front - 10 || q.l > c.len) continue; const w0 = SCX.crackW(q.l, c.len, front, 1), [X, Y] = P(q.l, q.side * (w0 / 2 + 3 + q.h / 2));
+        L.solid(X - q.w / 2 + 2, Y - q.h / 2 + 2, q.w, q.h, [0.02, 0.015, 0.015], q.rot, q.w / 2, q.h / 2, 0.7 * fade); L.solid(X - q.w / 2, Y - q.h / 2 - 2, q.w, q.h, [0.36, 0.24, 0.2], q.rot, q.w / 2, q.h / 2, fade);
+        L.solid(X - q.w / 2, Y - q.h / 2 - 2, q.w, 2, [0.58, 0.42, 0.34], q.rot, q.w / 2, q.h / 2, fade); }
+      for (const b of g.br) { if (b.l > front - 8 || b.l > c.len) continue; const open = SS(0, 0.25, u - b.l / c.speed);
+        for (let i = 0; i + 1 < b.seg.length; i++) seg(P(...b.seg[i]), P(...b.seg[i + 1]), i ? 2 : b.w, [0.03, 0.02, 0.02], 0.9 * open * fade); }
+      crackSteps('g' + c.id, [c, front, fade], sx(0), sy(0), () => { const lip = [], rim = [], split = []; SCX.crackWalk(g, c.len, front, (l, j, w, n) => { const [X, Y] = SCX.crackAt(g, l, j), w2 = Math.max(2, w), [t0, b0] = SCX.crackEdge(c.owner, n, w2), x = X - 1, y = Y - w2 / 2 + t0, hh = w2 + b0 - t0;
+        if (w2 >= 4 && rnd(c.owner, n + 950) < 0.6) lip.push([x, y - 3, 2, 2]); rim.push([x - 1, y - 1, 4, hh + 2]); split.push([x, y, 2, hh]); });
+        return [[lip, [0.55, 0.4, 0.33], 0.6 * fade], [rim, [0.07, 0.05, 0.045], 0.85 * fade], [split, [0.01, 0.006, 0.006], fade]]; });
+      for (const q of g.chips) { if (q.l > front - 6 || q.l > c.len) continue; const w0 = SCX.crackW(q.l, c.len, front, 1), [X, Y] = P(q.l, q.side * (w0 / 2 + q.off));
+        L.solid(X - q.sz / 2, Y - q.sz / 2, q.sz, q.sz, q.lite ? [0.52, 0.38, 0.31] : [0.04, 0.03, 0.03], 0, 0, 0, 0.9 * fade); } }
     // a slime's puddle (TASKS 308): a glossy green spill that spreads out of the splat, then shrinks as it dries (sim GOO.dry)
     for (const g of m.goo || []) { const a = GT - g.t0, left = g.t0 + g.T - GT; if (a < 0 || left <= 0 || !vis(g.x, g.y)) continue;
       const r = g.r * SS(0, 0.25, a) * Math.min(1, left / 2), X = sx(g.x), Y = sy(g.y);
@@ -372,7 +452,8 @@
     // a skeleton archer's arrow (TASKS 311): the painted arrow along its flight, a faint streak of air behind it
     for (const p of R.proj) if (p.k === 'arrow' && vis(p.x, p.y) && known(p.x, p.y)) Y.push([p.y + p.gz, () => { const a = Math.atan2(p.vy, p.vx), ah = ARROW_H, aw = ah * G.tex('skel_arrow').w / G.tex('skel_arrow').h, T0 = p.own === 'hero' ? SC.heroTip : null, q0 = T0 && GT - T0.t < 0.05 ? SS(0, 0.1, GT - p.t0) : 1, x = T0 && q0 < 1 ? T0.x + (sx(p.x) - T0.x) * q0 : sx(p.x), y = T0 && q0 < 1 ? T0.y + (sy(p.y) - T0.y) * q0 : sy(p.y);   // (a hero's arrow leaves the string, not the sim's hand point, TASKS 1160)
       L.solid(x, y, 26, 2, [0.75, 0.75, 0.7], a + Math.PI, 0, 1, 0.18 * SS(0, 0.05, GT - p.t0));
-      if (p.own === 'hero') { L.solid(x, y, 34, 2, [0.95, 0.86, 0.62], a + Math.PI, 0, 1, 0.55); L.star(x, y, 4, [1, 0.92, 0.7], 0.8); }
+      // (a hero's trail in three short dashes fading behind it, TASKS 1792: one long line read as a ruled stroke over the art)
+      if (p.own === 'hero') { for (const [d0, l0, k0] of [[4, 10, 0.75], [17, 8, 0.45], [29, 6, 0.22]]) L.solid(Math.round((x - Math.cos(a) * d0) / 2) * 2, Math.round((y - Math.sin(a) * d0) / 2) * 2, l0, 2, [0.95, 0.86, 0.62], a + Math.PI, 0, 1, k0); L.star(x, y, 4, [1, 0.92, 0.7], 0.8); }
       L.inked(() => L.sprite('skel_arrow', 0, 0, { m: M.of(M.t(x, y), M.r(a + Math.PI / 2)), w: aw, h: ah, pivot: [aw / 2, ah * 0.1] }), { r: 1.5, n: 6, col: [0.024, 0.02, 0.024], dy: 0 }); }]);
     const jig = (id) => knocked[id] && knockOf(knocked[id], GT);
     // the painted wax is near white and outshone the fight; dimmed, the flames stay the brightest thing on a candle
@@ -394,7 +475,7 @@
     if (GATE) for (const q of DUNGEON.portalRing(GATE.x, GATE.y, GATE.open || 0)) if (vis(q.x, q.y) && known(q.x, q.y)) Y.push([q.y, () => drawProp(q.n, sx(q.x), sy(q.y), { dy: 4, k: q.s })]);
     const TOWN_TONE = { forge_tw: { tint: [0.74, 0.7, 0.9, 1] }, gate_tw: { tint: [0.86, 0.82, 0.95, 1] }, blocks_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_b: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_c: { tint: [0.86, 0.82, 0.95, 1] }, stone_tw_a: { grade: [1, 1.3, 0, 1] }, stone_tw_b: { grade: [1, 1.3, 0, 1] } };
     m.decor.forEach((d, i) => { if (d.openT !== undefined && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => coffinOpen(d, sx(d.x), sy(d.y), GT - d.openT, jig('d' + i))]); });
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), warm: m.cliff && SCX.warmsBy(d.alt || d.n) ? HERO.lavaWarm(d.x, d.y) : 0, u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;

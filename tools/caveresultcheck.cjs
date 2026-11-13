@@ -45,7 +45,7 @@ for (const seed of [1, 7, 26837]) for (const mode of ['cave', 'campaign']) for (
     R.freeze = 0; h.x = R.map.exit.x; h.y = R.map.exit.y;
     SIM.step(S, { keys: ['KeyE'] });
   } else if (how === 'dead') {
-    h.hp = 0; h.deadT = S.t;
+    globalThis.SIMX.killHero(S, R);
     for (let i = 0; i < 220 && S.run; i++) SIM.step(S, { keys: [] });
   } else {
     S.screen = 'pause'; click(S, DATA.UI.pause(S.meta.zoom), 'abandon'); click(S, DATA.UI.pauseAsk(false).r, 'yes');

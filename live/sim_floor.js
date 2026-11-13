@@ -151,7 +151,7 @@
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
-  // a floor that fails to build or restore (TASKS 1966) leaves the run as it was before the step: a half-made one, floor N over the
+  // a floor that fails to build or restore (TASKS 1993) leaves the run as it was before the step: a half-made one, floor N over the
   // town's map, was saved and loaded back as the town under the floor's name, and the next stash wrote the town into floor N.
   // The run's top-level objects are refilled in place, so a caller's R.hero or R.map in hand stays the run's own. A run with no floor
   // yet (newRun) has nothing to go back to, and its failure is thrown on
@@ -169,7 +169,7 @@
         for (const [k, M, o] of kept) { for (const q of Object.keys(M)) delete M[q]; memo[k] = Object.assign(M, o); } R.memo = memo; } else delete R.memo;
       S.floorFails = (S.floorFails || 0) + 1; R.msg = { s: f ? TXT('sim_floor.enterFail', { floor: f }) : TXT('sim_floor.enterFail.town'), t: S.t, d: 4 };
       return false; } }
-  // a save made in that half-made state (TASKS 1966): back to the town with its portal to the floor, and every kept floor whose diff
+  // a save made in that half-made state (TASKS 1993): back to the town with its portal to the floor, and every kept floor whose diff
   // holds the town's map built anew, with its dead as an old generator's floor keeps them. The map in hand is already the town's, so
   // the portal is put back even if the town's own arrival fails; it has no spot on the floor, and the hero comes out by the stairs up
   function mendRun(S, R) { if (!R || !R.viaTown || !(R.floor > 0) || !R.map || !R.map.town) return false; const f = R.floor;
@@ -329,7 +329,7 @@
   function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; tally(S, R, 'shards', n); ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
   // a floor's kills, loot or secrets brought to 100 % pay once, on the spot
   function checkFull(S, R) { const f = fstat(R), h = R.hero; f.full = f.full || {};
-    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); }
+    if (!R.town) for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); }
     markStairs(R, f); }
   // half the floor's foes slain shows the way on (TASKS 1808, 388): a patch of the fog round the stairs lifts, so the minimap's
   // stairs and the stairs themselves show through the dark; done in the fog, not the HUD, so it reads on the map and in the world alike
