@@ -45,6 +45,8 @@
     const t = S.t + DT; S.t = t;
     // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1877): a browser tab cannot, so «Выход» waits for its word
     if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
+    // the update's state (TASKS 1870) comes from the page as a new object on every change, its own count n; never saved
+    if (inp.upd !== undefined && (inp.upd ? !S.upd || S.upd.n !== inp.upd.n : S.upd)) S.upd = inp.upd ? Object.assign({}, inp.upd, { notes: (inp.upd.notes || []).slice(0, 5).map(String) }) : null;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
     for (const k of inp.rep || []) if (REPEATS.has(k)) keys[k] = 1;

@@ -1033,7 +1033,7 @@
     const own = S && ((S.saved && S.saved.hero) || (S.result && S.result.hero));
     if (own && D.clsOf(own).look.rig !== 'hero') { try { SCENE.menuHero(own, SIM.Q.stats(own, S.meta), t, hx + hw * hk / 2, hy + hh * hk, hk); } catch (e) { console.error(e); L.pre = null; G.blend(); } }
     else L.sprite('hero', hx, hy, { w: hw * hk, h: hh * hk });
-    if (!(S && S.newAsk)) L.uiBox('menu_hero', hx, hy, hw * hk, hh * hk);
+    if (!(S && (S.newAsk || S.updOpen))) L.uiBox('menu_hero', hx, hy, hw * hk, hh * hk);
     if (alone) return;
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', x0 + 1430 * k, y0 + 330 * k, { w: bw * 2.6 * k, h: bh * 2.6 * k, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
   }
@@ -1227,12 +1227,12 @@
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
-    menuBack(t, !!F, true, S, [D.UI.menuSheet(!!S.saved, undefined, !!S.canQuit).P, F && F.P]);
+    menuBack(t, !!F, true, S, [D.UI.menuSheet(!!S.saved, undefined, !!S.canQuit, S.upd).P, F && F.P]);
     const ty = (y) => Math.round((bk().y0 + y * bk().k) / 2) * 2;
     lab('m_t', TXT('hud.menu'), W / 2, ty(150), { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, ty(230), { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, ty(282), { size: 28, al: 0.5, col: C.dim });
-    const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full, !!S.canQuit), M = D.UI.menuSheet(!!S.saved, undefined, !!S.canQuit), P = M.P, items = bs.filter((b) => !b.link);
+    const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full, !!S.canQuit, S.upd), M = D.UI.menuSheet(!!S.saved, undefined, !!S.canQuit, S.upd), P = M.P, items = bs.filter((b) => !b.link);
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
     if (F) newsFrame(F, lit === 'news');
     KIT.part('ui_b_strap_ring', [32, 47], P.x + P.w - 112, P.y + P.h - 34);
@@ -1244,11 +1244,31 @@
       if (b.id === cur) { KIT.seal(b.x + 16, ly, 0.5); L.solid(lx, ly + 20, tw, 3, [0.49, 0.12, 0.07]); }
       if (b.id === 'continue' && S.saved) { const R = S.saved, s0 = TXT('hud.menu.saved', { p1: runTag(R), p2: R.floor ? TXT('hud.savedLine.2', { floor: R.floor }) : TXT('hud.savedLine.3'), lvl: R.hero.lvl }), s1 = s0[0].toUpperCase() + s0.slice(1);
         KIT.ink('mb_sv', s1, lx, ly + 40, { size: 18, fit: maxW, col: KIT.INK.d }); }
+      // the update's mark (TASKS 1870): a red diamond and a small red line, as quiet as the saved run's line above
+      const um = b.id === 'update' && D.updMark(S.upd); if (um) { L.solid(lx + 1, ly + 37, 8, 8, [0.62, 0.16, 0.09], 0.7854, 4, 4); KIT.ink('mb_upd', um, lx + 18, ly + 40, { size: 18, fit: maxW - 18, col: KIT.INK.r }); }
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     // «Сохранить и выйти» answers on the menu it lands on (TASKS 1863 б)
     const sa = S.t - (S.savedT ?? -1e9); if (S.saved && sa < 3) { const s = TXT('hud.menu.savedNote'), al = 1 - L.SS(2.4, 3, sa), w = lw('m_svn', s, { size: 26 }) + 56;
       plate('m_svn_box', W / 2 - w / 2, 318, w, 54, { a: 0.92 * al }); lab('m_svn', s, W / 2, 345, { size: 26, al: 0.5, col: '#9fd08a', a: al }); }
-    newAsk(S);
+    newAsk(S); updWin(S);
+  }
+  // the update's window (TASKS 1870): a torn sheet in the middle of the menu, its lines by the state, the download's bar, its buttons
+  function updWin(S) {
+    if (!S.updOpen) return;
+    const U = D.UI.upd(S.upd), A = U.A, I = KIT.INK; dim(0.5); KIT.panel('up_win', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
+    KIT.heading('up_t', TXT('hud.upd'), A.x + A.w / 2, A.y + 74, { size: 44, wing: 60 });
+    const dot = (x, y) => L.solid(x - 4, y - 4, 8, 8, [0.49, 0.12, 0.07], 0.7854, 4, 4);
+    U.rows.forEach((r, i) => { const id = 'up_r' + i;
+      if (r.k === 'note') { if (r.first) dot(A.x + 92, r.y); KIT.ink(id, r.s, A.x + 108, r.y, { size: 22, fit: A.w - 180 }); }
+      else if (r.k === 'head') KIT.ink(id, r.s, A.x + 80, r.y, { size: 24, col: I.r });
+      else KIT.ink(id, r.s, A.x + A.w / 2, r.y, { size: r.k === 'dim' ? 22 : 28, al: 0.5, fit: A.w - 120, col: r.k === 'dim' ? I.d : I.t }); });
+    if (U.bar) { const B = U.bar; L.rrect(B.x - 2, B.y - 2, B.w + 4, B.h + 4, 6, [0.42, 0.27, 0.15]); L.rrect(B.x, B.y, B.w, B.h, 5, [0.86, 0.76, 0.58]);
+      if (B.pct > 0) L.rrect(B.x + 3, B.y + 3, Math.max(8, (B.w - 6) * B.pct / 100), B.h - 6, 3, [0.62, 0.16, 0.09], [0.42, 0.09, 0.05]);
+      KIT.ink('up_pct', B.pct + ' %', B.x + B.w + 14, B.y + B.h / 2, { size: 22, col: I.d }); }
+    const lit = litOf(S, U.r.map((b) => b.id)) || U.r[0].id;
+    for (const b of U.r) KIT.button('up_' + b.id, b, Object.assign(KIT.st(S, b.id), { hover: lit === b.id, focus: false }));
+    const keys = TXT('hud.upd.keys'), ky = A.y + A.h + 40, kw = lw('up_keys_w', keys, { size: 26 }); L.uiBox('up_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    KIT.light('up_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // a new run over five taken slots asks first and names the run it will take the place of (TASKS 1785)
   function newAsk(S) {

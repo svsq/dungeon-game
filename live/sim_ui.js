@@ -115,9 +115,28 @@
   const SCREEN = {};
   // the main menu (TASKS 1301): ↑↓ walk the items and «Что нового», Enter presses the focused one; with no item focused Enter
   // presses the first, as before the focus (continue the saved run, or a new one)
+  // the update's window (TASKS 1870): its buttons ask the page (S.updReq, a count and a kind), the page asks the main process and
+  // sends the new state back through the input; ←→ walk the buttons, Enter presses the lit one, Escape closes the window
+  const updAsk = (S, k) => { S.updReq = { n: ((S.updReq && S.updReq.n) || 0) + 1, k }; };
+  const updClose = (S) => { S.updOpen = 0; S.focus = 'update'; S.hover = ''; };
+  const updWin = (S, inp, keys, x, y, click) => { const U = UI.upd(S.upd), ids = U.r.map((q) => q.id), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (b && inp.moved) S.focus = b.id;
+    if (!ids.includes(S.focus)) S.focus = ids[0];
+    const mv = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv && ids.length > 1) { S.focus = ids[(ids.indexOf(S.focus) + mv + ids.length) % ids.length]; ev(S, { k: 'ui', x, y }); return; }
+    if (keys.Escape) { updClose(S); ev(S, { k: 'ui', x, y }); return; }
+    const id = click ? (b && b.id) : keys.Enter ? S.focus : null; if (!id) return;
+    ev(S, { k: 'ui', x, y });
+    if (id === 'get') updAsk(S, 'get');
+    else if (id === 'open') updAsk(S, 'open');
+    else if (id === 'retry') updAsk(S, S.upd && S.upd.err === 'down' ? 'get' : 'check');
+    // the restart: a run still in play is saved as «Выход» saves it, and the page writes the save before it asks for the restart
+    else if (id === 'run') { if (S.run) saveRun(S); S.saveN++; updAsk(S, 'run'); }
+    else updClose(S); };
   SCREEN.menu = (S, inp, keys, x, y, click) => {
     if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
-    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    if (S.updOpen) { updWin(S, inp, keys, x, y, click); return; }
+    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit, S.upd), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     const order = U.map((q) => q.id);
     if (b && inp.moved) S.focus = b.id;
     if (order.includes(S.focus)) S.menuAt = S.focus;
@@ -131,6 +150,8 @@
       // «Выход» (TASKS 1877): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
       // and then closes the window on quitReq
       if (id === 'quit' && S.canQuit) { if (S.run) saveRun(S); S.quitReq = (S.quitReq || 0) + 1; S.saveN++; }
+      // a check is asked for unless one is under way or its answer waits to be taken; the browser's item only shows the news
+      if (id === 'update' && D.updShown(S.upd)) { S.updOpen = 1; S.focus = ''; S.hover = ''; if (!S.upd.web && ['idle', 'none', 'err'].includes(S.upd.st)) updAsk(S, 'check'); }
       if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y }); };
     if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
@@ -573,7 +594,7 @@
   // moved: the pointer moved since the last step, and only then takes the focus onto what it is over (TASKS 1754), so a pointer
   // resting over an item does not take it back from the keyboard. A window or question just opened never counts it (review of
   // PR 57): a pointer left over «Сдаться» took the gate's focus off «Остаться» as the window came up, and Enter gave the run up
-  const uiKey = (S) => [S.screen, S.newAsk || '', S.delAsk ?? '', S.pauseAsk || ''].join(':');
+  const uiKey = (S) => [S.screen, S.newAsk || '', S.delAsk ?? '', S.pauseAsk || '', S.updOpen || ''].join(':');
   function stepUI(S, inp, keys) {
     const f = SCREEN[S.screen], moved = !!inp.moved && S.uiKey === uiKey(S), py = S.uiPtr ? S.uiPtr[1] : inp.py - SIMX.uiDy(S.screen);
     if (S.screen === 'menu' && S.uiWas !== 'menu') S.focus = MENU_SUBS.includes(S.uiWas) && S.menuAt ? S.menuAt : '';
