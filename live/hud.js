@@ -383,19 +383,19 @@
   // look B laid out as on ref_ui_hud_b (TASKS 1872, the player's decision over 1759's corner plate): the portrait, the level, its
   // bar and the effects in the top-left corner, the stats on a parchment sheet under them; the flasks, the skills, the potions and
   // the money on one leather panel at the bottom's middle
-  const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154, BF = { y: 112, dx: 66, dy: 64, per: 6 }, STS = { y: HB.y + HB.h + 8, row: 32, n: 4, pad: 28 };
+  const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154, BF = { y: 76, dx: 66, dy: 64, per: 6 }, STS = { y: HB.y + HB.h + 8, row: 32, n: 4, pad: 28 };
   const potsOf = (R) => [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].concat(R.viaTown ? [['scroll', 'it_scroll', 'T']] : []);
   // the bottom panel from the state alone (world() keeps labels off it before it is drawn): its box and where each part starts. Its
   // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
   function bpGeo(S, R) {
     const h = R.hero, gold = String(h.gold), shards = String(S.meta.shards), keys = R.keys > 0 ? String(R.keys) : '', np = potsOf(R).length, ns = D.clsOf(h).abs.length;
-    const NW = 156, FW = 70, CS = 100, PS = 74, SEP = 40, PAD = 34, BH = 132, CI = 34;
+    const NW = 156, FW = 70, CS = 100, PS = 74, SEP = 40, PAD = 34, BH = 144, CI = 34;
     const gw = Math.max(150, lw('gold_count', gold, { size: 28 }) + 80), cw = (id, s) => CI + Math.max(64, lw(id, s, { size: 22 }) + 44), sw = cw('shard_count', shards), kw = keys ? cw('key_count', keys) : 0;
     const mw = Math.max(gw + 50, sw + (kw ? kw + 10 : 0)), vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 16, potW = np * PS + (np - 1) * 14;
     const w = 2 * PAD + vitW + skW + potW + mw + 3 * SEP, x = Math.round(W / 2 - w / 2), y = H - BH - 6;
     const vx = x + PAD, sx = vx + vitW + SEP, px = sx + skW + SEP, mx = px + potW + SEP;
     return { x, y, w, h: BH, NW, FW, CS, PS, vx, sx, px, mx, gw, sw, kw, gold, shards, keys, seps: [sx - SEP / 2, px - SEP / 2, mx - SEP / 2],
-      goldC: [mx + 50 + gw / 2, y + 43], shardC: [mx + CI + (sw - CI) / 2, y + 100], CI };
+      goldC: [mx + 50 + gw / 2, y + 43], shardC: [mx + CI + (sw - CI) / 2, y + 100], CI, xp: [x + 22, y + BH - 18, w - 44, 12] };
   }
   HUD.bp = bpGeo;
   HUD.underHud = (x, y) => underHud(x, y); HUD.zones = () => ZN || hudZones(); HUD.marks = () => MKB;
@@ -413,12 +413,11 @@
   const keycap = (id, s, cx, y) => { const w = Math.max(36, lw(id, s, { size: 20 }) + 24); KIT.nine('btn', Math.round(cx - w / 2), y, w, 30); KIT.ink(id, s, cx, y + 16, { size: 20, al: 0.5 }); L.uiBox(id + '_b', Math.round(cx - w / 2), y, w, 30, 0); };
   function hud(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), GT = S.t, K = KIT, B = bp(S, R);
-    // the portrait in its frame, the level on its plate and the experience bar under it
+    // the portrait in its frame and the level on its plate; the experience runs along the bottom panel's foot (TASKS 1909)
     plate('hud_plate', HB.x, HB.y, HB.w, HB.h, { k: 0.35, pad: 0 });
     L.solid(HB.x + 13, HB.y + 13, 110, 110, [0.05, 0.035, 0.03]); L.sprite(portraitOf(h), HB.x + 14, HB.y + 14, { w: 108, h: 108, src: [0.08, 0.02, 0.92, 0.86] }); edge(HB.x + 12, HB.y + 12, 112, 112, BRASS, 3); L.uiBox('portrait', HB.x + 12, HB.y + 12, 112, 112, 0);
     K.nine('btn', TLX, 14, 150, 52); K.ink('lvl', TXT('hud.hud', { lvl: h.lvl }), TLX + 75, 41, { size: 28, al: 0.5 }); L.uiBox('lvl_b', TLX + 16, 14, 118, 52, 0);
     if (h.pts > 0 || h.sp > 0) { const a = 0.6 + 0.4 * Math.sin(t * 5); L.rrect(HB.x + HB.w - 30, HB.y + 2, 28, 28, 14, [1, 0.75, 0.2], [0.8, 0.45, 0.1], a); L.uiBox('lvl_up_b', HB.x + HB.w - 32, HB.y, 32, 32, 0); lab('lvl_up', '+', HB.x + HB.w - 16, HB.y + 16, { size: 20, al: 0.5, col: '#2a1606', out: '' }); }
-    K.bar('xpbar', TLX, 74, 226, 26, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
     // the stats on a parchment sheet under the portrait, ink on paper as on the ref
     const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
     const sw = Math.max(...rows.map(([, v], i) => lw('stv' + i, v, { size: 22 }))) + 76, sy = STS.y;
@@ -428,7 +427,8 @@
     buffs(S, R, GT, sy + rows.length * STS.row + 36);
     // the bottom panel: flasks with their numbers on parchment, the skills in round sockets, the potions, the money
     K.nine('leather', B.x, B.y, B.w, B.h, { k: 0.45 }); L.uiBox('hud_bar', B.x + 14, B.y + 10, B.w - 28, B.h - 20, 0);
-    for (const x of B.seps) divider(x, B.y + 26, B.y + B.h - 26);
+    for (const x of B.seps) divider(x, B.y + 26, B.y + B.h - 34);
+    K.bar('xpbar', ...B.xp, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]); tipAt(B.xp[0], B.xp[1] - 4, B.xp[2], B.xp[3] + 8, TXT('hud.inv.6', { xp: h.xp, p2: D.xpNeed(h.lvl) }), '', B.y);
     // the warrior's rage (TASKS 1130) in the mana's flask, in its own ember colour
     const rage = D.clsOf(h).res === 'rage', hpF = h.hp / st.maxHp, mpF = h.mp / st.maxMp, fy = B.y + 14;
     K.flask('hp_fl', B.vx, fy, 104, hpF, [0.78, 0.1, 0.07]); K.flask('mp_fl', B.vx + B.FW - 2 + B.NW + 16, fy, 104, mpF, rage ? [0.9, 0.38, 0.08] : [0.15, 0.32, 0.85]);
@@ -492,7 +492,7 @@
       plate('keys_box', W - 12 - kw, B.y - 54, kw, 42, { a: 0.85 }); lab('keys', k, W - 24, B.y - 32, { size: 26, al: 1, col: '#8a7d6c' }); }
   }
 
-  // active effects under the level's bar, right of the portrait as on the ref: the shrine's blessing lasts the floor, the shield shows what it still soaks, the
+  // active effects under the level's plate, right of the portrait as on the ref: the shrine's blessing lasts the floor, the shield shows what it still soaks, the
   // timed ones drain clockwise; debuffs sit on a red rim
   // a gift taken at several altars: its tooltip names the summed value, as its cell does, and how many times it was given
   const giftTip = (G, n) => { if (n < 2) return G.desc; const times = TXT.n('hud.tip.times', n);
