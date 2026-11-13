@@ -389,13 +389,13 @@
   // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
   function bpGeo(S, R) {
     const h = R.hero, gold = String(h.gold), shards = String(S.meta.shards), keys = R.keys > 0 ? String(R.keys) : '', np = potsOf(R).length, ns = D.clsOf(h).abs.length;
-    const NW = 156, FW = 70, CS = 100, PS = 74, SEP = 40, PAD = 34, BH = 144, CI = 34;
-    const gw = Math.max(150, lw('gold_count', gold, { size: 28 }) + 80), cw = (id, s) => CI + Math.max(64, lw(id, s, { size: 22 }) + 44), sw = cw('shard_count', shards), kw = keys ? cw('key_count', keys) : 0;
-    const mw = Math.max(gw + 50, sw + (kw ? kw + 10 : 0)), vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 16, potW = np * PS + (np - 1) * 14;
+    const NW = 136, FW = 62, FH = 92, CS = 84, PS = 64, SEP = 32, PAD = 28, BH = 122, CI = 30;
+    const gw = Math.max(130, lw('gold_count', gold, { size: 26 }) + 70), cw = (id, s) => CI + Math.max(56, lw(id, s, { size: 20 }) + 40), sw = cw('shard_count', shards), kw = keys ? cw('key_count', keys) : 0;
+    const mw = Math.max(gw + 44, sw + (kw ? kw + 10 : 0)), vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 12, potW = np * PS + (np - 1) * 12;
     const w = 2 * PAD + vitW + skW + potW + mw + 3 * SEP, x = Math.round(W / 2 - w / 2), y = H - BH - 6;
     const vx = x + PAD, sx = vx + vitW + SEP, px = sx + skW + SEP, mx = px + potW + SEP;
-    return { x, y, w, h: BH, NW, FW, CS, PS, vx, sx, px, mx, gw, sw, kw, gold, shards, keys, seps: [sx - SEP / 2, px - SEP / 2, mx - SEP / 2],
-      goldC: [mx + 50 + gw / 2, y + 43], shardC: [mx + CI + (sw - CI) / 2, y + 100], CI, xp: [x + 22, y + BH - 18, w - 44, 12] };
+    return { x, y, w, h: BH, NW, FW, FH, CS, PS, vx, sx, px, mx, gw, sw, kw, gold, shards, keys, seps: [sx - SEP / 2, px - SEP / 2, mx - SEP / 2],
+      goldC: [mx + 44 + gw / 2, y + 33], shardC: [mx + CI + (sw - CI) / 2, y + 81], CI, xp: [x + 20, y + BH - 18, w - 40, 12] };
   }
   HUD.bp = bpGeo;
   HUD.underHud = (x, y) => underHud(x, y); HUD.zones = () => ZN || hudZones(); HUD.marks = () => MKB;
@@ -427,31 +427,31 @@
     buffs(S, R, GT, sy + rows.length * STS.row + 36);
     // the bottom panel: flasks with their numbers on parchment, the skills in round sockets, the potions, the money
     K.nine('leather', B.x, B.y, B.w, B.h, { k: 0.45 }); L.uiBox('hud_bar', B.x + 14, B.y + 10, B.w - 28, B.h - 20, 0);
-    for (const x of B.seps) divider(x, B.y + 26, B.y + B.h - 34);
+    for (const x of B.seps) divider(x, B.y + 18, B.y + B.h - 26);
     K.bar('xpbar', ...B.xp, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]); tipAt(B.xp[0], B.xp[1] - 4, B.xp[2], B.xp[3] + 8, TXT('hud.inv.6', { xp: h.xp, p2: D.xpNeed(h.lvl) }), '', B.y);
     // the warrior's rage (TASKS 1130) in the mana's flask, in its own ember colour
-    const rage = D.clsOf(h).res === 'rage', hpF = h.hp / st.maxHp, mpF = h.mp / st.maxMp, fy = B.y + 14;
-    K.flask('hp_fl', B.vx, fy, 104, hpF, [0.78, 0.1, 0.07]); K.flask('mp_fl', B.vx + B.FW - 2 + B.NW + 16, fy, 104, mpF, rage ? [0.9, 0.38, 0.08] : [0.15, 0.32, 0.85]);
+    const rage = D.clsOf(h).res === 'rage', hpF = h.hp / st.maxHp, mpF = h.mp / st.maxMp, fy = B.y + 8;
+    K.flask('hp_fl', B.vx, fy, B.FH, hpF, [0.78, 0.1, 0.07]); K.flask('mp_fl', B.vx + B.FW - 2 + B.NW + 16, fy, B.FH, mpF, rage ? [0.9, 0.38, 0.08] : [0.15, 0.32, 0.85]);
     // four-digit pairs lose their spaces before they would overflow their plate (TASKS 1794)
-    const pair = (id, a, b) => { const s = a + ' / ' + b; return lw(id, s, { size: 24 }) <= B.NW - 48 ? s : a + '/' + b; };
-    const num = (id, s, x) => { K.nine('btn', x, B.y + 41, B.NW, 50); K.ink(id, s, x + B.NW / 2, B.y + 67, { size: 24, al: 0.5, fit: B.NW - 40 }); L.uiBox(id + '_b', x + 16, B.y + 41, B.NW - 32, 50, 0); };
+    const pair = (id, a, b) => { const s = a + ' / ' + b; return lw(id, s, { size: 22 }) <= B.NW - 44 ? s : a + '/' + b; };
+    const num = (id, s, x) => { K.nine('btn', x, B.y + 30, B.NW, 44); K.ink(id, s, x + B.NW / 2, B.y + 53, { size: 22, al: 0.5, fit: B.NW - 36 }); L.uiBox(id + '_b', x + 14, B.y + 30, B.NW - 28, 44, 0); };
     const hx = B.vx + B.FW - 2, mx = hx + B.NW + 16 + B.FW - 2;
     num('hpbar_t', pair('hpbar_t', Math.ceil(h.hp), st.maxHp), hx); num('mpbar_t', pair('mpbar_t', Math.floor(h.mp), st.maxMp), mx);
     // the shield's soak, a blue line along the foot of the health's plate
-    if (h.shield > 0 && GT < h.shieldUntil) L.rrect(hx + 22, B.y + 84, (B.NW - 44) * Math.min(1, h.shield / st.maxHp), 5, 2, [0.6, 0.85, 1], [0.3, 0.55, 1], 0.9);
-    if (rage && h.mp >= st.maxMp) { G.blend('add'); L.glow(mx + 2 - B.FW / 2, fy + 66, 46, [1, 0.6, 0.2], 0.35 + 0.1 * Math.sin(t * 6)); G.blend(); }
-    D.clsOf(h).abs.forEach((A, i) => { const x = B.sx + i * (B.CS + 16), y = B.y + 8, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
+    if (h.shield > 0 && GT < h.shieldUntil) L.rrect(hx + 20, B.y + 66, (B.NW - 40) * Math.min(1, h.shield / st.maxHp), 5, 2, [0.6, 0.85, 1], [0.3, 0.55, 1], 0.9);
+    if (rage && h.mp >= st.maxMp) { G.blend('add'); L.glow(mx + 2 - B.FW / 2, fy + B.FH * 0.63, 40, [1, 0.6, 0.2], 0.35 + 0.1 * Math.sin(t * 6)); G.blend(); }
+    D.clsOf(h).abs.forEach((A, i) => { const x = B.sx + i * (B.CS + 12), y = B.y + 6, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
       skillCell('sk_' + A.id, x, y, B.CS, A, r, cd, A.cd, h.mp < A.mp, rage);
-      if (r && cd > 0) lab('skc_' + A.id, nf(cd, 1, true), x + B.CS / 2, y + B.CS / 2, { size: 26, al: 0.5 });
-      keycap('skk_' + A.id, A.key, x + B.CS / 2, y + B.CS - 14); });
+      if (r && cd > 0) lab('skc_' + A.id, nf(cd, 1, true), x + B.CS / 2, y + B.CS / 2, { size: 24, al: 0.5 });
+      keycap('skk_' + A.id, A.key, x + B.CS / 2, y + B.CS - 18); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
-    potsOf(R).forEach(([b, ic, k], i) => { const x = B.px + i * (B.PS + 14), y = B.y + 22;
-      K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 13, y + 11, 48); keycap('potk_' + b, k, x + 12, y - 10); keycap('potn_' + b, pot(b), x + B.PS - 14, y + B.PS - 16); });
+    potsOf(R).forEach(([b, ic, k], i) => { const x = B.px + i * (B.PS + 12), y = B.y + 16;
+      K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 11, y + 9, 42); keycap('potk_' + b, k, x + 12, y - 10); keycap('potn_' + b, pot(b), x + B.PS - 14, y + B.PS - 16); });
     // the gold on its own plate as on the ref, the soul shards and a floor's key under it the same way: icon first, the count on its own plate (TASKS 1908)
-    icon('it_gold', B.mx, B.y + 22, 42); K.nine('btn', B.mx + 50, B.y + 18, B.gw, 50); K.ink('gold_count', B.gold, B.goldC[0], B.goldC[1], { size: 28, al: 0.5 }); L.uiBox('gold_b', B.mx + 66, B.y + 18, B.gw - 32, 50, 0);
-    tipAt(B.mx, B.y + 18, B.gw + 50, 50, TXT('hud.altar.6', { gold: B.gold }), TXT('hud.tip.gold'), B.y);
-    const cur = (id, ic, s, x, w, title, line) => { const px = x + B.CI, pw = w - B.CI; icon(ic, x, B.y + 86, 28); K.nine('btn', px, B.y + 80, pw, 40); K.ink(id, s, px + pw / 2, B.y + 100, { size: 22, al: 0.5, col: id === 'shard_count' ? '#24407a' : K.INK.t }); L.uiBox(id + '_b', px + 12, B.y + 80, pw - 24, 40, 0); tipAt(x, B.y + 80, w, 40, title, line, B.y); };
+    icon('it_gold', B.mx, B.y + 14, 36); K.nine('btn', B.mx + 44, B.y + 10, B.gw, 44); K.ink('gold_count', B.gold, B.goldC[0], B.goldC[1], { size: 26, al: 0.5 }); L.uiBox('gold_b', B.mx + 58, B.y + 10, B.gw - 28, 44, 0);
+    tipAt(B.mx, B.y + 10, B.gw + 44, 44, TXT('hud.altar.6', { gold: B.gold }), TXT('hud.tip.gold'), B.y);
+    const cur = (id, ic, s, x, w, title, line) => { const px = x + B.CI, pw = w - B.CI; icon(ic, x, B.y + 67, 26); K.nine('btn', px, B.y + 62, pw, 36); K.ink(id, s, px + pw / 2, B.y + 81, { size: 20, al: 0.5, col: id === 'shard_count' ? '#24407a' : K.INK.t }); L.uiBox(id + '_b', px + 12, B.y + 62, pw - 24, 36, 0); tipAt(x, B.y + 62, w, 36, title, line, B.y); };
     cur('shard_count', 'crystal', B.shards, B.mx, B.sw, TXT('hud.stats.hand', { n: B.shards }), '');
     if (B.keys) cur('key_count', 'it_key', B.keys, B.mx + B.sw + 10, B.kw, TXT('hud.tip.key', { n: B.keys }), TXT('hud.tip.key.2'));
     // floor title + minimap
