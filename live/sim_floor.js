@@ -217,7 +217,7 @@
     // up from below the campaign's last floor: by its own stairs on (TASKS 514), not its portal out
     if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     // (in the magma wall he steps out a cell lower and aside, TASKS 1930: straight below the opening he hid its steps)
-    else if (how === 'down' && m.up) [hx, hy] = m.biome === 'magma' && !m.up.free ? standNear(R, m.up.x + 34, m.up.y + 46 + D.TILE) : standNear(R, m.up.x, m.up.y + 46);
+    else if (how === 'down' && m.up) [hx, hy] = standNear(R, ...DG.arrivalAt(m.up, m.biome));
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null; h.volleyT = null;

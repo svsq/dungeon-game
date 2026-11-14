@@ -134,12 +134,12 @@
     // a free-standing stair can sit away from the start room the terrain's pool was dug beside (TASKS 1507); a chasm floor's start
     // gets it on every floor (TASKS 1720: its plateaus hold no lava of their own, 7 arrivals of 90 saw none)
     const chasmArr = plat && (ftype === 'chasm' || !!MIX);
-    if (up && !boss && biome === 'magma' && (chasmArr || runFloor === 1 || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor))) { const ax = up.tx, ay = up.ty + 1, inMap = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3, O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    if (up && !boss && biome === 'magma' && (chasmArr || runFloor === 1 || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor))) { const [ax, ay] = DGX.arrivalAt(up, biome).map((v) => Math.floor(v / TILE)), ux = up.tx, uy = up.ty + 1, inMap = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3, O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       const sees = (x, y) => { const n = Math.ceil(Math.hypot(x - ax, y - ay) * 3); for (let i = 1; i < n; i++) { const u = Math.floor(ax + 0.5 + (x - ax) * i / n), v = Math.floor(ay + 0.5 + (y - ay) * i / n), c = at(u, v); if (u === x && v === y) break; if (c !== 1 && c !== 3 && c !== 6) return false; } return true; };
       const K = DGX.FOG_ARRIVE, RX = Math.ceil(8 * K), RY = Math.ceil(6 * K), shows = (x, y) => DGX.inFogOval(x, y, ax + 0.5, ay + 0.5, K);
       const roomShown = rectsOf(start).some(([bx, by, bw, bh]) => { for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) if (Math.abs(x - ax) <= RX && Math.abs(y - ay) <= RY && shows(x, y)) return true; return false; });
       const byRoom = (x, y) => { if (!roomShown || !rectsOf(start).some(([bx, by, bw, bh]) => x >= bx - 2 && x <= bx + bw + 1 && y >= by - 2 && y <= by + bh + 1)) return false; const rr = DGX.fogReach(x, y); for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) if (u * u + v * v <= rr * rr && at(x + u, y + v) === 1 && inRm(start, x + u, y + v)) return true; return false; };
-      const keepOff = (x, y) => (Math.abs(x - ax) <= 3 && y < ay + 2 && y > ay - 5) || used.has(key(x, y)) || doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < 3 && Math.abs(cy - y) < 3)) || secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4) || (chasmArr && crossings.some((c) => c.cells.some((k) => Math.abs(k % W - x) < 3 && Math.abs(Math.floor(k / W) - y) < 3)));
+      const keepOff = (x, y) => (Math.abs(x - ux) <= 3 && y < uy + 2 && y > uy - 5) || used.has(key(x, y)) || doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < 3 && Math.abs(cy - y) < 3)) || secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4) || (chasmArr && crossings.some((c) => c.cells.some((k) => Math.abs(k % W - x) < 3 && Math.abs(Math.floor(k / W) - y) < 3)));
       const crustK = new Set(crust), inView = (x, y) => (Math.abs(x - ax) <= RX && Math.abs(y - ay) <= RY && shows(x, y)) || byRoom(x, y);
       let shown = 0; for (let y = ay - RY - 3; y <= ay + RY + 3; y++) for (let x = ax - RX - 4; x <= ax + RX + 4; x++) if (at(x, y) === 3 && !crustK.has(y * W + x) && inView(x, y)) shown++;
       if (shown < 8) { const seeds = []; for (let y = ay - 5; y <= ay + 5; y++) for (let x = ax - 9; x <= ax + 9; x++) { const d = Math.max(Math.abs(x - ax), Math.abs(y - ay)); if (d >= 3 && inMap(x, y) && at(x, y) === 0 && !keepOff(x, y) && O4.some(([a, b]) => at(x + a, y + b) === 1) && shows(x, y)) seeds.push([Math.abs(d - 5) + ((x * 7 + y * 13) % 5) / 10, x, y]); }
@@ -1161,7 +1161,7 @@
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
-    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) { const ax = up ? up.x : spawn.x, ay = up ? up.y + 46 : spawn.y, gap = 9 * TILE;
+    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) { const [ax, ay] = up ? DGX.arrivalAt(up, biome) : [spawn.x, spawn.y], gap = 9 * TILE;
       // (TASKS 1943: run 169's 3rd floor's forge lost its golem, posted by the hall's way in under the arrival) a hall's own monster
       // goes to the nearest cell of its hall out of the gap, one the hero can walk to
       let reach0 = null; const reachAt = (k) => { if (!reach0) { reach0 = new Uint8Array(W * H); const q = [Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE)]; reach0[q[0]] = 1;

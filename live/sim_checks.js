@@ -1058,6 +1058,10 @@
       // (TASKS 1943) every hall keeps its own monster, `need`: the arrival's gap took run 169's 3rd floor's golem, a small prison's cut its skeleton
       for (const [sd, f] of [[169, 3], [12, 1], [15, 1], [21, 1], ...Array.from({ length: 10 }, (_, i) => [i + 1, (i % 3) + 1])]) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd });
         for (const r of m.rooms.filter((q) => q.hall)) if (!(f === 1 && HL.kinds[r.hall].early) && !m.enemies.some((e) => e.room === r.id && e.type === HL.kinds[r.hall].need)) out.push(`magma run ${sd} f${f}: the ${r.hall} hall without its ${HL.kinds[r.hall].need}`); }
+      // (TASKS 1958) the arrival's gap is kept round where the hero comes out of the stairs (DG.arrivalAt), not the old spot by the opening
+      for (const [sd, f] of [[203, 14], [14, 14], [21, 13], [35, 15]]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: true }); enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero;
+        if (!m.up) { out.push(`town run ${sd} f${f}: no stairs up to check the arrival's gap by`); continue; } const [ax, ay] = DG.arrivalAt(m.up, m.biome); if (Math.hypot(h.x - ax, h.y - ay) > 1.5 * TILE) out.push(`town run ${sd} f${f}: the hero comes out ${Math.round(Math.hypot(h.x - ax, h.y - ay))} px off the arrival spot`);
+        for (const e of R.en) if (e.deadT < 0 && e.key === undefined && Math.hypot(e.x - ax, e.y - ay) < 9 * TILE) out.push(`town run ${sd} f${f}: a ${e.type} ${(Math.hypot(e.x - ax, e.y - ay) / TILE).toFixed(1)} cells from the arrival`); }
       // (TASKS 1944) a save laid before GEN_VERSION 24 with a lava arch standing on dry floor is loaded with slabs there, as a run in play
       // and as a slot's run
       { let done = 0; for (let sd = 1; sd <= 6 && !done; sd++) for (let f = 1; f <= 3 && !done; f++) { const S = spawn(0, {}); S.run = newRun(S, 'magma', sd); if (f > 1) enterFloor(S, S.run, f);
