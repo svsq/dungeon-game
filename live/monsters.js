@@ -640,9 +640,10 @@
       // (TASKS 1775: at 3 px and 0.035 the tugs did not read, the stuck colossus stood frozen through frames 6–12 of the sheet; it heaves
       // between them too, breathing hard)
       base.crouch += (85 * hit - 16 * tug + 7 * Math.sin(held * 5.2) * SS(0, 0.2, held)) * (1 - back);
-      // (TASKS 1965: held at the stomp's 0.14 through the stuck fists, the hip sat so low the left knee folded 12 px under its ankle;
-      // from 0.2 of the height over the ankles the knee stays over it)
-      if (fists) base.hipFloor = 0.2;
+      // (TASKS 1965: held at the stomp's 0.14 through the stuck fists, the left knee folded 12 px under its ankle; a hip floor of 0.2
+      // kept it over the ankle but left the left fist 41 px short of the floor, so the back foot steps in under the hip instead)
+      if (fists) { const RH = RIGS.colossus.h;
+        base.foot = (side, t) => { if (side !== 'L') return; const lf = 0.04 * RH * Math.sin(Math.PI * k); t.tx += 0.1 * RH * k; t.ty -= lf; t.lift += lf; }; }
       base.lean = face * lerp(-0.16 * raise, 0.6 - 0.1 * tug, hit) * (1 - back);
       base.handTarget = (side, rest) => {
         if (!fists && side === 'L') return target(side, [-0.2, -0.35], rest, k);
