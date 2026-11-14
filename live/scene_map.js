@@ -53,7 +53,9 @@
   }
   function bake(m) {
     const key = mapKey(m); if (BAKE.key === key) return; BAKE.key = key;
-    const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome], changed = cellsChanged(m, BAKE), box = changed && BAKE.tg && BAKE.tg.w === MW && BAKE.tg.h === MH ? changed : null;
+    const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome], changed = cellsChanged(m, BAKE), kept = !!BAKE.tg && BAKE.tg.w === MW && BAKE.tg.h === MH;
+    if (changed === false && kept) return;
+    const box = changed && kept ? changed : null;
     // the shaders read the masks a few cells around each pixel: the falling cells' neighbours repaint, the rest of the map stands
     const clip = (tg) => { if (!box) { G.clip(null); return; } const x = Math.max(0, (box[0] - 8) * TILE), y = Math.max(0, (box[1] - 8) * TILE); G.clip(tg, x, y, Math.min(MW, (box[2] + 9) * TILE) - x, Math.min(MH, (box[3] + 9) * TILE) - y); };
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
@@ -196,21 +198,25 @@
   // a set of cells (lava, water) as a soft mask, 4 texels a cell, blurred over about a cell so its 0.5 contour runs along the cells'
   // edges and rounds their corners
   const MASKS = {};
-  // a map's key with its secrets' state: an unfound secret room is rock to the masonry and the abyss, found it gets its rim
-  const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + (m.geometry || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
+  // a map's key is its revision (sim_map.js): any write to the floor moves it, a found secret room, which gets its rim, among them
+  const mapKey = (m) => SIM.Q.rev(m);
   // the box [x0, y0, x1, y1] of cells that differ from what `rec` last saw on this same map, null if it must be rebuilt whole: another
-  // map, or a key that moved with no cell changing (a flood grows m.water, which the cells don't show)
+  // map, or a layout that moved with no cell changing (a flood grows m.water, which the cells don't show); false when the key moved
+  // for a write the masks cannot see (a prop's cell, a lock's latch) and the cells, water and secrets stand as they were
   const cellsChanged = (m, rec) => { const stable = m.seed + ':' + m.floor + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('') + ':' + (m.water || []).length; let box = null;
-    if (rec.stable === stable && rec.cells && rec.cells.length === m.cells.length) for (let i = 0; i < m.cells.length; i++) if (rec.cells[i] !== m.cells[i]) { const x = i % m.W, y = Math.floor(i / m.W);
+    const same = rec.map === m && rec.stable === stable && !!rec.cells && rec.cells.length === m.cells.length;
+    if (same) for (let i = 0; i < m.cells.length; i++) if (rec.cells[i] !== m.cells[i]) { const x = i % m.W, y = Math.floor(i / m.W);
       if (!box) box = [x, y, x, y]; else { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); } }
-    rec.stable = stable; rec.cells = Uint8Array.from(m.cells); return box; };
+    rec.map = m; rec.stable = stable; rec.cells = Uint8Array.from(m.cells); return same && !box ? false : box; };
   // R: the soft mask; G, B (vec, optional): a direction per cell (x, y in -1..1) around 0.5, not blurred: the shader reads its cell's
   // own with texelFetch
   // reach: how many cells away `has` looks. Only the cells that changed are redone, out to what the blur can carry: an arena's edge
   // falling a cell at a time rebuilt every mask whole on each of some 60 frames, up to 490 ms apiece (TASKS 1362)
   function maskTex(m, name, has, vec, passes = 2, reach = 0) {
     const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null, im: null, stable: '', cells: null }), key = mapKey(m); if (M.key === key) return M.rec; M.key = key;
-    const K = 4, W = m.W * K, H = m.H * K, pad = 2 * passes, changed = cellsChanged(m, M), box = changed && M.im && M.im.width === W && M.im.height === H ? changed : null;
+    const K = 4, W = m.W * K, H = m.H * K, pad = 2 * passes, changed = cellsChanged(m, M), kept = !!M.im && M.im.width === W && M.im.height === H;
+    if (changed === false && kept && M.rec) return M.rec;
+    const box = changed && kept ? changed : null;
     const x0 = box ? Math.max(0, (box[0] - reach) * K - pad) : 0, y0 = box ? Math.max(0, (box[1] - reach) * K - pad) : 0, x1 = box ? Math.min(W, (box[2] + 1 + reach) * K + pad) : W, y1 = box ? Math.min(H, (box[3] + 1 + reach) * K + pad) : H;
     // the output's every texel reads this far at each pass, so a window `pad` wider blurs them exactly as the whole map would
     const ax0 = Math.max(0, x0 - pad), ay0 = Math.max(0, y0 - pad), AW = Math.min(W, x1 + pad) - ax0, AH = Math.min(H, y1 + pad) - ay0;

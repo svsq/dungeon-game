@@ -680,8 +680,8 @@
       const flood = () => { const seen = new Set([Math.floor(b.y / TILE) * W + Math.floor(b.x / TILE)]), q = [...seen]; let out = 0;
         for (let i = 0; i < q.length; i++) { const k = q[i], x = k % W, y = Math.floor(k / W); if (x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h) out++;
           for (const n of [k + 1, k - 1, k + W, k - W]) if (!seen.has(n) && walk(n)) { seen.add(n); q.push(n); } } return out; };
-      for (const d of m.doors) if (d.arena) for (const [x, y] of d.cells) m.cells[y * W + x] = 5;
-      if (!flood()) { const y = r.y + (r.h >> 1); for (let x = r.x + r.w - 1; x <= r.x + r.w + 3; x++) { if (m.cells[y * W + x] !== 3) m.lava++; m.cells[y * W + x] = 3; } m.geometry = (m.geometry || 0) + 1; }
+      for (const d of m.doors) if (d.arena) SIMX.mapw.fillCells(m, d.cells, 5);
+      if (!flood()) { const y = r.y + (r.h >> 1); for (let x = r.x + r.w - 1; x <= r.x + r.w + 3; x++) { if (m.cells[y * W + x] !== 3) m.lava++; SIMX.mapw.setCell(m, y * W + x, 3); } }
       if (!flood()) out.push('arena lava: the river cut through run 1 floor 6\'s arena wall leads nowhere');
       R.hero.x = b.x; R.hero.y = b.y + 100; stepArena(S, R);
       if (flood()) out.push('arena lava: the hero walks out of the sealed arena over lava'); }

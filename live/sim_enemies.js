@@ -3,9 +3,9 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BAL, D, DG, DT, EEL_MOUTH, ELITE_MODS, ENEMIES, GOO, K, STAGE, TILE, WADE, WEB, WET, angDiff, boxHit, cell, chasm, crustAt, dep, dif,
-    doorKey, eliteK, ev, flow, gift, golemCrust, gooAt, homeFlow, inWater, kinOf, kindle, losClear, move, onLava, pinch, pyre, rnd, shove,
-    solidAt, solidC, under, webAt, who, windOf } = SIMX;
+    BAL, D, DG, DT, EEL_MOUTH, ELITE_MODS, ENEMIES, GOO, K, STAGE, TILE, WADE, WEB, angDiff, boxHit, cell, chasm, crustAt, dep, dif,
+    eliteK, ev, flow, gift, golemCrust, gooAt, homeFlow, inWater, kinOf, kindle, losClear, move, onLava, pinch, pyre, rnd, shove,
+    mapw, rev, solidAt, solidC, under, webAt, who, windOf } = SIMX;
   // ---------------- elite powers ----------------
   const MOD = Object.fromEntries(ELITE_MODS.map((m) => [m.id, m])), has = (e, id) => !!(e.mods && e.mods.includes(id));
   function rollMods(R, f, e) { const [a, b] = D.eliteMods(f), n = a + (b > a && rnd(R) < 0.5 ? 1 : 0), pool = D.modPool(R.mode, R.floor, ENEMIES[e.type].kind), out = [];
@@ -128,7 +128,7 @@
   function floodStep(S, R) {
     const m = R.map, F = m.flood; if (!F || F.n >= F.cells.length) return;
     const n = Math.min(F.cells.length, 1 + Math.floor(F.cells.length * Math.min(1, (S.t - F.t0) / 1.6))); if (n === F.n) return;
-    const add = F.cells.slice(F.n, n); F.n = n; m.water.push(...add); m.arenaWater.push(...add); WET.delete(m); m.geometry = (m.geometry || 0) + 1;
+    const add = F.cells.slice(F.n, n); F.n = n; mapw.addWater(m, add); m.arenaWater.push(...add);
   }
   function serpentFlood(S, R, e) {
     const m = R.map, pools = m.serpentPools.flat(), near = (k) => Math.min(...pools.map((q) => Math.hypot(q % m.W - k % m.W, Math.floor(q / m.W) - Math.floor(k / m.W))));
@@ -258,7 +258,7 @@
   // the floor's lava and land as one field from a tile (the salamander's way to the hero: swimming is walking for it), cached as flow is
   const LFLOW = { key: '', d: null };
   function lavaFlow(m, tx, ty) {
-    const key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m); if (LFLOW.key === key) return LFLOW.d;
+    const key = rev(m) + ':' + tx + ',' + ty; if (LFLOW.key === key) return LFLOW.d;
     const d = new Int16Array(m.W * m.H).fill(-1), q = [ty * m.W + tx]; d[q[0]] = 0; const blk = new Set(m.block || []);
     for (let i = 0; i < q.length; i++) { const k = q[i]; if (d[k] > 60) continue; for (const o of [1, -1, m.W, -m.W]) { const j = k + o; if (d[j] >= 0 || blk.has(j) || (m.cells[j] !== 1 && m.cells[j] !== 3)) continue; d[j] = d[k] + 1; q.push(j); } }
     LFLOW.key = key; LFLOW.d = d; return d;

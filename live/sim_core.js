@@ -1,7 +1,7 @@
 // live/sim_core.js — the sim's base: constants, rng, the event bus S.ev and the run's log, run and stage lookups, map queries (cells, collisions, water, lava, webs, flow fields, sight) and the camera clamp.
 // One of the sim's files (ARCHITECTURE.md §4.2): names from earlier files come from SIMX at load, calls into later ones go through SIMX.
 (function (root) {
-  const SIMX = (root.SIMX = {});
+  const SIMX = (root.SIMX = root.SIMX || {}), { rev } = SIMX;
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
   const { TILE, ENEMIES, BAL, ELITE, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
   const DT = 1 / 120, L = 26.0;
@@ -116,8 +116,8 @@
   const onLava = (m, o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor(o.y / TILE); return cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx); };
   // shallow water (dungeon.js m.water) lies on floor cells: anyone wades through it slowed, and it puts out a burning one
   const WET = new WeakMap(), WADE = 0.75;
-  const inWater = (m, o) => { if (!m.water || !m.water.length) return false; let w = WET.get(m); if (!w) WET.set(m, w = new Set(m.water));
-    return w.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)); };
+  const inWater = (m, o) => { if (!m.water || !m.water.length) return false; let w = WET.get(m); if (!w || w.rev !== rev(m)) WET.set(m, w = { rev: rev(m), cells: new Set(m.water) });
+    return w.cells.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)); };
   const onPlate = (a, tr) => Math.abs(a.x - tr.x) < TILE - 4 && Math.abs(a.y - tr.y) < TILE - 6;
   // a web on the floor (dungeon.js m.webs) holds whoever wades in, spiders aside, until it is torn
   const WEB = { k: 0.4, mon: 0.5, rx: 28, ry: 17 };
@@ -167,13 +167,12 @@
     let cx = Math.floor(x0 / TILE), cy = Math.floor(y0 / TILE);
     for (let i = 1; i <= n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, nx = Math.floor(x / TILE), ny = Math.floor(y / TILE);
       if (pinch(m, cx, cy, nx, ny)) return false; cx = nx; cy = ny; if (i < n && wall(x, y - 8) && wall(x, y)) return false; } return true; };
-  // doors (dungeon.js m.doors, m.locks): a door shut by a lock that is not open yet; the doors' state for the caches' keys
+  // doors (dungeon.js m.doors, m.locks): a door shut by a lock that is not open yet
   const doorLock = (m, d) => { const L = d.lock >= 0 && m.locks ? m.locks[d.lock] : null; return L && !L.open ? L : null; };
-  const doorKey = (m) => (m.doors || []).map((d) => (d.open ? 'o' : doorLock(m, d) ? 'l' : 'c')).join('') + ':' + (m.geometry || 0) + ':' + (m.shut || 0);
   // flow field from a target tile over open floor: derived data, cached by key, never in the state
   // a field per target, a few kept: the bot asks for its own fields between the monsters' each step, and one slot was rebuilt
-  // every time (TASKS 467); a secret opened changes the floor without the doors' key
-  const FLOW = new Map(), FLOW2 = new Map(), secKey = (m) => (m.secrets || []).map((q) => (q.open ? 1 : 0)).join('');
+  // every time (TASKS 467); each field is keyed by the map's revision (sim_map.js), which any write to the floor moves
+  const FLOW = new Map(), FLOW2 = new Map();
   let BQ = new Int32Array(0);
   function bfs(m, tx, ty, lim, doors) {
     const W = m.W, H = m.H, N = W * H, d = new Int16Array(N).fill(-1), cs = m.cells, pass = new Uint8Array(N); if (BQ.length < N) BQ = new Int32Array(N);
@@ -190,14 +189,14 @@
     return d;
   }
   function flow(m, tx, ty, any) {
-    const C = any ? FLOW2 : FLOW, key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m) + ':' + secKey(m); let d = C.get(key);
+    const C = any ? FLOW2 : FLOW, key = rev(m) + ':' + tx + ',' + ty; let d = C.get(key);
     if (d) { C.delete(key); C.set(key, d); return d; }
     d = bfs(m, tx, ty, any ? 400 : 40, any); if (C.size >= 16) C.delete(C.keys().next().value); C.set(key, d); return d;
   }
   // a monster walking back to its post may be far from it: a whole-floor field per post, a few kept at once
   const HOME = new Map();
   function homeFlow(m, tx, ty) {
-    const fk = m.seed + ':' + m.floor + ':' + (m.geometry || 0) + ':' + doorKey(m); if (HOME.fk !== fk) { HOME.clear(); HOME.fk = fk; }
+    const fk = rev(m); if (HOME.fk !== fk) { HOME.clear(); HOME.fk = fk; }
     const key = ty * m.W + tx; let d = HOME.get(key);
     if (!d) { d = bfs(m, tx, ty, 400); if (HOME.size >= 24) HOME.delete(HOME.keys().next().value); }
     else HOME.delete(key);
@@ -210,7 +209,7 @@
   const CHOICE = new WeakMap();
   function reveal(R, arrive) {
     const m = R.map, h = R.hero, W = m.W, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE), ri2 = DG.roomAt(m, h.x, h.y);
-    const k = tx + ':' + ty + ':' + (m.secrets || []).map((q) => q.open).join('') + ':' + doorKey(m);
+    const k = tx + ':' + ty + ':' + rev(m);
     if (REV.arr === R.seen && REV.k === k) return ri2;
     REV.arr = R.seen; REV.k = k;
     const hid = SIMX.secretMask(m), inMap = (x, y) => x >= 0 && y >= 0 && x < W && y < m.H;
@@ -290,6 +289,6 @@
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW, VIEW_H, viewFor, setView, uiDy,
     zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
-    brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam, camAimY, CAM_FEET });
+    brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
+    losClear, overLava, doorLock, flow, homeFlow, reveal, clampCam, snapCam, camAimY, CAM_FEET });
 })(typeof window !== 'undefined' ? window : globalThis);

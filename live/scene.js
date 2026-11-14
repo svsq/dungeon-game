@@ -8,7 +8,7 @@
     BRIDGE, CANDLE, D, DEPTH_K, GLOW_COL, GOLD_TINT, HERO, L, PIX, RIM, SC, SS, STAND, SZ, TILE, bake, emitted, glowBeat, glowOf,
     swimTex, rnd, seenTex, spellFloor, torchCol, torchZ, sconceK, views, whirlP } = SCX;
   // ---------------- render ----------------
-  const LAVA_D = new WeakMap(), lavaField = (m) => { const g = (m.lava || 0) + ':' + (m.geometry || 0), q = LAVA_D.get(m); if (q && q.g === g) return q.d; const d = new Float64Array(m.W * m.H).fill(9);
+  const LAVA_D = new WeakMap(), lavaField = (m) => { const g = SIM.Q.rev(m), q = LAVA_D.get(m); if (q && q.g === g) return q.d; const d = new Float64Array(m.W * m.H).fill(9);
     for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) { const cx = k % m.W, cy = Math.floor(k / m.W); for (let j = Math.max(-6, -cy); j <= Math.min(6, m.H - 1 - cy); j++) for (let i = Math.max(-6, -cx); i <= Math.min(6, m.W - 1 - cx); i++) { const n = (cy + j) * m.W + cx + i, h = Math.hypot(i, j); if (h < d[n]) d[n] = h; } }
     LAVA_D.set(m, { g, d }); return d; };
   SC.render = (t) => {
