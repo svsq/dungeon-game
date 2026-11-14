@@ -40,7 +40,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // the bar's steps: a script, a texture each; the fonts, the shaders and the first frame 20, 40 and 20 (the textures' count is
   // known once assets.js has run: 900 till then)
   const steps = (nTex) => MODULES.page.length + 20 + nTex + 40 + 20;
-  await load('text_files.js'); await load('modules.js'); BOOT.all = steps(900);
+  await load('text_files.js'); await load('ui_files.js'); await load('modules.js'); BOOT.all = steps(900);
   await Promise.all(MODULES.page.map(load)); BOOT.all = steps(Object.keys(ASSETS).length);
   mark('scripts', `${MODULES.page.length} files`);
   const q = new URLSearchParams(location.search), render = q.has('render');
@@ -194,7 +194,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   };
   loop(); bootStep(20); mark('frame', 'the first one, menu or demo'); bootLog(`ready in ${performance.now().toFixed(0)} ms`); bootEnd();
   if (STATIC) { dev.style.display = 'none'; return; }
-  const WATCH = ['index.html', 'modules.js', 'text_files.js', ...MODULES.page], stamp = {};
+  const WATCH = ['index.html', 'modules.js', 'text_files.js', 'ui_files.js', ...MODULES.page], stamp = {};
   const poll = async () => {
     for (const f of WATCH) {
       try { const r = await fetch(f + '?poll=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified') + r.headers.get('content-length');
@@ -205,7 +205,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   poll();
 })().catch((e) => { console.error(e); bootLog('failed: ' + (e && e.stack || e)); if (BOOT.el) { BOOT.el.style.zIndex = 0; BOOT.el.querySelector('.n').textContent = 'Не удалось загрузить игру'; }
   document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:absolute;top:0;left:0;background:#000c;padding:12px;font:13px monospace;white-space:pre-wrap">' + e.stack + '</pre>');
-  const f = ['index.html', 'modules.js', 'text_files.js', ...((window.MODULES && MODULES.page) || [])], st = {};               // keep polling: fixing the error reloads by itself
+  const f = ['index.html', 'modules.js', 'text_files.js', 'ui_files.js', ...((window.MODULES && MODULES.page) || [])], st = {};               // keep polling: fixing the error reloads by itself
   setInterval(async () => { for (const x of f) { try { const r = await fetch(x + '?p=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified');
     if (st[x] && st[x] !== m) location.reload(); st[x] = m; } catch (e) {} } }, 800); });
 </script></body></html>

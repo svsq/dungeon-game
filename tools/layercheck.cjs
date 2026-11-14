@@ -1,5 +1,5 @@
 // node tools/layercheck.cjs — the layers' borders (ARCHITECTURE.md §8, TASKS 504). Exit 2 on failure.
-//   logic (data*, text*, dungeon*, sim*, modules): no page, render or clock at all — it runs in Node and replays exactly (a
+//   logic (data*, text*, ui*, dungeon*, sim*, modules): no page, render or clock at all — it runs in Node and replays exactly (a
 //     call into the engine, G, fails there at once, so it is not looked for: the logic has a local G of its own);
 //     the one `window` allowed is the IIFE's `typeof window !== 'undefined' ? window : globalThis`
 //   render (scene*, hud, monsters, lib): no page but the global registry (window.ASSETS / SIZES / RIGS / …), no raw WebGL (G.gl),
@@ -9,7 +9,7 @@
 const fs = require('fs'), path = require('path'), { code } = require('./jsscan.cjs');
 const LIVE = path.join(__dirname, '..', 'live'), fails = [];
 const files = fs.readdirSync(LIVE).filter((f) => f.endsWith('.js'));
-const LOGIC = files.filter((f) => /^(data|text|dungeon|sim)(_\w+)?\.js$/.test(f) || f === 'modules.js');
+const LOGIC = files.filter((f) => /^(data|text|ui|dungeon|sim)(_\w+)?\.js$/.test(f) || f === 'modules.js');
 const RENDER = files.filter((f) => /^scene(_\w+)?\.js$/.test(f) || ['hud.js', 'monsters.js', 'lib.js'].includes(f));
 const PAGE = /(?<![.\w$])(document|localStorage|sessionStorage|navigator|location|performance|Date)\b(?!\s*:)|(?<![.\w$])(addEventListener|requestAnimationFrame|fetch|setTimeout|setInterval)\s*\(|Math\.random/;
 const REGISTRY = new Set(['ASSETS', 'SIZES', 'RIGS', 'HUD', 'SCENE', 'LIB', 'MONSTERS', 'SCX', '__UI', '__ANCHORS', 'PAD']);   // PAD: the gamepad's state for the hints and its drawn pointer (pad.js), read only

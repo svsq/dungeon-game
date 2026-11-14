@@ -1,2 +1,3 @@
-# generated list of the text files (modules.js); two branches adding a file both add a line
+# generated lists of the text and screen files (modules.js); two branches adding a file both add a line
 live/text_files.js merge=union
+live/ui_files.js merge=union
