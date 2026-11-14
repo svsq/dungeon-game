@@ -229,7 +229,8 @@
         const own = P.plan[0][1][0], last = P.plan[P.plan.length - 1], lk = last[0].filter(has);
         while (plan.length < n && lk.length) plan.push([pick(lk), W2[last[2]]]);
         // (a ledge, TASKS 432, may hold a lone one; an entry marked keep is cut last: a small nest's cut took its one priest, TASKS 1647)
-        const lim = Math.max(n, r.kind === 'ledge' ? 0 : own); for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!plan[i][2]) plan.splice(i, 1);
+        // (TASKS 1943: a small prison's cut took its one skeleton, the rush's last entry) a hall's own monster is cut last too
+        const lim = Math.max(n, r.kind === 'ledge' ? 0 : own), keepOf = (q) => q[2] || (r.hall && q[0] === HL.kinds[r.hall].need); for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!keepOf(plan[i])) plan.splice(i, 1);
         if (plan.length > lim) plan.length = lim; }
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;
@@ -1156,7 +1157,19 @@
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
-    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].key === undefined && Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) { const ax = up ? up.x : spawn.x, ay = up ? up.y + 46 : spawn.y, gap = 9 * TILE;
+      // (TASKS 1943: run 169's 3rd floor's forge lost its golem, posted by the hall's way in under the arrival) a hall's own monster
+      // goes to the nearest cell of its hall out of the gap, one the hero can walk to
+      let reach0 = null; const reachAt = (k) => { if (!reach0) { reach0 = new Uint8Array(W * H); const q = [Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE)]; reach0[q[0]] = 1;
+        for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (!reach0[n] && cells[n] === 1) { reach0[n] = 1; q.push(n); } } } return reach0[k]; };
+      const deck = new Set(lavaUnder), trapC = new Set(traps.flatMap((t) => [0, -1, -W, -W - 1].map((o) => Math.floor(t.y / TILE) * W + Math.floor(t.x / TILE) + o)));
+      for (let i = enemies.length - 1; i >= 0; i--) { const e = enemies[i]; if (e.key !== undefined || Math.hypot(e.x - ax, e.y - ay) >= gap) continue;
+        const hr = rooms[e.room]; let to = null;
+        if (hr && hr.hall && HL.kinds[hr.hall].need === e.type) for (let y = hr.y + 1; y < hr.y + hr.h - 1; y++) for (let x = hr.x + 1; x < hr.x + hr.w - 1; x++) { const k = y * W + x, px = wx(x), py = wy(y);
+          if (at(x, y) !== 1 || deck.has(k) || trapC.has(k) || used.has(key(x, y)) || doorway(x, y) || !reachAt(k) || Math.hypot(px - ax, py - ay) < gap + TILE) continue;
+          if (enemies.some((o) => o !== e && Math.hypot(o.x - px, o.y - py) < 1.5 * TILE) || hazards.some((z) => D.hazIn(z, px, py))) continue;
+          const d = Math.hypot(px - e.x, py - e.y); if (!to || d < to[2]) to = [px, py, d]; }
+        if (to) { e.x = to[0]; e.y = to[1]; } else enemies.splice(i, 1); } }
     // the descent holds a floor to ST.cap monsters (TASKS 388): with pop's growth past the campaign (385) its floors held 60 and took
     // 150–210 s. The elites' share is kept: cutting the plain ones alone took it from 20 to 27 %
     if (ST.cap && enemies.length > ST.cap) { const cut = (e) => e.key === undefined && !e.guard && !e.post && !e.ford && !e.exit && !e.lake && !D.BOSSES[e.type] && !D.ENEMIES[e.type].deep && !D.ENEMIES[e.type].lurk && !(rooms[e.room] && rooms[e.room].hall);
