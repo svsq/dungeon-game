@@ -3,6 +3,13 @@
 (function (root) {
   const DGX = root.DGX, {
     D, ENEMIES, LIGHT_R, NO_SHOP, TILE, archLegs, inRm, onArchLeg, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays } = DGX;
+  // a pack's plan cut down to lim: an entry marked keep is cut last (a small nest's cut took its one priest, TASKS 1647), and a hall's
+  // own monster, one of it, last of all (TASKS 1943: a small prison's cut took its one skeleton, the rush's last entry; the nest's own
+  // is the smouldering dead, all its entries but the priest, and keeping them all cut the priest at the end; PR 79 review: more keep
+  // entries than lim dropped the leader)
+  const trimPlan = (plan, lead, lim) => { for (const keepOf of [(q) => q[2] || q === lead, (q) => q === lead]) for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!keepOf(plan[i])) plan.splice(i, 1);
+    if (plan.length > lim) plan.length = lim; return plan; };
+  root.DUNGEON.trimPlan = trimPlan;
   DGX.fill = (GF) => {
     const {
       AR, FM, H, HL, LY, MIX, MX, R, ST, TY, W, arch, at, biome, boss, bossType, cave, cells, chasmUnder, circles, cliff, crossings, crust,
@@ -228,10 +235,9 @@
         for (const [kinds, [lo, hi], where, keep] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where], keep]); }
         const own = P.plan[0][1][0], last = P.plan[P.plan.length - 1], lk = last[0].filter(has);
         while (plan.length < n && lk.length) plan.push([pick(lk), W2[last[2]]]);
-        // (a ledge, TASKS 432, may hold a lone one; an entry marked keep is cut last: a small nest's cut took its one priest, TASKS 1647)
-        // (TASKS 1943: a small prison's cut took its one skeleton, the rush's last entry) a hall's own monster is cut last too
-        const lim = Math.max(n, r.kind === 'ledge' ? 0 : own), keepOf = (q) => q[2] || (r.hall && q[0] === HL.kinds[r.hall].need); for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!keepOf(plan[i])) plan.splice(i, 1);
-        if (plan.length > lim) plan.length = lim; }
+        // (a ledge, TASKS 432, may hold a lone one)
+        const lead = r.hall ? plan.find((q) => q[0] === HL.kinds[r.hall].need) : null, lim = Math.max(n, r.kind === 'ledge' ? 0 : own);
+        trimPlan(plan, lead, lim); }
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;
       for (const [type0, where] of plan) { let type = type0, p = null;

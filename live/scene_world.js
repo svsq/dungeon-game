@@ -732,9 +732,10 @@
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
     for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([(e.coffinT !== undefined && GT - e.coffinT < D.COFFIN.rise ? Math.max(e.y, e.coffY + 1) : e.y) - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
     for (const p of R.drops) if (vis(p.x, p.y) && !hid(p)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
-    // during the strike the blade must read over the target it hits; with no foe there to hit he keeps his place (TASKS 2009: lifted
+    // during the strike the blade must read over the target it hits; with no foe or breakable there to hit he keeps his place (TASKS 2009: lifted
     // over everything below him, a hero swinging behind the town's altar popped in front of it at every click)
-    const struck = GT - h.atkT >= 0 && GT - h.atkT < 0.2 && R.en.some((e) => e.deadT < 0 && e.y > h.y && e.y - h.y < 90 && Math.abs(e.x - h.x) < (st.reach || 90) + 60);
+    const below = (o) => o.y > h.y && o.y - h.y < 90 && Math.abs(o.x - h.x) < (st.reach || 90) + 60;
+    const struck = GT - h.atkT >= 0 && GT - h.atkT < 0.2 && (R.en.some((e) => e.deadT < 0 && below(e)) || R.pots.some((p) => (p.hp > 0 || p.brokeT >= h.atkT) && below(p)) || m.decor.some((d) => d.n === 'wreck_cv' && (!d.broken || d.brokeT >= h.atkT) && below(d)));
     Y.push([h.y + (struck ? 90 : 0), () => {
       L.shadow(sx(h.x), sy(h.y) + 2 + DECK.dy, 20, 6, 0.85);
       // the cry's ring rolls out on the floor, under the hero (TASKS 1183: over him it cut his chest and head), when the shout comes

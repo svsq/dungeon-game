@@ -716,6 +716,15 @@
         put(); R.boomT = -9; const fz = S.t + 0.3, a5 = sk(140, { st: 'wind', t0: S.t, fuse: fz, sinkT: S.t });
         for (let i = 0; i < 120 * 0.6 && a5.deadT < 0; i++) step(S, { keys: [] });
         if (!a5.blown || Math.abs(a5.deadT - fz) > 2 * DT) out.push(`a lit smouldering skeleton sinking in the lava ${a5.blown ? 'bursts ' + (a5.deadT - fz).toFixed(2) + ' s off its ring' : 'never bursts'}`);
+        // (PR 79 review) one lit and falling into the chasm is gone with the fall, its fuse not held back by a blast just before its end
+        put(); R.boomT = -9; const fz6 = S.t + DOOM.fall + 0.2, a6 = sk(140, { st: 'wind', t0: S.t, fuse: fz6, fallT: S.t }); let boom6 = -1;
+        for (let i = 0; i < 120 * (DOOM.fall + 0.5) && boom6 < 0; i++) { if (Math.abs(S.t - (fz6 - 0.1)) < DT / 2) R.boomT = S.t; step(S, { keys: [] }); if (!(a6.fuse > 0)) boom6 = S.t; }
+        if (a6.deadT < 0 || a6.deadT > a6.fallT + DOOM.fall + 2 * DT) out.push('a lit smouldering skeleton falling into the chasm stays in the fight past the fall');
+        if (boom6 < 0 || Math.abs(boom6 - fz6) > 2 * DT) out.push(`a lit smouldering skeleton falling into the chasm ${boom6 < 0 ? 'never bursts' : 'bursts ' + (boom6 - fz6).toFixed(2) + ' s off its ring'}`);
+        // (PR 79 review) an explosive elite fallen into the chasm keeps BOOM_GAP after a blast put off by the hit-stop (TASKS 1051)
+        put(); R.boomT = -9; const fz7 = S.t + 0.2, a7 = el(['explosive'], 140, { deadT: S.t, fallT: S.t - DOOM.fall, fuse: fz7 }); let boom7 = -1, late7 = -1;
+        for (let i = 0; i < 120 && boom7 < 0; i++) { if (late7 < 0 && S.t >= fz7 - 0.1) late7 = R.boomT = S.t; step(S, { keys: [] }); if (!(a7.fuse > 0)) boom7 = S.t; }
+        if (boom7 < 0 || boom7 - late7 < 0.35 - DT / 2) out.push(`an explosive elite fallen into the chasm ${boom7 < 0 ? 'never bursts' : 'bursts ' + (boom7 - late7).toFixed(2) + ' s after another blast, under BOOM_GAP'}`);
         h.ifr = 0; }
       // the fire priest (TASKS 410): its ring falls where the hero stood, hurts him only after its warning and only if he stays, and
       // sets him alight; it sets alight the weapon of an ally in the fight near it, whose blows then hit harder and set the hero burning
@@ -1062,6 +1071,15 @@
       // (TASKS 1943) every hall keeps its own monster, `need`: the arrival's gap took run 169's 3rd floor's golem, a small prison's cut its skeleton
       for (const [sd, f] of [[169, 3], [12, 1], [15, 1], [21, 1], ...Array.from({ length: 10 }, (_, i) => [i + 1, (i % 3) + 1])]) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd });
         for (const r of m.rooms.filter((q) => q.hall)) if (!(f === 1 && HL.kinds[r.hall].early) && !m.enemies.some((e) => e.room === r.id && e.type === HL.kinds[r.hall].need)) out.push(`magma run ${sd} f${f}: the ${r.hall} hall without its ${HL.kinds[r.hall].need}`); }
+      // (TASKS 1647, PR 79 review) a nest keeps its fire priest once the roster has one: 1943's keeping of every smouldering one cut it
+      { let nests = 0; for (const sd of [11, 13, 20, 21, ...Array.from({ length: 10 }, (_, i) => i + 1)]) { const f = 3, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd });
+        if (!D.rosterAt('magma', f).includes('fire_priest')) { out.push('magma nests: no fire priest in the 3rd floor\'s roster to check'); break; }
+        for (const r of m.rooms.filter((q) => q.hall === 'nest')) { nests++; if (!m.enemies.some((e) => e.room === r.id && e.type === 'fire_priest')) out.push(`magma run ${sd} f${f}: the nest without its fire priest`); } }
+        if (nests < 5) out.push(`magma nests: ${nests} nests on the checked floors, too few to check the priest`); }
+      // (PR 79 review) the cut keeps the hall's leader past every keep entry: more of them than the pack's room dropped it silently
+      { const lead = ['lead', 0], trim = (plan, lim) => DG.trimPlan(plan, lead, lim), keep = (k) => ['keep' + k, 0, 1];
+        for (const [plan, lim, want] of [[[keep(1), lead, keep(2), keep(3)], 2, 1], [[lead, keep(1), keep(2), keep(3), ['x', 0]], 3, 2], [[['x', 0], lead, ['y', 0], keep(1)], 2, 1], [[keep(1), keep(2), lead], 1, 0]]) {
+          const got = trim(plan, lim); if (got.length !== lim || !got.includes(lead) || got.filter((q) => q[2]).length !== want) out.push(`magma halls: the pack's cut to ${lim} keeps ${got.map((q) => q[0]).join(',')}`); } }
       // (TASKS 1963) a terrace's way round joins the two banks of the crossing it is laid for (`of`), past its first and last rows
       for (const [seed, f, rs] of [[15918, 14, 56], [17654, 14, 112], [20837, 15, 182], [20692, 14, 210]]) { const m = DG.genFloor(seed, f, { mode: 'campaign', runSeed: rs, from: 1, town: 1 }), W = m.W, X = m.crossings, deck = new Set(X.flatMap((c) => c.cells)), cr = new Set(m.crust || []);
         if (!X.some((c) => c.bend)) out.push(`town run ${rs} f${f}: no way round a terrace's crossing to check`);

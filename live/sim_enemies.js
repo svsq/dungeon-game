@@ -373,7 +373,7 @@
     for (const e of R.en) {
       const E = ENEMIES[e.type];
       // (one blast at least BOOM_GAP after the last, TASKS 1051: a neighbour's set off by it burst at once, 3 in 1.3 s, 2 on one tick)
-      if (e.deadT >= 0) { if (e.fuse && t >= e.fuse && !held(S, R, e, E, 0)) blast(S, R, e); continue; }
+      if (e.deadT >= 0) { if (e.fuse && t >= e.fuse && ((E.boom && (e.fallT !== undefined || e.sinkT !== undefined)) || !held(S, R, e, E, 0))) blast(S, R, e); continue; }
       // the ice wave's chill (TASKS 1110) slows its walk and run (toward, steer, soak) until it thaws
       // and the archer's trap holds it where it stands (TASKS 1120)
       if (e.chillT !== undefined || e.rootT !== undefined) e.slowK = e.rootT > t ? 0 : e.chillT > t ? e.chillK ?? D.FROST.slow : 1;
@@ -390,10 +390,11 @@
           h.pull = { x: (e.x - h.x) / d, y: (e.y - h.y) / d, n, T: M.T, done: 0 }; ev(S, { k: 'tug', x: h.x, y: h.y, tx: e.x, ty: e.y, id: e.id }); } }
       // knocked off a plateau (TASKS 401): into the chasm it falls, in the lava it burns; either way it is gone in a moment
       // (TASKS 1865: a smouldering one knocked into the lava by a neighbour's blast sank without its own, and its ring lied) a lit fuse
-      // still burns down there and its blast is what ends it
+      // still burns down there and its blast is what ends it, never held back, its ring told true; gone from the fight when any faller
+      // is, its bones burst where it fell (PR 79 review)
       if (e.fallT !== undefined || e.sinkT !== undefined) { e.vx = e.vy = 0; const lit = E.kind === 'bomber' && e.st === 'wind' && e.fuse > 0;
-        if (lit && t >= e.fuse && !held(S, R, e, E, 1)) { e.blown = 1; blast(S, R, e); SIMX.killEnemy(S, R, e); }
-        else if (!lit && t >= (e.fallT ?? e.sinkT) + (e.fallT !== undefined ? SIMX.DOOM.fall : SIMX.DOOM.sink)) SIMX.killEnemy(S, R, e); continue; }
+        if (lit && t >= e.fuse) { e.blown = 1; blast(S, R, e); SIMX.killEnemy(S, R, e); }
+        else if (t >= (e.fallT ?? e.sinkT) + (e.fallT !== undefined ? SIMX.DOOM.fall : SIMX.DOOM.sink)) SIMX.killEnemy(S, R, e); continue; }
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
       if (e.face !== e.pf) { if (e.pf) e.ft = t; e.pf = e.face; }
       if (Math.hypot(e.vx, e.vy) < 4) e.d0 = e.dist;

@@ -75,7 +75,7 @@
   // whoever stood at the bottom edge there; how much of them is up
   const KEYS_T = 8, keysA = (S) => (S && S.screen === 'play' && S.run ? 1 - L.SS(KEYS_T - 1, KEYS_T, S.t - (S.run.enteredT ?? -1e9)) : 0);
   // the floor's card while it is up (TASKS 1951 в): an elite's plate under it gives way, its own name read over the card's
-  const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d) return null;
+  const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
     const one = lw('msg_m', R.msg.s, { size: 30 }) <= 1000, size = one ? 30 : 24, ls = one ? [R.msg.s] : wrapWords(R.msg.s, 660, size), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;

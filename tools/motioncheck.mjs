@@ -237,8 +237,9 @@ if (meta.tr.includes('imp_attack')) {
 if (meta.tr.includes('colossus_fists')) {
   const KNEE_N = 40, fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.colossus_fists; return Q.transitions.colossus_fists.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
     const o = LIB.TRACE[id] || null; LIB.TRACE = null; return o; }); });
-  const low = fr.filter((j) => j && ['L', 'R'].some((sd) => j['knee' + sd] && j['ankle' + sd] && j['knee' + sd][1] > j['ankle' + sd][1] + 2)).length;
-  report('kneeLow', 'colossus_fists', low < KNEE_N, `a knee 2 px and more under its ankle on ${low} of ${fr.length} frames (< ${KNEE_N})`); }
+  const both = (j) => j && ['L', 'R'].every((sd) => j['knee' + sd] && j['ankle' + sd]), seen = fr.filter(both).length;
+  const low = fr.filter((j) => both(j) && ['L', 'R'].some((sd) => j['knee' + sd][1] > j['ankle' + sd][1] + 2)).length;
+  report('kneeLow', 'colossus_fists', seen >= fr.length / 2 && low < KNEE_N, seen < fr.length / 2 ? `knees and ankles traced on only ${seen} of ${fr.length} frames` : `a knee 2 px and more under its ankle on ${low} of ${fr.length} frames (< ${KNEE_N})`); }
 // strikePeak (TASKS 1716, 1719): a claw is fastest on its blow, not on its lift: the hand's fastest frame falls in the strike
 if (meta.tr.includes('imp_claw')) {
   const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.imp_claw; return Q.transitions.imp_claw.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);

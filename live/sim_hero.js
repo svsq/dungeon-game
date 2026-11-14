@@ -155,7 +155,7 @@
     // a golem falls apart into a pool of lava (TASKS 409)
     if (E.pool && e.sinkT === undefined && e.fallT === undefined) { addFire(R, S, e.x, e.y, { src: e.id, who: who(e), r: E.pool.r, ry: E.pool.ry, t: E.pool.t, dmg: e.dmg * E.pool.dmg, per: E.pool.per, arm: E.pool.arm, kind: 'pool' }); ev(S, { k: 'pool', x: e.x, y: e.y, r: E.pool.r, d: E.pool.t, id: e.id }); }
     // a smouldering skeleton killed bursts too, unless it went off itself or into the lava or the chasm; one already lit keeps its fuse
-    if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = fuseEnd(R, S.t + E.boom.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: e.fuse - S.t, id: e.id }); } }
+    if (E.boom) { if (e.blown || ((e.fallT !== undefined || e.sinkT !== undefined) && !(e.st === 'wind' && e.fuse > S.t))) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = fuseEnd(R, S.t + E.boom.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: e.fuse - S.t, id: e.id }); } }
     else if (has(e, 'explosive')) { e.fuse = fuseEnd(R, S.t + MOD.explosive.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: e.fuse - S.t, id: e.id }); }
     ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id, elite: e.elite && !D.BOSSES[e.type] ? 1 : 0, boss: D.BOSSES[e.type] ? 1 : 0 }, e.quest ? { quest: e.quest } : {}, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // the last monster of a room down: the room is cleared (TASKS 1017, a quest's goal)
