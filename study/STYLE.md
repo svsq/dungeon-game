@@ -1,4 +1,4 @@
-# Паспорт стиля — «Глубины Крипты» (`ref.png`)
+# Паспорт стиля — «The Elder Deep» (`ref.png`)
 
 Цифры — замеры критиков по `ref.png` (`study/critique/fidelity_r5.md`, `frame_r4.md`, `study/study.json`), L* и C — CIELAB.
 Игровая область — концепт без нижних панелей постера.
