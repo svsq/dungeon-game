@@ -6,9 +6,11 @@
   const progs = {}, texs = {};
   let dropBinds = () => {};
 
-  G.init = (canvas, W, H) => {
+  // keep: the drawing buffer kept after the frame, for tools that read the canvas back (TASKS 2007: kept in the shipped build it cost a
+  // copy of the whole frame every frame on a weak GPU)
+  G.init = (canvas, W, H, { keep = true } = {}) => {
     canvas.width = W; canvas.height = H;
-    gl = G.gl = canvas.getContext('webgl2', { premultipliedAlpha: true, alpha: false, antialias: false, preserveDrawingBuffer: true });
+    gl = G.gl = canvas.getContext('webgl2', { premultipliedAlpha: true, alpha: false, antialias: false, preserveDrawingBuffer: keep });
     if (!gl) throw new Error('WebGL2 not available');
     gl.getExtension('EXT_color_buffer_float'); gl.getExtension('EXT_color_buffer_half_float'); gl.getExtension('OES_texture_float_linear');
     PAR = gl.getExtension('KHR_parallel_shader_compile');

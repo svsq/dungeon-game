@@ -433,7 +433,9 @@ float colAt(vec2 w, vec4 c, out vec2 f, float hw, float tl){ c.y += colDY(w, c, 
 const vec2 HEXR[6] = vec2[6](vec2(0.0, -2.0), vec2(1.0, -1.0), vec2(1.0, 1.0), vec2(0.0, 2.0), vec2(-1.0, 1.0), vec2(-1.0, -1.0));
 float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foot = 0.0; hwo = 13.0;
   vec2 G = vec2(96.0, 80.0), g0 = floor(w / G); float on = 0.0, by = -1e9;
-  for (int gy = -2; gy <= 0; gy++) for (int gx = -1; gx <= 1; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > smoothstep(0.24, 0.34, vnoise(g * 0.45 + 7.0))) continue;   // (TASKS 1628, the player's decision: more of them, the lake 75 % lit against 30–45)   // (in thickets and open reaches)
+  // (TASKS 1946: a split bundle's far half reaches 176 px aside and 50 px up out of its own cell, a pebble 23 px: with only the cells
+  // at and above w's looked at, those columns were cut flat on the grid's lines, faces standing in the lava without their caps)
+  for (int gy = -2; gy <= 1; gy++) for (int gx = -2; gx <= 2; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > smoothstep(0.24, 0.34, vnoise(g * 0.45 + 7.0))) continue;   // (TASKS 1628, the player's decision: more of them, the lake 75 % lit against 30–45)   // (in thickets and open reaches)
     // (TASKS 1715: one kind of clump in every cell stood as a grid, neighbour spacing σ/μ 0.20–0.31 against the concept's 0.47; now
     // a stepped massif, a scatter of low stepping stones or a bundle; nearly half the bundles split in two a little apart)
     float kind = hash(g + 12.9), massif = step(kind, 0.15), stones = step(0.15, kind) * step(kind, 0.3), split = (1.0 - massif - stones) * step(hash(g + 14.3), 0.45);

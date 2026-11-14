@@ -62,7 +62,7 @@ src="$ROOT"
 rm -rf "${DESK:?}/.pack"; mkdir -p "$DESK/.pack"
 if [ $head = 1 ]; then
   src="$DESK/.pack/src"; mkdir -p "$src"
-  git -C "$ROOT" archive HEAD live CHANGELOG.md tools/changelog.cjs tools/textcheck.cjs tools/layercheck.cjs tools/jsscan.cjs | tar -x -C "$src"
+  git -C "$ROOT" archive HEAD live CHANGELOG.md tools/changelog.cjs tools/textcheck.cjs tools/layercheck.cjs tools/jsscan.cjs tools/scenebox.cjs | tar -x -C "$src"
 elif ! git -C "$ROOT" diff --quiet HEAD -- live || [ -n "$(git -C "$ROOT" ls-files --others --exclude-standard live)" ]; then
   rev="$rev-dirty"
 fi
@@ -87,7 +87,8 @@ cd "$DESK"
 
 if [ "${targets[0]}" = run ]; then exec npx electron .; fi
 
-export CRYPT_REV="$ver-$rev"
+# file names carry the version only, so a release asset has the same name every time; a working-tree build is marked "-dirty"
+export CRYPT_REV="$ver"; case "$rev" in *-dirty) CRYPT_REV="$ver-dirty" ;; esac
 flags=(); win7=0
 for t in "${targets[@]}"; do if [ "$t" = win7 ]; then win7=1; else flags+=("--$t"); fi; done
 if [ ${#flags[@]} -gt 0 ]; then
@@ -101,9 +102,9 @@ if [ $win7 = 1 ]; then
     -c.artifactName='TheElderDeep-${env.CRYPT_REV}-win7-${arch}.${ext}' --publish never
 fi
 echo "== done"
-ls -lh release/ | grep "TheElderDeep-$CRYPT_REV" || true
+ls -lh release/ | grep -E "TheElderDeep-$CRYPT_REV-(mac|win|linux)" || true
 # this build's files and the feeds that name them: a feed left from another build or version is not uploaded
-files=(); for f in release/TheElderDeep-"$CRYPT_REV"-*; do [ -f "$f" ] && files+=("$f"); done
+files=(); for f in release/TheElderDeep-"$CRYPT_REV"-{mac,win,win7,linux}*; do [ -f "$f" ] && files+=("$f"); done
 for f in release/latest*.yml release/win7.yml; do [ -f "$f" ] && grep -q "TheElderDeep-$CRYPT_REV-" "$f" && files+=("$f"); done
 printf '  %s\n' "${files[@]}"
 if [ $publish = 1 ]; then

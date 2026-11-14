@@ -273,7 +273,9 @@
   // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
   // the chasm under a chain bridge (TASKS 429) is the dark: walked on, never ground
   const CHUND = new WeakMap(), chasmUnder = (m) => { let u = CHUND.get(m); if (!u) CHUND.set(m, u = new Set(m.chasmUnder || [])); return u; };
-  const STEPS = new WeakMap(), stepTex = (m) => { let q = STEPS.get(m); if (!q) STEPS.set(m, q = new Set(m.steps || [])); return maskTex(m, 'steps', (x, y) => q.has(y * m.W + x), null, 1); };
+  // (only a step with ground over it, TASKS 1946: one whose upper row had given way to the chasm stood as a bare face in the dark)
+  const STEPS = new WeakMap(), stepTex = (m) => { let q = STEPS.get(m); if (!q) { const all = new Set(m.steps || []), ground = (k) => { const v = m.cells[k]; return v !== undefined && v !== 0 && v !== 3 && v !== 4; };
+    q = new Set([...all].filter((k) => { let u = k - m.W; while (all.has(u)) u -= m.W; return ground(u); })); STEPS.set(m, q); } return maskTex(m, 'steps', (x, y) => q.has(y * m.W + x), null, 1); };
   const platTex = (m) => maskTex(m, 'plat', (x, y) => { const v = SIM.Q.cell(m, x, y); return v !== 0 && v !== 3 && v !== 4 && !chasmUnder(m).has(y * m.W + x); }, null, 1);
   // deep in a lake, where a cluster of columns may stand (TASKS 418): the cell and those round it and two below it open lava, no
   // crust, crossing or source within a few cells

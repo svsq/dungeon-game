@@ -51,7 +51,7 @@
   const isFull = (S) => S.saves.every((r, i) => r || (i === S.slot && (S.run || S.saved)));
   function loadSaves(S, P) { const n = D.SAVE_SLOTS, list = Array.isArray(P.saves) ? P.saves.slice(0, n) : [];
     S.saves = Array.from({ length: n }, (_, i) => (list[i] && list[i].map ? list[i] : null));
-    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateSecrets(R); SIMX.regate(R); }
+    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateSecrets(R); SIMX.mendArches(R); SIMX.regate(R); }
     S.slot = Number.isInteger(P.slot) && P.slot >= 0 && P.slot < n ? P.slot : 0;
     if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; }
     pickLatest(S); }

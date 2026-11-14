@@ -127,6 +127,11 @@
         const R = S.run, h = R.hero, long = (tier) => D.GIFTS.filter((g) => g.tier === tier).sort((a, b) => b.desc.length + b.name.length - a.desc.length - a.name.length)[0].id;
         R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [1, 2, 3].map((tier) => ({ id: long(tier), cost: bank > 999 ? 999 : D.giftCost(tier, 8) })) }]; R.altar = 0;
         S.meta.shards = bank; S.screen = 'altar'; S.hover = hv; if (bank < 999) S.ev.push({ k: 'nope', s: TXT('QA.states.s.2'), t: S.t - 0.2 }); })]),
+      // (TASKS 2018) the three longest texts of all, whatever their tier, at the widest price
+      ['altar_longest', play((S) => { const R = S.run, h = R.hero, G3 = D.GIFTS.filter((g) => !g.relic && !g.evo).sort((a, b) => b.desc.length - a.desc.length).slice(0, 3);
+        R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: G3.map((g) => ({ id: g.id, cost: 999 })) }]; R.altar = 0; S.meta.shards = 99999; S.screen = 'altar'; S.hover = 'gift:0'; })],
+      // (TASKS 2024) a big win's «+n» on its way into the gold counter, at the moments it nears and meets the counter's frame
+      ...[0.6, 0.7, 0.75, 0.8, 0.85].map((age) => ['gold_fly_' + Math.round(age * 100), play((S) => { const h = S.run.hero; h.gold = 7; S.ev.push({ k: 'gold', n: 999, x: h.x, y: h.y, t: S.t - age }); })]),
       ['altar_powers', play((S) => { const R = S.run, h = R.hero; h.powers = { whirl_pull: 1, dash_trail: 1, dash_strike: 1 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:1'; })],
       ['altar_relic', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }, { id: 'rl_fifth', cost: 180 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:3'; })],
       ['altar_rank', play((S) => { const R = S.run, h = R.hero; h.perks = { fury: 2 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, rolls: 2, gifts: [{ id: 'bless', cost: 9 }, { id: 'crit', cost: 50 }, { id: 'fury', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'reroll'; })],
@@ -152,6 +157,9 @@
       ...[1, 2, 3].map((tier) => ['mimic_shut' + (tier === 2 ? '' : '_t' + tier), play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.chests.push({ x: h.x + 90, y: h.y - 20, tier, open: 0, mimic: 1 }); })]),
       // broken pots, vases, crates and barrels: in the air, and lying a while later (TASKS 1352)
       ...[['debris_air', 0.15], ['debris_hop', 0.6], ['debris_rest', 5]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); ['pot', 'vase_a', 'vase_b', 'crate', 'barrel'].forEach((kind, i) => { const p = { x: h.x + (i - 2) * 66, y: h.y - 46 + (i % 2) * 22, kind, hp: 0, brokeT: S.t - a }; R.pots.push(p); S.ev.push({ k: 'break', x: p.x, y: p.y, kind, t: p.brokeT }); }); })]),
+      // PR 79 review (TASKS 2009): a swing down at a crate with no foe about still draws the blade over the crate
+      ['strike_crate', play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); R.pots.push({ x: h.x + 14, y: h.y + 28, kind: 'crate', hp: 1 });
+        const T = SIM.K.HIT; h.atkT = S.t - T; h.aim = h.atkA = Math.PI / 2; h.face = 1; S.ev.push({ k: 'swing', t: S.t - T, x: h.x, y: h.y, a: h.aim, f: 1 }); })],
       // a smashed wreck's planks on the shore (TASKS 1361)
       ...[['wreck_broken', 5], ['wreck_breaking', 0.25]].map(([id, age]) => [id, play((S) => { for (let sd = 1; sd < 200; sd++) { const R0 = SIM.newRun(S, 'cave', 1361 + sd), d = R0.map.decor.find((o) => o.n === 'wreck_cv'); if (!d) continue; S.run = R0; const h = R0.hero; h.x = d.x + 90; h.y = d.y + 40; d.broken = 1; d.brokeT = S.t - age; d.solid = 0; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; break; } })]),
       // a skeleton climbing out of a struck coffin (TASKS 1353)
@@ -749,6 +757,12 @@
     { const S = play(); plainMagma(S); S.screen = 'play';
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['zone_magma', S]); }
+    // TASKS 1951 в: the critic's tl_21f15_n180 (campaign via the town, seed 21, floor 15, 1.5 s in), the floor's card up over an
+    // elite's plate: the plate gives way while the card stands
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 21, { town: true }); S.screen = 'play'; SIM.enterFloor(S, S.run, 15);
+      for (let i = 0; i < 180; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); states.push(['card_over_elite', S]); }
+    // TASKS 1951 б: the same past the key hints' first seconds, the plate faded, whoever stands at the bottom right edge in view
+    { const S = structuredClone(states.find(([name]) => name === 'zone_magma')[1]); S.run.enteredT = S.t - 20; states.push(['zone_magma_late', S]); }
     // the magma caves' look (TASKS 402): a plateau backing onto the top wall, its face over the chasm and the lava below; a ridge
     // with the drop on both sides
     { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
@@ -847,6 +861,13 @@
       let hy = y - 3 * TILE; for (let j = 2; j < 8; j++) if (SIM.cell(m, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1) { hy = y - j * TILE; break; }
       h.x = x; h.y = hy; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; states.push(['magma_terrace_step', S]); break; }
+    // TASKS 1946: the critic's bend_s5_f14 (campaign via the town, seed 35, floor 14), a lake's split bundles beside a terrace bend:
+    // every column standing in the lava has its cap, none cut flat on the islands' grid lines
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 35, { town: true }); S.screen = 'play'; SIM.enterFloor(S, S.run, 14);
+      const R = S.run, m = R.map, h = R.hero, B = (m.crossings || []).find((c) => c.bend);
+      if (B) { const k = B.cells[Math.floor(B.cells.length / 2)]; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE;
+        R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 900); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+        R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; states.push(['magma_bend_lake', S]); } }
     // TASKS 431: a lava cave, the camera on a way over a stream of lava across a tunnel
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'cave') m = S.run.map; } if (!m) continue;
@@ -1535,6 +1556,9 @@
     states.push(['shop_wander', climbS(5, (S, R, m, h) => { R.shop = SIM.stockShopFor(R, 5, 'wander'); R.shop.line = 3; S.screen = 'shop'; S.hover = 'buy:0'; })]);
     // the Altar of Souls on the square (TASKS 1011): its prompt, and its screen opened there mid-run
     states.push(['town_altar_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; })]);
+    // TASKS 2009: the hero behind the altar, standing and mid-swing, is behind it in both, its candle flames over him, not holes in him
+    for (const [nm, sw] of [['town_altar_behind', 0], ['town_altar_behind_swing', 1]]) states.push([nm, climbS(0, (S, R, m, h) => { const A = m.town.svc.altar; h.x = A.x + 12; h.y = A.y - 20; h.back = 1;
+      if (sw) { const T = SIM.K.HIT; h.atkT = S.t - T; h.aim = h.atkA = Math.PI / 2; h.face = 1; S.ev.push({ k: 'swing', t: S.t - T, x: h.x, y: h.y, a: h.aim, f: 1 }); } })]);
     states.push(['fork', fx((S, R, h) => { R.hero.cls = 'mage'; R.hero.ab = { fireball: 3, shield: 1, frost: 0 }; S.screen = 'fork'; S.hover = 'fork:1'; })]);
     // TASKS 1857: a card lit by the first press and sealed (the pointer gone to the other, which stays unlit); a warrior's fork whose
     // two ways carry the potion icons; on the hero's page what a point and the next rank give, and a visit's points with «Сбросить»
@@ -1773,6 +1797,8 @@
     // what clampCam gives the town at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [-64, 52]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [-64, 52]; })]);
+    // TASKS 2006: the hero pressed against the gate from the yard, square on and from the side, is behind it, never on its masonry
+    for (const [nm, dx] of [['town_gate_behind', 0], ['town_gate_behind_side', -44]]) states.push([nm, climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x + dx; h.y = g.y + 12; h.back = 1; })]);
     // an event room (TASKS 361): the probe, asked for on the 1st floor; its prompt at the spot, its question with «Нет» in focus and «Да» lit
     for (const [nm, scr, fo] of [['event_prompt', 'play', ''], ['event_ask', 'event', 'evNo'], ['event_ask_yes', 'event', 'evYes']]) { const S = play((S) => { const R = S.run; SIM.enterFloor(S, R, 1, { events: ['probe'] }); const E = R.events[0]; if (!E) return;
       R.en = []; R.msg = null; R.hero.x = E.x; R.hero.y = E.y + 20; R.seen = R.seen.map(() => 1); R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; R.evAsk = 0; S.screen = scr; S.focus = fo; S.hover = fo; }); if (S.run.events && S.run.events.length) states.push([nm, S]); }

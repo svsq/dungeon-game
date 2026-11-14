@@ -200,6 +200,8 @@
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
       SIMX.hitEnemy(S, R, o, Math.max(1, Math.round(B ? o.max * B.mon : e.max * 0.25)), false, e.x, e.y, 1.5); }
     SIMX.breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
+  function held(S, R, e, E, lit) { const t = S.t; if (!(t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP)) return false;
+    e.fuse = R.boomT + BOOM_GAP; ev(S, Object.assign({ k: 'fuse', x: e.x, y: e.y, r: (E.boom || MOD.explosive).r, d: e.fuse - t, id: e.id }, lit ? { lit: 1 } : {})); return true; }
   // a smouldering skeleton lights its fuse: it stands hissing through the wind-up and bursts at its end (stepMonsters)
   function fuse(S, R, e) { const E = ENEMIES[e.type]; if (e.st === 'wind' || e.deadT >= 0) return; const d = windOf(e, E.wind);
     e.st = 'wind'; e.t0 = S.t; e.fuse = fuseEnd(R, S.t + d); e.aimA = Math.atan2(R.hero.y - e.y, R.hero.x - e.x); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: e.fuse - S.t, id: e.id, lit: 1 }); }
@@ -371,7 +373,7 @@
     for (const e of R.en) {
       const E = ENEMIES[e.type];
       // (one blast at least BOOM_GAP after the last, TASKS 1051: a neighbour's set off by it burst at once, 3 in 1.3 s, 2 on one tick)
-      if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: (ENEMIES[e.type].boom || MOD.explosive).r, d: e.fuse - t, id: e.id }); } else blast(S, R, e); } continue; }
+      if (e.deadT >= 0) { if (e.fuse && t >= e.fuse && ((E.boom && (e.fallT !== undefined || e.sinkT !== undefined)) || !held(S, R, e, E, 0))) blast(S, R, e); continue; }
       // the ice wave's chill (TASKS 1110) slows its walk and run (toward, steer, soak) until it thaws
       // and the archer's trap holds it where it stands (TASKS 1120)
       if (e.chillT !== undefined || e.rootT !== undefined) e.slowK = e.rootT > t ? 0 : e.chillT > t ? e.chillK ?? D.FROST.slow : 1;
@@ -387,14 +389,19 @@
         if (n > 0 && heroOk && e.fallT === undefined && e.sinkT === undefined && losClear(m, e.x, e.y - 10, h.x, h.y - 10) && !(t - h.dashT < BAL.dodge.t)) {
           h.pull = { x: (e.x - h.x) / d, y: (e.y - h.y) / d, n, T: M.T, done: 0 }; ev(S, { k: 'tug', x: h.x, y: h.y, tx: e.x, ty: e.y, id: e.id }); } }
       // knocked off a plateau (TASKS 401): into the chasm it falls, in the lava it burns; either way it is gone in a moment
-      if (e.fallT !== undefined || e.sinkT !== undefined) { e.vx = e.vy = 0; if (t >= (e.fallT ?? e.sinkT) + (e.fallT !== undefined ? SIMX.DOOM.fall : SIMX.DOOM.sink)) SIMX.killEnemy(S, R, e); continue; }
+      // (TASKS 1865: a smouldering one knocked into the lava by a neighbour's blast sank without its own, and its ring lied) a lit fuse
+      // still burns down there and its blast is what ends it, never held back, its ring told true; gone from the fight when any faller
+      // is, its bones burst where it fell (PR 79 review)
+      if (e.fallT !== undefined || e.sinkT !== undefined) { e.vx = e.vy = 0; const lit = E.kind === 'bomber' && e.st === 'wind' && e.fuse > 0;
+        if (lit && t >= e.fuse) { e.blown = 1; blast(S, R, e); SIMX.killEnemy(S, R, e); }
+        else if (t >= (e.fallT ?? e.sinkT) + (e.fallT !== undefined ? SIMX.DOOM.fall : SIMX.DOOM.sink)) SIMX.killEnemy(S, R, e); continue; }
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
       if (e.face !== e.pf) { if (e.pf) e.ft = t; e.pf = e.face; }
       if (Math.hypot(e.vx, e.vy) < 4) e.d0 = e.dist;
       if (E.kind === 'eel') { eel(S, R, e, E, heroOk, d); continue; }
       if (E.kind === 'serpent') { serpent(S, R, e, heroOk); continue; }
       if (E.lake && (e.st === 'idle' || e.st === 'emerge' || e.st === 'wade')) { SIMX.colossusRise(S, R, e); continue; }
-      if (E.kind === 'bomber' && e.st === 'wind') { skid(m, e, E); if (t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom ? E.boom.r : MOD.explosive.r, d: e.fuse - t, id: e.id, lit: 1 }); } else { e.blown = 1; blast(S, R, e); SIMX.killEnemy(S, R, e); } } continue; }
+      if (E.kind === 'bomber' && e.st === 'wind') { skid(m, e, E); if (t >= e.fuse && !held(S, R, e, E, 1)) { e.blown = 1; blast(S, R, e); SIMX.killEnemy(S, R, e); } continue; }
       // (when it went into the lava or came out of it, for the render's ease between swimming and walking)
       if (E.kind === 'salamander') { const on = onLava(m, e) ? 1 : 0; if ((e.lv || 0) !== on) { e.lv = on; e.lvT = t; } }
       if (e.st === 'leap') { leapStep(S, R, e, E); continue; }
@@ -542,13 +549,16 @@
   function idle(m, e, E, t) {
     const per = 6 + (e.id % 5), u = (t + e.id * 2.3) % per, n = Math.floor((t + e.id * 2.3) / per);
     e.vx = e.vy = 0;
-    if (u > 3.2 && u < 3.2 + AMB_T && e.hx !== undefined && !E.ghost && E.amble !== 0 && (!e.amb || e.amb.n !== n)) {
+    if (u > 3.2 && u < 3.2 + AMB_T && e.hx !== undefined && !E.ghost && E.kind !== 'hop' && E.amble !== 0 && (!e.amb || e.amb.n !== n)) {
       const a = n * 2.4 + e.id, gx = e.hx + Math.cos(a) * 14, gy = e.hy + Math.sin(a) * 8, trial = { x: e.x, y: e.y };
       move(m, trial, gx - e.x, gy - e.y, E.r, true);
-      if (Math.hypot(trial.x - e.x, trial.y - e.y) > 3) e.amb = { n, t, x0: e.x, y0: e.y, x1: trial.x, y1: trial.y };
-      else e.amb = { n, t: -9, x0: e.x, y0: e.y, x1: e.x, y1: e.y }; }
+      if (Math.hypot(trial.x - e.x, trial.y - e.y) > 3) { e.amb = { n, t, k: 0, x0: e.x, y0: e.y, x1: trial.x, y1: trial.y }; if (Math.abs(trial.x - e.x) > 2) e.face = trial.x > e.x ? 1 : -1; }
+      else e.amb = { n, t: -9, k: 0, x0: e.x, y0: e.y, x1: e.x, y1: e.y }; }
     const A = e.amb, w = A && A.n === n ? (t - A.t) / AMB_T : 2;
-    if (w >= 0 && w <= 1) { const k = w * w * (3 - 2 * w); move(m, e, A.x0 + (A.x1 - A.x0) * k - e.x, A.y0 + (A.y1 - A.y0) * k - e.y, E.r, true); }
+    // (TASKS 1969: set to the absolute point of the path, a shove inside the step was undone and the foe sprang back) the path is carried
+    // along with whatever moved the body, and only the step's own part is walked
+    if (w >= 0 && w <= 1) { const k = w * w * (3 - 2 * w), k0 = A.k || 0, ox = e.x - (A.x0 + (A.x1 - A.x0) * k0), oy = e.y - (A.y0 + (A.y1 - A.y0) * k0);
+      A.x0 += ox; A.x1 += ox; A.y0 += oy; A.y1 += oy; A.k = k; move(m, e, (A.x1 - A.x0) * (k - k0), (A.y1 - A.y0) * (k - k0), E.r, true); }
     if (u > 1.1 && u < 1.2) e.face = n % 2 ? 1 : -1; else if (u > 4.4 && u < 4.5) e.face = n % 2 ? -1 : 1;
   }
   function goHome(m, e, E, t) {

@@ -217,7 +217,7 @@
     // up from below the campaign's last floor: by its own stairs on (TASKS 514), not its portal out
     if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     // (in the magma wall he steps out a cell lower and aside, TASKS 1930: straight below the opening he hid its steps)
-    else if (how === 'down' && m.up) [hx, hy] = m.biome === 'magma' && !m.up.free ? standNear(R, m.up.x + 34, m.up.y + 46 + D.TILE) : standNear(R, m.up.x, m.up.y + 46);
+    else if (how === 'down' && m.up) [hx, hy] = standNear(R, ...DG.arrivalAt(m.up, m.biome));
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null; h.volleyT = null;
@@ -354,6 +354,10 @@
   function shelfLoad(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); delete q.hinge; delete q.held; if (!d) { delete q.slide; return; }
     const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = q.slide ? k0 + q.slide.s * q.slide.n : k0; delete q.slide; d.x = q.x;
     m.block = m.block.filter((b) => b !== k0 && b !== k1); if (q.open) { d.solid = 0; d.broken = 1; d.brokeT = -9; } else { d.solid = 1; delete d.broken; delete d.brokeT; m.block.push(k0); } }
+  // (TASKS 1944) a floor laid before GEN_VERSION 24 may hold a lava arch with no legs on the crust, which the scene drew as an arch
+  // over dry floor: the floor in play lies in the save, not in the memo the version rebuilds, so it is turned to slabs as the
+  // generator turns it now (dungeon_fill.js, PR 64 review)
+  function mendArches(R) { const m = R && R.map; if (!m || !m.crossings || !m.cells) return; for (const c of m.crossings) if (c.kind === 'arch' && c.lava && !DG.archLegs(m, c)) c.kind = 'slabs'; }
   function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
   function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
     if (MASK.key === key) return MASK.set; const set = new Set();
@@ -381,5 +385,5 @@
 
   Object.assign(SIMX, {
     migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets });
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);

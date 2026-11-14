@@ -712,6 +712,19 @@
         if (Math.abs(nearM.max - nearM.hp - Math.round(nearM.max * B.mon)) > 1) out.push(`a smouldering skeleton's blast takes ${nearM.max - nearM.hp} of a monster's ${nearM.max} in reach, not ${B.mon * 100}%`);
         if (farM.hp < farM.max) out.push("a smouldering skeleton's blast hurts a monster out of reach");
         if (!(a4.fuse > S.t - 0.1)) out.push("a smouldering skeleton's blast does not set off another in reach");
+        // (TASKS 1865) one lit and sinking in the lava bursts at its ring's end, not never
+        put(); R.boomT = -9; const fz = S.t + 0.3, a5 = sk(140, { st: 'wind', t0: S.t, fuse: fz, sinkT: S.t });
+        for (let i = 0; i < 120 * 0.6 && a5.deadT < 0; i++) step(S, { keys: [] });
+        if (!a5.blown || Math.abs(a5.deadT - fz) > 2 * DT) out.push(`a lit smouldering skeleton sinking in the lava ${a5.blown ? 'bursts ' + (a5.deadT - fz).toFixed(2) + ' s off its ring' : 'never bursts'}`);
+        // (PR 79 review) one lit and falling into the chasm is gone with the fall, its fuse not held back by a blast just before its end
+        put(); R.boomT = -9; const fz6 = S.t + DOOM.fall + 0.2, a6 = sk(140, { st: 'wind', t0: S.t, fuse: fz6, fallT: S.t }); let boom6 = -1;
+        for (let i = 0; i < 120 * (DOOM.fall + 0.5) && boom6 < 0; i++) { if (Math.abs(S.t - (fz6 - 0.1)) < DT / 2) R.boomT = S.t; step(S, { keys: [] }); if (!(a6.fuse > 0)) boom6 = S.t; }
+        if (a6.deadT < 0 || a6.deadT > a6.fallT + DOOM.fall + 2 * DT) out.push('a lit smouldering skeleton falling into the chasm stays in the fight past the fall');
+        if (boom6 < 0 || Math.abs(boom6 - fz6) > 2 * DT) out.push(`a lit smouldering skeleton falling into the chasm ${boom6 < 0 ? 'never bursts' : 'bursts ' + (boom6 - fz6).toFixed(2) + ' s off its ring'}`);
+        // (PR 79 review) an explosive elite fallen into the chasm keeps BOOM_GAP after a blast put off by the hit-stop (TASKS 1051)
+        put(); R.boomT = -9; const fz7 = S.t + 0.2, a7 = el(['explosive'], 140, { deadT: S.t, fallT: S.t - DOOM.fall, fuse: fz7 }); let boom7 = -1, late7 = -1;
+        for (let i = 0; i < 120 && boom7 < 0; i++) { if (late7 < 0 && S.t >= fz7 - 0.1) late7 = R.boomT = S.t; step(S, { keys: [] }); if (!(a7.fuse > 0)) boom7 = S.t; }
+        if (boom7 < 0 || boom7 - late7 < 0.35 - DT / 2) out.push(`an explosive elite fallen into the chasm ${boom7 < 0 ? 'never bursts' : 'bursts ' + (boom7 - late7).toFixed(2) + ' s after another blast, under BOOM_GAP'}`);
         h.ifr = 0; }
       // the fire priest (TASKS 410): its ring falls where the hero stood, hurts him only after its warning and only if he stays, and
       // sets him alight; it sets alight the weapon of an ally in the fight near it, whose blows then hit harder and set the hero burning
@@ -1055,6 +1068,40 @@
           if (!(f === 1 && K.early) && !m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`);
           if (f === 1 && K.early && !m.enemies.some((e) => e.room === r.id)) out.push(`${tag}: the ${r.hall} hall without a pack`); } }
       for (const k of Object.keys(HL.kinds)) if (!kinds[k]) out.push(`magma halls: no ${k} hall in 10 runs`);
+      // (TASKS 1943) every hall keeps its own monster, `need`: the arrival's gap took run 169's 3rd floor's golem, a small prison's cut its skeleton
+      for (const [sd, f] of [[169, 3], [12, 1], [15, 1], [21, 1], ...Array.from({ length: 10 }, (_, i) => [i + 1, (i % 3) + 1])]) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd });
+        for (const r of m.rooms.filter((q) => q.hall)) if (!(f === 1 && HL.kinds[r.hall].early) && !m.enemies.some((e) => e.room === r.id && e.type === HL.kinds[r.hall].need)) out.push(`magma run ${sd} f${f}: the ${r.hall} hall without its ${HL.kinds[r.hall].need}`); }
+      // (TASKS 1647, PR 79 review) a nest keeps its fire priest once the roster has one: 1943's keeping of every smouldering one cut it
+      { let nests = 0; for (const sd of [11, 13, 20, 21, ...Array.from({ length: 10 }, (_, i) => i + 1)]) { const f = 3, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd });
+        if (!D.rosterAt('magma', f).includes('fire_priest')) { out.push('magma nests: no fire priest in the 3rd floor\'s roster to check'); break; }
+        for (const r of m.rooms.filter((q) => q.hall === 'nest')) { nests++; if (!m.enemies.some((e) => e.room === r.id && e.type === 'fire_priest')) out.push(`magma run ${sd} f${f}: the nest without its fire priest`); } }
+        if (nests < 5) out.push(`magma nests: ${nests} nests on the checked floors, too few to check the priest`); }
+      // (PR 79 review) the cut keeps the hall's leader past every keep entry: more of them than the pack's room dropped it silently
+      { const lead = ['lead', 0], trim = (plan, lim) => DG.trimPlan(plan, lead, lim), keep = (k) => ['keep' + k, 0, 1];
+        for (const [plan, lim, want] of [[[keep(1), lead, keep(2), keep(3)], 2, 1], [[lead, keep(1), keep(2), keep(3), ['x', 0]], 3, 2], [[['x', 0], lead, ['y', 0], keep(1)], 2, 1], [[keep(1), keep(2), lead], 1, 0]]) {
+          const got = trim(plan, lim); if (got.length !== lim || !got.includes(lead) || got.filter((q) => q[2]).length !== want) out.push(`magma halls: the pack's cut to ${lim} keeps ${got.map((q) => q[0]).join(',')}`); } }
+      // (TASKS 1963) a terrace's way round joins the two banks of the crossing it is laid for (`of`), past its first and last rows
+      for (const [seed, f, rs] of [[15918, 14, 56], [17654, 14, 112], [20837, 15, 182], [20692, 14, 210]]) { const m = DG.genFloor(seed, f, { mode: 'campaign', runSeed: rs, from: 1, town: 1 }), W = m.W, X = m.crossings, deck = new Set(X.flatMap((c) => c.cells)), cr = new Set(m.crust || []);
+        if (!X.some((c) => c.bend)) out.push(`town run ${rs} f${f}: no way round a terrace's crossing to check`);
+        for (const of of new Set(X.filter((c) => c.bend).map((c) => c.of))) { const B = X.find((c) => !c.bend && c.cells.includes(of)); if (!B) { out.push(`town run ${rs} f${f}: a way round for no crossing at ${of}`); continue; }
+          const Bc = new Set(B.cells), along = (k) => (B.axis === 'x' ? k % W : Math.floor(k / W)), lo = Math.min(...B.cells.map(along)), hi = Math.max(...B.cells.map(along)), st = B.axis === 'x' ? 1 : W;
+          const ends = [[lo, -st], [hi, st]].map(([v, o]) => B.cells.filter((k) => along(k) === v).map((k) => k + o).find((n) => m.cells[n] === 1 && !Bc.has(n)));
+          if (ends.some((k) => k === undefined)) { out.push(`town run ${rs} f${f}: the crossing at ${of} has no bank past an end`); continue; }
+          const d = new Int32Array(W * m.H).fill(-1), q = [ends[0]]; d[ends[0]] = 0;
+          for (let i = 0; i < q.length && d[ends[1]] < 0; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && (m.cells[n] === 1 || deck.has(n) || cr.has(n)) && !Bc.has(n)) { d[n] = d[q[i]] + 1; q.push(n); } }
+          if (d[ends[1]] < 0) out.push(`town run ${rs} f${f}: the way round the crossing at ${of} does not join its two banks`); } }
+      // (TASKS 1958) the arrival's gap is kept round where the hero comes out of the stairs (DG.arrivalAt), not the old spot by the opening
+      for (const [sd, f] of [[203, 14], [14, 14], [21, 13], [35, 15]]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: true }); enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero;
+        if (!m.up) { out.push(`town run ${sd} f${f}: no stairs up to check the arrival's gap by`); continue; } const [ax, ay] = DG.arrivalAt(m.up, m.biome); if (Math.hypot(h.x - ax, h.y - ay) > 1.5 * TILE) out.push(`town run ${sd} f${f}: the hero comes out ${Math.round(Math.hypot(h.x - ax, h.y - ay))} px off the arrival spot`);
+        for (const e of R.en) if (e.deadT < 0 && e.key === undefined && Math.hypot(e.x - ax, e.y - ay) < 9 * TILE) out.push(`town run ${sd} f${f}: a ${e.type} ${(Math.hypot(e.x - ax, e.y - ay) / TILE).toFixed(1)} cells from the arrival`); }
+      // (TASKS 1944) a save laid before GEN_VERSION 24 with a lava arch standing on dry floor is loaded with slabs there, as a run in play
+      // and as a slot's run
+      { let done = 0; for (let sd = 1; sd <= 6 && !done; sd++) for (let f = 1; f <= 3 && !done; f++) { const S = spawn(0, {}); S.run = newRun(S, 'magma', sd); if (f > 1) enterFloor(S, S.run, f);
+        const m = S.run.map, i = m.crossings.findIndex((c) => c.lava && c.kind === 'slabs' && c.axis === 'x' && !DG.archLegs(m, Object.assign({}, c, { kind: 'arch' }))); if (i < 0) continue; done = 1;
+        m.crossings[i].kind = 'arch'; const old = JSON.parse(JSON.stringify(S.run)), S2 = spawn(0, { run: old, saves: [JSON.parse(JSON.stringify(old))] });
+        if (S2.saved.map.crossings[i].kind !== 'slabs') out.push(`magma run ${sd} f${f}: a saved run's arch with no legs is not loaded as slabs`);
+        const sl = S2.saves.find(Boolean); if (sl && sl.map.crossings[i].kind !== 'slabs') out.push(`magma run ${sd} f${f}: a slot's arch with no legs is not loaded as slabs`); }
+        if (!done) out.push('saves: no magma floor with lava slabs across to check an old arch on'); }
       // (TASKS 1920, PR 64 review) no shooter within the calm of a gate, and a hall within it keeps its own monster: run 310's 3rd floor's
       // sanctum lost its priest. Built through newRun and enterFloor, as a run builds them, so the floor checked is the one played
       const G = D.HAZ.vent.gate; for (const [sd, f] of [[310, 3], ...Array.from({ length: 12 }, (_, i) => [i + 1, (i % 3) + 1])]) { const S = spawn(0, {}); S.run = newRun(S, 'magma', sd); if (f > 1) enterFloor(S, S.run, f);
@@ -1071,7 +1118,15 @@
         for (let t = 0; t < 30 && !(A && t > A.t + D.AMB_T + 0.5); t += DT) { const x = e.x, y = e.y; SIMX.idle(m, e, ENEMIES[e.type], t); if (!A && e.amb && e.amb.t >= 0) A = e.amb; if (Math.hypot(e.x - x, e.y - y) > 1e-6) moved.push(t); }
         if (!A) out.push(`amble: a ${e.type} at its post never steps`);
         else { if (moved.some((t) => t < A.t - 1e-9 || t > A.t + D.AMB_T + DT)) out.push(`amble: a ${e.type}'s step runs outside its ${D.AMB_T} s`);
-          if (Math.hypot(e.x - A.x1, e.y - A.y1) > 0.5) out.push(`amble: a ${e.type}'s step does not end on its far spot`); } } }
+          if (Math.hypot(e.x - A.x1, e.y - A.y1) > 0.5) out.push(`amble: a ${e.type}'s step does not end on its far spot`); } }
+      // (TASKS 1969) a shove inside the step stays; the foe looks the way it steps; a hopper, with no legs to plant, keeps still
+      if (e) { const Y = spawn(0, {}); Y.run = newRun(Y, 'magma', 7); const f = Y.run.en.find((o) => o.id === e.id); f.hx = f.x; f.hy = f.y; let B = null, x1 = 0, y1 = 0, pushed = 0;
+        for (let t = 0; t < 30 && !(B && t > B.t + D.AMB_T + 0.5); t += DT) { SIMX.idle(Y.run.map, f, ENEMIES[f.type], t);
+          if (!B && f.amb && f.amb.t >= 0) { B = f.amb; x1 = B.x1; y1 = B.y1; if (Math.abs(B.x1 - B.x0) > 2 && f.face !== (B.x1 > B.x0 ? 1 : -1)) out.push(`amble: a ${f.type} steps one way and looks the other`); }
+          if (B && !pushed && t > B.t + D.AMB_T / 2) { pushed = 1; f.y += 6; } }
+        if (B && Math.abs(f.y - (y1 + 6)) > 0.5) out.push(`amble: a ${f.type} shoved inside its step springs back (${(f.y - y1).toFixed(1)} px of 6 kept)`);
+        const H = spawn(0, {}); H.run = newRun(H, 'magma', 7); const hm = H.run.map, sl = { id: 7, type: 'slime', x: f.hx, y: f.hy, hx: f.hx, hy: f.hy, vx: 0, vy: 0, face: 1, dist: 0 };
+        for (let t = 0; t < 12; t += DT) { SIMX.idle(hm, sl, ENEMIES.slime, t); if (Math.hypot(sl.x - sl.hx, sl.y - sl.hy) > 1e-6) { out.push('amble: a slime slides about its post with no hop'); break; } } } }
     // (TASKS 1054) a chasm floor's way over has another on half of them and more; a hoard's islet is a chest of the 3rd tier past a run of
     // rocks down its strip of crust
     { let n = 0, alt = 0, isl = 0; const walk = (m, ban) => { const W = m.W, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
@@ -1377,6 +1432,9 @@
       if (m.enemies.length > D.RUNS.endless.cap) out.push(`descent seed ${sd} f${f}: ${m.enemies.length} monsters, over the cap ${D.RUNS.endless.cap}`);
       (m.locks || []).forEach((L, li) => { if (L.kind === 'key' && !m.enemies.some((e) => e.key === li) && !m.chests.some((c) => c.key === li)) out.push(`descent seed ${sd} f${f}: lock ${li} with no key on the floor`); });
       if (ST.biome !== 'magma' && (m.W > D.RUNS.endless.size.to[0] || m.H > D.RUNS.endless.size.to[1])) out.push(`descent seed ${sd} f${f}: a ${m.W}×${m.H} map over ${D.RUNS.endless.size.to.join('×')}`); }
+    // TASKS 1871: the clearing round the stairs spares a key's bearer on the campaign's floors, through the town or not, as the cut does
+    for (const town of [0, 1]) for (const sd of [1, 77, 4242]) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, from: 1, town });
+      (m.locks || []).forEach((L, li) => { if (L.kind === 'key' && m.enemies.filter((e) => e.key === li).length + m.chests.filter((c) => c.key === li).length !== 1) out.push(`campaign${town ? ' via town' : ''} seed ${sd} f${f}: lock ${li} without its one key`); }); }
     { const end = BAL.deep.end, top = [D.hpAt(end), D.dmgAt(end), D.dmgAt(end, 1)], st = (f) => D.stageOf('endless', f, 7, 17);
       for (const f of [end + 1, end + 2, 100, 1000, 1e6, 1e12]) { if ([D.hpAt(f), D.dmgAt(f), D.dmgAt(f, 1)].some((v, i) => v !== top[i] || !Number.isFinite(v))) out.push(`deep f${f}: monsters grow past the end of the growth`);
         if (f > 1000) continue; const a = st(f), b = st(end); if (a.elite !== b.elite || a.pop !== b.pop || a.cd !== b.cd || D.deepAxis(f, 'blow') !== D.deepAxis(end, 'blow')) out.push(`deep f${f}: an axis grows past the end of the growth`);
@@ -1981,9 +2039,12 @@
         { const e = crab({ cdT: 99, rushT: 99 }); h.x = x0 - 120; for (let i = 0; i < 60; i++) step(S, quiet); const turned = Math.abs(e.fa);
           if (!(turned > 0.2 && turned <= E.turn * 0.5 + 0.02)) out.push(`crab: turns ${turned.toFixed(2)} rad in 0.5 s, not up to ${E.turn * 0.5}`); }
         // the pinch: a hero before it is hurt; one behind it is not, for the second it takes to turn even half way
-        // (a pinch the hero dodges is a pinch too: the run's RNG decides the dodge, TASKS 362 moved it so the first one was dodged)
-        { const e = crab({}); h.x = x0 + E.r + K.R + 14; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => (v.k === 'hurt' || v.k === 'dodge') && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
-          if (!hurt || !S.ev.some((v) => v.k === 'pinch' && v.id === e.id)) out.push('crab: never pinches a hero before it'); }
+        // (no dodge: the run's stream decides one, and TASKS 362 moved it so the first pinch was dodged; held at no chance, the check
+        // reads the hurt itself on any seed, TASKS 2027)
+        { const e = crab({}), agi = h.base.agi, eq = Object.assign({}, h.eq); h.base.agi = 0; for (const k in h.eq) h.eq[k] = null; h.x = x0 + E.r + K.R + 14; let hurt = 0;
+          if (heroSt(S).dodge > 0) out.push(`crab: the pinch check's hero still dodges ${heroSt(S).dodge} %`);
+          for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
+          h.base.agi = agi; Object.assign(h.eq, eq); if (!hurt || !S.ev.some((v) => v.k === 'pinch' && v.id === e.id)) out.push('crab: never pinches a hero before it'); }
         { const e = crab({ rushT: 99 }); h.x = x0 - E.r - K.R - 14; let hurt = 0; for (let i = 0; i < 120; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 - E.r - K.R - 14; h.y = y0; e.x = x0; e.y = y0; }
           if (hurt) out.push('crab: pinches a hero behind it'); }
         // the rush: a hero 100 px off its side; it runs at him and hurts him, still facing its way
@@ -3861,7 +3922,7 @@
   const keyWordCheck = () => { const out = []; SIMX.checkKeyWords(out); return out; };
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
-  const GEN_PRINT = { 33: 'b7a355cecbaeeced' };
+  const GEN_PRINT = { 34: 'b7a355cecbaeeced' };
   function genPrintCheck() { const h = require('crypto').createHash('sha1');
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);

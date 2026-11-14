@@ -3,6 +3,13 @@
 (function (root) {
   const DGX = root.DGX, {
     D, ENEMIES, LIGHT_R, NO_SHOP, TILE, archLegs, inRm, onArchLeg, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays } = DGX;
+  // a pack's plan cut down to lim: an entry marked keep is cut last (a small nest's cut took its one priest, TASKS 1647), and a hall's
+  // own monster, one of it, last of all (TASKS 1943: a small prison's cut took its one skeleton, the rush's last entry; the nest's own
+  // is the smouldering dead, all its entries but the priest, and keeping them all cut the priest at the end; PR 79 review: more keep
+  // entries than lim dropped the leader)
+  const trimPlan = (plan, lead, lim) => { for (const keepOf of [(q) => q[2] || q === lead, (q) => q === lead]) for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!keepOf(plan[i])) plan.splice(i, 1);
+    if (plan.length > lim) plan.length = lim; return plan; };
+  root.DUNGEON.trimPlan = trimPlan;
   DGX.fill = (GF) => {
     const {
       AR, FM, H, HL, LY, MIX, MX, R, ST, TY, W, arch, at, biome, boss, bossType, cave, cells, chasmUnder, circles, cliff, crossings, crust,
@@ -134,12 +141,12 @@
     // a free-standing stair can sit away from the start room the terrain's pool was dug beside (TASKS 1507); a chasm floor's start
     // gets it on every floor (TASKS 1720: its plateaus hold no lava of their own, 7 arrivals of 90 saw none)
     const chasmArr = plat && (ftype === 'chasm' || !!MIX);
-    if (up && !boss && biome === 'magma' && (chasmArr || runFloor === 1 || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor))) { const ax = up.tx, ay = up.ty + 1, inMap = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3, O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    if (up && !boss && biome === 'magma' && (chasmArr || runFloor === 1 || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor))) { const [ax, ay] = DGX.arrivalAt(up, biome).map((v) => Math.floor(v / TILE)), ux = up.tx, uy = up.ty + 1, inMap = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3, O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
       const sees = (x, y) => { const n = Math.ceil(Math.hypot(x - ax, y - ay) * 3); for (let i = 1; i < n; i++) { const u = Math.floor(ax + 0.5 + (x - ax) * i / n), v = Math.floor(ay + 0.5 + (y - ay) * i / n), c = at(u, v); if (u === x && v === y) break; if (c !== 1 && c !== 3 && c !== 6) return false; } return true; };
       const K = DGX.FOG_ARRIVE, RX = Math.ceil(8 * K), RY = Math.ceil(6 * K), shows = (x, y) => DGX.inFogOval(x, y, ax + 0.5, ay + 0.5, K);
       const roomShown = rectsOf(start).some(([bx, by, bw, bh]) => { for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) if (Math.abs(x - ax) <= RX && Math.abs(y - ay) <= RY && shows(x, y)) return true; return false; });
       const byRoom = (x, y) => { if (!roomShown || !rectsOf(start).some(([bx, by, bw, bh]) => x >= bx - 2 && x <= bx + bw + 1 && y >= by - 2 && y <= by + bh + 1)) return false; const rr = DGX.fogReach(x, y); for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) if (u * u + v * v <= rr * rr && at(x + u, y + v) === 1 && inRm(start, x + u, y + v)) return true; return false; };
-      const keepOff = (x, y) => (Math.abs(x - ax) <= 3 && y < ay + 2 && y > ay - 5) || used.has(key(x, y)) || doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < 3 && Math.abs(cy - y) < 3)) || secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4) || (chasmArr && crossings.some((c) => c.cells.some((k) => Math.abs(k % W - x) < 3 && Math.abs(Math.floor(k / W) - y) < 3)));
+      const keepOff = (x, y) => (Math.abs(x - ux) <= 3 && y < uy + 2 && y > uy - 5) || used.has(key(x, y)) || doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < 3 && Math.abs(cy - y) < 3)) || secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4) || (chasmArr && crossings.some((c) => c.cells.some((k) => Math.abs(k % W - x) < 3 && Math.abs(Math.floor(k / W) - y) < 3)));
       const crustK = new Set(crust), inView = (x, y) => (Math.abs(x - ax) <= RX && Math.abs(y - ay) <= RY && shows(x, y)) || byRoom(x, y);
       let shown = 0; for (let y = ay - RY - 3; y <= ay + RY + 3; y++) for (let x = ax - RX - 4; x <= ax + RX + 4; x++) if (at(x, y) === 3 && !crustK.has(y * W + x) && inView(x, y)) shown++;
       if (shown < 8) { const seeds = []; for (let y = ay - 5; y <= ay + 5; y++) for (let x = ax - 9; x <= ax + 9; x++) { const d = Math.max(Math.abs(x - ax), Math.abs(y - ay)); if (d >= 3 && inMap(x, y) && at(x, y) === 0 && !keepOff(x, y) && O4.some(([a, b]) => at(x + a, y + b) === 1) && shows(x, y)) seeds.push([Math.abs(d - 5) + ((x * 7 + y * 13) % 5) / 10, x, y]); }
@@ -228,9 +235,9 @@
         for (const [kinds, [lo, hi], where, keep] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where], keep]); }
         const own = P.plan[0][1][0], last = P.plan[P.plan.length - 1], lk = last[0].filter(has);
         while (plan.length < n && lk.length) plan.push([pick(lk), W2[last[2]]]);
-        // (a ledge, TASKS 432, may hold a lone one; an entry marked keep is cut last: a small nest's cut took its one priest, TASKS 1647)
-        const lim = Math.max(n, r.kind === 'ledge' ? 0 : own); for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!plan[i][2]) plan.splice(i, 1);
-        if (plan.length > lim) plan.length = lim; }
+        // (a ledge, TASKS 432, may hold a lone one)
+        const lead = r.hall ? plan.find((q) => q[0] === HL.kinds[r.hall].need) : null, lim = Math.max(n, r.kind === 'ledge' ? 0 : own);
+        trimPlan(plan, lead, lim); }
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;
       for (const [type0, where] of plan) { let type = type0, p = null;
@@ -1136,6 +1143,10 @@
     for (const c of crossings) if (c.kind === 'arch' && c.lava && !archLegs({ W, cells, crust }, c)) c.kind = 'slabs';
     // (PR 64 review) a chest is a reward the floor may hold to, not a prop to take off: the arch over it gives way to slabs
     for (const c of crossings) { const legs = archLegs({ W, cells, crust }, c); if (legs && chests.some((q) => onArchLeg(legs, 'chest', q.x, q.y))) c.kind = 'slabs'; }
+    // (TASKS 1968) so is a prop the floor is held to: a secret's or its room's, a hazard's vent, a cover, a hall's, a shrine's or a boss
+    // room's dressing; the cut below would leave a hall without its forge or a live vent with no prop, and no check runs after it
+    const kept = (d) => d.role !== undefined || d.sec !== undefined || d.secret !== undefined || d.haz !== undefined || d.cover || d.pz !== undefined || (d.r !== undefined && rooms[d.r] && (rooms[d.r].hall || rooms[d.r].type === 'shrine' || rooms[d.r].type === 'boss'));
+    for (const c of crossings) { const legs = archLegs({ W, cells, crust }, c); if (legs && decor.some((d) => d.solid && !d.wall && d.n && kept(d) && onArchLeg(legs, d.n, d.x, d.y))) c.kind = 'slabs'; }
     for (const legs of legsOf()) { const off = (list, nm) => { for (let i = list.length - 1; i >= 0; i--) if (nm(list[i]) && onArchLeg(legs, nm(list[i]), list[i].x, list[i].y)) list.splice(i, 1); };
       off(decor, (d) => d.solid && !d.wall && d.n); off(pots, () => 'pot'); off(torches, (t) => t.kind === 'brazier' && t.kind); }
     // cells taken by solid props: the flow fields route around them
@@ -1156,7 +1167,19 @@
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
-    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) { const [ax, ay] = up ? DGX.arrivalAt(up, biome) : [spawn.x, spawn.y], gap = 9 * TILE;
+      // (TASKS 1943: run 169's 3rd floor's forge lost its golem, posted by the hall's way in under the arrival) a hall's own monster
+      // goes to the nearest cell of its hall out of the gap, one the hero can walk to
+      let reach0 = null; const reachAt = (k) => { if (!reach0) { reach0 = new Uint8Array(W * H); const q = [Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE)]; reach0[q[0]] = 1;
+        for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (!reach0[n] && cells[n] === 1) { reach0[n] = 1; q.push(n); } } } return reach0[k]; };
+      const deck = new Set(lavaUnder), trapC = new Set(traps.flatMap((t) => [0, -1, -W, -W - 1].map((o) => Math.floor(t.y / TILE) * W + Math.floor(t.x / TILE) + o)));
+      for (let i = enemies.length - 1; i >= 0; i--) { const e = enemies[i]; if (e.key !== undefined || Math.hypot(e.x - ax, e.y - ay) >= gap) continue;
+        const hr = rooms[e.room]; let to = null;
+        if (hr && hr.hall && HL.kinds[hr.hall].need === e.type) for (let y = hr.y + 1; y < hr.y + hr.h - 1; y++) for (let x = hr.x + 1; x < hr.x + hr.w - 1; x++) { const k = y * W + x, px = wx(x), py = wy(y);
+          if (at(x, y) !== 1 || deck.has(k) || trapC.has(k) || used.has(key(x, y)) || doorway(x, y) || !reachAt(k) || Math.hypot(px - ax, py - ay) < gap + TILE) continue;
+          if (enemies.some((o) => o !== e && Math.hypot(o.x - px, o.y - py) < 1.5 * TILE) || hazards.some((z) => D.hazIn(z, px, py))) continue;
+          const d = Math.hypot(px - e.x, py - e.y); if (!to || d < to[2]) to = [px, py, d]; }
+        if (to) { e.x = to[0]; e.y = to[1]; } else enemies.splice(i, 1); } }
     // the descent holds a floor to ST.cap monsters (TASKS 388): with pop's growth past the campaign (385) its floors held 60 and took
     // 150–210 s. The elites' share is kept: cutting the plain ones alone took it from 20 to 27 %
     if (ST.cap && enemies.length > ST.cap) { const cut = (e) => e.key === undefined && !e.guard && !e.post && !e.ford && !e.exit && !e.lake && !D.BOSSES[e.type] && !D.ENEMIES[e.type].deep && !D.ENEMIES[e.type].lurk && !(rooms[e.room] && rooms[e.room].hall);
