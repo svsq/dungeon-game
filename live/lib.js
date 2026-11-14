@@ -689,10 +689,11 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // (pain), desat greys the frame, dark fades it to black, bright is the player's gamma (TASKS 1303)
   L.finish = (t, { bloom = [0.22, 0.20], vignette = 0.92, warm = 1, roll = 1, dither = 1, edge = [0, 0, 0, 0], desat = 0, dark = 0, bright = 1 } = {}) => {
     G.blend('none');
-    G.bind(T.b1); G.full(P.bright, { u_src: T.comp });
-    G.bind(T.b2); G.full(P.blur, { u_src: T.b1, u_dir: [1.5, 0] }); G.bind(T.b1); G.full(P.blur, { u_src: T.b2, u_dir: [0, 1.5] });
-    G.bind(T.c1); G.full(P.copy, { u_src: T.b1 });
-    G.bind(T.c2); G.full(P.blur, { u_src: T.c1, u_dir: [2, 0] }); G.bind(T.c1); G.full(P.blur, { u_src: T.c2, u_dir: [0, 2] });
+    if (bloom[0] || bloom[1]) {   // (TASKS 2007: six passes ran for a bloom weighed at zero, on the menu and the low graphics)
+      G.bind(T.b1); G.full(P.bright, { u_src: T.comp });
+      G.bind(T.b2); G.full(P.blur, { u_src: T.b1, u_dir: [1.5, 0] }); G.bind(T.b1); G.full(P.blur, { u_src: T.b2, u_dir: [0, 1.5] });
+      G.bind(T.c1); G.full(P.copy, { u_src: T.b1 });
+      G.bind(T.c2); G.full(P.blur, { u_src: T.c1, u_dir: [2, 0] }); G.bind(T.c1); G.full(P.blur, { u_src: T.c2, u_dir: [0, 2] }); }
     G.bind(null); G.full(P.final, { u_src: T.comp, u_bloom: T.b1, u_bloom2: T.c1, u_t: t, u_bloomA: bloom, u_vig: vignette, u_warm: warm, u_roll: roll, u_dither: dither, u_edge: edge, u_desat: desat, u_dark: dark, u_bright: bright });
     G.blend(); };
 })();
