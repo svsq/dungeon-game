@@ -529,12 +529,12 @@
   function rerollAltar(S, R, sh, x, y) { if (sh.used || !sh.gifts) return; const n = sh.rolls || 0, cost = D.rerollCost(n, dep(R));
     if (S.meta.shards < cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
     S.meta.shards -= cost; sh.rolls = n + 1; sh.gifts = rollGifts(S, R); ev(S, { k: 'ui', x, y }); S.saveN++; }
-  const canDonate = (R) => (R.donations || 0) < 10 && R.hero.gold >= 1000;
+  const canDonate = (R) => (R.donations || 0) < D.DONATE.max && R.hero.gold >= D.DONATE.gold;
   function donate(S, R, x, y) {
-    if ((R.donations || 0) >= 10) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s') }); return; }
-    if (R.hero.gold < 1000) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s.2') }); return; }
-    R.hero.gold -= 1000; R.donations = (R.donations || 0) + 1;
-    giveShards(S, R, 1, R.hero.x, R.hero.y, TXT('sim_town.donate')); S.saveN++;
+    if ((R.donations || 0) >= D.DONATE.max) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s') }); return; }
+    if (R.hero.gold < D.DONATE.gold) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s.2') }); return; }
+    R.hero.gold -= D.DONATE.gold; R.donations = (R.donations || 0) + 1;
+    giveShards(S, R, D.DONATE.shards, R.hero.x, R.hero.y, TXT('sim_town.donate')); S.saveN++;
   }
   // ---------------- the merchant ----------------
   // his shelf for this floor: the gear first (the showpiece at least SHOP.best rarity), then potions and scrolls in stacks

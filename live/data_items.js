@@ -57,6 +57,7 @@
     mp_potion: { name: TXT('CONSUMABLES.mp_potion.name'), icon: 'it_mp', mana: 0.5, stack: 20 },
     scroll: { name: TXT('CONSUMABLES.scroll.name'), icon: 'it_scroll', stack: 20 },
   };
+  TXT.bind('hud.tooltip.10', CONSUMABLES.hp_potion); TXT.bind('hud.tooltip.11', CONSUMABLES.mp_potion);
   const RARITY = [
     { id: 'common', name: TXT('RARITY.common.name'), col: [0.78, 0.76, 0.72], affixes: 0 },
     { id: 'uncommon', name: TXT('RARITY.uncommon.name'), col: [0.42, 0.86, 0.32], affixes: 1 },

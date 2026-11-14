@@ -277,6 +277,8 @@
       // eras, as shelves and a lectern have no place in a flooded cave or by the magma; shelves: at most this many new ones on its back wall
       library: { w: 2, minF: 1, room: 'treasure', town: 1, biomes: ['dungeon', 'crypt', 'lava', 'arcane'], solid: 16, near: 70, tag: 84, xp: 0.15, shelves: 2,
         name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
+  // the cursed chest's text names the curse's own number, which EVENTS holds only once its table is built
+  TXT.bind('EVENTS.hex.say', EVENTS); EVENTS.pool.hex.say = TXT('EVENTS.hex.say');
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

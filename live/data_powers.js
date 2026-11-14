@@ -69,6 +69,9 @@
     rl_phalanx: { id: 'rl_phalanx', name: TXT('POWERS.rl_phalanx.name'), desc: TXT('POWERS.rl_phalanx.desc'), ab: 'shield', trig: 'shieldBreak', fx: 'shieldBurst', k: 0, r: 180, kb: 2 },
     rl_quiver: { id: 'rl_quiver', name: TXT('POWERS.rl_quiver.name'), desc: TXT('POWERS.rl_quiver.desc'), ab: 'volley', trig: 'every:4', fx: 'bolt', k: 0.7, r: 260, shot: 'arrow', icd: 0.15 },
   };
+  // a description's numbers are its power's own fields ({t:UNITS.sec}, {k:pct}), so a tuned power cannot leave its text behind
+  const bakePowerDescs = (table) => TXT.bake(Object.values(table).filter((P) => P.desc), 'desc', (P) => `POWERS.${P.id}.desc`);
+  bakePowerDescs(POWERS);
   // a power is taken at an altar as a gift of its tier; `ab` keeps it to the class that has the ability (TASKS 391)
   const GIFT_OF = { whirl_pull: [2, 'ab_whirl'], whirl_ring: [3, 'ab_whirl'], fire_split: [3, 'ab_fire'], fire_pierce: [2, 'ab_fire'], shield_burst: [2, 'ab_shield'], shield_feed: [2, 'ab_shield'],
     volley_pierce: [2, 'ab_volley'], trap_burst: [2, 'ab_trap'], leap_trap: [3, 'ab_leap'], dash_trail: [3, 'it_boots'], dash_strike: [2, 'ab_charge'],
@@ -120,5 +123,5 @@
   // the codex (TASKS 395): what a page of it lists; an entry opens on first meeting (sim_unlocks)
   const CODEX_TABS = ['m', 'it', 'p'], CODEX_PAGE = 36;
   const codexList = (tab) => (tab === 'm' ? Object.keys(D.ENEMIES).map((k) => ({ k, name: D.ENEMIES[k].name })) : tab === 'it' ? Object.keys(D.BASES).map((k) => ({ k, name: D.BASES[k].name, icon: D.BASES[k].icon })) : D.GIFTS.filter((g) => g.power).map((g) => ({ k: g.id, name: g.name, icon: g.icon })));
-  Object.assign(D, { SHARDS, EPIC_POWER, epicPool, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
+  Object.assign(D, { bakePowerDescs, SHARDS, EPIC_POWER, epicPool, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);
