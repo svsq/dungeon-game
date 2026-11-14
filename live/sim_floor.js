@@ -201,7 +201,7 @@
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not
     // write the state (TASKS 1025)
-    if (f === 0) { const asked = R.offerB !== undefined, o0 = (R.offers || []).length, oL = SIMX.offersOf(R).length; R.newOffers = asked && oL > o0 ? 1 : 0; R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
+    if (f === 0) { const asked = R.offerB !== undefined, o0 = (R.offers || []).length; SIMX.dealOffers(R); R.newOffers = asked && R.offers.length > o0 ? 1 : 0; R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
       const bn = R.bossN || 0, old = R.townShop; R.townShop = null;
       if (old && (old.boss || 0) === bn) { R.shop = old; if ((old.at || 0) < (R.deepest || 0)) { SIMX.restock(R, R.shop, SIMX.tradeDepth(R)); R.shop.at = R.deepest; } }
       else { R.shop = SIMX.stockShop(R, SIMX.tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
@@ -246,7 +246,9 @@
     return { foes: R.en.filter(counted).length, kills: R.en.filter((e) => counted(e) && e.deadT >= 0).length,
       lootN: R.chests.reduce((n, c) => n + (c.loot ? c.loot.length : 0), 0) + R.drops.filter((d) => d.loot).length, loot: 0,
       secN: (m.secrets || []).length, sec: (m.secrets || []).filter((q) => q.open).length }; }
-  const fstat = (R) => { R.stats = R.stats || {}; return R.stats[R.floor] || (R.stats[R.floor] = floorStat(R)); };
+  const fstat = (R) => R.stats[R.floor];
+  // a run saved before its floor's count was kept gets it here, in a step, never in a read
+  const fillStats = (R) => { R.stats = R.stats || {}; return R.stats[R.floor] || (R.stats[R.floor] = floorStat(R)); };
   // totals over the given floors' stats; a category with nothing in it is left out of the average, never counted as 0%
   function completion(list) {
     const T = { floors: list.length, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0 };
@@ -383,6 +385,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);

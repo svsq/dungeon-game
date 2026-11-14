@@ -47,7 +47,8 @@
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' elite' : '') : '?';
   // the statistics (TASKS 1309): `from` is the number of runs finished before these counters existed, so the screen can say they
   // started late instead of passing a short count off as the whole history
-  const statsOf = (S) => S.meta.stats || (S.meta.stats = { from: S.meta.runs || 0, all: {}, cls: {} });
+  const statsOf = (S) => S.meta.stats;
+  const initStats = (S) => S.meta.stats || (S.meta.stats = { from: S.meta.runs || 0, all: {}, cls: {} });
   const tally = (S, R, k, n = 1, max) => { if (S.demo || !R || !n || R.test) return; const T = statsOf(S), id = D.clsOf(R.hero).id, C = T.cls[id] || (T.cls[id] = {});
     for (const o of [T.all, C]) o[k] = max ? Math.max(o[k] || 0, n) : (o[k] || 0) + n; };
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
@@ -287,7 +288,7 @@
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW, VIEW_H, viewFor, setView, uiDy,
-    zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, tally,
+    zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
     losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam, camAimY, CAM_FEET });

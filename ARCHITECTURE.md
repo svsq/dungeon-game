@@ -292,7 +292,7 @@
   `portal`, `shop`, `shrines`, `altar`, `donations`, `arena`, `bossDead`, `cam`, `zoom`, `trauma`, `seen`, `rseen`, `msg`, `keys`, `floor`,
   `mode`, `seed`, `town`, `viaTown`, `campaignWon`, `memo`, `grain`, `Hd`, `r`, `tx` (на 07.11.2026, `grep` по `R.` в файлах отрисовки).
 - **Запросы отрисовки к логике** — `SIM.Q` (44 функции чтения, `sim.js`) и константы `SIM.VIEW`, `DT`, `K`, `DOOM`, `CRUST`,
-  `FOLK_OUCH`, `REWARD`. `fstat` дописывает память `R.stats`, которую шаг уже заполнил; `at(t)` проигрывает заставку в свой кеш.
+  `FOLK_OUCH`, `REWARD`. Запросы состояние не пишут (`fstat`, `offersOf`, `statsOf` только читают; их заполняют `fillStats`, `dealOffers`, `initStats` в шаге), кроме `stashOf`, который пока создаёт сундук при чтении; `at(t)` проигрывает заставку в свой кеш. Проверка: `gettersCheck` в `sim_checks_getters.js`.
 - **Платформа** (`index.html`): ввод → `S` через `SIM.step(S, input)`, `S.saveN` → `SIM.persist` → `localStorage`, конец забега →
   журнал на скачивание.
 
