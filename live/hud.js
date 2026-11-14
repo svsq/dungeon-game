@@ -370,7 +370,10 @@
         float('hu' + i, s, Math.max(tw / 2 + 4, Math.min(W - tw / 2 - 4, x0 + p.side * (off(a / 0.8) + p.dx))), y0 - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), [tx, ty] = BPG.goldC;   // up off the head, then into the counter
-        lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (ty - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
+        // (TASKS 2024: a «+60» flew into the counter's frame and stuck out of it) it is gone by the time it would touch the frame
+        const lx = x0 + (tx - x0) * q, ly = y0 + (ty - y0) * q, s = '+' + ev.n, sz = 24 - 6 * q, hw = L.labelW(0, s, { size: sz }) / 2 + 2, hh = 0.62 * L.facePx(sz) + 2;
+        const bx = BPG.mx + 58, by = BPG.y + 10, gap = Math.max(0, bx - lx - hw, lx - hw - (bx + BPG.gw - 28), by - ly - hh, ly - hh - (by + 44));
+        lab('gd' + i, s, lx, ly, { size: sz, al: 0.5, col: C.gold, a: (1 - L.SS(0.75, 0.9, a)) * L.SS(0, 18, gap) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // a pickup, a new level or a new skill also says so over the hero's head, where the eye is in a fight; the feed in the corner

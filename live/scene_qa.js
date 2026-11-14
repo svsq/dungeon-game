@@ -130,6 +130,8 @@
       // (TASKS 2018) the three longest texts of all, whatever their tier, at the widest price
       ['altar_longest', play((S) => { const R = S.run, h = R.hero, G3 = D.GIFTS.filter((g) => !g.relic && !g.evo).sort((a, b) => b.desc.length - a.desc.length).slice(0, 3);
         R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: G3.map((g) => ({ id: g.id, cost: 999 })) }]; R.altar = 0; S.meta.shards = 99999; S.screen = 'altar'; S.hover = 'gift:0'; })],
+      // (TASKS 2024) a big win's «+n» on its way into the gold counter, at the moments it nears and meets the counter's frame
+      ...[0.6, 0.7, 0.75, 0.8, 0.85].map((age) => ['gold_fly_' + Math.round(age * 100), play((S) => { const h = S.run.hero; h.gold = 7; S.ev.push({ k: 'gold', n: 999, x: h.x, y: h.y, t: S.t - age }); })]),
       ['altar_powers', play((S) => { const R = S.run, h = R.hero; h.powers = { whirl_pull: 1, dash_trail: 1, dash_strike: 1 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:1'; })],
       ['altar_relic', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }, { id: 'rl_fifth', cost: 180 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:3'; })],
       ['altar_rank', play((S) => { const R = S.run, h = R.hero; h.perks = { fury: 2 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, rolls: 2, gifts: [{ id: 'bless', cost: 9 }, { id: 'crit', cost: 50 }, { id: 'fury', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'reroll'; })],
