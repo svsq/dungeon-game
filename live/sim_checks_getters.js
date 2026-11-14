@@ -3,7 +3,7 @@
   const SIMX = root.SIMX, { enterFloor, newRun, spawn, step } = SIMX;
   const SKIP = { at: 'it replays the attract demo into a cache of its own, not into the state', stashOf: 'it still makes the chest and settles an old save on a read' };
   const BESIDE = ['offersOf'];
-  const ser = (v) => JSON.stringify(v, (k, x) => (x instanceof Set ? [...x] : x instanceof Map ? [...x.entries()] : ArrayBuffer.isView(x) ? [...x] : x));
+  const ser = SIMX.checks.kit.stateJson;
   const parts = (S) => { const { run, ...rest } = S, o = {}; for (const [k, v] of Object.entries(rest)) o['S.' + k] = ser(v); for (const [k, v] of Object.entries(run || {})) o['run.' + k] = ser(v); return o; };
   const changed = (a, b) => [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => a[k] !== b[k]);
   // a getter takes its own shape of arguments and the sim has no signatures to read, so each is tried with the shapes the sim passes about

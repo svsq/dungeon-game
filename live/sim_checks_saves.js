@@ -68,7 +68,7 @@
     // step can make it now) loads in the town with its portal
     { const T3 = spawn(0, {}); T3.run = newRun(T3, 'campaign', 77, { town: 1, allFree: 1 }); T3.screen = 'play'; const Q = T3.run, hq = Q.hero, M = () => Q.memo[1];
       const home = () => { Q.portal = { f: 1, x: hq.x, y: hq.y }; enterFloor(T3, Q, 0, undefined, 'portal'); }, gate = (S, P) => { P.hero.x = P.map.town.svc.portal.x; P.hero.y = P.map.town.svc.portal.y + 30; interact(S, P); };
-      const err = console.error, cp = root.SIMX.captivePlace, ofs = root.SIMX.dealOffers; console.error = () => {};
+      const err = console.error, cp = root.SIMX.captivePlace, ofs = root.SIMX.dealOffers, rel = root.SIMX.release; console.error = () => {}; root.SIMX.release = true;
       try {
         enterFloor(T3, Q, 1); const ids = Q.en.filter((e) => !D.BOSSES[e.type]).slice(0, 3).map((e) => e.id); for (const e of Q.en) if (ids.includes(e.id)) { e.hp = 0; e.deadT = T3.t; }
         Q.stats[1].kills = 3; Q.seen.fill(1); home(); M().d.p.map = { p: { gone: { p: { step: { v: 1 } } } } }; gate(T3, Q);
@@ -88,7 +88,7 @@
         if (!Z || Z.floor !== 0 || !Z.town || !Z.portal || Z.portal.f !== 1) out.push('memo: a save with the floor\'s number over the town\'s map does not load in the town with its portal');
         else { gate(U, Z); if (Z.floor !== 1 || Z.town || Z.map.town || Z.portal) out.push('memo: the mended save\'s portal does not lead back to the floor'); } }
       catch (e) { out.push('memo: the kept floors\' checks fail: ' + e.message); }
-      finally { console.error = err; root.SIMX.captivePlace = cp; root.SIMX.dealOffers = ofs; } }
+      finally { console.error = err; root.SIMX.captivePlace = cp; root.SIMX.dealOffers = ofs; root.SIMX.release = rel; } }
     // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
     // town's portal brings him back beside it, and the stairs lead on
     for (const f of [2, 4, 6, 8]) { const T2 = spawn(0, {}); T2.run = newRun(T2, 'campaign', 31 + f, { town: 1, allFree: 1 }); T2.screen = 'play'; const Q = T2.run, hq = Q.hero; enterFloor(T2, Q, f);
@@ -148,6 +148,25 @@
     { const S = play(); S.demo = 1; step(S, { keys: [], away: 1 }); if (S.screen !== 'play') out.push('away: the attract demo pauses'); }
     return out;
   }
+  // TASKS 2066: a floor step that throws goes up with its trace in the sources, the checks and the bots, and counts no failure; only
+  // the packed build (SIMX.release) goes back and tells the player. A step that does not fail ends in the same state in both
+  function floorFailCheck() {
+    const out = [], err = console.error, cp = SIMX.captivePlace, rel = SIMX.release, { stateJson } = SIMX.checks.kit;
+    const fresh = () => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; return S; };
+    console.error = () => {};
+    try {
+      for (const release of [false, true]) { const S = fresh(), R = S.run, f0 = R.floor, n0 = S.floorFails || 0; let thrown = null;
+        SIMX.release = release; SIMX.captivePlace = () => { throw new Error('a step that fails'); };
+        try { enterFloor(S, R, 1); } catch (e) { thrown = e; } finally { SIMX.captivePlace = cp; }
+        if (!release && (!thrown || !String(thrown.stack).includes('a step that fails'))) out.push('floor step: in a check a failing step does not go up with its trace');
+        if (!release && (S.floorFails || 0) !== n0) out.push('floor step: a failing step in a check is counted as a floor failure');
+        if (release && (thrown || S.floorFails !== n0 + 1 || R.floor !== f0 || !R.msg)) out.push('floor step: in the packed build a failing step is thrown, or leaves the run moved or the player untold'); }
+      const way = (release) => { SIMX.release = release; const S = fresh(); for (const f of [1, 2, 0, 1]) enterFloor(S, S.run, f, undefined, f === 0 ? 'portal' : 'down'); return stateJson(S.run); };
+      if (way(false) !== way(true)) out.push('floor step: the packed build and a check end a floor step that does not fail in different states');
+    } finally { console.error = err; SIMX.captivePlace = cp; SIMX.release = rel; }
+    return out;
+  }
+  SIMX.checks.add('floorFailCheck', floorFailCheck);
   SIMX.checks.add('awayCheck', awayCheck);
   SIMX.checks.add('climbCheck', climbCheck, { slow: true });
 })(typeof window !== 'undefined' ? window : globalThis);

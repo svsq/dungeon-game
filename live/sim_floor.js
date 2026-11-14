@@ -161,9 +161,12 @@
   // a floor that fails to build or restore (TASKS 1993) leaves the run as it was before the step: a half-made one, floor N over the
   // town's map, was saved and loaded back as the town under the floor's name, and the next stash wrote the town into floor N.
   // The run's top-level objects are refilled in place, so a caller's R.hero or R.map in hand stays the run's own. A run with no floor
-  // yet (newRun) has nothing to go back to, and its failure is thrown on
+  // yet (newRun) has nothing to go back to, and its failure is thrown on. Only the packed build (pack.py sets __STATIC__) goes back and
+  // tells the player it failed; in the sources, in the checks and in the bots the error goes up with its trace, as a code error must
+  // not become a message that a golden run or a bot walks past (TASKS 2066), and nothing is cloned for a step that cannot be undone
+  const RELEASE = typeof window !== 'undefined' && !!window.__STATIC__;
   function enterFloor(S, R, f, gen, how = 'down') {
-    if (!R.map) { goFloor(S, R, f, gen, how); return true; }
+    if (!R.map || !SIMX.release) { goFloor(S, R, f, gen, how); return true; }
     const { memo, ...rest } = R, was = structuredClone(rest), refs = Object.assign({}, rest), kept = memo && Object.entries(memo).map(([k, M]) => [k, M, Object.assign({}, M)]);
     try { goFloor(S, R, f, gen, how); return true; }
     catch (err) { console.error('enterFloor', f, err);
@@ -385,6 +388,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, completion, runCompletion, completionHints, stepHazards,
+    release: RELEASE, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);
