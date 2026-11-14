@@ -1137,6 +1137,10 @@
     for (const c of crossings) if (c.kind === 'arch' && c.lava && !archLegs({ W, cells, crust }, c)) c.kind = 'slabs';
     // (PR 64 review) a chest is a reward the floor may hold to, not a prop to take off: the arch over it gives way to slabs
     for (const c of crossings) { const legs = archLegs({ W, cells, crust }, c); if (legs && chests.some((q) => onArchLeg(legs, 'chest', q.x, q.y))) c.kind = 'slabs'; }
+    // (TASKS 1968) so is a prop the floor is held to: a secret's or its room's, a hazard's vent, a cover, a hall's, a shrine's or a boss
+    // room's dressing; the cut below would leave a hall without its forge or a live vent with no prop, and no check runs after it
+    const kept = (d) => d.role !== undefined || d.sec !== undefined || d.secret !== undefined || d.haz !== undefined || d.cover || d.pz !== undefined || (d.r !== undefined && rooms[d.r] && (rooms[d.r].hall || rooms[d.r].type === 'shrine' || rooms[d.r].type === 'boss'));
+    for (const c of crossings) { const legs = archLegs({ W, cells, crust }, c); if (legs && decor.some((d) => d.solid && !d.wall && d.n && kept(d) && onArchLeg(legs, d.n, d.x, d.y))) c.kind = 'slabs'; }
     for (const legs of legsOf()) { const off = (list, nm) => { for (let i = list.length - 1; i >= 0; i--) if (nm(list[i]) && onArchLeg(legs, nm(list[i]), list[i].x, list[i].y)) list.splice(i, 1); };
       off(decor, (d) => d.solid && !d.wall && d.n); off(pots, () => 'pot'); off(torches, (t) => t.kind === 'brazier' && t.kind); }
     // cells taken by solid props: the flow fields route around them
