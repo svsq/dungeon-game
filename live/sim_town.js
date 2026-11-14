@@ -1,10 +1,10 @@
-// live/sim_town.js — the town: townsfolk, waystones, workshops, quests, talk, the storage chest, altars, the merchant.
+// live/sim_town.js — the town: townsfolk, workshops, quests, talk, the storage chest, altars, the merchant.
 // One of the sim's files (ARCHITECTURE.md §4.2): names from earlier files come from SIMX at load, calls into later ones go through SIMX.
 (function (root) {
   const SIMX = root.SIMX;
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
-    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, lastFloor, exitKind, campaignDone, leverNear,
+    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, exitKind, campaignDone, leverNear,
     openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
@@ -178,8 +178,7 @@
     if (dUp < 56 && !fresh && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s') }); return; }
       const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }; if (enterFloor(S, R, R.floor - 1, undefined, 'up')) ev(S, e); return; }
     const gt = gateNear(R); if (gt) { const was = R.portal; R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; return; } ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
-    // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
-    // out it is taken at once, with more a window to choose
+    // the town's ring of stones: the end of a portal (TASKS 1007), taken at once
     const cs = craftShut(R); if (cs) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.CAPTIVES[cs].shut }); return; }
     // the workshop's master answers first, his talk has the button into the workshop (PR 49 review: the enchanter could not be talked to at all)
     const cw = atCraft(R), master = cw && folkOf(R).find((f) => f.role === CRAFT_OF[cw]);
@@ -203,10 +202,6 @@
     if (used && canDonate(R)) { openAltar(S, R, used); return; }
     const tz = SIMX.tossedNear(R); if (tz && !SIMX.takeItem(S, R, tz)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_items.stepDrops.s') });
   }
-  // ---------------- waystones (TASKS 1009) ----------------
-  // touched once, a waystone stays awake for the rest of the run; the town's ring of stones then jumps to it
-  function wake(S, R) { const w = R.map.way; R.ways = (R.ways || []).concat(R.floor).sort((a, b) => a - b);
-    ev(S, { k: 'waystone', x: w.x, y: w.y }); R.msg = { s: TXT('sim_town.wake.msg.s', { floor: R.floor }), t: S.t, d: 4 }; S.saveN++; }
   // the Altar of Souls on the town's square (TASKS 1011): the meta upgrades, paid from the same bank as everywhere
   const near = (R, k, r) => !!(R.town && R.map.town && Math.hypot(R.map.town.svc[k].x - R.hero.x, R.map.town.svc[k].y - R.hero.y) < r);
   const nearer = (R, a, b) => Math.hypot(R.map.town.svc[a].x - R.hero.x, R.map.town.svc[a].y - R.hero.y) <= Math.hypot(R.map.town.svc[b].x - R.hero.x, R.map.town.svc[b].y - R.hero.y);
@@ -277,13 +272,12 @@
     if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2, own: 1 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
     q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: TXT('sim_town.turnIn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; S.saveN++; return true; }
   // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
-  const qhash = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
   // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
   // a batch more after each boss slain, as the merchant's shelf is stocked anew (TASKS 1026: 2–3 a run were all taken in the first
   // minute); a batch's givers are those with no offer still waiting
   function offersOf(R) { const G = D.QUEST_GIVE; R.offers = R.offers || []; if (R.offerB === undefined) R.offerB = R.offers.length ? 1 : 0;
-    while (R.offerB < 1 + (R.bossN || 0)) { const b = R.offerB++; let a = qhash((R.seed >>> 0) + 0x51ed27 + b * 7919);
-      const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
+    while (R.offerB < 1 + (R.bossN || 0)) { const b = R.offerB++; let a = D.mix32((R.seed >>> 0) + 0x51ed27 + b * 7919);
+      const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
       for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); } }
     return R.offers; }
   // the floor a quest taken now points at: past the deepest reached; a goal put on a floor wants one not yet built and no boss's
@@ -295,7 +289,7 @@
   // part was counted as told when it was put down, one part a floor and the count lost with the run, so 26 series never ended);
   // a one-off note comes once a run; a boss's notes only on its floors; picked by the run's seed so the sim's own random is untouched
   function notePlace(S, R) { const f = R.floor, m = R.map, done = R.notesDone || (R.notesDone = {}), era = D.NOTES.era[m.biome]; if (!R.viaTown || R.mode !== 'campaign' || R.town || done[f] || !era) return; done[f] = 1;
-    let a = qhash((R.seed >>> 0) * 131 + f * 7877); const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, shuffle = (L) => { const o = L.slice(); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
+    let a = D.mix32((R.seed >>> 0) * 131 + f * 7877); const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, shuffle = (L) => D.shuffleBy(L.slice(), r);
     const read = new Set(S.meta.notes || []), next = (n) => noteNext(read, n), here = new Set();
     const used = R.notesUsed || (R.notesUsed = []), fits = (n) => !here.has(n.id) && (n.chain ? n.part === next(n) : !used.includes(n.id)), begun = (n) => !!n.chain && n.part > 1, ofEra = (n) => noteOfEra(n, era);
     const put = (n, rm, sec) => { here.add(n.id); if (!n.chain) used.push(n.id); const clear = (x, y) => !R.drops.some((p) => p.kind === 'note' && Math.hypot(p.x - x, p.y - y) < 90), inRm = (d) => d.x >= rm.x * TILE && d.x < (rm.x + rm.w) * TILE && d.y >= rm.y * TILE && d.y < (rm.y + rm.h + 1) * TILE;
@@ -319,10 +313,10 @@
   function libraryNote(S, R, E) { const era = D.NOTES.era[R.map.biome]; if (!era) return null;
     const read = new Set(S.meta.notes || []), used = R.notesUsed || [], lying = new Set(R.drops.filter((p) => p.kind === 'note' && !p.got).map((p) => p.note));
     const L = D.NOTES.list.filter((n) => n.kind === 'note' && noteOfEra(n, era) && !lying.has(n.id) && (n.chain ? n.part === noteNext(read, n) : !used.includes(n.id)));
-    const pick = (G) => G.length ? G[qhash((R.seed >>> 0) * 131 + R.floor * 7877 + E.room * 389 + 0x368) % G.length] : null;
+    const pick = (G) => G.length ? G[D.mix32((R.seed >>> 0) * 131 + R.floor * 7877 + E.room * 389 + 0x368) % G.length] : null;
     return pick(L.filter((n) => n.chain && n.part > 1)) || pick(L.filter((n) => !read.has(n.id))) || pick(L); }
-  const nickOf = (type, a) => { const G = D.ELITE_NAMES[D.ELITE_GROUP[type]]; if (!G) return null; const n = G.names[a % G.names.length]; a = qhash(a + 0x9e3779b9); return n[0] + ' ' + G.adj[a % G.adj.length][n[1] === 'f' ? 1 : 0]; };
-  const nickHash = (R, e) => qhash((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811);
+  const nickOf = (type, a) => { const G = D.ELITE_NAMES[D.ELITE_GROUP[type]]; if (!G) return null; const n = G.names[a % G.names.length]; a = D.mix32(a + 0x9e3779b9); return n[0] + ' ' + G.adj[a % G.adj.length][n[1] === 'f' ? 1 : 0]; };
+  const nickHash = (R, e) => D.mix32((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811);
   function nameElites(R) { for (const e of R.en) { if (!e.elite || e.title || e.nm || D.BOSSES[e.type]) continue; const s = nickOf(e.type, nickHash(R, e)); if (s) e.nm = s; } }
   // the named quest's foe is drawn off its floor's roster when offered, so the townsman can name it before the floor exists
   // (none tied to the lava: no foe can be made one, and on near a third of the magma floors none stands where a quest may name it)
@@ -355,7 +349,7 @@
     const st = role === 'keeper' && storyStep(R); if (st) { key = st.key; f = st.f; story = 1; }
     else { o = offersOf(R).find((q) => q.from === role && !q.q && questFloor(R, q.key)); if (!o) return null; key = o.key; f = questFloor(R, key); }
     const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f, R.hero.lvl), story },
-      k = qhash((R.seed >>> 0) * 31 + f * 977 + key.length * 131 + role.length);
+      k = D.mix32((R.seed >>> 0) * 31 + f * 977 + key.length * 131 + role.length);
     if (Q.type === 'named') { const P = namedPool(R, f); if (P.length) { q.foe = P[k % P.length]; q.title = nickOf(q.foe, k); } }
     if (Q.type === 'fetch') { q.thing = D.QUEST_SAY[role].thing; q.ic = D.QUEST_SAY[role].ic; }
     return { o, q }; }
@@ -368,7 +362,7 @@
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
   // the count of this giver's turned quests of the kind steps the pick, so the same words never come twice in a row (TASKS 1985)
   function turnSay(R, role, q) { const ty = D.QUESTS[q.key].type, L = D.QUEST_SAY[role].turnin[ty], n = (R.quests || []).filter((o) => o.st === 'turned' && o.from === role && D.QUESTS[o.key].type === ty).length;
-    return D.turnFill(L[(qhash((R.seed >>> 0) + [...role + ty].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + n) % L.length], q); }
+    return D.turnFill(L[(D.mix32((R.seed >>> 0) + [...role + ty].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + n) % L.length], q); }
   // an offer's townsfolk names are its key words (TASKS 1995), bold in the window; whole words only, so a short name never marks a longer word it starts
   const NAMES_RX = new RegExp('(?<!\\p{L})(' + [...new Set(Object.values(D.FOLK).map((f) => f.name).filter(Boolean))].join('|') + ')(?!\\p{L})', 'gu');
   const keyNames = (s) => s.replace(NAMES_RX, '**$1**');
@@ -412,11 +406,11 @@
         if (!e) { q.lost = 1; continue; } if (!q.title) q.title = nickOf(e.type, nickHash(R, e)); const stg = STAGE(R, f), mob = stg.mob || 1;
         e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
       // (TASKS 362) half the lairs are an event's room whose entry is a `goal` (the skull door): its waves are the lair's, done by its `qevent`
-      else if (Q.type === 'room' && SIMX.eventsOf(R).some((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal) && qhash((R.seed >>> 0) * 7919 + f * 104729 + q.id + 362) / 4294967296 < 0.5) q.room = SIMX.eventsOf(R).find((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal).room;
+      else if (Q.type === 'room' && SIMX.eventsOf(R).some((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal) && D.mix32((R.seed >>> 0) * 7919 + f * 104729 + q.id + 362) / 4294967296 < 0.5) q.room = SIMX.eventsOf(R).find((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal).room;
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
         if (!r) { q.lost = 1; continue; } q.room = r.id; }
       else if (Q.type === 'fetch') { const roomOf = (c) => m.rooms[DG.roomAt(m, c.x, c.y)] || {}, free = R.chests.filter((c) => !c.open && !c.quest && !c.mimic);
-        const secret = free.filter((c) => roomOf(c).type === 'secret'), plain = free.filter((c) => roomOf(c).type !== 'secret'), u = qhash((R.seed >>> 0) * 7919 + f * 104729 + q.id) / 4294967296;
+        const secret = free.filter((c) => roomOf(c).type === 'secret'), plain = free.filter((c) => roomOf(c).type !== 'secret'), u = D.mix32((R.seed >>> 0) * 7919 + f * 104729 + q.id) / 4294967296;
         const c = u < 0.35 && secret.length ? pick(R, secret) : u < 0.7 && plain.length ? pick(R, plain) : null;
         if (c) { c.quest = q.id; c.qic = q.ic; q.where = roomOf(c).type === 'secret' ? 'secret' : 'chest'; continue; }
         const r = rooms[Math.min(rooms.length - 1, Math.floor(rnd(R) * Math.min(3, rooms.length)))]; if (!r) { q.lost = 1; continue; }
@@ -505,7 +499,7 @@
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
   const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
-  const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []).concat((R.ways || []).filter(D.wayFloor).map((f) => ({ k: 'way', f })));
+  const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []);
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
     if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
@@ -580,7 +574,7 @@
   }
 
   Object.assign(SIMX, {
-    folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
+    folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,

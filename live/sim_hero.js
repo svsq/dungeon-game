@@ -343,7 +343,6 @@
     if (R.msg && R.msg.room !== undefined && rIn !== R.msg.room && !R.msg.outT) R.msg.outT = t;   // a room's alarm is about that room only
     if (m.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y); if (d < 230 && R.shop.away) { R.shop.away = 0; R.shop.greetT = t; } else if (d > 360) R.shop.away = 1; }
     if (R.town && m.town) SIMX.stepFolk(S, R);
-    if (m.way && !(R.ways || []).includes(R.floor) && Math.hypot(h.x - m.way.x, h.y - m.way.y) < 60) SIMX.wake(S, R);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
     // rage (TASKS 1130) is not mana: no refill in the start room, no regeneration; it drains once the fight is over
     if (D.clsOf(h).res === 'rage') { if (t - (h.fightT ?? -9) > D.RAGE.calm) h.mp = Math.max(0, h.mp - D.RAGE.decay * DT); }

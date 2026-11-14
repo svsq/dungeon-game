@@ -8,7 +8,7 @@ if (!isMainThread) return parentPort.postMessage(require('./sim.js').selfCheck(w
 const SIM = require('./sim.js');
 // selfCheck's parts in workers, each with a sim of its own (TASKS 1697): no part leans on the state another left; at most 10 at
 // once (TUNE_WORKERS), as more stalled the machine. --serial (or TUNE_SERIAL=1) runs them here one after another, as before
-const SLOW = ['altarCheck', 'cacheGenCheck', 'floorTypeCheck', 'hazardCheck', 'genCheck', 'climbCheck', 'floorModCheck', 'chestCheck', 'secretRestCheck', 'playCheck', 'branchCheck'];
+const SLOW = SIM.slowChecks || [];
 const serial = process.argv.includes('--serial') || !!process.env.TUNE_SERIAL || !SIM.selfChecks;
 const live = new Set(); let down = false;
 const stop = (e, self) => { if (down) return; down = true; for (const w of live) w.terminate(); console.error(e); console.log('FAIL', (e && e.message) || String(e)); if (self) console.log('selfCheck 1 failure(s)'); process.exitCode = 1; };
@@ -48,8 +48,8 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('_w.png'))) {
   if (mx.some((m) => m !== 0 && m !== 255)) more.push(`${f}: weight channel max ${mx.join('/')}, must be 255 or 0`);
 }
 // the game's texts (TASKS 1141): no Cyrillic in code outside live/text_<lang>.js, every key in the table, none unused;
-// and the layers' borders (TASKS 504): tools/layercheck.cjs
-for (const t of ['textcheck.cjs', 'layercheck.cjs']) try { require('child_process').execFileSync('node', [pth.join(__dirname, '..', 'tools', t)], { stdio: 'pipe' }); }
+// the layers' borders (TASKS 504): tools/layercheck.cjs; and the load order (TASKS 2060): tools/scopecheck.cjs
+for (const t of ['textcheck.cjs', 'layercheck.cjs', 'scopecheck.cjs']) try { require('child_process').execFileSync('node', [pth.join(__dirname, '..', 'tools', t)], { stdio: 'pipe' }); }
 catch (e) { more.push(t + ': ' + String(e.stdout).trim().split('\n').slice(-4).join(' | ')); }
 (parts || Promise.resolve().then(() => (SIM.selfCheck ? SIM.selfCheck() : [])).catch((e) => stop(e, true))).then((got) => { const self = got.concat(more);
   for (const f of self) console.log('FAIL', f);

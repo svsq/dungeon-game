@@ -63,9 +63,6 @@
     // the town's end of an open portal (TASKS 1007) and a scroll being read: the same cold blue as the way out
     if (!m.town && R.arena && R.arena.gate && R.seen[Math.floor(R.arena.gate.y / TILE) * m.W + Math.floor(R.arena.gate.x / TILE)]) lt(R.arena.gate.x, R.arena.gate.y - 20, 260, [0.5, 0.7, 1.0], 1.3);
     const TP = R.town && R.portal && m.town ? m.town.svc.portal : null; if (TP) lt(TP.x, TP.y - 20, 260, [0.5, 0.7, 1.0], 1.3);
-    // a waystone: a faint pool asleep, a breathing cold one awake; the town's ring answers once any waystone of the run is awake
-    if (m.way) { const on = (R.ways || []).includes(m.floor); lt(m.way.x, m.way.y + 6, on ? 150 : 90, [0.55, 0.65, 1], on ? 0.45 + 0.08 * Math.sin(t * 1.7) : 0.2); }
-    if (R.town && m.town && !TP && (R.ways || []).length) lt(m.town.svc.portal.x, m.town.svc.portal.y - 20, 200, [0.5, 0.65, 1], 0.55 + 0.1 * Math.sin(t * 1.3));
     if (h.read) lt(h.x, h.y - 30, 200, [0.55, 0.75, 1], 1.2 * SS(0, 1.6, GT - h.read.t0));
     for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? (p.k === 'bolt' ? 120 : 140) : p.k === 'jet' || p.k === 'wave' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'bolt' ? [0.55, 0.6, 1] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' || p.k === 'wave' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? (p.k === 'bolt' ? 1.1 : 0.65) : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
@@ -86,7 +83,6 @@
       if (e.k === 'swing' && !e.shot && a < 0.22) lt(h.x + Math.cos(e.a) * 30, h.y - 30 + Math.sin(e.a) * 20, 150, [1, 0.9, 0.75], 0.7 * (1 - a / 0.22));
       if (e.k === 'pop' && e.c !== 'jet' && e.c !== 'arrow' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : e.c === 'bolt' ? [0.55, 0.6, 1] : e.c === 'orb' ? [0.35, 0.85, 0.95] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
       if (e.k === 'craft' && a < 0.6) lt(e.x, e.y - 30, 200, e.kind === 'forge' ? [1, 0.7, 0.35] : e.ok ? [0.55, 0.75, 1] : [1, 0.35, 0.25], 1.3 * (1 - a / 0.6));
-      if (e.k === 'waystone' && a < 1.2) lt(e.x, e.y - 40, 260, [0.55, 0.75, 1], 1.4 * (1 - a / 1.2));
       if (e.k === 'teleport' && a < 0.9) { const q = 1 - a / 0.9; lt(e.x, e.y - 30, 260, [0.55, 0.75, 1], 1.6 * q); lt(e.fx ?? e.x, (e.fy ?? e.y) - 30, 220, [0.55, 0.75, 1], 1.2 * q); }
       if (e.k === 'floor' && a < 1.6) lt(e.x, e.y - 20, 300, [1, 0.85, 0.55], 1.2 * (1 - a / 1.6));
       if (e.k === 'roar' && a < 0.8) lt(e.x, e.y + 40, 420, B.cave ? [0.35, 0.7, 0.85] : [1, 0.3, 0.12], 1.4 * (1 - a / 0.8));

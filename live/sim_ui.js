@@ -608,5 +608,5 @@
   }
 
   Object.assign(SIMX, { talkWalk, talkFirst, boardRows,
-    endRun, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
+    endRun, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

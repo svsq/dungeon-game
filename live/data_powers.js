@@ -120,5 +120,5 @@
   // the codex (TASKS 395): what a page of it lists; an entry opens on first meeting (sim_unlocks)
   const CODEX_TABS = ['m', 'it', 'p'], CODEX_PAGE = 36;
   const codexList = (tab) => (tab === 'm' ? Object.keys(D.ENEMIES).map((k) => ({ k, name: D.ENEMIES[k].name })) : tab === 'it' ? Object.keys(D.BASES).map((k) => ({ k, name: D.BASES[k].name, icon: D.BASES[k].icon })) : D.GIFTS.filter((g) => g.power).map((g) => ({ k: g.id, name: g.name, icon: g.icon })));
-  Object.assign(D, { SHARDS, EPIC_POWER, epicPool, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
+  Object.assign(D, { SHARDS, EPIC_POWER, epicPool, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);

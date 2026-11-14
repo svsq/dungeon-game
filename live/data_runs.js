@@ -3,10 +3,11 @@
 (function (root) {
   const D = root.DATA || (root.DATA = {});
   const { ARCH, BAL, BIOMES, BOSSES, ELITE, FLOOR_MOD, FLOOR_MODS, SHOP, mix32 } = D;
+  const GUARD = { hp: 2.2, dmg: 1 };
   const RUNS = {
     // pop: monsters a room by floor over the plain count (TASKS 505: the 2nd and 4th, the bosses' floors of 56×42 and 64×48, came easier than the floors before them); elite: the share of elites by floor (the 4th's nine rooms held half the 3rd's elites)
     campaign: { name: TXT('RUNS.campaign.name'), floors: 16, chapter: 8, depth: 0, lvl: 1, pop: [1, 1.35, 1, 1.3, 1, 1, 1, 1], elite: [0.04, 0.04, 0.04, 0.08, 0.04, 0.04, 0.04, 0.04], size: [[56, 42], [56, 42], [64, 48], [64, 48], [72, 54], [72, 54], [80, 60], [84, 64]], rooms: [[9, 11], [9, 11], [12, 14], [12, 14], [14, 17], [14, 17], [18, 22], [18, 22]], biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
-      boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
+      boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: GUARD }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
       // (the magma caves' chapter, TASKS 416: their 1st–4th as the campaign's 13th–16th after the serpent, at their own depth 13–16,
       // with the packs and elites of their own run; the colossus closes the campaign; seal: a chapter's own, by its boss)
       // (shift 2, pops and elites over the magma's own run, TASKS 416: the hero comes down from the serpent at level 18, three over the
@@ -18,7 +19,7 @@
       // the magma's 14th and 15th keep their maps and lose foes by pop (1.7 → 1.5, 2 → 1.7) instead: its plateaus are laid for their
       // own sizes, a size down fell back to the loose layout on 40–54 % of seeds and between them left ledges out of reach)
       chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1, size: [[72, 54], [72, 54], [80, 60], [88, 66]] }, { from: 13, run: 'magma', shift: 2, pop: [1.6, 1.5, 1.7, 1.2], elite: [0.14, 0.22, 0.26, 0.2] }], names: { 8: TXT('RUNS.campaign.names.8') }, seal: TXT('RUNS.campaign.seal'), then: 'endless' },
-    cave: { name: TXT('RUNS.cave.name'), won: TXT('RUNS.cave.won'), wonText: TXT('RUNS.cave.wonText'), floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: TXT('RUNS.cave.title'), loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
+    cave: { name: TXT('RUNS.cave.name'), won: TXT('RUNS.cave.won'), wonText: TXT('RUNS.cave.wonText'), floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: GUARD }, exit: {}, title: TXT('RUNS.cave.title'), loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: TXT('RUNS.cave.seal') },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
     // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); laid out as plateaus
@@ -26,7 +27,7 @@
     // loot: +2 over the depth (13–16) puts its items at the hero's level, as the caves' +3 does (TASKS 424: +12 made them level 25–28,
     // a legendary of 25 on the 1st floor, and the run a walk)
     // (won: the victory's line, TASKS 490: the magma's win said the campaign's «Глубины покорены»)
-    magma: { name: TXT('RUNS.magma.name'), won: TXT('RUNS.magma.won'), wonText: TXT('RUNS.magma.wonText'), floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_colossus' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: TXT('RUNS.magma.title'), loot: 2, pop: [1.4, 1.7, 1.8, 1], elite: [0.14, 0.22, 0.26, 0.2],
+    magma: { name: TXT('RUNS.magma.name'), won: TXT('RUNS.magma.won'), wonText: TXT('RUNS.magma.wonText'), floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_colossus' : undefined), guard: { 3: GUARD }, exit: {}, title: TXT('RUNS.magma.title'), loot: 2, pop: [1.4, 1.7, 1.8, 1], elite: [0.14, 0.22, 0.26, 0.2],
       kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: TXT('RUNS.magma.seal') },
   };
   // the endless descent (R-05, TASKS 348–349; a test button in the menu for now, after the serpent later, TASKS 354): no last floor.
@@ -38,7 +39,7 @@
   // `cap` holds the rest (the magma's plateaus keep their own sizes: smaller, 40–54 % of them came out loose, TASKS 1808)
   RUNS.endless = { name: TXT('data_runs.endless.name'), floors: Infinity, depth: 0, lvl: 1, endless: 1, biome: () => 'dungeon', boss: () => undefined, guard: {}, exit: {},
     pool: ['dungeon', 'crypt', 'lava', 'arcane', 'cave', 'magma'], bosses: { dungeon: 'boss_spider', crypt: 'boss_necro', lava: 'boss_forge', arcane: 'boss', cave: 'boss_serpent', magma: 'boss_colossus' },
-    pairGuard: { hp: 2.2, dmg: 1 }, big: ['boss', 'boss_serpent', 'boss_colossus'], bigFrom: 8, guardFrom: 6,
+    pairGuard: GUARD, big: ['boss', 'boss_serpent', 'boss_colossus'], bigFrom: 8, guardFrom: 6,
     // a boss past the campaign's last floor (the descent after the serpent): its health and blows over the depth's, so its fight holds
     // the campaign's boss bands (20–90 s, 150–250 % of the hero's health; TASKS 354: at ×1 the 16th's and 20th's took 14–21 s, 60–100 %; at ×1.6 the average's
     // took 22 and 31 s, 149 and 211 %, the expert's 24 s, 123–136 %, 40 seeds)
@@ -46,9 +47,6 @@
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   // whether the wandering merchant (TASKS 1010) is on floor f of a run through the town: fixed by the run's seed
   const wanderAt = (runSeed, f) => f >= SHOP.wander.from && mix32((Math.imul(runSeed >>> 0, 2654435761) + f * 40503) >>> 0) / 4294967296 < SHOP.wander.chance;
-  // waystones (TASKS 1009) in a run through the town: every fourth floor of the campaign, every second of the descent past it
-  // off by the player's call (TASKS 1359): the arena portals are enough for now
-  const WAYSTONES = false, wayFloor = (f) => WAYSTONES && f > 0 && (f <= RUNS.campaign.floors ? f % 4 === 0 : (f - RUNS.campaign.floors) % 2 === 0);
 
   // two bags, each shuffled per block of pool-length draws and never the same twice across a block's seam (TASKS 386): the boss pairs
   // (1, 3, …) draw their boss, each of the five once a round, and take its biome (a single bag repeated the spider on the 20th and the
@@ -123,5 +121,5 @@
     return (M.names || {})[f] || T || st.N.title || BIOMES[st.biome].name; };
   // (the powers agree with a feminine monster, TASKS 1045: «Кровожадный призывающий лавовая саламандра»)
 
-  Object.assign(D, { RUNS, runOf, wanderAt, wayFloor, stageOf, rosterAt, placeName, floorName });
+  Object.assign(D, { RUNS, runOf, wanderAt, stageOf, rosterAt, placeName, floorName });
 })(typeof window !== 'undefined' ? window : globalThis);

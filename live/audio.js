@@ -269,8 +269,6 @@
     qitem: (o) => [659, 880, 1175].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.07, d: 0.4, v: 0.06 })),
     // a workshop's work (TASKS 1013): the anvil rings for a reforge; an enchantment chimes up, or falls apart in a hiss
     craft: (o, e) => { if (e.kind === 'forge') SFX.anvil(o); else if (e.ok) [660, 990, 1320].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.08, d: 0.5, v: 0.05 })); else { noise(o, { d: 0.5, v: 0.18, type: 'bandpass', f0: 2400, f1: 500, q: 2 }); tone(o, { f0: 400, f1: 120, d: 0.5, v: 0.06 }); } },
-    // a waystone wakes (TASKS 1009): a low stone hum under a bright rising chime
-    waystone: (o) => { tone(o, { f0: 110, f1: 165, a: 0.05, d: 1.1, v: 0.08 }); [880, 1320, 1760].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.1, d: 0.7, v: 0.05 })); },
     read: (o) => { noise(o, { a: 0.6, d: 1.0, v: 0.08, type: 'bandpass', f0: 600, f1: 3200, q: 3 }); tone(o, { f0: 330, f1: 660, a: 0.8, d: 0.8, v: 0.05 }); },
     anvil: (o) => { noise(o, { d: 0.03, v: 0.25, type: 'highpass', f0: 2500 }); [1180, 1630, 2470].forEach((f, i) => tone(o, { type: 'triangle', f0: f, d: 0.5 - i * 0.1, v: 0.05 - i * 0.012 })); },
     say: (o, e) => { const b = e.role === 'child' ? 330 : e.role === 'sweeper' || e.role === 'enchanter' ? 250 : 150; for (let i = 0; i < 3; i++) tone(o, { type: 'triangle', f0: b * rr(0.9, 1.15), f1: b * rr(0.8, 1), t: now() + i * 0.09, d: 0.08, v: 0.035 }); },

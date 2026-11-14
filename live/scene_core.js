@@ -891,8 +891,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the world renders on a 2×2 view-px grid (the reference's art pixel), every sprite and rotated rig part re-rasterised on it;
     // light, glows and the HUD stay full resolution (HD pixel, styles.md §1)
     views(Z);
-    L.glyphs('0123456789+-/:%', { size: 60, fill: ['#fffbe2', '#ffd76a', '#e89a22'] });
-    if (window.HUD) HUD.init();
   };
   function views(z) {
     W = SIM.VIEW.W; H = SIM.VIEW.H; G.resize(W, H); Z = z; VW = W / Z; VH = H / Z;

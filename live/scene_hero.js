@@ -32,8 +32,10 @@
   }
   SC.gearOf = gearOf;
   function heroPose(h, GT, st) {
-    const RG = RIGS[D.clsOf(h).look.rig], s = HERO_H / RG.h, sp = Math.hypot(h.vx, h.vy), run = SS(10, 150, sp) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1);
-    const dirx = sp > 1 ? h.vx / sp : 0, diry = sp > 1 ? h.vy / sp : 0;
+    // dead, the gait reads his own speed as he fell, not the killing blow's shove, which put the feet into a stride in one frame (TASKS 2059)
+    const dv = h.deadT >= 0 && h.deadRun ? h.deadRun : [h.vx, h.vy];
+    const RG = RIGS[D.clsOf(h).look.rig], s = HERO_H / RG.h, sp = Math.hypot(dv[0], dv[1]), run = SS(10, 150, sp) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1);
+    const dirx = sp > 1 ? dv[0] / sp : 0, diry = sp > 1 ? dv[1] / sp : 0;
     // (dead, the sim stops his stride's phase in a frame: the render runs it on at his speed, eased out over the run's own fade, or a
     // hero killed mid-run stopped his legs and cape dead, TASKS 1803)
     const sl = SIM.Q.stepLen(Math.abs(dirx)), dT = h.deadT >= 0 ? GT - h.deadT : 0, p = (h.gp || 0) + (dT > 0 ? sp / sl * Math.PI * 0.08 * (1 - Math.exp(-dT / 0.08)) : 0), u0 = ((p / (2 * Math.PI)) % 1 + 1) % 1;

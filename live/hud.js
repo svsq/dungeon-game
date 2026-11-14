@@ -16,7 +16,6 @@
   const dotHalves = (str, size) => { const p = str.split(' · '), w = (q) => L.labelW(0, q.join(' · '), { size }); let k = 1, b = Infinity; for (let i = 1; i < p.length; i++) { const m = Math.max(w(p.slice(0, i)), w(p.slice(i))); if (m < b) { b = m; k = i; } } return [p.slice(0, k).join(' · '), p.slice(k).join(' · ')].filter(Boolean); };
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
   const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map(), MARKS = new WeakMap(), MARK_HOLD = 1.2;
-  HUD.init = () => {};
   // a line of text broken into lines of at most `width` px. **…** in it is a key word (TASKS 1995: a name, a quest's title, its
   // reward), drawn bold and in the key colour; such a line is laid out as runs of one style each, measured run by run. Below 26 the
   // plain face is the smaller one and a bold run would stand taller than its line, so there the key word takes the colour alone
@@ -52,7 +51,6 @@
   const ELS = new Map(), elSlot = (id) => { let s = ELS.get(id);
     if (s === undefined) { if (ELS.size < 32) s = ELS.size; else { const [old, os] = ELS.entries().next().value; ELS.delete(old); s = os; } } else ELS.delete(id);
     ELS.set(id, s); return s; };
-  const WAY_LEG = ['way', TXT('WAY_LEG')];
   // the town's own legend (TASKS 1023): its services instead of the dungeon's rooms, bosses and altars
   const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')], ['board', TXT('TOWN_LEG.9')]];
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
@@ -63,7 +61,7 @@
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
   // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1863 з)
   const SHOP_SHUT_LEG = ['shop', TXT('TOWN_LEG.shut')], townLeg = (R) => (SIM.Q.shopShut(R) ? TOWN_LEG.map((q) => (q[0] === 'shop' ? SHOP_SHUT_LEG : q)) : TOWN_LEG);
-  const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], evSeen(R).length ? [EVENT_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
+  const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], evSeen(R).length ? [EVENT_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
   // where world labels keep off: the top-left block (portrait, level, its bar, every row of effects, so a long list does not run under
   // labels; the stats under the portrait), the bottom panel and the key hints over it
@@ -102,11 +100,6 @@
     L.rrect(x - 3, y - 3, w + 6, h + 6, (o.r || 8) + 3, o.rim || C.rim, o.rim2 || [0.2, 0.16, 0.13], o.a ?? 0.95);
     L.rrect(x, y, w, h, o.r || 8, o.c0 || C.panel0, o.c1 || C.panel1, o.a ?? 0.94);
     L.uiBox(id, x, y, w, h, o.pad === undefined ? 4 : o.pad);
-  }
-  function bar(id, x, y, w, h, f, c0, c1, label) {
-    panel(id, x, y, w, h, { r: 6, c0: [0.06, 0.05, 0.06], c1: [0.03, 0.03, 0.04] });
-    const fw = Math.max(0, Math.min(1, f)) * (w - 6); if (fw > 1) { L.rrect(x + 3, y + 3, fw, h - 6, 4, c0, c1); L.rrect(x + 3, y + 3, fw, (h - 6) * 0.35, 4, [1, 1, 1], [1, 1, 1], 0.12); }
-    if (label) lab(id + '_t', label, x + w / 2, y + h / 2 + 1, { size: Math.round(h * 0.62), al: 0.5 });
   }
   const icon = (n, x, y, s, u) => { const [w, h] = SZ(n), k = s / Math.max(w, h); L.sprite(n, x + (s - w * k) / 2, y + (s - h * k) / 2, { w: w * k, h: h * k, u }); };
   // b.lit: the one Enter presses stands out of its row by a lighter tone and pale gold letters (TASKS 1883), no glow (TASKS 1894)
@@ -413,7 +406,7 @@
     if (m.town && SIM.Q.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, TXT('hud.world.25')];
     if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
     if (SIM.Q.atExitGate(R)) pr = [m.town.svc.exitGate.x, m.town.svc.exitGate.y - 110, TXT('hud.world.gate')];
-    if (SIM.Q.atGate(R)) { const o = SIM.Q.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? TXT('hud.world.27') : TXT('hud.world.28')) : o[0].k === 'portal' ? TXT('hud.world.29', { f: o[0].f }) : TXT('hud.world.30', { f: o[0].f })]; }
+    if (SIM.Q.atGate(R)) { const o = SIM.Q.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.29', { f: o[0].f })]; }
     if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
     if (!pr && tz) pr = [tz.x, tz.y - 46, TXT('hud.world.take', { p1: SIM.Q.itemName(tz.item) })];
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
@@ -634,7 +627,7 @@
   function mmGeo(S, R, leg) {
     const k = mapK(R), cut = mapCut(R), mw = cut.w * k, mh = cut.h * k, title = mmTitle(R), bw = Math.max(240, lw('mm_t', title, { size: 26, bold: true }) + 130);
     const legend = leg ? legendOf(R).concat(SIM.Q.completionHints(R).length ? [['hint', TXT('hud.minimap.legend')]] : []) : [];
-    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, EVENT_LEG, QUEST_LEG, SHOP_SHUT_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
+    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], EVENT_LEG, QUEST_LEG, SHOP_SHUT_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
     const pw = Math.max(mw + 44, bw + 20, legW), x0 = W - pw - 14, y0 = 24, py = 66, lg0 = py + mh + 26, rule = lg0 + 26 * legend.length + (legend.length ? 6 : -10), bot = rule + 46;
     return { k, cut, mw, mh, title, bw, legend, pw, x0, y0, py, px: x0 + Math.round((pw - mw) / 2), lg0, rule, bot, box: [x0, 4, pw, bot - 4] };
   }
@@ -692,7 +685,6 @@
     if (SIM.Q.exitKind(R, m.floor) !== null && R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
     if (m.sanct && R.seen[Math.floor(m.sanct.y / TILE) * m.W + Math.floor(m.sanct.x / TILE)]) mark(m.sanct.x, m.sanct.y, 'camp', 12);
-    if (m.way && R.seen[m.way.ty * m.W + m.way.tx]) mark(m.way.x, m.way.y, 'way', 13);
     if (m.town) { const V0 = m.town.svc; mark(V0.altar.x, V0.altar.y, 'altar', 12); mark(V0.stash.x, V0.stash.y, 'stash', 12); mark(V0.anvil.x, V0.anvil.y, 'craft', 12); mark(V0.lectern.x, V0.lectern.y, 'craft', 12); mark(V0.portal.x, V0.portal.y, 'way', 13); mark(V0.board.x, V0.board.y, 'board', 12); }
     for (const E of evSeen(R)) mark(E.x, E.y, 'event', 13);
     for (const q of R.shrines) if (!SIM.Q.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
@@ -1652,7 +1644,7 @@
     if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? TXT('hud.stash.8') : TXT('hud.stash.9'), C.gold], null, [10, 10, W - 10, P.y + P.h - 70]);
     refusal(S, W / 2, P.y + 476);
   }
-  // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------
+  // ---------------- the town's ring of stones: the open portal (TASKS 1007) ----------------
   // the town's gate out (TASKS 1149): give up, or end the run won past the campaign's last boss
   function leave(S, R) {
     const U = D.UI.leave(), P = U.P, done = SIM.Q.campaignDone(R);
@@ -1679,11 +1671,11 @@
     KIT.panel('gate', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('gt_t', W / 2, P.y + 16, 460, TXT('hud.gate'), { h: 76, size: 36 });
     KIT.light('gt_s', TXT('hud.gate.2'), W / 2, P.y + 118, { size: 22, al: 0.5, col: '#cdb89a' });
-    o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), nm = q.k === 'portal' ? TXT('hud.gate.3', { f: q.f }) : TXT('hud.gate.4', { f: q.f }), x = b.x + 108, iw = b.w - 108 - 40;
+    o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), nm = TXT('hud.gate.3', { f: q.f }), x = b.x + 108, iw = b.w - 108 - 40;
       KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox('gt_r' + i, b.x + 30, b.y, b.w - 60, b.h, 2);
-      if (q.k === 'portal') icon('it_scroll', b.x + 44, b.y + 12, 48); else L.sprite('waystone', b.x + 46, b.y + 6, { h: 62 });
+      icon('it_scroll', b.x + 44, b.y + 12, 48);
       KIT.ink('gt_n' + i, nm, x, b.y + 26, { size: 26, fit: iw, col: st.hover ? I.r : I.t });
-      const ds = q.k === 'portal' ? TXT('hud.gate.5') : D.floorName(q.f, (R.memo && R.memo[q.f] || R).mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1);
+      const ds = TXT('hud.gate.5');
       KIT.ink('gt_d' + i, ds, x, b.y + 52, { size: 18, fit: iw, col: I.d }); });
     KIT.button('gt_leave', U.r[o.length], stN(S, 'leave'));
     KIT.light('gt_help', TXT('hud.gate.6'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
