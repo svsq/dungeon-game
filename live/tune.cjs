@@ -8,7 +8,7 @@ if (!isMainThread) return parentPort.postMessage(require('./sim.js').selfCheck(w
 const SIM = require('./sim.js');
 // selfCheck's parts in workers, each with a sim of its own (TASKS 1697): no part leans on the state another left; at most 10 at
 // once (TUNE_WORKERS), as more stalled the machine. --serial (or TUNE_SERIAL=1) runs them here one after another, as before
-const SLOW = ['altarCheck', 'cacheGenCheck', 'floorTypeCheck', 'hazardCheck', 'genCheck', 'climbCheck', 'floorModCheck', 'chestCheck', 'secretRestCheck', 'playCheck', 'branchCheck'];
+const SLOW = SIM.slowChecks || [];
 const serial = process.argv.includes('--serial') || !!process.env.TUNE_SERIAL || !SIM.selfChecks;
 const live = new Set(); let down = false;
 const stop = (e, self) => { if (down) return; down = true; for (const w of live) w.terminate(); console.error(e); console.log('FAIL', (e && e.message) || String(e)); if (self) console.log('selfCheck 1 failure(s)'); process.exitCode = 1; };

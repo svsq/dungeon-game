@@ -1,6 +1,9 @@
-// live/sim_checks_powers.js — selfCheck's part for the powers (TASKS 356 and on). Node only, like sim_checks.js.
+// live/sim_checks_classes.js — selfCheck's parts for the classes and their powers (TASKS 356 and on). Node only, like sim_checks.js.
 (function (root) {
-  const SIMX = root.SIMX, { D, TILE, castAbility, hitEnemy, heroHit, hurtHero, killEnemy, newRun, spawn, usePotion } = SIMX;
+  const SIMX = root.SIMX, {
+    ABILITIES, BASES, begin, castAbility, cell, counted, D, DT, endRun, ENEMIES, enterFloor, folkFree, folkOf, fstat, heroHit, heroShot, heroSt,
+    hitEnemy, hurtHero, K, killEnemy, losClear, newRun, offerOf, rollItem, spawn, startRun, stats, step, stockShop, TILE, toPx, UI, useItem,
+    usePotion, wearIfFree } = SIMX;
   const allOpen = () => Object.fromEntries(D.UNLOCKS.map((U) => [U.id, 1]));
   const stage = (cls = 'warrior', seed = 91) => { const S = spawn(0, {}), R = newRun(S, 'campaign', seed, { cls }); S.run = R; S.screen = 'play'; S.t = R.t = 10; S.meta.open = allOpen(); const h = R.hero, m = R.map, cx = m.W >> 1, cy = m.H >> 1; for (let y = cy - 7; y <= cy + 7; y++) for (let x = cx - 9; x <= cx + 9; x++) m.cells[y * m.W + x] = 1; h.x = cx * TILE + 16; h.y = cy * TILE + 18; R.en = []; R.proj = []; R.fires = []; h.hp = 1e4; for (const a of D.clsOf(h).abs) { h.ab[a.id] = 1; h.cd[a.id] = 0; } h.mp = 1e3; return { S, R, h }; };
   const foe = (R, h, dx = 60, dy = 0, type = 'skeleton') => { const e = { id: R.nextId++, type, x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, hp: 1e5, max: 1e5, dmg: 1, elite: 0, room: -1, st: 'chase', t0: 0, face: 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, phase: 0, summ: 0, hx: h.x, hy: h.y, seenT: 0, ft: -9 }; R.en.push(e); return e; };
@@ -280,5 +283,254 @@
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
     checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAbilityPowers(out); checkSecondPack(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out); checkUniques(out); checkEpicPowers(out);
   }
-  Object.assign(SIMX, { checkPowers });
+
+  // the classes (TASKS 1100): every field, abilities and bases that exist, a new hero of each built from its class, an old save a warrior
+  function classCheck() {
+    const out = [], has = (o, ks) => ks.every((k) => typeof (o || {})[k] === 'number');
+    for (const [id, C] of Object.entries(D.CLASSES)) {
+      if (!C.name || !has(C.base, D.STATS.map((q) => q.k)) || !has(C.grow, ['hp', 'mp', 'pts', 'sp']) || !C.look || !C.look.rig) out.push(`class ${id}: a field is missing`);
+      if (C.abilities.length !== 3 || C.unlock.length !== 3 || C.abs.some((a) => !a.id || !a.name)) out.push(`class ${id}: not three abilities that exist`);
+      if (!C.unlock.includes(1)) out.push(`class ${id}: no ability at level 1`);
+      if (!ABILITIES.some((a) => a.id === C.rclick)) out.push(`class ${id}: the right click's ability does not exist`);
+      for (const [slot, b] of Object.entries(C.start)) if (!BASES[b] || BASES[b].slot !== slot) out.push(`class ${id}: starting ${slot} ${b} is no such base`);
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 81, { cls: id }), h = R.hero;
+      if (h.cls !== id || h.eq.weapon.b !== C.start.weapon || h.eq.armor.b !== C.start.armor) out.push(`class ${id}: a new hero is not of its class`);
+      if (Object.keys(h.ab).join() !== C.abilities.join() || C.abs.some((a, i) => (h.ab[a.id] > 0) !== (C.unlock[i] <= 1))) out.push(`class ${id}: a new hero's abilities are not its class's`);
+      if (D.STATS.some((q) => h.base[q.k] !== C.base[q.k])) out.push(`class ${id}: a new hero's base stats are not its class's`);
+      for (const slot of D.SLOTS) if (!Object.keys(BASES).some((k) => BASES[k].slot === slot && D.wears(id, k))) out.push(`class ${id}: nothing to wear in the ${slot} slot`);
+      for (const k of Object.keys(BASES)) for (const c of BASES[k].cls || []) if (!D.CLASSES[c]) out.push(`base ${k}: no class ${c}`);
+    }
+    // the mage's start and growth (TASKS 1111, 1112): staff and robe; at level 8 with the same gear more mana and spell power than a warrior
+    { const S = spawn(0, {}), M = newRun(S, 'campaign', 83, { cls: 'mage' }).hero, W = newRun(S, 'campaign', 83).hero;
+      for (const h of [M, W]) h.lvl = 8; W.eq = M.eq; const m = stats(M, S.meta), w = stats(W, S.meta);
+      if (M.eq.weapon.b !== 'staff' || M.eq.armor.b !== 'robe') out.push('class mage: does not start with a staff and a robe');
+      if (!(m.maxMp > w.maxMp && m.spellBase > w.spellBase)) out.push('class mage: no more mana and spell power than a warrior'); }
+    // the mage's abilities (TASKS 1110): the ice wave hurts and chills the one before him, not the one behind, and the chill thaws;
+    // his staff hits a monster three reaches away with no mana at all, a warrior's staff does not
+    { const arena = (cls) => { const S = spawn(0, {}); S.meta.cls = cls; begin(S); if (S.run.hero.cls !== cls) { S.run = newRun(S, 'campaign', S.run.seed, { cls }); S.screen = 'play'; } for (let i = 0; i < 30; i++) step(S, { keys: [] });
+        const R = S.run, h = R.hero, m = R.map, type = Object.keys(ENEMIES).find((q) => ENEMIES[q].kind === 'melee' && !ENEMIES[q].ghost);
+        R.en = []; R.proj = []; R.pots = []; R.chests = []; R.drops = []; h.ifr = 1e9; h.vx = h.vy = 0; for (const k in h.cd) h.cd[k] = 0;
+        const foe = (dx) => { const e = { id: R.nextId++, type, x: h.x + dx, y: h.y, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S.t, kbx: 0, kby: 0 }; R.en.push(e); return e; };
+        const open = (x, y, dx) => cell(m, Math.floor((x + dx) / TILE), Math.floor(y / TILE)) === 1 && losClear(m, x, y, x + dx, y);
+        let ok = false; for (let k = 0; k < m.W * m.H && !ok; k++) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+          if (cell(m, k % m.W, Math.floor(k / m.W)) === 1 && open(x, y - TILE, 200) && open(x, y - TILE, -120) && open(x, y, 200) && open(x, y, -120)) { h.x = x; h.y = y; ok = true; } }
+        R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0];   // (steps without a pointer leave the camera NaN)
+        return { S, R, h, foe, ok }; };
+      { const { S, R, h, foe, ok } = arena('mage');
+        if (h.cls !== 'mage' || D.clsOf(h).abs.map((a) => a.id).join() !== 'fireball,shield,frost') out.push('class mage: not fireball, shield and ice wave');
+        if (!ok) out.push('class mage: no open floor beside the start to test the ice wave');
+        else { const a = foe(120), b = foe(-120); h.lvl = 4; h.ab.frost = 1; h.mp = 500; h.aim = 0; castAbility(S, R, 'frost', {});
+          if (!(a.hp < a.max && a.chillT > S.t) || b.hp < b.max || b.chillT) out.push('class mage: the ice wave misses the foe before him or hits the one behind');
+          if (h.mp !== 500 - D.ABILITIES.find((q) => q.id === 'frost').mp) out.push('class mage: the ice wave costs the wrong mana');
+          for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (a.slowK !== D.FROST.slow) out.push('class mage: a chilled foe is not slowed');
+          a.chillT = S.t; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (a.slowK !== 1) out.push('class mage: the chill does not thaw');
+          // TASKS 1685: the ice wave and the fireball can crit
+          h.eq.weapon.mods.crit = 500; h.ab.fireball = 1; h.aim = 0; const crits = { frost: 0, fireball: 0 };
+          for (const id of ['frost', 'fireball']) for (let n = 0; n < 24; n++) { h.mp = 500; h.cd[id] = 0; h.aim = 0; a.hp = a.max = 1e6; a.x = h.x + 120; a.y = h.y; S.ev = []; castAbility(S, R, id, {}); let got = S.ev.some((q) => q.k === 'hit' && q.crit); for (let i = 0; i < 40 && !got; i++) { step(S, { keys: [] }); got = S.ev.some((q) => q.k === 'hit' && q.crit); } if (got) crits[id]++; }
+          if (!crits.frost || !crits.fireball) out.push(`class mage: ${!crits.frost ? 'the ice wave' : 'the fireball'} never crits at the cap (${crits.frost}, ${crits.fireball})`); } }
+      for (const cls of ['mage', 'warrior']) { const { S, R, h, foe, ok } = arena(cls); if (!ok) continue;
+        if (cls === 'warrior') { h.eq.weapon.b = 'staff'; }
+        const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
+        if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
+        if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); }
+      // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
+      // onto it and lets it go, the leap carries him back from the aim, AGI (and a little STR, TASKS 1913) grows his bow's damage, a sword is not his
+      { const { S, R, h, foe, ok } = arena('archer');
+        if (h.eq.weapon.b !== 'shortbow' || h.eq.armor.b !== 'leather_armor' || D.clsOf(h).abs.map((a) => a.id).join() !== 'volley,trap,leap') out.push('class archer: not a short bow, leather and volley, trap, leap');
+        if (ok) { const e = foe(200); let got = 0; h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); if (h.mp >= D.CLASSES.archer.hitMp.hit) got = 1; }
+          if (!(e.hp < e.max)) out.push('class archer: his bow does not hit a foe out of reach');
+          if (!got) out.push('class archer: his arrows that hit give no mana');
+          R.en = []; R.proj = []; h.lvl = 4; h.ab.trap = 1; h.ab.leap = 1; h.mp = 500; h.aim = 0; for (const k in h.cd) h.cd[k] = 0;
+          // (TASKS 1744) the fan leaves at the loose, D.VOLLEY.loose s after the key, when the scene has the bow up
+          const arrows = () => R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length, aimAt = toPx(R, h.x + 400, h.y - 30);
+          h.mx = h.x + 400; h.my = h.y - 30; castAbility(S, R, 'volley', {}); const t0 = S.t; if (arrows()) out.push('class archer: the volley flies on the key, before the bow is up');
+          for (let i = 0; i < 120 && !arrows(); i++) step(S, { keys: [], ...aimAt }); const lt = S.t - t0;
+          if (lt < D.VOLLEY.loose - 1e-9 || lt > D.VOLLEY.loose + 2 * DT) out.push(`class archer: the volley leaves ${lt.toFixed(3)} s after the key, not at the loose (${D.VOLLEY.loose} s)`);
+          if (arrows() !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
+          // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w
+          { const vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w + 4) out.push('class archer: the volley does not close on a far cursor'); }
+          R.proj = []; h.mx = h.x + 150; h.my = h.y - 30; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0);
+          if (Math.abs(q.x - (h.x + 150)) > 10) out.push('class archer: the trap is not set at the cursor'); h.x -= 120; w.x = q.x + 60; w.y = q.y; w.st = 'idle'; w.calmT = 1e9;
+          for (let i = 0; i < 120; i++) { step(S, { keys: [] }); if (w.rootT) break; if (i > 55) w.x -= 2; }
+          if (!(w.rootT > S.t) || w.hp >= w.max) out.push('class archer: a trap does not hold the monster that walks onto it');
+          if (!(w.cdT >= w.rootT)) out.push('class archer: a trapped monster\'s blow is not held');
+          w.rootT = S.t; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (w.slowK !== 1) out.push('class archer: a trapped monster is not let go');
+          h.x += 120; const x0 = h.x; h.aim = 0; h.cd.leap = 0; castAbility(S, R, 'leap', {}); for (let i = 0; i < 30; i++) step(S, { keys: [], ...toPx(R, h.x + 300, h.y - 30) });
+          if (!(h.x < x0 - D.LEAP.spd * 0.16 * 0.8)) out.push('class archer: the leap does not carry him back from the aim its length'); }
+        const a0 = stats(h, S.meta).atk; h.base.agi += 10; const a1 = stats(h, S.meta).atk; h.base.agi -= 10; h.base.str += 10; const a2 = stats(h, S.meta).atk; h.base.str -= 10;
+        if (!(a1 > a0) || !(a2 > a0) || a2 - a0 >= a1 - a0) out.push('class archer: AGI does not grow his bow\'s damage more than STR (TASKS 1913: STR adds a little)');
+        if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword');
+        // (TASKS 1155) an arrow into a cultist's wind-up breaks it off; a second at once does not
+        if (ok) { R.en = []; R.proj = []; R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0]; h.vx = h.vy = 0; const aimed = () => ({ keys: [], ...toPx(R, h.x + 300, h.y - 30) }); const c = foe(150); Object.assign(c, { type: 'cultist', st: 'wind', t0: S.t, cdT: 0 }); h.aim = 0;
+          heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 40 && c.st === 'wind'; i++) step(S, aimed());
+          if (c.st === 'wind' || !(c.hushT > S.t)) out.push('class archer: an arrow does not break off a caster\'s wind-up');
+          Object.assign(c, { st: 'wind', t0: S.t }); heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 30; i++) { step(S, aimed()); c.t0 = S.t; }
+          if (c.st !== 'wind') out.push('class archer: a caster is broken off twice in a row');
+          // (TASKS 1163) a crossbow's bolt strikes two in a line, a short bow's arrow one; the long bow's flies farther
+          for (const b of ['crossbow', 'shortbow']) { R.en = []; R.proj = []; const f1 = foe(120), f2 = foe(180); const [hx, hy] = root.SIMX.hand(h);
+            heroShot(R, h, Math.atan2(f1.y - ENEMIES[f1.type].h * 0.45 - hy, f1.x - hx), 5, false, 'arrow', BASES[b]); for (let i = 0; i < 60; i++) { step(S, aimed()); f1.x = h.x + 120; f2.x = h.x + 180; f1.y = f2.y = h.y; }
+            if ((f2.hp < f2.max) !== (b === 'crossbow') || !(f1.hp < f1.max)) out.push(`class archer: a ${b}'s arrow strikes ${f2.hp < f2.max ? 'two' : 'one'} in a line`); }
+          { R.en = []; R.proj = []; const lo = heroShot(R, h, 0, 1, false, 'arrow', BASES.longbow), sh = heroShot(R, h, 0, 1, false, 'arrow', BASES.shortbow);
+            if (!(Math.hypot(lo.vx, lo.vy) * lo.life > Math.hypot(sh.vx, sh.vy) * sh.life * 1.2)) out.push('class archer: the long bow\'s arrow does not fly farther'); R.proj = []; }
+          { const dps = (b) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b, atk: BASES[b].atk }); h.base.agi = 30; const q = stats(h, S.meta); return q.atk / q.wcd; }, d0 = dps('shortbow');
+            for (const b of ['longbow', 'crossbow']) if (dps(b) < d0 * 0.97) out.push(`class archer: a ${b} is weaker than a short bow at AGI 30`); } } }
+      // (review of PR 75) a volley cast just before the stairs or a death does not loose on the next floor or from the dead
+      { const { S, R, h } = arena('archer'), arrows = () => R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length;
+        const armed = () => { for (const k in h.cd) h.cd[k] = 0; h.mp = 500; castAbility(S, R, 'volley', {}); if (h.volleyT == null) out.push('class archer: the volley is not cast, so its reset goes unchecked'); };
+        armed(); enterFloor(S, R, R.floor + 1); R.proj = []; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (arrows()) out.push('class archer: a volley cast before the stairs looses on the next floor');
+        h.ifr = 1e9; armed(); root.SIMX.killHero(S, R); if (h.volleyT != null) out.push('class archer: a volley outlives the archer\'s death'); }
+      // the warrior (TASKS 1130): rage from his blows and ones he takes, draining once the fight is over; the charge strikes and stuns a
+      // monster in its way; the war cry weakens those about him and hardens his blows; mana potions are not his
+      { const { S, R, h, foe, ok } = arena('warrior');
+        if (D.clsOf(h).abs.map((a) => a.id).join() !== 'whirl,charge,cry' || D.clsOf(h).res !== 'rage' || h.mp !== 0 || stats(h, S.meta).maxMp !== D.RAGE.max) out.push('class warrior: not whirl, charge, cry on rage from 0');
+        if (ok) { h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; for (const k in h.cd) h.cd[k] = 0;
+          const e = foe(150); e.st = 'idle'; e.calmT = 1e9; h.mp = 50; h.aim = 0; castAbility(S, R, 'charge', {});
+          for (let i = 0; i < 40 && !(e.rootT > S.t); i++) step(S, { keys: [], ...toPx(R, e.x, e.y - 30) });
+          if (!(e.rootT > S.t) || e.hp >= e.max) out.push('class warrior: the charge does not strike and stun the monster in its way');
+          if (!(h.mp > 50 - D.ABILITIES.find((q) => q.id === 'charge').mp)) out.push('class warrior: his blow gives no rage');
+          // TASKS 1184: the charge is free and pays rage on a hit, a miss comes back soon; what is held hits harder; the cry's ranks last longer
+          if (D.ABILITIES.find((q) => q.id === 'charge').mp !== 0) out.push('class warrior: the charge costs rage');
+          { const hit = (mp) => { const q = foe(40); q.max = q.hp = 1e6; q.st = 'idle'; h.mp = mp; h.cryT = 0; heroHit(S, R, q, 1000, false, h.x, h.y); const v = 1e6 - q.hp; q.deadT = S.t; return v; }, a = hit(0), b = hit(100);
+            if (!(b > a * 1.1)) out.push(`class warrior: 100 rage hits for ${b} against ${a} at none`); }
+          { const took = (mp) => { h.mp = mp; h.hp = heroSt(S).maxHp; h.ifr = 0; h.shield = 0; let n = 0; for (let k = 0; k < 20 && !n; k++) { h.mp = mp; hurtHero(S, R, 40, h.x + 30, h.y, undefined, 'skeleton'); n = heroSt(S).maxHp - h.hp; h.ifr = 0; } return n; }, a = took(0), b = took(100);
+            if (!(b > 0 && b < a * (1 - D.RAGE.guard / 2))) out.push(`class warrior: full rage takes ${b} of a blow against ${a} at none`); }
+          { const keep = R.en; R.en = []; h.cd.charge = 0; h.mp = 0; castAbility(S, R, 'charge', {}); for (let i = 0; i < 40; i++) step(S, { keys: [], ...toPx(R, h.x + 100, h.y) });
+            if (!(h.cd.charge - S.t <= D.CHARGE.miss)) out.push('class warrior: a missed charge keeps its whole cooldown'); R.en = keep; h.charge = null; }
+          if (!(D.abRank('cry', 5).t > D.abRank('cry', 1).t)) out.push('class warrior: the cry\'s ranks add no time');
+          h.mp = 60; h.cd.cry = 0; castAbility(S, R, 'cry', {}); if (!(e.weakT > S.t) || !(h.cryT > S.t)) out.push('class warrior: the war cry does not weaken the monster near him');
+          R.en = []; h.fightT = S.t; const m0 = h.mp; for (let i = 0; i < 120 * (D.RAGE.calm + 1); i++) step(S, { keys: [], ...toPx(R, h.x + 100, h.y) });
+          if (!(h.mp < m0)) out.push('class warrior: rage does not drain out of a fight'); }
+        const b = h.bag.findIndex((it) => it && it.b === 'mp_potion'); if (b >= 0) { const n = h.bag[b].n; h.mp = 0; S.screen = 'play'; step(S, { keys: ['KeyR'] }); if (!h.bag[b] || h.bag[b].n !== n) out.push('class warrior: he drinks a mana potion'); } } }
+    // the class screen (TASKS 1103): «Кампания» asks for the class, a card picks it and the meta keeps it, «В путь» starts that hero,
+    // Escape goes back; the Keeper names the last hero's class
+    { const S = spawn(0, {}), at = (b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }), ready = D.classesReady();
+      if (ready.length > 1) { at(UI.menu(false).find((b) => b.id === 'campaign'));
+        if (S.screen !== 'classes' || S.run) out.push('class screen: «Кампания» does not ask for the class');
+        step(S, { keys: ['Escape'] }); if (S.screen !== 'menu') out.push('class screen: Escape does not go back to the menu');
+        at(UI.menu(false).find((b) => b.id === 'campaign')); at(UI.classes().find((b) => b.cls === 'mage'));
+        if (S.meta.cls !== 'mage') out.push('class screen: a card does not pick its class');
+        at(UI.classes().find((b) => b.id === 'go')); if (!S.run || S.run.hero.cls !== 'mage' || !S.run.town) out.push('class screen: «В путь» does not start a mage in the town');
+        if (UI.classes().some((b) => b.cls && !D.CLASSES[b.cls].look.ready)) out.push('class screen: a class without its own look is offered');
+        endRun(S, 'dead'); if (S.meta.lastCls !== 'mage') out.push('class screen: the last hero\'s class is not kept');
+        const T = spawn(0, { meta: S.meta }); startRun(T, 'town'); const pages = root.SIMX.keeperPages(T, T.run);
+        if (!pages.some((p) => /маг/.test(p))) out.push('class screen: the Keeper does not name the last hero\'s class'); } }
+    // the Keeper's welcome (TASKS 1849): a new game's first steps in the town bring him from the fire to the hero, held meanwhile, and
+    // open the first talk with the quest about Horatio; Esc leaves the offer his; it is never played again: not on a second visit,
+    // not in a run saved before it (or past it)
+    { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, h = R.hero, F = folkOf(R), k = F.find((q) => q.role === 'keeper'), x0 = h.x, y0 = h.y, kx = k.x, ky = k.y;
+      if (R.greet !== 1) out.push('welcome: a new game does not arm it');
+      let n = 0, walked = 0, said = 0; while (S.screen === 'play' && n++ < 120 * 16) { step(S, { keys: n % 40 === 0 ? ['KeyE', 'Space'] : [], left: 1, up: 1 }); walked = Math.max(walked, Math.hypot(k.x - kx, k.y - ky)); if (k.sayS) said = 1; }
+      if (Math.hypot(h.x - x0, h.y - y0) > 2) out.push(`welcome: the hero walked ${Math.round(Math.hypot(h.x - x0, h.y - y0))} px while held`);
+      if (S.screen !== 'talk' || !S.talk || S.talk.role !== 'keeper') out.push(`welcome: no talk with the Keeper in ${(n / 120).toFixed(1)} s (screen ${S.screen})`);
+      else { const of = offerOf(R, 'keeper');
+        if (!S.talk.act || S.talk.act.k !== 'take' || !of || S.talk.act.key !== of.q.key || of.q.key !== 'rescue') out.push(`welcome: the talk does not offer the quest about Horatio (${JSON.stringify(S.talk.act)})`);
+        if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`); }
+      if (walked < 100 || Math.hypot(k.x - h.x, k.y - h.y) > 70) out.push(`welcome: the Keeper did not come up to the hero (walked ${Math.round(walked)} px, ${Math.round(Math.hypot(k.x - h.x, k.y - h.y))} px off)`);
+      if (!said) out.push('welcome: the Keeper says nothing on the way');
+      step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk');
+      const back = (rs) => { for (let i = 0; i < 120 * 12 && R.greet !== 'done'; i++) step(S, { keys: [] }); return R.greet === 'done'; };
+      if (!back()) out.push('welcome: the Keeper does not go back to the fire');
+      else if (Math.hypot(k.x - kx, k.y - ky) > 3) out.push(`welcome: the Keeper stops ${Math.round(Math.hypot(k.x - kx, k.y - ky))} px off his place`);
+      if (!offerOf(R, 'keeper') || (R.quests || []).some((q) => q.key === 'rescue')) out.push('welcome: Esc lost or took the quest');
+      h.x = k.x + 44; h.y = k.y + 12; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+      if (S.screen !== 'talk' || !S.talk.act || S.talk.act.k !== 'take') out.push('welcome: after Esc the Keeper does not offer the quest again');
+      S.screen = 'play'; S.talk = null; const hx = h.x; for (let i = 0; i < 60; i++) step(S, { keys: [], right: 1 }); if (h.x - hx < 20) out.push('welcome: the hero is still held after it');
+      enterFloor(S, R, 1); enterFloor(S, R, 0); const k2 = folkOf(R).find((q) => q.role === 'keeper'), k2x = k2.x; let held = 0;
+      for (let i = 0; i < 120 * 4; i++) { step(S, { keys: [], down: i < 30 ? 1 : 0 }); if (root.SIMX.greetHold(R)) held = 1; }
+      if (held || S.screen !== 'play' || Math.abs(k2.x - k2x) > 3 || R.greet !== 'done') out.push('welcome: a second visit plays it again');
+      const O = spawn(0, {}); O.run = newRun(O, 'campaign', 91, { town: 1 }); O.screen = 'play'; O.run = JSON.parse(JSON.stringify(O.run)); const oh = O.run.hero, ox = oh.x;
+      for (let i = 0; i < 120 * 4; i++) step(O, { keys: [], right: i < 40 ? 1 : 0 }); if (O.run.greet || O.screen !== 'play' || oh.x - ox < 20) out.push('welcome: a run saved before it is greeted'); }
+    // TASKS 1859: the Keeper meets the hero a step off, not in his sprite; on the offer's page E and the space never drop it, and his
+    // first story quest is taken by E once the page has been up a breath; Esc in a topic goes back to the topics, on them it leaves
+    { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, has = () => (R.quests || []).some((q) => q.key === 'rescue'); let n = 0; while (S.screen === 'play' && n++ < 120 * 16) step(S, { keys: [] });
+      const k = folkOf(R).find((q) => q.role === 'keeper'), off = Math.hypot(k.x - R.hero.x, k.y - R.hero.y), T = S.talk;
+      if (off < 56) out.push(`talk: the Keeper meets the hero ${Math.round(off)} px off, in his sprite`);
+      if (!T || !T.act || !T.act.first) out.push('talk: the Keeper\'s first story quest is not offered as the first');
+      else { for (let i = 0; i < 12 && T.p + 1 < T.pages.length; i++) step(S, { keys: ['KeyE'] }); step(S, { keys: ['KeyE'] }); step(S, { keys: ['Space'] });
+        if (S.screen !== 'talk' || has()) out.push('talk: E or the space mashed onto the story offer closes the talk or takes it at once');
+        for (let i = 0; i < 70; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen !== 'play' || !has()) out.push('talk: E does not take the Keeper\'s first story quest'); }
+      const O = spawn(0, {}); O.run = newRun(O, 'campaign', 37, { town: 1 }); O.screen = 'talk'; O.talk = { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.keeper.topics, menu: 1 };
+      step(O, { keys: ['Digit1'] }); step(O, { keys: [] }); step(O, { keys: ['Escape'] }); if (O.screen !== 'talk' || !O.talk || !O.talk.menu) out.push('talk: Esc in a topic does not go back to the topics');
+      step(O, { keys: [] }); step(O, { keys: ['Escape'] }); if (O.screen !== 'play') out.push('talk: Esc on the topics does not close the talk'); }
+    // PR 55 review: the welcome never throws or stalls: a hero by the Keeper's side (his spot in his own cell), a way back that stays
+    // blocked, the townsfolk made anew while he is in the talk
+    { const play = (setup, cut) => { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, k = folkOf(R).find((q) => q.role === 'keeper'), kx = k.x, ky = k.y; setup(S, R, k); let threw = null;
+        try { let n = 0; while (S.screen === 'play' && n++ < 120 * 16) step(S, { keys: [] }); step(S, { keys: ['Escape'] }); step(S, { keys: [] }); cut(S, R, k); for (let i = 0; i < 120 * 20 && R.greet !== 'done'; i++) step(S, { keys: [] }); } catch (e) { threw = e; }
+        const kn = (R.folk || []).find((q) => q.role === 'keeper');
+        return threw ? `throws (${threw.message})` : R.greet !== 'done' ? `stays in '${R.greet.st}'` : !kn || Math.hypot(kn.x - kx, kn.y - ky) > 3 ? 'ends off his place' : ''; };
+      const a = play((S, R, k) => { R.hero.x = k.x - 46; R.hero.y = k.y - 2; }, () => {}); if (a) out.push(`welcome: with the hero right by the Keeper it ${a}`);
+      const b = play(() => {}, (S, R, k) => { k.path = [{ x: -400, y: -400 }]; }); if (b) out.push(`welcome: a way back that stays blocked ${b}`);
+      const c = play(() => {}, (S, R) => { R.greet.st = 'home'; R.folk = null; }); if (c) out.push(`welcome: with the townsfolk made anew after the talk it ${c}`);
+      const d = play(() => {}, (S, R, k) => { delete R.greet.t3; k.path = [{ x: -400, y: -400 }]; }); if (d) out.push(`welcome: a way back saved without its start (t3) that stays blocked ${d}`); }
+    // PR 55 review 2: the hero is held no longer than the Keeper's walk and a breath (a hen sat on his spot), the spot is never a
+    // bench, and townsfolk made anew mid-walk (a load) bring him over again; each time he talks from beside the hero
+    { const greet = (setup, mid) => { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run; setup(S, R); let n = 0, k = folkOf(R).find((q) => q.role === 'keeper');
+        while (S.screen === 'play' && n++ < 120 * 20) { if (mid) mid(S, R, n); step(S, { keys: [] }); } k = folkOf(R).find((q) => q.role === 'keeper');
+        return { R, k, t: n / 120, off: Math.hypot(k.x - R.hero.x, k.y - R.hero.y), talk: S.screen === 'talk' }; };
+      const base = greet(() => {}), say = (r, what) => { if (!r.talk || r.off > 70) out.push(`welcome: ${what}, he talks ${Math.round(r.off)} px off the hero (screen talk: ${r.talk})`); };
+      const a = greet(() => {}, (S, R) => { const G = R.greet, hen = folkOf(R).find((q) => q.role === 'hen'); if (G.st !== 'walk' || !G.sp) return; hen.x = G.sp.x; hen.y = G.sp.y; hen.goal = { x: G.sp.x, y: G.sp.y, v: 0 }; });
+      say(a, 'with a hen on his spot'); if (a.t > base.t + 1.8) out.push(`welcome: a hen on his spot holds the hero ${a.t.toFixed(1)} s, his walk takes ${base.t.toFixed(1)} s`);
+      let bn = null; const b = greet((S, R) => { const m = R.map, k = folkOf(R).find((q) => q.role === 'keeper'), at = (d) => d.x - (k.x >= d.x - 46 ? 1 : -1) * 46; bn = m.decor.filter((d) => d.role === 'bench').find((d) => folkFree(m, at(d), d.y - 2, K.R));
+        if (bn) { R.hero.x = at(bn); R.hero.y = bn.y - 2; } });
+      const bc = (o) => Math.floor(o.y / TILE) * b.R.map.W + Math.floor(o.x / TILE); if (bn && bc(b.k) === bc(bn)) out.push('welcome: the Keeper meets the hero on a bench'); say(b, 'with a bench beside the hero');
+      const c = greet(() => {}, (S, R, n) => { if (n === 240) R.folk = null; }); say(c, 'with the townsfolk made anew mid-walk'); }
+    // gear of another class (TASKS 1102): the staff made the mage's alone for the check, a warrior neither wears it nor finds it often
+    { const keep = BASES.staff.cls; BASES.staff.cls = ['mage'];
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 82), h = R.hero, n = 4000; let st = 0, mg = 0;
+      for (let i = 0; i < n; i++) if (rollItem(R, 3, 0, 'weapon').b === 'staff') st++;
+      const S2 = spawn(0, {}), R2 = newRun(S2, 'campaign', 82, { cls: 'mage' }); for (let i = 0; i < n; i++) if (rollItem(R2, 3, 0, 'weapon').b === 'staff') mg++;
+      const fair = n / Object.keys(BASES).filter((k) => BASES[k].slot === 'weapon').length;
+      if (Math.abs(st / (fair * D.CLASS_LOOT.foreign) - 1) > 0.25) out.push(`class: a warrior finds the mage's staff ${st} times in ${n}, not about ${Math.round(fair * D.CLASS_LOOT.foreign)}`);
+      if (mg < fair * 0.8) out.push(`class: a mage finds his staff ${mg} times in ${n}, below ${Math.round(fair)}`);
+      // TASKS 1156: the fire on a mage's gear and the arcane gift reach his bolt; TASKS 1154: the chill slows a monster's wind-up and its cooldown
+      { const S5 = spawn(0, {}), R5 = newRun(S5, 'campaign', 84, { cls: 'mage' }), h5 = R5.hero; S5.run = R5; S5.screen = 'play'; const a0 = stats(h5, S5.meta).atk; h5.perks = { arcane: 1 };
+        if (!(stats(h5, S5.meta).atk > a0)) out.push('class mage: the arcane gift does not reach the bolt'); h5.perks = {};
+        const e = { id: R5.nextId++, type: 'skeleton', x: h5.x + 800, y: h5.y, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S5.t, kbx: 0, kby: 0, cdT: S5.t + 9, chillT: S5.t + 3 }; R5.en = [e];
+        const cd0 = e.cdT, n5 = 60; for (let i = 0; i < n5; i++) step(S5, { keys: [], ...toPx(R5, h5.x + 100, h5.y) });
+        if (!(D.windOf(e, 1) > 1)) out.push('class mage: a chilled monster winds up as fast as ever'); if (!(e.cdT > cd0 + 0.1)) out.push('class mage: a chilled monster\'s cooldown runs as fast as ever'); }
+      // PR 36 review: a deep run's kit is the class's own; a save from before the classes is given its abilities back; a set trap stays on its floor
+      for (const mode of ['cave', 'magma']) for (const cl of ['warrior', 'mage', 'archer']) { const S6 = spawn(0, {}), R6 = newRun(S6, mode, 85, { cls: cl }), w = Object.values(R6.hero.eq).filter((it) => it && BASES[it.b] && !D.wears(cl, it.b)).map((it) => it.b);
+        if (w.length) out.push(`class: a ${cl} starts the ${mode} run in ${w}`); if (cl !== 'warrior' && !(D.CLASSES[cl].shoots || []).includes(R6.hero.eq.weapon.b)) out.push(`class: a ${cl}'s ${mode} kit has no weapon of his`); }
+      { const S7 = spawn(0, {}), R7 = newRun(S7, 'campaign', 86), h7 = R7.hero; delete h7.cls; h7.lvl = 5; h7.sp = 1; h7.ab = { whirl: 2, fireball: 3, shield: 2 }; SIMX.migrateAbilities(R7);
+        if (h7.ab.fireball || h7.ab.shield || !(h7.ab.charge >= 1) || !(h7.ab.cry >= 1) || h7.ab.whirl !== 2 || h7.sp !== 4) out.push(`class: an old save migrates to ${JSON.stringify(h7.ab)}, ${h7.sp} points`);
+        const sp0 = h7.sp; SIMX.migrateAbilities(R7); if (h7.sp !== sp0) out.push('class: migrating an old save twice pays twice');
+        R7.htraps = [{ x: 1, y: 1, t0: S7.t }]; enterFloor(S7, R7, 2); if (R7.htraps.length) out.push('class: a set trap follows the hero to the next floor'); }
+      // TASKS 1185: what does nothing for a class is not offered to it
+      for (const cl of ['warrior', 'mage', 'archer']) { const S4 = spawn(0, {}), R4 = newRun(S4, 'campaign', 83, { cls: cl }), no = D.CLASSES[cl].dead;
+        for (const [k, list, key] of [['gifts', D.GIFTS, 'id'], ['meta', D.META, 'id'], ['mods', D.AFFIXES, 'k']]) for (const id of no[k]) if (!list.some((q) => q[key] === id)) out.push(`class: ${cl}'s dead ${k} names «${id}», no such thing`);
+        for (let i = 0; i < 400; i++) { const bad = Object.keys(rollItem(R4, 9, 3).mods).filter((m) => no.mods.includes(m)); if (bad.length) { out.push(`class: a ${cl}'s item rolled ${bad}`); break; } }
+        for (let i = 0; i < 60; i++) { const sh = { x: 0, y: 0 }; R4.shrines.push(sh); SIMX.openAltar(S4, R4, sh); S4.screen = 'play'; const g = sh.gifts.find((q) => no.gifts.includes(q.id)); if (g) { out.push(`class: a ${cl}'s altar offers «${g.id}»`); break; } }
+        const m = D.UI.meta(cl).map((b) => b.id); for (const id of no.meta) if (m.includes(id)) out.push(`class: a ${cl}'s altar sells rank «${id}»`);
+        for (const b of no.cons) { if (R4.hero.bag.some((it) => it && it.b === b)) out.push(`class: a ${cl} starts with ${b}`); if (['town', 'wander'].some((kind) => stockShop(R4, 5, kind).goods.some((g) => g.it.b === b))) out.push(`class: a ${cl}'s shelf sells ${b}`); }
+        if (cl === 'mage' && !R4.hero.bag.some((it) => it && it.b === 'mp_potion')) out.push('class: the mage starts without a mana potion'); }
+      for (const cl of ['warrior', 'mage', 'archer']) { const S3 = spawn(0, {}), R3 = newRun(S3, 'campaign', 82, { cls: cl }), bad = (it) => BASES[it.b] && !D.wears(cl, it.b); let got = 0;
+        for (let f = 1; f <= 16; f++) for (const kind of ['town', 'wander']) got += stockShop(R3, f, kind).goods.filter((g) => bad(g.it)).length;
+        for (let i = 0; i < 800; i++) if (bad(rollItem(R3, 5, 2, undefined, { own: 1 }))) got++;
+        if (got) out.push(`class: ${got} foreign pieces on a ${cl}'s shelves and quest rewards`); }
+      const it = Object.assign(rollItem(R, 1, 0, 'weapon'), { b: 'staff', id: R.nextId++ }); h.eq.weapon = null; h.bag[5] = it; S.run = R; S.screen = 'play';
+      if (wearIfFree(S, R, it) || h.eq.weapon) out.push('class: a warrior puts on the mage\'s staff by picking it up');
+      useItem(S, R, 5); if (h.eq.weapon || h.bag[5] !== it) out.push('class: a warrior equips the mage\'s staff');
+      BASES.staff.cls = keep; }
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 81), h = R.hero, H = JSON.parse(JSON.stringify(h)); delete H.cls; H.lvl = 5;
+      if (h.cls !== 'warrior' || D.clsOf(H) !== D.CLASSES.warrior || JSON.stringify(stats(H, S.meta)) !== JSON.stringify(stats(Object.assign({}, H, { cls: 'warrior' }), S.meta))) out.push('class: a hero saved without a class is not a warrior'); }
+    // TASKS 1363: a lava bridge's rope rails hold: pressed against either side of the deck the hero stays on it, and the deck still carries him bank to bank
+    { let n = 0; for (let sd = 1; sd <= 14 && n < 6; sd++) for (const f of [5, 6]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero; R.en = [];
+        for (const c of m.crossings.filter((q) => q.kind === 'bridge' && q.lava && !q.chasm)) { n++; const [u0, u1, v0] = c.span, hor = c.axis === 'x', P = (u, v) => [(hor ? u : v) * TILE, (hor ? v : u) * TILE], tag = `rails: seed ${sd} f${f} bridge at ${u0},${v0}`;
+          for (const side of [-1, 1]) { const [x, y] = P((u0 + u1 + 1) / 2, v0 + 1); h.x = x; h.y = y; h.vx = h.vy = 0;
+            for (let i = 0; i < 90; i++) step(S, hor ? { up: side < 0, down: side > 0, px: 960, py: 540, keys: [] } : { left: side < 0, right: side > 0, px: 960, py: 540, keys: [] });
+            const v = hor ? h.y : h.x; if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1 || v < v0 * TILE || v > (v0 + 2) * TILE) out.push(`${tag}: the hero walks off its ${side < 0 ? 'near' : 'far'} side`); }
+          for (const dir of [-1, 1]) { const [x, y] = P(dir < 0 ? u1 + 1.5 : u0 - 0.5, v0 + 1); h.x = x; h.y = y; h.vx = h.vy = 0;
+            for (let i = 0; i < 400; i++) step(S, hor ? { left: dir < 0, right: dir > 0, px: 960, py: 540, keys: [] } : { up: dir < 0, down: dir > 0, px: 960, py: 540, keys: [] });
+            const a = hor ? h.x : h.y; if (dir < 0 ? a > u0 * TILE : a < (u1 + 1) * TILE) out.push(`${tag}: the deck does not carry the hero across`); } } }
+      if (n < 4) out.push(`rails: only ${n} lava bridges in 14 seeds`); }
+    // TASKS 1808: the stairs show through the fog once half the floor's foes are slain, not a kill sooner; never in the town
+    for (const [mode, f] of [['campaign', 3], ['campaign', 10], ['campaign', 14]]) { const S = spawn(0, {}); S.run = newRun(S, mode, 7); S.screen = 'play'; enterFloor(S, S.run, f);
+      const R = S.run, m = R.map, at = m.exit.ty * m.W + m.exit.tx, F = fstat(R), foes = R.en.filter((e) => counted(e) && e.deadT < 0 && !D.BOSSES[e.type]), need = Math.ceil(F.foes / 2), tag = `stairs: ${mode} f${f}`;
+      R.seen[at] = 0; for (const e of foes.slice(0, need - 1)) { e.hp = 0; killEnemy(S, R, e); }
+      if (R.seen[at]) out.push(`${tag}: shown before half the foes fell`);
+      if (foes[need - 1]) { foes[need - 1].hp = 0; killEnemy(S, R, foes[need - 1]); } if (!R.seen[at]) out.push(`${tag}: not shown with half the foes slain`); }
+    return out;
+  }
+  SIMX.checks.add('classCheck', classCheck);
+  SIMX.checks.add('powerCheck', checkPowers);
 })(typeof window !== 'undefined' ? window : globalThis);

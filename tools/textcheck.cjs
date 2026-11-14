@@ -1,12 +1,12 @@
 // node tools/textcheck.cjs — the game's texts live in live/text_<lang>.js (TASKS 1141): no Cyrillic in a string, template or regex
 // of the code outside them, every TXT / TXT.n key is a plain literal (or a family «'A.' + id + '.b'») that the Russian table holds (a TXT.n key: its three plural
 // forms), and the table holds no key the code never asks for. Exit 2 on failure.
-// sim_checks.js is the sim's self-check code (its messages are for the developer) and is not scanned.
+// sim_checks*.js is the sim's self-check code (its messages are for the developer) and is not scanned.
 const fs = require('fs'), path = require('path');
-const LIVE = path.join(__dirname, '..', 'live'), SKIP = new Set(['text.js', 'sim_checks.js', 'assets.js', 'rigs.js', 'sizes.js', 'data_changes.js', 'tune.cjs']);
+const LIVE = path.join(__dirname, '..', 'live'), SKIP = new Set(['text.js', 'assets.js', 'rigs.js', 'sizes.js', 'data_changes.js', 'tune.cjs']);
 require(path.join(LIVE, 'text_ru.js')); const RU = globalThis.TEXT.ru;
 const CY = /[А-Яа-яЁё]/, fails = [], used = new Map(), { code } = require('./jsscan.cjs');
-for (const f of fs.readdirSync(LIVE).filter((f) => f.endsWith('.js') && !SKIP.has(f) && !/^text_\w+\.js$/.test(f))) {
+for (const f of fs.readdirSync(LIVE).filter((f) => f.endsWith('.js') && !SKIP.has(f) && !/^text_\w+\.js$/.test(f) && !/^sim_checks/.test(f))) {
   const c = code(fs.readFileSync(path.join(LIVE, f), 'utf8')), lines = c.split('\n');
   lines.forEach((l, i) => { if (CY.test(l)) fails.push(`${f}:${i + 1}: Cyrillic in code: ${l.trim().slice(0, 100)}`); });
   for (const m of c.matchAll(/\bTXT(\.n)?\(\s*('([^'\\]*)'|[^'\s)][^,)]*)/g)) {
