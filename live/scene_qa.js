@@ -847,6 +847,13 @@
       let hy = y - 3 * TILE; for (let j = 2; j < 8; j++) if (SIM.cell(m, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1) { hy = y - j * TILE; break; }
       h.x = x; h.y = hy; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; states.push(['magma_terrace_step', S]); break; }
+    // TASKS 1946: the critic's bend_s5_f14 (campaign via the town, seed 35, floor 14), a lake's split bundles beside a terrace bend:
+    // every column standing in the lava has its cap, none cut flat on the islands' grid lines
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 35, { town: true }); S.screen = 'play'; SIM.enterFloor(S, S.run, 14);
+      const R = S.run, m = R.map, h = R.hero, B = (m.crossings || []).find((c) => c.bend);
+      if (B) { const k = B.cells[Math.floor(B.cells.length / 2)]; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE;
+        R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 900); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+        R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; states.push(['magma_bend_lake', S]); } }
     // TASKS 431: a lava cave, the camera on a way over a stream of lava across a tunnel
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'cave') m = S.run.map; } if (!m) continue;
