@@ -1058,6 +1058,14 @@
       // (TASKS 1943) every hall keeps its own monster, `need`: the arrival's gap took run 169's 3rd floor's golem, a small prison's cut its skeleton
       for (const [sd, f] of [[169, 3], [12, 1], [15, 1], [21, 1], ...Array.from({ length: 10 }, (_, i) => [i + 1, (i % 3) + 1])]) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd });
         for (const r of m.rooms.filter((q) => q.hall)) if (!(f === 1 && HL.kinds[r.hall].early) && !m.enemies.some((e) => e.room === r.id && e.type === HL.kinds[r.hall].need)) out.push(`magma run ${sd} f${f}: the ${r.hall} hall without its ${HL.kinds[r.hall].need}`); }
+      // (TASKS 1944) a save laid before GEN_VERSION 24 with a lava arch standing on dry floor is loaded with slabs there, as a run in play
+      // and as a slot's run
+      { let done = 0; for (let sd = 1; sd <= 6 && !done; sd++) for (let f = 1; f <= 3 && !done; f++) { const S = spawn(0, {}); S.run = newRun(S, 'magma', sd); if (f > 1) enterFloor(S, S.run, f);
+        const m = S.run.map, i = m.crossings.findIndex((c) => c.lava && c.kind === 'slabs' && c.axis === 'x' && !DG.archLegs(m, Object.assign({}, c, { kind: 'arch' }))); if (i < 0) continue; done = 1;
+        m.crossings[i].kind = 'arch'; const old = JSON.parse(JSON.stringify(S.run)), S2 = spawn(0, { run: old, saves: [JSON.parse(JSON.stringify(old))] });
+        if (S2.saved.map.crossings[i].kind !== 'slabs') out.push(`magma run ${sd} f${f}: a saved run's arch with no legs is not loaded as slabs`);
+        const sl = S2.saves.find(Boolean); if (sl && sl.map.crossings[i].kind !== 'slabs') out.push(`magma run ${sd} f${f}: a slot's arch with no legs is not loaded as slabs`); }
+        if (!done) out.push('saves: no magma floor with lava slabs across to check an old arch on'); }
       // (TASKS 1920, PR 64 review) no shooter within the calm of a gate, and a hall within it keeps its own monster: run 310's 3rd floor's
       // sanctum lost its priest. Built through newRun and enterFloor, as a run builds them, so the floor checked is the one played
       const G = D.HAZ.vent.gate; for (const [sd, f] of [[310, 3], ...Array.from({ length: 12 }, (_, i) => [i + 1, (i % 3) + 1])]) { const S = spawn(0, {}); S.run = newRun(S, 'magma', sd); if (f > 1) enterFloor(S, S.run, f);
