@@ -809,7 +809,7 @@
     return [r ? TXT('hud.abtip.next', { r: n }) : TXT('hud.abtip.learn'), out]; }
   function inv(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
-    dim(0.45);
+    dim(0.45); L.uiCover('inv_cover', Lp.x, Lp.y, Lp.w, Lp.h); L.uiCover('inv_r_cover', Rp.x, Rp.y, Rp.w, Rp.h);
     KIT.panel('inv', Lp.x, Lp.y, Lp.w, Lp.h, 'leather'); KIT.panel('inv_r', Rp.x, Rp.y, Rp.w, Rp.h, 'torn', { pad: 0 });
     // the name typed on the class screen heads the page (TASKS 1912); a nameless hero keeps the page's own title
     { const nm = (h.name || '').trim() || TXT('hud.inv'); KIT.banner('inv_t', cx, Lp.y + 16, Math.min(Lp.w - 80, Math.max(340, lw('inv_tm', nm, { size: 34 }) + 140)), nm, { h: 72, size: 34 }); }
