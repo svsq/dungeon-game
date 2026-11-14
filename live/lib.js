@@ -365,7 +365,8 @@ void main(){ vec2 uv = scr(v_px); vec3 c = texture(u_src, uv).rgb;
   c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), u_desat);
   c = mix(c, u_edge.rgb, u_edge.a * smoothstep(0.45, 0.95, length(q) * 1.25));
   c *= 1.0 - u_dark;
-  c = pow(max(c, 0.0), vec3(1.0 / u_bright));
+  // (the mid tones only, TASKS 1733: a plain gamma lifted the void past the fog to a grey-blue sheet and the fog lost its depth)
+  c = max(c, 0.0); c = mix(c, pow(c, vec3(1.0 / u_bright)), smoothstep(0.015, 0.1, dot(c, vec3(0.299, 0.587, 0.114))));
   if (u_dither > 0.5) c += (hash(v_px + fract(u_t) * 100.0) - 0.5) / 255.0;
   o = vec4(c, 1.0); }`;
   const MOTE = `
