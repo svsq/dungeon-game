@@ -2,6 +2,13 @@
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data and pure helpers, no state; data.js checks the set.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
+  // where the colossus's feet touch the ground, in the px of its rig (RIGS.colossus, live/rigs.js, cut by tools/rig_colossus.sh): `gap` the rig's
+  // centre line, `ankle` and `foot` the x of each leg's ankle and foot, `midAnkle` between the ankles, `step` one step's length in view px (a leg's
+  // thigh and shin at 0.4 of their sum, drawn at `scale` = its drawn height over `rigH`), the rest is how the sim's contact is placed from them:
+  // `lead` of a step ahead along the motion, `pull` of the ankle's distance to midAnkle taken in, `depth` the way a step in depth projects
+  // (monsters.js plants the drawn foot with the same 0.6 and 0.3). A redrawn rig changes its numbers: sim_checks_colossus.js compares the table with it
+  const COLOSSUS_GEO = { rigH: 320, gap: 118.5, midAnkle: 123.5, ankle: { L: 74.5, R: 172.5 }, foot: { L: 70.64176829268293, R: 175.18155197657393 }, step: 29.80632555187274,
+    lead: 0.64, pull: 0.15, depth: { ahead: 0.6, back: 0.3 } };
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
     boss_serpent: { hp: 2200, dmg: 60, scale: 1, phases: [
@@ -48,7 +55,7 @@
     // never within `shelter` px of a basalt slab of cover; stomp (TASKS 1809, out of turn): a hero `hold` s within `near` px of it,
     // where the crack starts past him and the fists alone reach, is stamped off: a ring `r` px round its feet, `push` px out, at most
     // once in `cd` s, so standing at its shins is no safe spot
-    boss_colossus: { hp: 1650, dmg: 33, scale: 1, rise: 2.2, wade: 70, step: 29.80632555187274, phases: [
+    boss_colossus: { hp: 1650, dmg: 33, scale: 1, rise: 2.2, wade: 70, step: COLOSSUS_GEO.step, phases: [
       { at: 1, moves: ['crack', 'fists', 'boulder', 'charge', 'fists'], rest: 0.9, speed: 1, finishMove: 1 },
       { at: 0.6, moves: ['boulder', 'crack', 'fists', 'charge', 'imps', 'fists'], enter: 'shatter', rest: 0.75, speed: 1.3, finishMove: 1 },
       { at: 0.25, moves: ['rain', 'fists', 'crack', 'boulder', 'fists', 'charge'], enter: 'erupt', rest: 0.75, speed: 1.3 }
@@ -281,13 +288,13 @@
   const colossusContact = (e, side = 'R') => ({ x: e.x + e.face * ENEMIES[e.type].h * (side === 'L' ? 0.02 : 0.45), y: e.y });
 
   const colossusStepAt = (e, i) => {
-    const side = i % 2, s = ENEMIES[e.type].h / 320, speed = Math.hypot(e.vx, e.vy) || 1, off = BOSSES[e.type].step * 0.64;
-    const ankle = side ? 172.5 : 74.5, foot = side ? 175.18155197657393 : 70.64176829268293, narrow = (123.5 - ankle) * 0.15;
-    return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
+    const G = COLOSSUS_GEO, side = i % 2 ? 'R' : 'L', s = ENEMIES[e.type].h / G.rigH, speed = Math.hypot(e.vx, e.vy) || 1, off = BOSSES[e.type].step * G.lead;
+    const narrow = (G.midAnkle - G.ankle[side]) * G.pull;
+    return { x: e.x + e.face * (G.foot[side] - G.gap + narrow) * s + off * e.vx / speed, y: e.y + off * (G.depth.ahead * e.vy / speed - G.depth.back * Math.abs(e.vy / speed)) };
   };
 
   // (TASKS 1938) one number for the sim's step about a post and the rig's footfalls over it: apart, the feet slid while the body moved
   const AMB_T = 0.6;
 
-  Object.assign(D, { ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt, AMB_T });
+  Object.assign(D, { COLOSSUS_GEO, ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt, AMB_T });
 })(typeof window !== 'undefined' ? window : globalThis);
