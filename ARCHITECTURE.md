@@ -69,6 +69,7 @@
 (560–693) → лава, реки и плато (694–1103) → вода пещер (1104–1278) → тайные комнаты (1279–1391) → двери (1392–1457) →
 наполнение: враги, стаи, свет, мебель (1458–1933) → убранство пещер и магмы, ловушки, декали (1934–2438) → город (2439–2561).
 Стадии уже разделены комментариями и почти не делят состояние, кроме объекта карты.
+Версия генератора `GEN_VERSION` лежит здесь же (как `D.GEN_VERSION`), с историей версий в комментарии; поднимается вручную при каждой правке, меняющей карты, вместе с отпечатком `GEN_PRINT` в `sim_checks_gen.js`.
 Поля карты `rugs`, `ambush`, `m.loose` и `way: null` deprecated: остаются в JS ради хеша карты (`GEN_PRINT`, `mapPrint`), в порт не входят.
 
 ### `data.js` (998)
@@ -124,7 +125,7 @@
   файлов выбирается так, чтобы таких вызовов было мало.
 - **Node.** `require('./data.js')`, `require('./dungeon.js')` и `require('./sim.js')` продолжают работать: в Node последний
   файл слоя сначала подтягивает свои части по манифесту. 20+ инструментов из `tools/` не трогаются, кроме тех, что читают
-  исходник как текст (`cavedensitycheck.cjs` читает `live/dungeon.js`).
+  исходник как текст.
 
 ### 4.2 Файлы
 
@@ -140,7 +141,7 @@
 | `data_enemies.js` | `BOSSES`, `ENEMIES`, `ELITE`, `ELITE_MODS`, `NAMED`, `bossPhase/Move`, `eliteK`, `under`, геометрия колосса | core, balance |
 | `data_world.js` | `BIOMES`, `ARCH`, `HAZ`, `BRINK`, `ROOM_SHAPES/PLANS`, `PROP_W/H/MAT`, `CAVE_PACKS`, `MAGMA_*` | core, enemies |
 | `data_runs.js` | `RUNS`, `stageOf`, бесконечный спуск, `layOf`, `rosterAt`, `wayFloor`, `placeName`, `floorName` | world, enemies |
-| `data_items.js` | `SLOTS`, `BASES`, `CONSUMABLES`, `RARITY`, `AFFIXES`, `ITEM_BAL`, `GEN_VERSION`, `reqLvl`, цены | core, balance |
+| `data_items.js` | `SLOTS`, `BASES`, `CONSUMABLES`, `RARITY`, `AFFIXES`, `ITEM_BAL`, `reqLvl`, цены | core, balance |
 | `data_hero.js` | `CLASSES`, `clsOf`, `ABILITIES`, `abRank`, `STATS`, `TIPS`, `xpNeed`, `META`, `metaLine`, `GIFTS` | core, items |
 | `data_town.js` | `FOLK`, `KEEPER`, `QUESTS`, `QUEST_*`, `CRAFT`, `STASH`, `SHOP`, `folkInit`, `storyChain` | runs, items |
 | `ui_kit.js` + `ui_<экран>.js` (4.7) | `UI`, `TEST_RUNS`, `startPath` | все |
@@ -237,7 +238,9 @@
 | `sim_checks_classes.js` | 2 | классы и их силы (маг, лучник, воин, формы, реликвии, эволюции) |
 | `sim_checks_events.js` | 10 | комнаты событий: испытание, кровь, колдовство, фонтан, кости, темнота, пленник, библиотека |
 | `sim_checks_ui.js` | 10 | меню, настройки, окна, HUD, ключевые слова, размеры |
-| `sim_checks_kit.js` | — | общее для нескольких доменов: `noWelcome`, `plainRun`, `noQuests`, `swing` |
+| `sim_checks_getters.js` | 1 | запросы отрисовки (`SIM.Q`) не пишут состояние (2064) |
+| `sim_checks_genguard.js` | 3 | допущения генератора: камень на кромке карты, что стадия читает из `GF`, поля `ST`, карта без общих с данными объектов (2069) |
+| `sim_checks_kit.js` | — | общее для нескольких доменов: `noWelcome`, `plainRun`, `noQuests`, `swing`, `stateJson` |
 
 Всего 63 проверки, 1993 строки с `out.push(` (2106 вхождений) до и после; тела функций перенесены текстом без правок (сверено скриптом по нормализованному коду). Идентификаторы проверок остались прежними, как и имена в `SLOW`. `secretCheck` (556 строк), `secretRestCheck` (471), `playCheck` (386) и другие сборники целиком лежат в одном файле: резать их по темам внутри — следующий шаг (разделы 8.2–8.3 `study/refactor2/sim.md`), он не чистый перенос. `textcheck.cjs` пропускает все `sim_checks*.js`.
 
