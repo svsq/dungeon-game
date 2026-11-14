@@ -3,7 +3,7 @@
 (function (root) {
   const DGX = root.DGX, {
     D, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, riverAt, riverOk, riverWays, straightRuns,
-    wayRooms } = DGX;
+    wayRooms, shuffleBy } = DGX;
   DGX.terrain = (GF) => {
     const {
       AR, FM, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
@@ -78,7 +78,7 @@
     // the dead ends first (a ledge, a pocket, a leaf of the tree), so no more than a third of a floor's lies on the way
     let way = plat ? wayRooms(cells, W, H, rooms, start.cy * W + start.cx, exitR.cy * W + exitR.cx) : new Set(), deadEnd = (r) => (adj[r.id] || []).length === 1;
     // a Fisher–Yates shuffle: a random sort comparator gives each JS engine its own order, so node checks would see other maps than the browser
-    const others = rooms.filter((r) => r.type === 'combat'); for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
+    const others = rooms.filter((r) => r.type === 'combat'); shuffleBy(others, R);
     R();
     if (!cave) others.sort((a, b) => (a.shape === 'closet') - (b.shape === 'closet'));
     // (the order of `others` and the roll below stay as they were when hoards took the first of them, so floors keep their layout)
@@ -227,8 +227,8 @@
     if (D.BIOMES[biome].lava && !(last && boss)) {
       // the first river a room or two from the start, so the floor reads as the fire depths from its first fight
       const near = rooms.filter((r) => lavaRoom(r) && hop[r.id] >= 1 && hop[r.id] <= 2), rest = rooms.filter((r) => lavaRoom(r) && !near.includes(r));
-      for (let i = near.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [near[i], near[j]] = [near[j], near[i]]; }
-      for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+      shuffleBy(near, R);
+      shuffleBy(rest, R);
       const tryRiver = (r) => { const dirs = [1, 3, 0, 2].filter((d) => (d % 2 ? r.w : r.h) >= 8); for (let k = 0; k < 3 && dirs.length; k++) if (river(r, dirs[Math.floor(R() * dirs.length)])) return true; return false; };
       for (const r of near) if (tryRiver(r)) break;
       const wantR = 2 + (R() < 0.5 ? 1 : 0), big = rest.filter((r) => r.w >= 10 && r.h >= 8);
@@ -260,6 +260,10 @@
     // that cuts a ridge is crossed where it does (a stone arch, basalt slabs, a chain bridge: crossCuts, shared with the cave's water).
     // Cooled crust lies along the banks: walkable, but it breaks under whoever stands on it (sim.js). Lakes and rivers keep to the rock
     // (only a ridge may be cut, never a plateau) and run near the plateaus, where the camera sees them, rather than out in the dark
+    const bridgePosts = (hor, u0, u1, v0, lit) => { const out = [];
+      for (const e of [0, 1]) for (const side of [0, 1]) { const a = e ? (u1 + 1) * TILE - 6 : u0 * TILE + 6, b = side ? (v0 + 2) * TILE + 2 : v0 * TILE + 4;
+        out.push({ x: hor ? a : side ? (v0 + 2) * TILE + 4 : v0 * TILE - 4, y: hor ? b : a + (e ? 8 : 2), fire: lit.includes(e) ? 1 : 0, near: side }); }
+      return out; };
     const platLava = () => {
       // a lava cave (TASKS 431) has its lava laid with its water (above): its rock is all wall, no chasm under it
       if (lc) { cliff.fill(H); for (let k = 0; k < W * H; k++) if (cells[k] === 3) lava.push([k % W, Math.floor(k / W)]); return true; }
@@ -347,7 +351,7 @@
       const inLake = (k) => cells[k] === 3 && lakes.some((L) => L.set.has(k)), dark = (k) => rock(k) && d[k] >= LV.dark;
       // falls and breaches down the top wall, over rock clear of the plateaus a few rows down, spaced apart
       const tops = []; for (let x = 4; x < W - 6; x++) { const w0 = cliff[x], ok = [0, 1, 2].every((i) => cliff[x + i] === w0 && [1, 2, 3].every((j) => rock((w0 + j) * W + x + i) && d[(w0 + j) * W + x + i] >= 2)); if (ok) tops.push(x); }
-      for (let i = tops.length - 1; i > 0; i--) { const j = Math.floor(P() * (i + 1)); [tops[i], tops[j]] = [tops[j], tops[i]]; }
+      shuffleBy(tops, P);
       const nFall = pi(...LV.falls), heads = [];
       for (const x of tops) { if (heads.length >= nFall) break; if (heads.some((h) => Math.abs(h.x - x) < LV.fallApart)) continue;
         const w = pi(2, 3), kind = cliff[x] >= 4 && P() < 0.7 ? 'fall' : 'breach';
@@ -531,9 +535,7 @@
         for (let i = 0; i < qq.length; i++) for (const o of D4) { const n = qq[i] + o; if (dd[n] < 0 && (cells[n] === 1 || cells[n] === 4)) { dd[n] = dd[qq[i]] + 1; qq.push(n); } }
         if (far && dd[exitR.cy * W + exitR.cx] < pathMin) return false; }
       for (const c of crossings) { if (!c.chasm) c.lava = 1; if (c.kind !== 'bridge') continue; const hor = c.axis === 'x', us = c.cells.map((k) => (hor ? k % W : Math.floor(k / W))), vs = c.cells.map((k) => (hor ? Math.floor(k / W) : k % W));
-        const u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), lit = P() < 0.5 ? [] : [P() < 0.5 ? 0 : 1]; c.span = [u0, u1, v0]; c.posts = [];
-        for (const e of [0, 1]) for (const side of [0, 1]) { const a = e ? (u1 + 1) * TILE - 6 : u0 * TILE + 6, b = side ? (v0 + 2) * TILE + 2 : v0 * TILE + 4;
-          c.posts.push({ x: hor ? a : side ? (v0 + 2) * TILE + 4 : v0 * TILE - 4, y: hor ? b : a + (e ? 8 : 2), fire: lit.includes(e) ? 1 : 0, near: side }); } }
+        const u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), lit = P() < 0.5 ? [] : [P() < 0.5 ? 0 : 1]; c.span = [u0, u1, v0]; c.posts = bridgePosts(hor, u0, u1, v0, lit); }
       lavaUnder.push(...under);
       // crust: a cell of lava on a bank, with floor on one side only and lava two cells deep behind it, where the noise lays a stretch
       // of it; never by a crossing or a source. It can't join two floors, so no way ever needs it
@@ -554,7 +556,7 @@
         const openL = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3 && cells[y * W + x] === 3 && !under.has(y * W + x) && !cr.has(y * W + x) && !src.has(y * W + x) && !arena[y * W + x];
         const cand = []; for (let y = 4; y < H - pw - 4; y++) for (let x = 4; x < W - pw - 4; x++) { let ok = true;
           for (let j = -IS.ring; j < ph + IS.ring && ok; j++) for (let i = -IS.ring; i < pw + IS.ring; i++) if (!openL(x + i, y + j)) { ok = false; break; } if (ok) cand.push([x, y]); }
-        for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(Ip() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+        shuffleBy(cand, Ip);
         let made = 0;
         for (const [x, y] of cand) { if (made >= IS.n) break;
           // (a strip out of the pad's middle two rows or columns, straight on till it meets a plateau's floor)
@@ -608,7 +610,7 @@
     // is laid along the shortest line over it: an isthmus of shallows, a ford of stones or a plank bridge. Its own random stream, so
     // the rest of the floor is laid out as without it ----
     if (cave && !pl) {
-      const Q = mul32(seed ^ 0x302c0de), shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Q() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const Q = mul32(seed ^ 0x302c0de), shuffle = (a) => shuffleBy(a, Q);
       const wt = new Uint8Array(W * H), cross = new Uint8Array(W * H), deep = new Uint8Array(W * H), flowW = new Int8Array(W * H).fill(-1), D4 = [1, -1, W, -W], D8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1];
       const inBox = (r, x, y, p) => x >= r.x - p && x < r.x + r.w + p && y >= r.y - p && y < r.y + r.h + p;
       // kept dry: the start, the merchant and the boss's hall with their rock round them (the shop's back wall stays two cells thick),
@@ -618,9 +620,7 @@
       const dryAt = (x, y) => x < 3 || y < 4 || x > W - 4 || y > H - 4 || shopCorner(x, y) || shut.some((r) => inBox(r, x, y, r.type === 'shop' ? 3 : 2))
         || cores.some(([x0, x1, y0, y1]) => x >= x0 - 1 && x <= x1 + 1 && y >= y0 - 1 && y <= y1 + 1);
       // a smooth noise of a few cells' grain: the water's edge wanders by it
-      const nz0 = Q() * 1e4, hsh = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7 + nz0) * 43758.5453; return s - Math.floor(s); };
-      const nz = (x, y) => { const gx = x / 3, gy = y / 3, i = Math.floor(gx), j = Math.floor(gy), u = gx - i, v = gy - j, s = (a) => a * a * (3 - 2 * a);
-        return (hsh(i, j) * (1 - s(u)) + hsh(i + 1, j) * s(u)) * (1 - s(v)) + (hsh(i, j + 1) * (1 - s(u)) + hsh(i + 1, j + 1) * s(u)) * s(v); };
+      const nz = noise2(Q, 3);
       // while the water is laid it is floor in cells; settle() tells deep from shallow and lays the crossings, and fails when a deep
       // pool has no shallows at all or a part of the floor can't be reached
       const walk = (k) => cells[k] === 1 && !deep[k];
@@ -749,9 +749,7 @@
         c.span = [u0, u1, v0];
         if (c.kind !== 'bridge') continue;
         const fire = Dq(), lit = fire < 0.35 ? [] : fire < 0.75 ? [Dq() < 0.5 ? 0 : 1] : [0, 1];
-        c.posts = [];
-        for (const e of [0, 1]) for (const side of [0, 1]) { const a = e ? (u1 + 1) * TILE - 6 : u0 * TILE + 6, b = side ? (v0 + 2) * TILE + 2 : v0 * TILE + 4;
-          c.posts.push({ x: hor ? a : side ? (v0 + 2) * TILE + 4 : v0 * TILE - 4, y: hor ? b : a + (e ? 8 : 2), fire: lit.includes(e) ? 1 : 0, near: side }); } } }
+        c.posts = bridgePosts(hor, u0, u1, v0, lit); } }
     const serpentPools = [], floodCells = [];
     if (bossType === 'boss_serpent') {
       for (const [dx, dy] of [[0, -3], [-5, 2], [4, 2]]) {
@@ -790,7 +788,7 @@
         for (let u = 3; u < (hor ? W : H) - 3; u++) { const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]);
           const ok = clear(...c(u, v)) && clear(...c(u, v + 1)) && rock(...c(u, v - 1)) && rock(...c(u, v + 2));
           n = ok ? n + 1 : 0; if (n >= 6) runs.push([hor, u - n + 1, v, n]); } }
-      for (let i = runs.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [runs[i], runs[j]] = [runs[j], runs[i]]; }
+      shuffleBy(runs, R);
       const took = [];
       for (const [hor, u0r, v, n] of runs) { if (took.length >= nb) break; const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]), s0 = ri(3, 4), u0 = u0r + ((n - s0) >> 1), u1 = u0 + s0 - 1;
         if (took.some(([h2, a, b]) => Math.abs(a - u0) < 12 && Math.abs(b - v) < 12)) continue;
@@ -804,8 +802,7 @@
         const deck = []; for (let u = u0; u <= u1; u++) for (const dv of [0, 1]) { const [x, y] = c(u, v + dv); deck.push(y * W + x); deckUsed.push([x, y]); }
         lavaUnder.push(...deck); const cr = { kind: 'bridge', cells: deck, axis: hor ? 'x' : 'y', clean: 1, lava: 1, span: [u0, u1, v], posts: [], rift: 1 };
         const lit = R() < 0.5 ? [] : [R() < 0.5 ? 0 : 1];
-        for (const e of [0, 1]) for (const side of [0, 1]) { const a = e ? (u1 + 1) * TILE - 6 : u0 * TILE + 6, b = side ? (v + 2) * TILE + 2 : v * TILE + 4;
-          cr.posts.push({ x: hor ? a : side ? (v + 2) * TILE + 4 : v * TILE - 4, y: hor ? b : a + (e ? 8 : 2), fire: lit.includes(e) ? 1 : 0, near: side }); }
+        cr.posts = bridgePosts(hor, u0, u1, v, lit);
         crossings.push(cr); took.push([hor, u0, v]); } }
     const secrets = [], onWater = new Set([...wet, ...crossings.flatMap((c) => c.cells)]);
     // the rock a fall pours down or a spring comes out of is no secret's
@@ -825,7 +822,7 @@
         // below its fake wall, or, broken, it leaves a one-cell strip of wall hanging over the next floor (TASKS 178)
         // (a cave's walls bend every few cells: there the floor has to be open only before the two-cell opening itself)
         if (!all(-1, 0, cave ? 0 : -1, cave ? 1 : 2, (x, y) => at(x, y) === 1 && !inShop(x, y) && !onWater.has(y * W + x) && !(cave && rooms.some((q) => q.type === 'secret' && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h)) && !(boss && x >= exitR.x && x < exitR.x + exitR.w && y >= exitR.y && y < exitR.y + exitR.h)) || !all(-1, 0, -1, 2, (x, y) => !inShop(x, y)) || !all(1, 2, dx ? -2 : -1, dx ? 3 : 2, rockAt)) continue;   // the whole front (below) off the shop: a cave checks only the opening's floor
-        const plen = ri(0, 2), D = ri(3, 5), S = ri(3, 6), l0 = -ri(0, S - 2), d0 = 3 + plen, d1 = d0 + D - 1;
+        const plen = ri(0, 2), dl = ri(3, 5), S = ri(3, 6), l0 = -ri(0, S - 2), d0 = 3 + plen, d1 = d0 + dl - 1;
         if (plen && !all(3, 2 + plen, -2, 3, rockAt)) continue;
         const [ax, ay] = C(d0, l0), [bx, by] = C(d1, l0 + S - 1), rx = Math.min(ax, bx), ry = Math.min(ay, by), rw = Math.abs(bx - ax) + 1, rh = Math.abs(by - ay) + 1;
         let ok = true; for (let y = ry - 3; y <= ry + rh + 1 && ok; y++) for (let x = rx - 2; x <= rx + rw + 1; x++) if (!rockAt(x, y)) { ok = false; break; }
@@ -1004,7 +1001,7 @@
     if (!D.BIOMES[biome].lava && !(last && boss) && !cave) {
       // (a stream runs down from a room's top wall the length of its box: a shaped room's wings and pit leave it neither, TASKS 374)
       const plain = (r) => !r.pit && !r.wings && !r.tier, candidates = rooms.filter((r) => r.type === 'combat' && plain(r) && !r.trap && !secrets.some((q) => q.front.some(([x, y]) => roomOf(x, y) === r)));
-      for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
+      shuffleBy(candidates, waterRng);
       let n = 0;
       for (const r of candidates.concat(rooms.filter((q) => q.type === 'combat' && plain(q) && !candidates.includes(q) && !secrets.some((s) => s.front.some(([x, y]) => roomOf(x, y) === q))))) {
         if (n >= 2 * (FM.water || 1)) continue;
@@ -1048,7 +1045,7 @@
       const clash = (ds) => ds.some((d) => d.cells.some(([x, y]) => doors.some((o) => o.cells.some(([ox, oy]) => Math.abs(ox - x) <= 2 && Math.abs(oy - y) <= 2))));
       // (a shaped room, TASKS 374, has ways in on its wings as well as its core: no doors, so no lock it leaks past)
       const cand = rooms.filter((r) => ['combat', 'shrine', 'exit'].includes(r.type) && !r.wings).map((r) => [r, doorsOf(r)]).filter(([, ds]) => ds);
-      for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+      shuffleBy(cand, R);
       const flood = (shut) => { const seen = new Uint8Array(W * H), st = [start.cy * W + start.cx]; seen[st[0]] = 1;
         while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && cells[n] === 1 && !shut.has(n)) { seen[n] = 1; st.push(n); } } } return seen; };
       const all = flood(new Set());
@@ -1085,7 +1082,7 @@
     const HL = D.MAGMA_HALLS, circles = [];
     if (plat && !boss && HL) { const Hr = mul32(seed ^ 0x434a), have = D.rosterAt(biome, Math.min(ST.n, floor + ST.early)), rank = (r) => (way.has(r.id) ? 2 : 0) + (deadEnd(r) ? 0 : 1);
       const cand = rooms.filter((r) => r.type === 'combat' && !r.pocket && !r.isle && !r.branch && r.kind !== 'ledge' && r.kind !== 'ridge' && r.w * r.h >= HL.area);
-      for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(Hr() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; } cand.sort((a, b) => rank(a) - rank(b));
+      shuffleBy(cand, Hr); cand.sort((a, b) => rank(a) - rank(b));
       // (a kind marked `early` comes on the 1st floor before its monster does, with the floor's own pack, TASKS 488: the prison alone
       // could, and was there in 30 runs of 30)
       let n = HL.n[0] + (Hr() < HL.two ? 1 : 0); const kinds = Object.entries(HL.kinds).filter(([, K]) => have.includes(K.need) || (floor === 1 && K.early)), took = new Set();

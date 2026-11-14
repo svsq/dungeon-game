@@ -2,7 +2,6 @@
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data and pure helpers, no state; data.js checks the set.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
-  const { plural } = D;
   const TIPS = { whirl: { n: 3, every: 20, until: 5, s: TXT('TIPS.whirl.s') } };
   const ABILITIES = [
     { id: 'whirl', name: TXT('ABILITIES.whirl.name'), icon: 'ab_whirl', key: '1', unlock: 1, mp: 0, cd: 6, desc: TXT('ABILITIES.whirl.desc') },
@@ -181,5 +180,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, giftCost, rerollCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, giftCost, rerollCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

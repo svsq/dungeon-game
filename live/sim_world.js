@@ -270,7 +270,7 @@
       if (obstacles.some((o) => Math.hypot(x - o.x, y - o.y) < radius + o.r + 4) || R.en.some((e) => e.deadT < 0 && Math.hypot(x - e.x, y - e.y) < radius + ENEMIES[e.type].r + 4)) continue;
       candidates.push({ x, y });
     }
-    for (let i = candidates.length - 1; i > 0; i--) { const j = ri(R, 0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
+    D.shuffleBy(candidates, () => rnd(R));
     const positions = [];
     for (const p of candidates) if (positions.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= 2 * radius + 4)) { positions.push(p); if (positions.length === group.length) break; }
     if (positions.length !== group.length && !some) return 0;
@@ -383,6 +383,6 @@
 
   Object.assign(SIMX, { looseVolley, setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
-    leverNear, pullLever, secretUnder, hitShelf, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
+    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

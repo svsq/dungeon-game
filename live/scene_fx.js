@@ -569,9 +569,6 @@
       if (e.k === 'craft' && a < 0.9) { const q = a / 0.9, col = e.kind === 'forge' ? [1, 0.75, 0.35] : e.ok ? [0.55, 0.78, 1] : [1, 0.35, 0.25];
         for (let j = 0; j < 12; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 40 + 90 * rnd(e.t, j + 7); L.star(ex + Math.cos(an) * v * q, ey - 30 + Math.sin(an) * v * q + 120 * q * q, 7, col, 1 - q); }
         if (e.kind !== 'forge') L.ring(ex, ey - 20, 16 + 70 * q, 8 + 30 * q, col, 0.9 * (1 - q), 0.12); }
-      // a waystone wakes: a cold ring off its foot and sparks running up its face
-      if (e.k === 'waystone' && a < 1.2) { const q = a / 1.2; L.ring(ex, ey, 20 + 110 * q, 9 + 48 * q, [0.6, 0.8, 1], 0.9 * (1 - q), 0.1);
-        for (let j = 0; j < 9; j++) L.star(ex + (rnd(e.t, j) - 0.5) * 30, ey - 20 - 110 * Math.min(1, q * (1.2 + rnd(e.t, j + 4))), 7, [0.7, 0.88, 1], 1 - q); }
       if (e.k === 'floor' && a < 1.4) { const q = a / 1.4; L.ring(ex, ey, 30 + 120 * q, 14 + 56 * q, [1, 0.85, 0.5], 0.8 * (1 - q), 0.08);
         for (let j = 0; j < 10; j++) { const an = j / 10 * 6.28; L.star(ex + Math.cos(an) * (24 + 60 * q), ey - 20 + Math.sin(an) * (12 + 30 * q), 7, [1, 0.85, 0.5], 1 - q); } }
       // the boss's roar: shock rings off his maw and the floor around him

@@ -26,7 +26,7 @@
         if (!n && (E.tries = (E.tries || 0) + 1) < P.tries) { E.waveT = S.t + P.retry; return; }
         E.waveT = 0; E.tries = 0; if (n) R.msg = { s: TXT('EVENTS.trial.wave', { n: E.wave + 1, of: P.waves.length }), t: S.t, d: 2 }; S.saveN++; return; }
       if (trialFoes(R, E).length) return;
-      if (++E.wave >= P.waves.length) SIMX.eventDone(S, R, E); else E.waveT = S.t + P.gap; },
+      if (++E.wave >= P.waves.length) eventDone(S, R, E); else E.waveT = S.t + P.gap; },
     reward(S, R, E) { const P = D.EVENTS.pool.trial; grates(R, E, 0);
       const c = { x: E.x, y: E.y, tier: P.chest, open: 0, trial: 1 }, f = SIMX.fstat(R); c.loot = SIMX.chestLoot(R, c); R.chests.push(c); f.lootN += c.loot.length;
       ev(S, { k: 'grates', room: E.room, x: E.x, y: E.y, up: 1 }); ev(S, { k: 'summon', x: E.x, y: E.y }); },
@@ -136,5 +136,5 @@
   function stepEvents(S, R) { const h = R.hero;
     for (const E of eventsOf(R)) if (E.st === 'idle' && D.EVENTS.pool[E.id].walk && h.deadT < 0 && DG.roomAt(R.map, h.x, h.y) === E.room) eventStart(S, R, E);
     for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
-  Object.assign(SIMX, { EVENT_RULES, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventDone, eventsLeave, stepEvents });
+  Object.assign(SIMX, { EVENT_RULES, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
 })(typeof window !== 'undefined' ? window : globalThis);

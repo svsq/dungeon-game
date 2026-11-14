@@ -1,7 +1,6 @@
 // live/text_ru_minimap.js — ru texts: the map's legends, the compass and the quest tracker.
 (function (root) {
   root.TEXT.add('ru', 'minimap', {
-    'WAY_LEG': 'Путевой камень',
     'TOWN_LEG': 'Ты',
     'TOWN_LEG.2': 'Спуск в подземелье',
     'TOWN_LEG.3': 'Торговец',

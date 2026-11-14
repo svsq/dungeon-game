@@ -76,7 +76,7 @@
     // the town's gate out (TASKS 1149): its question and two buttons, the way out on the left
     leave: () => { const P = { x: 610, y: 330, w: 700, h: 330 };
       return { P, r: [{ id: 'go', label: '', on: true, x: P.x + 40, y: P.y + P.h - 100, w: 300, h: 64 }, { id: 'stay', label: TXT('UI.leave.stay'), on: true, x: P.x + P.w - 340, y: P.y + P.h - 100, w: 300, h: 64 }] }; },
-    // the town's ring of stones (TASKS 1009): one row per way out, the open portal first, then the waystones by floor
+    // the town's ring of stones (TASKS 1009): one row per way out (the open portal)
     gate: (n) => { const P = { x: 560, y: 190, w: 800, h: 200 + Math.max(1, n) * 84 + 90 };
       return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'go:' + i, i, x: P.x + 40, y: P.y + 150 + i * 84, w: P.w - 80, h: 72 }))
         .concat([{ id: 'leave', label: TXT('UI.gate.r.leave.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 96, w: 300, h: 60 }]) }; },

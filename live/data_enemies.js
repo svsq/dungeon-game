@@ -183,9 +183,7 @@
   // else it took 34–36 % of the health (TASKS 201)
   // crab: the armoured crab's own (TASKS 512): with the full ×8 and ×2.2 behind its shell an elite one cost the player 9 potions on
   // the 10th and outlasted the serpent; its shell lets elite: 0.5 of a blow through, not 0.2, and it never drinks blood
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, crab: { hp: 4, dmg: 1.6, spd: 1.15, wind: 0.85, cd: 0.8 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } }, deepFrom: 12,
-    // exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy); on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
-    exit: { 1: { hp: 0.85, dmg: 0.85 } } };
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, crab: { hp: 4, dmg: 1.6, spd: 1.15, wind: 0.85, cd: 0.8 }, deepFrom: 12 };
   // the boss is an elite too but keeps its own pace. minWind: an elite's wind-up never ends sooner than this nor sooner than its
   // plain kin's, so every elite blow can be seen and dodged: the elite ghost's 0.34 s took half the deaths of the 3rd floor, the
   // elite skeleton's 0.39 s a fifth (TASKS 246)

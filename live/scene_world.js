@@ -634,13 +634,6 @@
         const x = (c + 0.5) * TILE + (rnd(c, 7) - 0.5) * 20, n = rnd(c, 3) < 0.5 ? 'basalt_a' : 'basalt_b', y = (r.y + 0.3) * TILE + (rnd(c, 4) - 0.5) * 24, k = 0.82 + rnd(c, 8) * 0.26; if (vis(x, y) && known(x, y)) Y.push([y - 40, () => drawProp(n, sx(x), sy(y), { flip: rnd(c, 5) < 0.5, k })]); } } }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
     if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = u.free ? 'stairs_up_free' : m.biome === 'magma' ? 'stairs_up_mg' : 'stairs_up', [w, hh] = SZ(st); if (st === 'stairs_up_mg') PROP_BAS.push([st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, w, hh, false]); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
-    // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
-    if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
-      const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);
-      Y.push([u.y + 6, () => { const X = sx(u.x) - w / 2, Yt = sy(u.y) + 10 - hh; L.shadow(sx(u.x), sy(u.y) + 4, w * 0.28, 6, 0.5);
-        L.inked(() => L.sprite('waystone', X, Yt, { w, h: hh, u: { tint: [0.6, 0.58, 0.66, 1] } }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 });
-        if (k > 0.01) { G.blend('emit'); for (let j = 0; j < 2; j++) L.sprite('waystone_runes', X, Yt, { w, h: hh, u: { alpha: k } }); G.blend();
-          G.blend('add'); L.glow(X + 0.455 * w, Yt + 0.48 * hh, 0.3 * hh, [0.45, 0.65, 1], 0.22 * k, 2.4); G.blend(); } }]); }
     // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
     if (m.town) drawCart(R, m, GT, Y, sx, sy);
     if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });

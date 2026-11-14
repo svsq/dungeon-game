@@ -4,14 +4,13 @@
 // lava, torches, decor) → validation (everything reachable from the start, spawns on open floor).
 (function (root) {
   const D = root.DATA || require('./data.js');
-  const { TILE, ENEMIES } = D, DGX = (root.DGX = {});
+  const { TILE, ENEMIES, mul32, shuffleBy } = D, DGX = (root.DGX = {});
   // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
   const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5, shroom: 5, shroom_a: 5, shroom_b: 5, crystal_cv: 6.5, vent_mg: 5, obsidian_mg: 6.5 };
   // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
   const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
   // (set by the sim), 6 deep water (blocks walking and knockback, not projectiles or sight)
-  const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
   // a room's shape (TASKS 374): its box (x, y, w, h) is its core, where everything set against a wall or in rows stands, and
   // `wings`, boxes of floor joined to it (a cross's arms, an L's foot, a round hall's caps), are its floor as well
@@ -20,12 +19,12 @@
 
   function genFloor(seed, floor, opts = {}) {
     // a floor without a secret room is rerolled a few times before one is accepted, unless it meant to have none
-    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, attempt < 16, false, attempt < 14); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) { if (attempt >= 14) m.loose = 1; return m; } }
+    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, false, attempt < 14); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) { if (attempt >= 14) m.loose = 1; return m; } }
     // (a floor no try above lays, which a magma floor's walk to the stairs left 1 seed in 300: a crash on entering it, never a
     // floor; reached only past them, so every floor they lay stays as it is; loose: their walk to the stairs may be nine tenths)
-    for (let attempt = 20; attempt < 40; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, false, false, attempt >= 36); if (m) { m.loose = 1; return m; } }
+    for (let attempt = 20; attempt < 40; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, false, attempt >= 36); if (m) { m.loose = 1; return m; } }
     // (a layout of TASKS 379–380 no try lays, its rooms finding no room on the map: the plain rooms and corridors, not a crash)
-    for (let attempt = 40; attempt < 60; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, Object.assign({}, opts, { stage: Object.assign({}, opts.stage, { lay: 'rooms' }) }), false, false, attempt >= 56); if (m) return m; }
+    for (let attempt = 40; attempt < 60; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, Object.assign({}, opts, { stage: Object.assign({}, opts.stage, { lay: 'rooms' }) }), false, attempt >= 56); if (m) return m; }
     throw new Error('dungeon generation failed');
   }
 
@@ -137,7 +136,7 @@
   // the river's end (dry), if any, no shorter than `choice` of the best
   const riverAt = (R, b) => R.via.map((d, p) => [d[b], p]).filter((q) => q[0] > 0).sort((x, y) => x[0] - y[0]);
   const riverOk = (R, b, choice) => { const ws = riverAt(R, b), dry = R.dry[b]; return ws.length >= 2 && ws[1][0] <= ws[0][0] * choice && (dry < 0 || dry >= ws[0][0] * choice); };
-  function tryGen(seed, runFloor, opts, strict, mixed, lastTry, altTry) {
+  function tryGen(seed, runFloor, opts, strict, lastTry, altTry) {
     const GF = {};
     const R = mul32(seed), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pick = (arr) => arr[Math.floor(R() * arr.length)];
     // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; runFloor: its place in the run; floor: its
@@ -157,7 +156,7 @@
     GF.moat = null;
     const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2 && !(GF.moat && v === 1 && GF.moat(x, y))) cells[y * W + x] = v; };
     Object.assign(GF, {
-      AR, FM, H, R, ST, W, altTry, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
+      AR, FM, H, R, ST, W, altTry, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, opts, pick, plat, ri,
       runFloor, seed, set, strict });
     if (DGX.rooms(GF) === null) return null;
     if (DGX.links(GF) === null) return null;
@@ -256,7 +255,7 @@
     const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx);
     const rooms = m.rooms.filter((r) => r.type === 'combat' && !r.hall && !r.locked && !r.pocket && !r.isle && !r.event && r.w * r.h >= EV.area && !way.has(r.id));
     const big = (r, E) => r.w * r.h >= (E.area || EV.area);
-    for (let i = rooms.length - 1; i > 0; i--) { const j = Math.floor(Er() * (i + 1)); [rooms[i], rooms[j]] = [rooms[j], rooms[i]]; }
+    shuffleBy(rooms, Er);
     const out = [];
     for (const id of ids) { const E = pool[id];
       for (const r of rooms) { if (r.event || !big(r, E)) continue;
@@ -477,9 +476,9 @@
   // where the hero comes out of the stairs up (TASKS 1958): the sim stands him here (sim_floor.js arrive), the generator keeps its
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
-  root.DUNGEON = { FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, eventSpot, EVENT_PLACE, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  root.DUNGEON = { FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
-  Object.assign(DGX, { archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
+  Object.assign(DGX, { archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
   if (typeof module !== 'undefined') { for (const f of require('./modules.js').parts.dungeon) require('./' + f); module.exports = root.DUNGEON; }
 })(typeof window !== 'undefined' ? window : globalThis);

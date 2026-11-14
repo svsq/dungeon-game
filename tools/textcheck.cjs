@@ -3,7 +3,7 @@
 // forms), and the table holds no key the code never asks for. Exit 2 on failure.
 // sim_checks*.js is the sim's self-check code (its messages are for the developer) and is not scanned.
 const fs = require('fs'), path = require('path');
-const LIVE = path.join(__dirname, '..', 'live'), SKIP = new Set(['text.js', 'assets.js', 'rigs.js', 'sizes.js', 'data_changes.js', 'tune.cjs']);
+const LIVE = path.join(__dirname, '..', 'live'), SKIP = new Set(['text.js', 'assets.js', 'rigs.js', 'sizes.js', 'data_changes.js']);
 require(path.join(LIVE, 'text.js')); for (const f of require(path.join(LIVE, 'modules.js')).text) require(path.join(LIVE, f));
 const RU = globalThis.TEXT.ru, DOM = globalThis.TEXT.domains.ru, at = (k) => `text_ru_${DOM[k] || '?'}.js`;
 const CY = /[А-Яа-яЁё]/, fails = [], used = new Map(), { code } = require('./jsscan.cjs');

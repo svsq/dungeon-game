@@ -140,31 +140,6 @@
       if (!P.near || Math.abs(P.x - px) > 0.5 || P.face !== 1) out.push(`folk ${sd}: the porter walks on past the hero who speaks to him`); }
     return out;
   }
-  // TASKS 1009: in a run through the town a waystone stands by the start of every D.wayFloor, reachable and clear of the stairs
-  // up (and nowhere else, nor in a run not through the town); touched, it wakes; the town's ring of stones then takes the hero to
-  // it at once, or, with a portal open too, offers both in a window; the portal stays open when a waystone is taken
-  function wayCheck() {
-    const out = [], E = (S) => { if (S.run) S.run.enteredT = -9; step(S, { keys: ['KeyE'] }); };
-    for (const sd of [5, 17]) for (let f = 1; f <= 16; f++) { const mode = f > D.RUNS.campaign.floors ? 'endless' : 'campaign', m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, town: 1 });
-      if (!!m.way !== D.wayFloor(f)) { out.push(`way ${sd}/${f}: ${m.way ? 'a waystone off its floors' : 'no waystone'}`); continue; } if (!m.way) continue;
-      const k = m.way.ty * m.W + m.way.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
-      if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`way ${sd}/${f}: the waystone is off the floor or far from the spawn`);
-      if (m.up && Math.max(Math.abs(m.up.tx - m.way.tx), Math.abs(m.up.ty - m.way.ty)) < 3) out.push(`way ${sd}/${f}: the waystone stands on the stairs up`);
-      if (f === 4 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd }).way) out.push('way: a waystone in a run not through the town'); }
-    if (!D.wayFloor(4)) return out;
-    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
-    for (let f = 1; f <= 4; f++) enterFloor(S, R, f);
-    for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
-    for (let i = 0; i < 4; i++) step(S, { keys: [] }); if ((R.ways || []).length) out.push('way: the waystone wakes untouched');
-    at(R.map.way, 44); step(S, { keys: [] }); if ((R.ways || []).join() !== '4' || !S.ev.some((e) => e.k === 'waystone')) { out.push('way: a touched waystone does not wake'); return out; }
-    R.portal = { f: 4, x: R.map.spawn.x, y: R.map.spawn.y }; enterFloor(S, R, 0, undefined, 'portal');
-    at(R.map.town.svc.portal, 30); E(S); if (S.screen !== 'gate') { out.push('way: the ring with a portal and a waystone opens no choice'); return out; }
-    const b = UI.gate(2).r[1]; step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
-    if (R.floor !== 4 || S.screen !== 'play' || !R.portal || Math.hypot(h.x - R.map.way.x, h.y - R.map.way.y) > 90) out.push(`way: the gate does not take the hero to the waystone (floor ${R.floor}, ${S.screen})`);
-    R.portal = null; enterFloor(S, R, 0, undefined, 'portal'); at(R.map.town.svc.portal, 30); E(S); if (R.floor !== 4 || S.screen !== 'play') out.push('way: with one waystone and no portal the ring does not take the hero there');
-    R.ways = []; enterFloor(S, R, 0, undefined, 'portal'); at(R.map.town.svc.portal, 30); E(S); if (R.floor !== 0 || S.screen !== 'play') out.push('way: the ring does something with no way out');
-    return out;
-  }
   // TASKS 1010: in a run through the town the merchant is on a floor only where D.wanderAt says, and there with gear from deeper
   // down and a better showpiece; the town's shelf is stocked as the town's (more potions and scrolls), kept while no boss falls,
   // restocked for the deepest floor after one does; in the town the merchant pays by the deepest floor reached
@@ -362,7 +337,6 @@
   SIMX.checks.add('townCheck', townCheck);
   SIMX.checks.add('cartCheck', cartCheck);
   SIMX.checks.add('folkCheck', folkCheck);
-  SIMX.checks.add('wayCheck', wayCheck);
   SIMX.checks.add('shopTownCheck', shopTownCheck);
   SIMX.checks.add('soulAltarCheck', soulAltarCheck);
   SIMX.checks.add('talkCheck', talkCheck);
