@@ -324,12 +324,12 @@ if (meta.tr.includes('imp_claw')) {
   // (and the monsters' corpses, TASKS 1907; the crab is no biped and lies as it stands, the sinkers and the floaters leave no body, and a
   // skeleton's burst scatters its bones over the floor, where a bone's height on the screen is how far back it lies)
   for (const nm of meta.tr.filter((n) => /^hero.*_death(_run)?$/.test(n) || (/_death/.test(n) && !/^hero|^crab|^spider|^ghost|^serpent|^eel|^slime|_burst$/.test(n)))) {
-    const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null, h = st.run.hero; LIB.TRACE = null; return { j, t: st.t, vx: h.vx, vy: h.vy, dead: h.deadT }; }); }, nm);
+    const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null, h = st.run.hero; LIB.TRACE = null; return { j, t: st.t, vx: h.deadRun ? h.deadRun[0] : h.vx, vy: h.deadRun ? h.deadRun[1] : h.vy, dead: h.deadT }; }); }, nm);
     const ok = fr.map((f) => f.j).filter((j) => j && j.hip && j.ground); if (ok.length < fr.length / 2 || !ok[0].top) continue;
     const H = tall(ok[0]), up = (j, k) => (j[k] ? (j.ground[1] - j[k][1]) / H : -1), last = ok.slice(-10);
     if (last.every((j) => up(j, 'hip') < LOW)) { const hi = Math.max(...last.map((j) => Math.max(up(j, 'handL'), up(j, 'handR'), up(j, 'tip'))));
       report('lies', nm, hi <= UP, `lying, the highest hand or tip ${(100 * hi).toFixed(0)} % of the height over the floor (≤ ${100 * UP} %)`); }
-    // (only the direction: the fall's size is tuned by eye, the sign is what the run gives it)
+    // (only the direction: the fall's size is tuned by eye, the sign is what the run gives it; the run is his own speed, not the killing blow's shove on top of it)
     if (/^hero.*_death_run$/.test(nm)) { const f0 = fr.find((f) => f.dead >= 0), f1 = f0 && fr.find((f) => f.t - f0.t >= 0.3), sp = f0 ? Math.hypot(f0.vx, f0.vy) : 0;
       if (!f0 || sp <= RUNV || !f1 || !f0.j || !f1.j) { report('inertia', nm, false, !f0 ? 'no frame with the hero dead' : sp <= RUNV ? `the run ${sp.toFixed(0)} px/s is not over ${RUNV.toFixed(0)}` : !f1 ? 'no frame 0.3 s after the death' : 'no trace'); continue; }
       const dx = (f1.j.hip[0] - f1.j.ground[0]) - (f0.j.hip[0] - f0.j.ground[0]); report('inertia', nm, Math.sign(dx) === Math.sign(f0.vx), `the hip moves ${dx.toFixed(1)} px over 0.3 s after the death, the run ${f0.vx.toFixed(0)} px/s`); } } }
