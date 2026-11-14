@@ -542,13 +542,16 @@
   function idle(m, e, E, t) {
     const per = 6 + (e.id % 5), u = (t + e.id * 2.3) % per, n = Math.floor((t + e.id * 2.3) / per);
     e.vx = e.vy = 0;
-    if (u > 3.2 && u < 3.2 + AMB_T && e.hx !== undefined && !E.ghost && E.amble !== 0 && (!e.amb || e.amb.n !== n)) {
+    if (u > 3.2 && u < 3.2 + AMB_T && e.hx !== undefined && !E.ghost && E.kind !== 'hop' && E.amble !== 0 && (!e.amb || e.amb.n !== n)) {
       const a = n * 2.4 + e.id, gx = e.hx + Math.cos(a) * 14, gy = e.hy + Math.sin(a) * 8, trial = { x: e.x, y: e.y };
       move(m, trial, gx - e.x, gy - e.y, E.r, true);
-      if (Math.hypot(trial.x - e.x, trial.y - e.y) > 3) e.amb = { n, t, x0: e.x, y0: e.y, x1: trial.x, y1: trial.y };
-      else e.amb = { n, t: -9, x0: e.x, y0: e.y, x1: e.x, y1: e.y }; }
+      if (Math.hypot(trial.x - e.x, trial.y - e.y) > 3) { e.amb = { n, t, k: 0, x0: e.x, y0: e.y, x1: trial.x, y1: trial.y }; if (Math.abs(trial.x - e.x) > 2) e.face = trial.x > e.x ? 1 : -1; }
+      else e.amb = { n, t: -9, k: 0, x0: e.x, y0: e.y, x1: e.x, y1: e.y }; }
     const A = e.amb, w = A && A.n === n ? (t - A.t) / AMB_T : 2;
-    if (w >= 0 && w <= 1) { const k = w * w * (3 - 2 * w); move(m, e, A.x0 + (A.x1 - A.x0) * k - e.x, A.y0 + (A.y1 - A.y0) * k - e.y, E.r, true); }
+    // (TASKS 1969: set to the absolute point of the path, a shove inside the step was undone and the foe sprang back) the path is carried
+    // along with whatever moved the body, and only the step's own part is walked
+    if (w >= 0 && w <= 1) { const k = w * w * (3 - 2 * w), k0 = A.k || 0, ox = e.x - (A.x0 + (A.x1 - A.x0) * k0), oy = e.y - (A.y0 + (A.y1 - A.y0) * k0);
+      A.x0 += ox; A.x1 += ox; A.y0 += oy; A.y1 += oy; A.k = k; move(m, e, (A.x1 - A.x0) * (k - k0), (A.y1 - A.y0) * (k - k0), E.r, true); }
     if (u > 1.1 && u < 1.2) e.face = n % 2 ? 1 : -1; else if (u > 4.4 && u < 4.5) e.face = n % 2 ? -1 : 1;
   }
   function goHome(m, e, E, t) {

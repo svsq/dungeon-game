@@ -1096,7 +1096,15 @@
         for (let t = 0; t < 30 && !(A && t > A.t + D.AMB_T + 0.5); t += DT) { const x = e.x, y = e.y; SIMX.idle(m, e, ENEMIES[e.type], t); if (!A && e.amb && e.amb.t >= 0) A = e.amb; if (Math.hypot(e.x - x, e.y - y) > 1e-6) moved.push(t); }
         if (!A) out.push(`amble: a ${e.type} at its post never steps`);
         else { if (moved.some((t) => t < A.t - 1e-9 || t > A.t + D.AMB_T + DT)) out.push(`amble: a ${e.type}'s step runs outside its ${D.AMB_T} s`);
-          if (Math.hypot(e.x - A.x1, e.y - A.y1) > 0.5) out.push(`amble: a ${e.type}'s step does not end on its far spot`); } } }
+          if (Math.hypot(e.x - A.x1, e.y - A.y1) > 0.5) out.push(`amble: a ${e.type}'s step does not end on its far spot`); } }
+      // (TASKS 1969) a shove inside the step stays; the foe looks the way it steps; a hopper, with no legs to plant, keeps still
+      if (e) { const Y = spawn(0, {}); Y.run = newRun(Y, 'magma', 7); const f = Y.run.en.find((o) => o.id === e.id); f.hx = f.x; f.hy = f.y; let B = null, x1 = 0, y1 = 0, pushed = 0;
+        for (let t = 0; t < 30 && !(B && t > B.t + D.AMB_T + 0.5); t += DT) { SIMX.idle(Y.run.map, f, ENEMIES[f.type], t);
+          if (!B && f.amb && f.amb.t >= 0) { B = f.amb; x1 = B.x1; y1 = B.y1; if (Math.abs(B.x1 - B.x0) > 2 && f.face !== (B.x1 > B.x0 ? 1 : -1)) out.push(`amble: a ${f.type} steps one way and looks the other`); }
+          if (B && !pushed && t > B.t + D.AMB_T / 2) { pushed = 1; f.y += 6; } }
+        if (B && Math.abs(f.y - (y1 + 6)) > 0.5) out.push(`amble: a ${f.type} shoved inside its step springs back (${(f.y - y1).toFixed(1)} px of 6 kept)`);
+        const H = spawn(0, {}); H.run = newRun(H, 'magma', 7); const hm = H.run.map, sl = { id: 7, type: 'slime', x: f.hx, y: f.hy, hx: f.hx, hy: f.hy, vx: 0, vy: 0, face: 1, dist: 0 };
+        for (let t = 0; t < 12; t += DT) { SIMX.idle(hm, sl, ENEMIES.slime, t); if (Math.hypot(sl.x - sl.hx, sl.y - sl.hy) > 1e-6) { out.push('amble: a slime slides about its post with no hop'); break; } } } }
     // (TASKS 1054) a chasm floor's way over has another on half of them and more; a hoard's islet is a chest of the 3rd tier past a run of
     // rocks down its strip of crust
     { let n = 0, alt = 0, isl = 0; const walk = (m, ban) => { const W = m.W, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
