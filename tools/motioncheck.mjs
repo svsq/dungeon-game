@@ -27,6 +27,7 @@
 //   crust     — golem_crust_off: the molten share of the golem's box grows by CRUST once its plates are knocked off
 //   leapSpacing, leapPose, throw — imp_leap, imp_attack (TASKS 489): an even flight, legs that push off, tuck and reach, and an
 //               overhand throw from behind the head
+//   kneeLow   — colossus_fists (TASKS 1965): a knee under its ankle by 2 px and more on fewer than KNEE_N frames
 //   breathBody — salamander_breath: drawing its breath, the snout leaves its rest by at least BREATH of the body's length (TASKS 460:
 //               the fire hung on a still head, 2 px)
 //   flicker   — the fire priest's ring, a vent's and a surge's warning, and the smouldering skeleton's flames and arms: no jump in alpha, width or
@@ -230,6 +231,13 @@ if (meta.tr.includes('imp_attack')) {
     const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, face: e.face, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
   const w = fr.filter((f) => f.st === 'wind' && f.en && f.en.handR), best = Math.max(-99, ...w.filter((f) => f.en.handR[1] < f.en.head[1]).map((f) => (f.en.head[0] - f.en.handR[0]) * f.face));
   report('throw', 'imp_attack', best > 0, `the throwing hand over the head reaches ${best.toFixed(0)} px behind it`); }
+// kneeLow (TASKS 1965): on the colossus's fists the knees stay over the ankles; under them by 2 px and more on fewer than KNEE_N frames
+// (held at the stomp's hip floor, the left knee folded 12 px under its ankle on 115 of 200)
+if (meta.tr.includes('colossus_fists')) {
+  const KNEE_N = 40, fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.colossus_fists; return Q.transitions.colossus_fists.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const o = LIB.TRACE[id] || null; LIB.TRACE = null; return o; }); });
+  const low = fr.filter((j) => j && ['L', 'R'].some((sd) => j['knee' + sd] && j['ankle' + sd] && j['knee' + sd][1] > j['ankle' + sd][1] + 2)).length;
+  report('kneeLow', 'colossus_fists', low < KNEE_N, `a knee 2 px and more under its ankle on ${low} of ${fr.length} frames (< ${KNEE_N})`); }
 // strikePeak (TASKS 1716, 1719): a claw is fastest on its blow, not on its lift: the hand's fastest frame falls in the strike
 if (meta.tr.includes('imp_claw')) {
   const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.imp_claw; return Q.transitions.imp_claw.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
