@@ -712,6 +712,10 @@
         if (Math.abs(nearM.max - nearM.hp - Math.round(nearM.max * B.mon)) > 1) out.push(`a smouldering skeleton's blast takes ${nearM.max - nearM.hp} of a monster's ${nearM.max} in reach, not ${B.mon * 100}%`);
         if (farM.hp < farM.max) out.push("a smouldering skeleton's blast hurts a monster out of reach");
         if (!(a4.fuse > S.t - 0.1)) out.push("a smouldering skeleton's blast does not set off another in reach");
+        // (TASKS 1865) one lit and sinking in the lava bursts at its ring's end, not never
+        put(); R.boomT = -9; const fz = S.t + 0.3, a5 = sk(140, { st: 'wind', t0: S.t, fuse: fz, sinkT: S.t });
+        for (let i = 0; i < 120 * 0.6 && a5.deadT < 0; i++) step(S, { keys: [] });
+        if (!a5.blown || Math.abs(a5.deadT - fz) > 2 * DT) out.push(`a lit smouldering skeleton sinking in the lava ${a5.blown ? 'bursts ' + (a5.deadT - fz).toFixed(2) + ' s off its ring' : 'never bursts'}`);
         h.ifr = 0; }
       // the fire priest (TASKS 410): its ring falls where the hero stood, hurts him only after its warning and only if he stays, and
       // sets him alight; it sets alight the weapon of an ally in the fight near it, whose blows then hit harder and set the hero burning
