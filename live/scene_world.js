@@ -735,7 +735,7 @@
     // during the strike the blade must read over the target it hits; with no foe or breakable there to hit he keeps his place (TASKS 2009: lifted
     // over everything below him, a hero swinging behind the town's altar popped in front of it at every click)
     const below = (o) => o.y > h.y && o.y - h.y < 90 && Math.abs(o.x - h.x) < (st.reach || 90) + 60;
-    const struck = GT - h.atkT >= 0 && GT - h.atkT < 0.2 && (R.en.some((e) => e.deadT < 0 && below(e)) || R.pots.some((p) => (p.hp > 0 || p.brokeT >= h.atkT) && below(p)) || m.decor.some((d) => d.n === 'wreck_cv' && (!d.broken || d.brokeT >= h.atkT) && below(d)));
+    const struck = GT - h.atkT >= 0 && GT - h.atkT < 0.2 && (R.en.some((e) => e.deadT < 0 && below(e)) || R.pots.some((p) => p.kind !== 'gold' && p.kind !== 'goldpile' && (p.hp > 0 || p.brokeT >= h.atkT) && below(p)) || m.decor.some((d) => d.n === 'wreck_cv' && (!d.broken || d.brokeT >= h.atkT) && below(d)));
     Y.push([h.y + (struck ? 90 : 0), () => {
       L.shadow(sx(h.x), sy(h.y) + 2 + DECK.dy, 20, 6, 0.85);
       // the cry's ring rolls out on the floor, under the hero (TASKS 1183: over him it cut his chest and head), when the shout comes

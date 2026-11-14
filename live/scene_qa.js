@@ -160,6 +160,9 @@
       // PR 79 review (TASKS 2009): a swing down at a crate with no foe about still draws the blade over the crate
       ['strike_crate', play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); R.pots.push({ x: h.x + 14, y: h.y + 28, kind: 'crate', hp: 1 });
         const T = SIM.K.HIT; h.atkT = S.t - T; h.aim = h.atkA = Math.PI / 2; h.face = 1; S.ev.push({ k: 'swing', t: S.t - T, x: h.x, y: h.y, a: h.aim, f: 1 }); })],
+      // PR 79 review (TASKS 2058): a swing down beside a gold pile is not a strike at a breakable, the hero keeps his place behind the coins
+      ['strike_goldpile', play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); R.pots.push({ x: h.x + 14, y: h.y + 28, kind: 'goldpile', hp: 1 });
+        const T = SIM.K.HIT; h.atkT = S.t - T; h.aim = h.atkA = Math.PI / 2; h.face = 1; S.ev.push({ k: 'swing', t: S.t - T, x: h.x, y: h.y, a: h.aim, f: 1 }); })],
       // a smashed wreck's planks on the shore (TASKS 1361)
       ...[['wreck_broken', 5], ['wreck_breaking', 0.25]].map(([id, age]) => [id, play((S) => { for (let sd = 1; sd < 200; sd++) { const R0 = SIM.newRun(S, 'cave', 1361 + sd), d = R0.map.decor.find((o) => o.n === 'wreck_cv'); if (!d) continue; S.run = R0; const h = R0.hero; h.x = d.x + 90; h.y = d.y + 40; d.broken = 1; d.brokeT = S.t - age; d.solid = 0; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; break; } })]),
       // a skeleton climbing out of a struck coffin (TASKS 1353)
