@@ -1156,7 +1156,7 @@
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
-    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].key === undefined && Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
     // the descent holds a floor to ST.cap monsters (TASKS 388): with pop's growth past the campaign (385) its floors held 60 and took
     // 150–210 s. The elites' share is kept: cutting the plain ones alone took it from 20 to 27 %
     if (ST.cap && enemies.length > ST.cap) { const cut = (e) => e.key === undefined && !e.guard && !e.post && !e.ford && !e.exit && !e.lake && !D.BOSSES[e.type] && !D.ENEMIES[e.type].deep && !D.ENEMIES[e.type].lurk && !(rooms[e.room] && rooms[e.room].hall);

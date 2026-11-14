@@ -1377,6 +1377,9 @@
       if (m.enemies.length > D.RUNS.endless.cap) out.push(`descent seed ${sd} f${f}: ${m.enemies.length} monsters, over the cap ${D.RUNS.endless.cap}`);
       (m.locks || []).forEach((L, li) => { if (L.kind === 'key' && !m.enemies.some((e) => e.key === li) && !m.chests.some((c) => c.key === li)) out.push(`descent seed ${sd} f${f}: lock ${li} with no key on the floor`); });
       if (ST.biome !== 'magma' && (m.W > D.RUNS.endless.size.to[0] || m.H > D.RUNS.endless.size.to[1])) out.push(`descent seed ${sd} f${f}: a ${m.W}×${m.H} map over ${D.RUNS.endless.size.to.join('×')}`); }
+    // TASKS 1871: the clearing round the stairs spares a key's bearer on the campaign's floors, through the town or not, as the cut does
+    for (const town of [0, 1]) for (const sd of [1, 77, 4242]) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, from: 1, town });
+      (m.locks || []).forEach((L, li) => { if (L.kind === 'key' && m.enemies.filter((e) => e.key === li).length + m.chests.filter((c) => c.key === li).length !== 1) out.push(`campaign${town ? ' via town' : ''} seed ${sd} f${f}: lock ${li} without its one key`); }); }
     { const end = BAL.deep.end, top = [D.hpAt(end), D.dmgAt(end), D.dmgAt(end, 1)], st = (f) => D.stageOf('endless', f, 7, 17);
       for (const f of [end + 1, end + 2, 100, 1000, 1e6, 1e12]) { if ([D.hpAt(f), D.dmgAt(f), D.dmgAt(f, 1)].some((v, i) => v !== top[i] || !Number.isFinite(v))) out.push(`deep f${f}: monsters grow past the end of the growth`);
         if (f > 1000) continue; const a = st(f), b = st(end); if (a.elite !== b.elite || a.pop !== b.pop || a.cd !== b.cd || D.deepAxis(f, 'blow') !== D.deepAxis(end, 'blow')) out.push(`deep f${f}: an axis grows past the end of the growth`);
