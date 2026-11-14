@@ -75,6 +75,7 @@
     const holdLegs = () => { for (const legs of legsOf()) for (const [l, t, r, b] of legs) for (let y = Math.floor(t / TILE); y <= Math.floor((b + D.PROP_H.chest) / TILE); y++)
       for (let x = Math.floor((l - D.PROP_W.chest / 2) / TILE); x <= Math.floor((r + D.PROP_W.chest / 2) / TILE); x++) if (onArchLeg(legs, 'chest', wx(x), wy(y))) { used.add(key(x, y)); bulk.add(key(x, y)); } };
     holdLegs();
+    // deprecated: kept for the map hash (GEN_PRINT, mapPrint); not ported to Godot (rugs)
     const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [...tierDecor], shrines = [], rugs = [];
     // the top wall: what hangs on it (torches, sconces, banners, the shop sign) and the tall props standing against it (columns,
     // statues, racks, shelves) must not overlap across their drawn widths, whichever came first: a prop would hide a sconce that
@@ -160,7 +161,7 @@
           for (const [x, y] of got) cells[y * W + x] = 3;
           for (let pass = 0; pass < 4; pass++) for (const [px, py] of got.slice()) for (const [a, b] of O4) { const x = px + a, y = py + b, open = (u, v) => at(u, v) !== 0; if (at(x, y) === 0 && inMap(x, y) && ((open(x - 1, y) && open(x + 1, y)) || (open(x, y - 1) && open(x, y + 1)))) { cells[y * W + x] = 3; got.push([x, y]); } }
           holdLegs(); } } }
-    // (the waystones, TASKS 1009 and 1359, are gone; the map keeps `way: null` below, for its JSON is hashed: GEN_PRINT, a save's mapPrint)
+    // (the waystones, TASKS 1009 and 1359, are gone; the map keeps `way: null` below, for its JSON is hashed: GEN_PRINT, a save's mapPrint; deprecated, not ported)
     const kf = Math.min(ST.n, floor + ST.early), roster = D.rosterAt(biome, kf), lvl = depth;
     const bridged = new Set(crossings.flatMap((c) => c.cells));
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
@@ -875,6 +876,7 @@
     // traps (TASKS 71). Webs on the floor of a room spiders keep: they hold whoever wades in (a spider runs over them) until a blow
     // or fire tears them. Ambushes no longer come from floor plates (TASKS 320): a chest in a secret room may spring one
     // (sim.js openChest), so `ambush` stays empty
+    // deprecated: kept for the map hash (GEN_PRINT, mapPrint); not ported to Godot (ambush)
     const webs = [], ambush = [];
     const trapCell = (x, y) => traps.some((t) => x >= t.x / TILE - 1 && x < t.x / TILE + 1 && y >= t.y / TILE - 1 && y < t.y / TILE + 1);
     const floorSpot = (r) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + 1, r.x + r.w - 2), y = ri(r.y + 1, r.y + r.h - 2);
