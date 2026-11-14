@@ -280,12 +280,15 @@
     if (m.town) { c[0] = fit(c[0], 2 * TILE, 54 * TILE, w.W); c[1] = fit(c[1], 2 * TILE, foot(35 * TILE), w.H); return; }
     // at ×0,5 the window can be wider than a small floor and its margins: the floor then sits in its middle (TASKS 1302)
     c[0] = fit(c[0], -620, m.W * TILE + 620, w.W); c[1] = fit(c[1], -380, foot(m.H * TILE + 300), w.H); }
-  function snapCam(R) { const h = R.hero, lk = R.camLook || [0, 0], w = WIN(R); R.cam = [h.x - w.W / 2 + lk[0], h.y - 30 - w.H / 2 + lk[1]]; R.camV = [0, 0]; clampCam(R, R.cam); }
+  // the hero stands in the middle of the field over the bottom panel, not of the whole window (TASKS 1951 а): under him the view
+  // was a quarter shorter than over him
+  const camAimY = (R, h) => h.y - 30 - WIN(R).H / 2 + (UI.bp.h + UI.bp.foot) / 2 / zoomOf(R);
+  function snapCam(R) { const h = R.hero, lk = R.camLook || [0, 0], w = WIN(R); R.cam = [h.x - w.W / 2 + lk[0], camAimY(R, h) + lk[1]]; R.camV = [0, 0]; clampCam(R, R.cam); }
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW, VIEW_H, viewFor, setView, uiDy,
     zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, finalFloor, exitKind, campaignDone, dif, who, statsOf, tally,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam, CAM_FEET });
+    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam, camAimY, CAM_FEET });
 })(typeof window !== 'undefined' ? window : globalThis);

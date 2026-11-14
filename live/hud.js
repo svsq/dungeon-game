@@ -71,14 +71,24 @@
   // a label tests its box at a dozen points against every part of the HUD: the parts are measured once a frame in world(), not
   // per point (review of PR 63); a screen drawn without the world measures them where it asks
   const bp = (S, R) => BPG || bpGeo(S, R), bfList = (R, GT) => BFL || buffList(R, GT);
+  // the key hints show for the first seconds on a floor, then fade (TASKS 1951 б): a standing plate over the panel's right end hid
+  // whoever stood at the bottom edge there; how much of them is up
+  const KEYS_T = 8, keysA = (S) => (S && S.screen === 'play' && S.run ? 1 - L.SS(KEYS_T - 1, KEYS_T, S.t - (S.run.enteredT ?? -1e9)) : 0);
+  // the floor's card while it is up (TASKS 1951 в): an elite's plate under it gives way, its own name read over the card's
+  const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d) return null;
+    const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
+    if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
+    const one = lw('msg_m', R.msg.s, { size: 30 }) <= 1000, size = one ? 30 : 24, ls = one ? [R.msg.s] : wrapWords(R.msg.s, 660, size), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+    return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
   const keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - 54, kw, 42]; };
   // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
   // label is free to sit where they would be
   const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, BF.y + Math.max(1, BFR) * BF.dy + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
     [500, -I, 1420, 150, 'top'], MMB ? [MMB[0] - 4, -I, I, MMB[1] + MMB[3] + 4, 'minimap'] : [W - 260, -I, I, 440, 'minimap']];
     if (TRK) z.push([TRK[0] - 4, TRK[1] - 4, I, TRK[1] + TRK[3] + 4, 'tracker']);
-    const play = !S || S.screen === 'play', kb = BPG && keysBox();
-    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [])
+    const play = !S || S.screen === 'play', kb = BPG && keysBox(), mb = msgBox(S);
+    if (mb) z.push([mb[0] - 4, mb[1] - 4, mb[0] + mb[2] + 4, mb[1] + mb[3] + 4, 'card']);
+    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [])
       .forEach((b) => z.push([b[0] - 4, b[1] - 4, b[0] + b[2] + 4, b[1] + b[3] + 4, b[4]]));
     return z; };
   const underHud = (x, y) => (ZN || hudZones()).some((z) => x > z[0] && x < z[2] && y > z[1] && y < z[3]);
@@ -523,8 +533,9 @@
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 32;
       plate('feedbox' + i, 14, y - 17, w, 34, { a: 0.85 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
     // the key hints over the panel's right end: the panel takes the bottom edge they stood on
-    if (S.screen === 'play') { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
-      plate('keys_box', W - 12 - kw, B.y - 54, kw, 42, { a: 0.85 }); lab('keys', k, W - 24, B.y - 32, { size: 26, al: 1, col: '#8a7d6c' }); }
+    const ka = keysA(S);
+    if (ka > 0) { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
+      plate('keys_box', W - 12 - kw, B.y - 54, kw, 42, { a: 0.85 * ka }); lab('keys', k, W - 24, B.y - 32, { size: 26, al: 1, col: '#8a7d6c', a: ka }); }
   }
 
   // active effects under the level's plate, right of the portrait as on the ref: the shrine's blessing lasts the floor, the shield shows what it still soaks, the

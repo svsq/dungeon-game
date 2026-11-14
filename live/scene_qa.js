@@ -749,6 +749,12 @@
     { const S = play(); plainMagma(S); S.screen = 'play';
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['zone_magma', S]); }
+    // TASKS 1951 в: the critic's tl_21f15_n180 (campaign via the town, seed 21, floor 15, 1.5 s in), the floor's card up over an
+    // elite's plate: the plate gives way while the card stands
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 21, { town: true }); S.screen = 'play'; SIM.enterFloor(S, S.run, 15);
+      for (let i = 0; i < 180; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); states.push(['card_over_elite', S]); }
+    // TASKS 1951 б: the same past the key hints' first seconds, the plate faded, whoever stands at the bottom right edge in view
+    { const S = structuredClone(states.find(([name]) => name === 'zone_magma')[1]); S.run.enteredT = S.t - 20; states.push(['zone_magma_late', S]); }
     // the magma caves' look (TASKS 402): a plateau backing onto the top wall, its face over the chasm and the lava below; a ridge
     // with the drop on both sides
     { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
