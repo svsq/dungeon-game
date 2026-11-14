@@ -10,8 +10,10 @@ for (let sd = 1; sd <= N; sd++) for (const f of [14, 15]) { const S = mkT(sd, f)
   const home = [h.x, h.y];
   for (const [of, bs] of Object.entries(groups)) { const B = X.find((c) => !c.bend && c.cells.includes(+of)); if (!B) { rows.push({ sd, f, of, noB: 1 }); continue; }
     const bcells = new Set(bs.flatMap((c) => c.cells)), Bc = new Set(B.cells);
-    // ends of the crossing: floor cells next to its first and last cells
-    const ends = [B.cells[0], B.cells[B.cells.length - 1]].map((k) => [1, -1, W, -W].map((o) => k + o).find((n) => m.cells[n] === 1 && !Bc.has(n)) ?? k);
+    // ends of the crossing: floor cells past its first and last rows along its axis (TASKS 1963: the neighbours of its first and last
+    // cells were a slab's own deck or a one-cell nub by a bridge's flank, and 4 bends of 49 read as no way round)
+    const along = (k) => (B.axis === 'x' ? k % W : Math.floor(k / W)), lo = Math.min(...B.cells.map(along)), hi = Math.max(...B.cells.map(along)), st = B.axis === 'x' ? 1 : W;
+    const ends = [[lo, -st], [hi, st]].map(([v, o]) => B.cells.filter((k) => along(k) === v).map((k) => k + o).find((n) => m.cells[n] === 1 && !Bc.has(n)) ?? B.cells.find((k) => along(k) === v));
     const over = bfs(m, ends[0], ends[1], ok), round = bfs(m, ends[0], ends[1], ok, Bc);
     const usesBend = round ? round.filter((k) => bcells.has(k)).length : 0;
     let walk = null; if (round) { h.x = (ends[0] % W + 0.5) * T; h.y = (Math.floor(ends[0] / W) + 0.5) * T + 2; h.hp = 1e5; h.stag = null; h.burn = 0; const r = follow(S, round, 120); walk = { ok: r.ok, t: +r.t.toFixed(1), hits: r.hits.filter((x) => x.src !== 'burn').length, lava: r.evs.some((e) => e.k === 'sink' || e.k === 'lava') }; }

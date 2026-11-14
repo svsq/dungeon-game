@@ -640,6 +640,10 @@
       // (TASKS 1775: at 3 px and 0.035 the tugs did not read, the stuck colossus stood frozen through frames 6–12 of the sheet; it heaves
       // between them too, breathing hard)
       base.crouch += (85 * hit - 16 * tug + 7 * Math.sin(held * 5.2) * SS(0, 0.2, held)) * (1 - back);
+      // (TASKS 1965: held at the stomp's 0.14 through the stuck fists, the left knee folded 12 px under its ankle; a hip floor of 0.2
+      // kept it over the ankle but left the left fist 41 px short of the floor, so the back foot steps in under the hip instead)
+      if (fists) { const RH = RIGS.colossus.h;
+        base.foot = (side, t) => { if (side !== 'L') return; const lf = 0.04 * RH * Math.sin(Math.PI * k); t.tx += 0.1 * RH * k; t.ty -= lf; t.lift += lf; }; }
       base.lean = face * lerp(-0.16 * raise, 0.6 - 0.1 * tug, hit) * (1 - back);
       base.handTarget = (side, rest) => {
         if (!fists && side === 'L') return target(side, [-0.2, -0.35], rest, k);
@@ -887,7 +891,7 @@
       const arm = colossusPose(pose, E, clock, face, H, base); if (arm) base.arm = arm;
       if (!live) { base.crumble = { t: Math.max(0, GT - e.deadT - 0.55) / 2.4, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       // (a body of 230 px sinks at each step by more than the walkers' 2.2 px, or its stride reads as a glide)
-      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.hipFloor = 0.14; base.stanceTime = base.charge ? 0.5 : 0.64; base.settle = base.charge ? 0 : 4; const r = biped(base);
+      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.hipFloor = base.hipFloor || 0.14; base.stanceTime = base.charge ? 0.5 : 0.64; base.settle = base.charge ? 0 : 4; const r = biped(base);
       // the boulder in both hands over the head while it is lifted, gone from them on the throw (sim R.rocks takes it on)
       if (base.rock && r) {
         const at = [x + face * base.rockAt[0] * H, y + base.rockAt[1] * H + base.rockBuried], bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;

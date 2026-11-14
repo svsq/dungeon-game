@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     BAL, BASES, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
-    armored, atBrink, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
+    armored, atBrink, camAimY, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
     inWater, isCons, lastFloor, logFloor, losClear, move, onLava, onPlate, potion, pushable, reveal, ri, rise, rnd, rollItem, shove,
     soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
   // ---------------- hero helpers ----------------
@@ -155,7 +155,7 @@
     // a golem falls apart into a pool of lava (TASKS 409)
     if (E.pool && e.sinkT === undefined && e.fallT === undefined) { addFire(R, S, e.x, e.y, { src: e.id, who: who(e), r: E.pool.r, ry: E.pool.ry, t: E.pool.t, dmg: e.dmg * E.pool.dmg, per: E.pool.per, arm: E.pool.arm, kind: 'pool' }); ev(S, { k: 'pool', x: e.x, y: e.y, r: E.pool.r, d: E.pool.t, id: e.id }); }
     // a smouldering skeleton killed bursts too, unless it went off itself or into the lava or the chasm; one already lit keeps its fuse
-    if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = fuseEnd(R, S.t + E.boom.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: e.fuse - S.t, id: e.id }); } }
+    if (E.boom) { if (e.blown || ((e.fallT !== undefined || e.sinkT !== undefined) && !(e.st === 'wind' && e.fuse > S.t))) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = fuseEnd(R, S.t + E.boom.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: e.fuse - S.t, id: e.id }); } }
     else if (has(e, 'explosive')) { e.fuse = fuseEnd(R, S.t + MOD.explosive.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: e.fuse - S.t, id: e.id }); }
     ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id, elite: e.elite && !D.BOSSES[e.type] ? 1 : 0, boss: D.BOSSES[e.type] ? 1 : 0 }, e.quest ? { quest: e.quest } : {}, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // the last monster of a room down: the room is cleared (TASKS 1017, a quest's goal)
@@ -405,7 +405,7 @@
     R.trauma = Math.max(0, R.trauma - 1.6 * DT);
     if (t - R.saveT > 30) { R.saveT = t; S.saveN++; }
   }
-  function camera(R, h, lx, ly) { R.camLook = [lx, ly]; const w = WIN(R), tg = [h.x - w.W / 2 + lx, h.y - 30 - w.H / 2 + ly]; clampCam(R, tg);
+  function camera(R, h, lx, ly) { R.camLook = [lx, ly]; const w = WIN(R), tg = [h.x - w.W / 2 + lx, camAimY(R, h) + ly]; clampCam(R, tg);
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
 
   Object.assign(SIMX, {

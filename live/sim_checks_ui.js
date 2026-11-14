@@ -330,6 +330,9 @@
       for (const vh of D.VIEW_H) { SIMX.setView(vh); for (const z of D.ZOOMS) { R.zoom = z; const w = SIMX.WIN(R);
         for (const [x, y] of lowest(m, ok)) { h.x = (x + 0.5) * TILE; h.y = (y + 0.9) * TILE; R.camLook = [0, w.H / 2 * 0.12]; SIMX.snapCam(R);
           const py = (h.y + SIMX.CAM_FEET - R.cam[1]) * z; if (py > vh - top + 0.5) { out.push(`hud foot: ${m.town ? 'the town' : 'floor ' + R.floor}'s cell ${x},${y} at ×${z}, view ${vh}: the hero's feet at ${py.toFixed(0)} px are under the bottom panel's top ${vh - top}`); return SIMX.setView(h0); } } } } }
+    // TASKS 1951 а: away from the map's edges the hero's middle stands halfway between the frame's top and the panel's (bend_s84_f14)
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 84, { town: true }); SIMX.enterFloor(S, R, 14); const h = R.hero, m = R.map; R.zoom = 1; h.x = m.W * TILE / 2; h.y = m.H * TILE / 2; R.camLook = [0, 0]; SIMX.snapCam(R);
+      const up = h.y - 30 - R.cam[1], down = SIMX.VIEW.H - top - up; if (Math.abs(up - down) > 20) out.push(`camera: over the hero ${up.toFixed(0)} px of the view, under him to the panel ${down.toFixed(0)}, not even within 20`); }
     SIMX.setView(h0); }
   // the tracker's fold (TASKS 1992): its key flips the player's fold in play and on the pause
   function checkTrkFold(out) { const { S } = playing('warrior'), f0 = S.meta.trkFold ? 1 : 0;

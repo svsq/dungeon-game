@@ -71,14 +71,24 @@
   // a label tests its box at a dozen points against every part of the HUD: the parts are measured once a frame in world(), not
   // per point (review of PR 63); a screen drawn without the world measures them where it asks
   const bp = (S, R) => BPG || bpGeo(S, R), bfList = (R, GT) => BFL || buffList(R, GT);
+  // the key hints show for the first seconds on a floor, then fade (TASKS 1951 б): a standing plate over the panel's right end hid
+  // whoever stood at the bottom edge there; how much of them is up
+  const KEYS_T = 8, keysA = (S) => (S && S.screen === 'play' && S.run ? 1 - L.SS(KEYS_T - 1, KEYS_T, S.t - (S.run.enteredT ?? -1e9)) : 0);
+  // the floor's card while it is up (TASKS 1951 в): an elite's plate under it gives way, its own name read over the card's
+  const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
+    const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
+    if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
+    const one = lw('msg_m', R.msg.s, { size: 30 }) <= 1000, size = one ? 30 : 24, ls = one ? [R.msg.s] : wrapWords(R.msg.s, 660, size), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+    return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
   const keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - 54, kw, 42]; };
   // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
   // label is free to sit where they would be
   const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, BF.y + Math.max(1, BFR) * BF.dy + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
     [500, -I, 1420, 150, 'top'], MMB ? [MMB[0] - 4, -I, I, MMB[1] + MMB[3] + 4, 'minimap'] : [W - 260, -I, I, 440, 'minimap']];
     if (TRK) z.push([TRK[0] - 4, TRK[1] - 4, I, TRK[1] + TRK[3] + 4, 'tracker']);
-    const play = !S || S.screen === 'play', kb = BPG && keysBox();
-    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [])
+    const play = !S || S.screen === 'play', kb = BPG && keysBox(), mb = msgBox(S);
+    if (mb) z.push([mb[0] - 4, mb[1] - 4, mb[0] + mb[2] + 4, mb[1] + mb[3] + 4, 'card']);
+    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [])
       .forEach((b) => z.push([b[0] - 4, b[1] - 4, b[0] + b[2] + 4, b[1] + b[3] + 4, b[4]]));
     return z; };
   const underHud = (x, y) => (ZN || hudZones()).some((z) => x > z[0] && x < z[2] && y > z[1] && y < z[3]);
@@ -360,7 +370,11 @@
         float('hu' + i, s, Math.max(tw / 2 + 4, Math.min(W - tw / 2 - 4, x0 + p.side * (off(a / 0.8) + p.dx))), y0 - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), [tx, ty] = BPG.goldC;   // up off the head, then into the counter
-        lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (ty - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
+        // (TASKS 2024: a «+60» flew into the counter's frame and stuck out of it) it is gone by the time it would touch the frame
+        const lx = x0 + (tx - x0) * q, ly = y0 + (ty - y0) * q, s = '+' + ev.n, sz = 24 - 6 * q, hw = L.labelW(0, s, { size: sz }) / 2 + 2, hh = 0.62 * L.facePx(sz) + 2;
+        const clear = (bx, by, bw, bh) => Math.max(0, bx - lx - hw, lx - hw - (bx + bw), by - ly - hh, ly - hh - (by + bh));
+        const gap = Math.min(clear(BPG.mx + 58, BPG.y + 10, BPG.gw - 28, 44), keysA(S) > 0 ? clear(...keysBox()) : 1e9);
+        lab('gd' + i, s, lx, ly, { size: sz, al: 0.5, col: C.gold, a: (1 - L.SS(0.75, 0.9, a)) * L.SS(0, 18, gap) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // a pickup, a new level or a new skill also says so over the hero's head, where the eye is in a fight; the feed in the corner
@@ -523,8 +537,9 @@
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 32;
       plate('feedbox' + i, 14, y - 17, w, 34, { a: 0.85 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
     // the key hints over the panel's right end: the panel takes the bottom edge they stood on
-    if (S.screen === 'play') { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
-      plate('keys_box', W - 12 - kw, B.y - 54, kw, 42, { a: 0.85 }); lab('keys', k, W - 24, B.y - 32, { size: 26, al: 1, col: '#8a7d6c' }); }
+    const ka = keysA(S);
+    if (ka > 0) { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
+      plate('keys_box', W - 12 - kw, B.y - 54, kw, 42, { a: 0.85 * ka }); lab('keys', k, W - 24, B.y - 32, { size: 26, al: 1, col: '#8a7d6c', a: ka }); }
   }
 
   // active effects under the level's plate, right of the portrait as on the ref: the shrine's blessing lasts the floor, the shield shows what it still soaks, the
@@ -794,7 +809,7 @@
     return [r ? TXT('hud.abtip.next', { r: n }) : TXT('hud.abtip.learn'), out]; }
   function inv(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
-    dim(0.45);
+    dim(0.45); L.uiCover('inv_cover', Lp.x, Lp.y, Lp.w, Lp.h); L.uiCover('inv_r_cover', Rp.x, Rp.y, Rp.w, Rp.h);
     KIT.panel('inv', Lp.x, Lp.y, Lp.w, Lp.h, 'leather'); KIT.panel('inv_r', Rp.x, Rp.y, Rp.w, Rp.h, 'torn', { pad: 0 });
     // the name typed on the class screen heads the page (TASKS 1912); a nameless hero keeps the page's own title
     { const nm = (h.name || '').trim() || TXT('hud.inv'); KIT.banner('inv_t', cx, Lp.y + 16, Math.min(Lp.w - 80, Math.max(340, lw('inv_tm', nm, { size: 34 }) + 140)), nm, { h: 72, size: 34 }); }
@@ -1475,18 +1490,21 @@
     sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = !sh.used && bank >= o.cost && !D.giftBlocked(R.hero, Gf), st = stN(S, b.id, can), cx = b.x + b.w / 2, iw = b.w - 44;
       KIT.nine('torn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : can ? [1, 1, 0, 1] : POOR } }); L.uiBox('al_g' + i, b.x + 20, b.y + 20, b.w - 40, b.h - 40, 0);
       if (Gf.relic || Gf.evo) KIT.seal(b.x + b.w - 40, b.y + 40, 1);
-      KIT.cell('al_cl' + i, cx - 64, b.y + 44, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52, 112, can ? undefined : { alpha: 0.5 });
       // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1861)
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
       const ds = rank && !Gf.flat ? D.giftDesc(Gf, rank + 1) : Gf.desc;
       // a fourth line would run into the price: a long text drops to the 20 px floor, packs its lines and lifts the name (review of PR 72)
-      const w21 = wrapWords(ds, iw, 21), long = w21.length > 3, lines = long ? wrapWords(ds, iw, 20) : w21, ny = long ? -18 : 0;
+      const w21 = wrapWords(ds, iw, 21), long = w21.length > 3, lines = long ? wrapWords(ds, iw, 20) : w21, ny0 = long ? -18 : 0, dl = long ? 22 : 25;
+      // (TASKS 2018: the longest text still put «до конца забега» on the price) whatever the line under the text would leave too
+      // little room for, the icon, the name and the text rise by, into the margin over the icon
+      const py = b.y + b.h - 50, wy0 = b.y + Math.max(306, 256 + ny0 + lines.length * dl), up = Math.min(24, Math.max(0, wy0 - (py - 0.62 * L.facePx(28) - 4 - 0.62 * L.facePx(18)))), ny = ny0 - up;
+      KIT.cell('al_cl' + i, cx - 64, b.y + 44 - up, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52 - up, 112, can ? undefined : { alpha: 0.5 });
       KIT.ink('al_n' + i, Gf.name, cx, b.y + 214 + ny, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
-      const dl = long ? 22 : 25; lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + ny + k * dl, { size: long ? 20 : 21, al: 0.5, col: can ? I.t : I.d }));
+      lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + ny + k * dl, { size: long ? 20 : 21, al: 0.5, col: can ? I.t : I.d }));
       const wn = rank ? TXT('hud.altar.rank', { p1: rank, p2: rank + 1 }) : Gf.relic ? TXT('hud.altar.relic') : Gf.evo ? TXT('hud.altar.evo') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5');
-      KIT.ink('al_w' + i, wn, cx, b.y + Math.max(306, 256 + ny + lines.length * dl), { size: 18, fit: iw, al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
+      KIT.ink('al_w' + i, wn, cx, wy0 - up, { size: 18, fit: iw, al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
       const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, x0 = cx - cw / 2;
-      icon('crystal', x0, b.y + b.h - 66, 30); KIT.ink('al_c' + i, cs, x0 + 40, b.y + b.h - 50, { size: 28, col: can ? SOUL : I.d }); });
+      icon('crystal', x0, py - 16, 30); KIT.ink('al_c' + i, cs, x0 + 40, py, { size: 28, col: can ? SOUL : I.d }); });
     KIT.button('al_leave', byId('leave'), stN(S, 'leave'));
     const rc = D.rerollCost(sh.rolls || 0, SIM.Q.depOf(R)), rb = Object.assign({}, byId('reroll'), { on: !sh.used && bank >= rc, label: TXT('hud.altar.reroll', { cost: rc }) }); KIT.button('al_reroll', rb, stN(S, 'reroll', rb.on));
     const left = 10 - (R.donations || 0), b = Object.assign({}, byId('donate'), { on: left > 0 && R.hero.gold >= 1000, label: left ? byId('donate').label : TXT('hud.altar.b.label') });

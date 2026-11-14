@@ -49,7 +49,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const fitView = () => { if (SIM.setView) SIM.setView(SIM.viewFor(innerWidth, innerHeight)); document.documentElement.style.setProperty('--ar', SIM.VIEW.W / SIM.VIEW.H); };
   fitView(); addEventListener('resize', fitView);
   const VW = SIM.VIEW.W, VH = SIM.VIEW.H;
-  G.init(document.getElementById('c'), VW, VH);
+  G.init(document.getElementById('c'), VW, VH, { keep: !STATIC || !!navigator.webdriver });
   { const g = G.gl, dbg = g.getExtension('WEBGL_debug_renderer_info'); mark('gl', `${dbg ? g.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)}  parallel shaders ${G.parallel() ? 'yes' : 'no'}`); }
   await Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))));
   bootStep(20); mark('fonts');

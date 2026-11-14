@@ -474,9 +474,12 @@
   // k: how much wider the oval is (the player's decision on 1636: arriving on a magma floor shows more of it)
   const FOG_ARRIVE = 2.4, inFogOval = (x, y, fx, fy, k = 1) => ((x + 0.5 - fx) / (8.5 * k)) ** 2 + ((y + 0.5 - fy) / (6.5 * k)) ** 2 <= (0.72 + 0.28 * fogNoise(x, y) + (fogHash(x + 31, y + 17) - 0.5) * 0.2) ** 2;
   const fogReach = (x, y) => 1.6 + 1.6 * fogNoise(x, y) + (fogHash(x + 7, y + 91) - 0.5) * 1.4;
-  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, eventSpot, EVENT_PLACE, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  // where the hero comes out of the stairs up (TASKS 1958): the sim stands him here (sim_floor.js arrive), the generator keeps its
+  // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
+  const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
+  root.DUNGEON = { FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, eventSpot, EVENT_PLACE, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
-  Object.assign(DGX, { archLegs, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
+  Object.assign(DGX, { archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
   if (typeof module !== 'undefined') { for (const f of require('./modules.js').parts.dungeon) require('./' + f); module.exports = root.DUNGEON; }
 })(typeof window !== 'undefined' ? window : globalThis);
