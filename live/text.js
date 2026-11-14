@@ -1,9 +1,16 @@
-// live/text.js — the game's texts by key (TASKS 1141; the tables are text_<lang>.js). TXT(key, params): the text in TEXT.lang
-// (Russian where a language lacks the key) with {name} filled from params; TXT.n(key, n): the plural form for n by the language's
-// rule; TXT.fem(word): an adjective's feminine form, which the elite names need for a monster of feminine gender.
+// live/text.js — the game's texts by key (TASKS 1141). A table is a set of files text_<lang>_<domain>.js, each registering its keys
+// with TEXT.add(lang, domain, {key: text}); modules.js finds the files, so a new feature's texts are one new file and no common list.
+// TXT(key, params): the text in TEXT.lang (Russian where a language lacks the key) with {name} filled from params; TXT.n(key, n):
+// the plural form for n by the language's rule; TXT.fem(word): an adjective's feminine form, which the elite names need for a monster of feminine gender.
 (function (root) {
   const TEXT = root.TEXT || (root.TEXT = {});
   TEXT.lang = TEXT.lang || 'ru';
+  // a key held by two files used to be overwritten without a word; TEXT.domains[lang][key] names the file's domain (textcheck)
+  TEXT.domains = TEXT.domains || {};
+  TEXT.add = (lang, domain, table) => {
+    const L = TEXT[lang] || (TEXT[lang] = {}), D = TEXT.domains[lang] || (TEXT.domains[lang] = {});
+    for (const k of Object.keys(table)) { if (k in L) throw new Error(`text.js: ${lang} text ${k} is in ${D[k]} and in ${domain}`); L[k] = table[k]; D[k] = domain; }
+  };
   const RULES = { ru: (n) => (n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : 2) };
   const FEM = { ru: (w) => w.replace(/(ый|ой|ий)$/, 'ая') };
   const get = (key) => { const L = TEXT[TEXT.lang], s = L && key in L ? L[key] : TEXT.ru[key]; if (s === undefined) throw new Error('text.js: no text ' + key); return typeof s === 'string' ? s.replace(/\{@(\w+)\}/g, (m, k) => get('NAME.' + k)) : s; };
