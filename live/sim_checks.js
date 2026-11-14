@@ -2021,9 +2021,12 @@
         { const e = crab({ cdT: 99, rushT: 99 }); h.x = x0 - 120; for (let i = 0; i < 60; i++) step(S, quiet); const turned = Math.abs(e.fa);
           if (!(turned > 0.2 && turned <= E.turn * 0.5 + 0.02)) out.push(`crab: turns ${turned.toFixed(2)} rad in 0.5 s, not up to ${E.turn * 0.5}`); }
         // the pinch: a hero before it is hurt; one behind it is not, for the second it takes to turn even half way
-        // (a pinch the hero dodges is a pinch too: the run's RNG decides the dodge, TASKS 362 moved it so the first one was dodged)
-        { const e = crab({}); h.x = x0 + E.r + K.R + 14; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => (v.k === 'hurt' || v.k === 'dodge') && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
-          if (!hurt || !S.ev.some((v) => v.k === 'pinch' && v.id === e.id)) out.push('crab: never pinches a hero before it'); }
+        // (no dodge: the run's stream decides one, and TASKS 362 moved it so the first pinch was dodged; held at no chance, the check
+        // reads the hurt itself on any seed, TASKS 2027)
+        { const e = crab({}), agi = h.base.agi, eq = Object.assign({}, h.eq); h.base.agi = 0; for (const k in h.eq) h.eq[k] = null; h.x = x0 + E.r + K.R + 14; let hurt = 0;
+          if (heroSt(S).dodge > 0) out.push(`crab: the pinch check's hero still dodges ${heroSt(S).dodge} %`);
+          for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
+          h.base.agi = agi; Object.assign(h.eq, eq); if (!hurt || !S.ev.some((v) => v.k === 'pinch' && v.id === e.id)) out.push('crab: never pinches a hero before it'); }
         { const e = crab({ rushT: 99 }); h.x = x0 - E.r - K.R - 14; let hurt = 0; for (let i = 0; i < 120; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 - E.r - K.R - 14; h.y = y0; e.x = x0; e.y = y0; }
           if (hurt) out.push('crab: pinches a hero behind it'); }
         // the rush: a hero 100 px off its side; it runs at him and hurts him, still facing its way
