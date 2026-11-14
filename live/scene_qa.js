@@ -1773,6 +1773,8 @@
     // what clampCam gives the town at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [-64, 52]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [-64, 52]; })]);
+    // TASKS 2006: the hero pressed against the gate from the yard, square on and from the side, is behind it, never on its masonry
+    for (const [nm, dx] of [['town_gate_behind', 0], ['town_gate_behind_side', -44]]) states.push([nm, climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x + dx; h.y = g.y + 12; h.back = 1; })]);
     // an event room (TASKS 361): the probe, asked for on the 1st floor; its prompt at the spot, its question with «Нет» in focus and «Да» lit
     for (const [nm, scr, fo] of [['event_prompt', 'play', ''], ['event_ask', 'event', 'evNo'], ['event_ask_yes', 'event', 'evYes']]) { const S = play((S) => { const R = S.run; SIM.enterFloor(S, R, 1, { events: ['probe'] }); const E = R.events[0]; if (!E) return;
       R.en = []; R.msg = null; R.hero.x = E.x; R.hero.y = E.y + 20; R.seen = R.seen.map(() => 1); R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; R.evAsk = 0; S.screen = scr; S.focus = fo; S.hover = fo; }); if (S.run.events && S.run.events.length) states.push([nm, S]); }
