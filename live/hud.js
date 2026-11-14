@@ -372,7 +372,8 @@
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), [tx, ty] = BPG.goldC;   // up off the head, then into the counter
         // (TASKS 2024: a «+60» flew into the counter's frame and stuck out of it) it is gone by the time it would touch the frame
         const lx = x0 + (tx - x0) * q, ly = y0 + (ty - y0) * q, s = '+' + ev.n, sz = 24 - 6 * q, hw = L.labelW(0, s, { size: sz }) / 2 + 2, hh = 0.62 * L.facePx(sz) + 2;
-        const bx = BPG.mx + 58, by = BPG.y + 10, gap = Math.max(0, bx - lx - hw, lx - hw - (bx + BPG.gw - 28), by - ly - hh, ly - hh - (by + 44));
+        const clear = (bx, by, bw, bh) => Math.max(0, bx - lx - hw, lx - hw - (bx + bw), by - ly - hh, ly - hh - (by + bh));
+        const gap = Math.min(clear(BPG.mx + 58, BPG.y + 10, BPG.gw - 28, 44), keysA(S) > 0 ? clear(...keysBox()) : 1e9);
         lab('gd' + i, s, lx, ly, { size: sz, al: 0.5, col: C.gold, a: (1 - L.SS(0.75, 0.9, a)) * L.SS(0, 18, gap) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
