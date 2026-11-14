@@ -362,7 +362,10 @@
   // over dry floor: the floor in play lies in the save, not in the memo the version rebuilds, so it is turned to slabs as the
   // generator turns it now (dungeon_fill.js, PR 64 review)
   function mendArches(R) { const m = R && R.map; if (!m || !m.crossings || !m.cells) return; for (const c of m.crossings) if (c.kind === 'arch' && c.lava && !DG.archLegs(m, c)) c.kind = 'slabs'; }
-  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
+  // (TASKS 2063) a floor in play saved before its torches had ids holds its sconce by place in the list, which a cut had moved: the sconce is the torch that
+  // carries the secret's own number, as the generator laid it
+  const relinkSconce = (m, q, i) => { const t = q.trig && q.trig.k === 'sconce' && m.torches.find((o) => o.lever === i); if (t) q.trig.t = DG.linkId(m.torches, t); };
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; (m.secrets || []).forEach((q, i) => relinkSconce(m, q, i)); for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
   function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
     if (MASK.key === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];

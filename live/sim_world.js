@@ -325,7 +325,7 @@
     return (m.secrets || []).find((q) => { if (q.open || shut(q)) return false;
       if (q.kind === 'banner') return Math.abs(h.x - q.x) < 40 && h.y > q.y && h.y - q.y < 64;
       if (q.kind === 'shelf' || q.kind === 'statue') return Math.abs(h.x - q.x) < 56 && h.y > q.y && h.y - q.y < 100;
-      if (q.trig && q.trig.k === 'sconce') { const t = m.torches[q.trig.t]; return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; }
+      if (q.trig && q.trig.k === 'sconce') { const t = DG.byId(m.torches, q.trig.t); return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; }
       if (q.trig && q.trig.k === 'lever') return Math.abs(h.x - q.trig.x) < 36 && h.y > q.trig.y && h.y - q.trig.y < 90; return false; }); }
   const secretHow = (q) => (q.kind === 'puzzle' ? q.pz.k : q.kind === 'lever' ? q.trig.k : q.kind);
   // a puzzle (TASKS 1692): the piece the hero stands at, three levers on a wall or three candles on the floor worked in the order their scratches count

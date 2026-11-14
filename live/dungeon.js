@@ -12,8 +12,8 @@
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
-  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943); selfCheck holds the generator's print to its version
-  const GEN_VERSION = 34;
+  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 35;
   // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
   const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
@@ -146,6 +146,10 @@
   const riverOk = (R, b, choice) => { const ws = riverAt(R, b), dry = R.dry[b]; return ws.length >= 2 && ws[1][0] <= ws[0][0] * choice && (dry < 0 || dry >= ws[0][0] * choice); };
   // the rim no cell is laid on through `set`: the walks and floods of every stage step to a cell's four neighbours with no bound test, and rely on rock all round the map
   const onRim = (x, y, W, H) => !(x > 1 && y > 2 && x < W - 2 && y < H - 2);
+  // a record another one links to (a sconce's torch, a vent prop's hazard, TASKS 2063) gets an `id` when first linked, and the link holds
+  // the id, never the record's place in its list: the cuts of the lists after the link (a brazier on an arch's leg, a gate's rock tails) move places
+  const linkId = (list, o) => { if (o.id === undefined) o.id = list.reduce((n, p) => Math.max(n, p.id === undefined ? 0 : p.id), 0) + 1; return o.id; };
+  const byId = (list, id) => list.find((o) => o.id === id);
   // the stages tryGen runs before the contents, in this order; DGX.audit is set by a check only (sim_checks_genguard.js): view(stage, GF)
   // hands a stage the shared values to read and after(stage, GF, map) looks at what it left, and with it null a floor is laid as it was
   const STAGES = ['rooms', 'links', 'terrain'];
@@ -203,7 +207,7 @@
         gates.push({ dir: p.dir, cells: run, x: side ? ex * TILE : (a[0] + n / 2) * TILE, y: side ? (a[1] + n / 2) * TILE : ey * TILE }); }
       const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; },
     // the dark room (TASKS 365): a room with a pack to fight in the dark. Its wall torches and loose candles are put out (`dark`: the
-    // render neither draws nor lights them; the lists keep their order, as a lever's sconce is found by its index); a room with a fire
+    // render neither draws nor lights them; the lists keep their order, as a prop's knock key is its place in its list); a room with a fire
     // on its floor (a brazier, a crystal, a forge), a secret's sconce or candles, or a zone's own light is not one
     dark: (m, r) => { const inside = (o) => inRm(r, Math.floor(o.x / TILE), Math.floor(o.y / TILE), 1), mine = (t) => t.r === r.id || inside(t);
       if (r.zone || m.enemies.filter((e) => e.room === r.id).length < D.EVENTS.pool.dark.pack) return null;
@@ -491,9 +495,9 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { onRim, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
-  Object.assign(DGX, { onRim, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
+  Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
   if (typeof module !== 'undefined') { for (const f of require('./modules.js').parts.dungeon) require('./' + f); module.exports = root.DUNGEON; }
 })(typeof window !== 'undefined' ? window : globalThis);

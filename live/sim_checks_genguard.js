@@ -46,6 +46,7 @@
         for (const [k, v] of objects(o)) queue.push([v, p + '.' + k]); }
       if (out.length > MAX_FAILS) break; }
   }
+  Object.assign(SIMX.checks.kit, { samecheckFloors });
   SIMX.checks.add('genStageCheck', stageCheck, { slow: true });
   SIMX.checks.add('stFieldsCheck', stFieldsCheck);
   SIMX.checks.add('genSharedCheck', sharedCheck);
