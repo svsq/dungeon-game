@@ -43,7 +43,7 @@
     Object.defineProperty(P, 'raw', { get: () => { const gp = P.gp; return gp ? { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) } : null; } });
     const { keys, ptr, pend } = io, kb = {};   // kb: the keyboard's own arrows, so an idle stick never lets go of a held key
     addEventListener('keydown', (e) => { if (e.isTrusted) kb[e.code] = 1; }, true); addEventListener('keyup', (e) => { kb[e.code] = 0; }, true);
-    let idx = -1, on = 0, clock = 0, prev = [], held = new Set(), moveK = {}, nav = { k: '', t: 0, n: 0 }, last = '', aim = [1, 0, 0.6], aimT = -99, ptrDown = 0;
+    let idx = -1, on = 0, clock = 0, prev = [], held = new Set(), moveK = {}, nav = { k: '', t: 0, n: 0 }, last = '', aim = [1, 0, 0.6], aimT = -99, ptrDown = 0, fSeen = '';
     // the buttons the screen hit-tests this step: DATA.hitUI is called by every screen with its whole list (sim_ui.js), so the
     // list is read off that call instead of copying each screen's layout here
     let rects = [], rectsNow = [], rectsOf = '', got = 0;   // rectsOf: the screen they were read on
@@ -118,6 +118,7 @@
       if (scr !== last) { last = scr; rects = []; rectsOf = ''; nav.k = ''; for (const c of held) keys[c] = 0; held.clear(); walk(0, 0); if (ptrDown) { ptr.down = 0; ptrDown = 0; }
         P.pendSnap = P.active && !play && !focus ? 1 : 0; }   // (a snap asked for a screen left before its buttons came is dropped)
       if (P.pendSnap && rectsOf === scr && rects.length) { P.pendSnap = 0; goTo(firstBtn(S)); }
+      if (scr !== 'talk') fSeen = ''; else if (P.active && S.focus && S.focus !== fSeen && rectsOf === scr) { fSeen = S.focus; if (S.hover !== S.focus) goTo(onBtns().find((b) => b.id === S.focus)); }
       const [lx, ly, lm] = stick(ax[0], ax[1]), [rx, ry, rm] = stick(ax[2], ax[3]);
       if (edge(B.R3)) io.dev();
       if (edge(B.L3)) tap('KeyM');   // the sim's mute (PR 57), a one-shot key as the others: no DOM event and no key left held
