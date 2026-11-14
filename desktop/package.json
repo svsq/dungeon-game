@@ -1,7 +1,7 @@
 {
   "name": "crypt-depths",
   "productName": "The Elder Deep",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "The Elder Deep: Below the Ages, desktop test build",
   "main": "main.js",
   "desktopName": "crypt-depths.desktop",
