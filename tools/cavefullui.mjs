@@ -32,5 +32,5 @@ const bite=structuredClone(SCENE.QA().states.find(([n])=>n==='serpent_bite_aim_0
 });
 for(const shot of result.shots){fs.writeFileSync(path.join(out,shot.name+'.png'),Buffer.from(shot.url.split(',')[1],'base64'));delete shot.url;}
 fs.writeFileSync(path.join(out,'ui.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result.report));if(!['stat','skill','unequip','equip','potion','scroll'].every(k=>result.report[k])||result.report.inventory!=='inv'||result.report.pause!=='pause'||!result.report.saved||result.report.continue!=='play'||result.report.mode!=='cave'||result.report.death!=='dead'||!result.report.biteEvents.includes('bite'))throw Error('Incomplete cave UI');
-fs.writeFileSync(path.join(out,'errors.json'),JSON.stringify(errors));if(errors.length)throw Error(errors.join('\n'));
+fs.writeFileSync(path.join(out,'errors_cavefullui.json'),JSON.stringify(errors));if(errors.length)throw Error(errors.join('\n'));
 }finally{await browser.close();server.close();}

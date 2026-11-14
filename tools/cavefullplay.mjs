@@ -33,5 +33,5 @@ const result=await page.evaluate(seed=>{
 for(const s of result.shots){fs.writeFileSync(path.join(out,s.name+'.png'),Buffer.from(s.url.split(',')[1],'base64'));delete s.url;}
 fs.writeFileSync(path.join(out,`seed${seed}.json`),JSON.stringify(result,null,2));if(Object.keys(result.floors).length!==4||result.runs[0]?.result.how!=='win')throw Error('Incomplete cave route '+seed);console.log(JSON.stringify({seed,steps:result.steps,floors:result.floors,result:result.runs.map(r=>r.result),shots:result.shots.length}));
 }
-fs.writeFileSync(path.join(out,'errors.json'),JSON.stringify(errors));if(errors.length)throw Error(errors.join('\n'));
+fs.writeFileSync(path.join(out,'errors_cavefullplay.json'),JSON.stringify(errors));if(errors.length)throw Error(errors.join('\n'));
 }finally{await browser.close();server.close();}

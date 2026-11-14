@@ -7,7 +7,9 @@ for (const mode of ['cave', 'campaign']) {
   for (let floor = 1; floor <= DATA.runOf(mode).floors; floor++) {
     SIM.enterFloor(S, S.run, floor); const R = S.run, m = R.map;
     assert.equal(m.ambush.length, 0);
+    // a hex chest opens through its event, a sealed one with its boss, a mimic wakes: none of them is a plain chest that rolls an ambush
     for (const c of R.chests) {
+      if (c.hex !== undefined || c.sealed || c.mimic) continue;
       const room = m.rooms.find((q) => c.x >= q.x * DATA.TILE && c.x < (q.x + q.w) * DATA.TILE && c.y >= q.y * DATA.TILE && c.y < (q.y + q.h) * DATA.TILE);
       if (!room) continue;
       if (room.type === 'secret') { const secret = m.secrets.find((q) => q.room === room.id); SIM.openSecret(S, R, secret); }
@@ -15,7 +17,7 @@ for (const mode of ['cave', 'campaign']) {
         const T = structuredClone(S), A = T.run, C = A.chests.find((q) => q.x === c.x && q.y === c.y);
         A.rs = trial + 1; A.en = []; A.hero.x = c.x; A.hero.y = c.y + 40; T.ev = [];
         SIM.openChest(T, A, C); const got = A.en.filter((e) => e.summ === 'amb');
-        if (!room.type === 'secret') assert.equal(got.length, 0);
+        if (room.type !== 'secret') assert.equal(got.length, 0);
         if (got.length) {
           success++; assert.ok(got.length >= 2 && got.length <= 4);
           assert.ok(got.every((e) => !e.elite && e.room === room.id && DATA.rosterAt(m.biome, floor).includes(e.type)));
