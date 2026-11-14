@@ -4,7 +4,7 @@
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
     PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
-    deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
+    deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, flameAt, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   const HERO_RIM = { x: 0, y: 0 };
   // a colossus's crack in local (along, across) world px, one shape for the wind-up's hairlines and the split that runs (TASKS 1749):
@@ -479,6 +479,9 @@
     m.decor.forEach((d, i) => { if (d.openT !== undefined && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => coffinOpen(d, sx(d.x), sy(d.y), GT - d.openT, jig('d' + i))]); });
     // (TASKS 2006: the town's gate sorts at its foot like any prop; keyed at its top, the hero by it was drawn standing on its masonry)
     m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), warm: m.cliff && SCX.warmsBy(d.alt || d.n) ? HERO.lavaWarm(d.x, d.y) : 0, u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
+    // the Altar of Souls' candle flames are the altar's own, sorted right after it (TASKS 2009: in the fx pass they burnt over a hero
+    // behind it or in front of it alike, flickering holes in him)
+    if (m.town && vis(m.town.svc.altar.x, m.town.svc.altar.y)) { const A = m.town.svc.altar; Y.push([A.y, () => { G.blend('emit'); [-21, -12, 16, 26].forEach((dx, i) => flameAt(sx(A.x) + dx, sy(A.y) - 53, 7, 13, [1, 0.72, 0.3], i * 7 + 3, Math.sin(t * 2.3 + i), t)); G.blend(); }]); }
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
@@ -729,7 +732,10 @@
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
     for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([(e.coffinT !== undefined && GT - e.coffinT < D.COFFIN.rise ? Math.max(e.y, e.coffY + 1) : e.y) - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
     for (const p of R.drops) if (vis(p.x, p.y) && !hid(p)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
-    Y.push([h.y + (GT - h.atkT >= 0 && GT - h.atkT < 0.2 ? 90 : 0), () => {   // during the strike the blade must read over the target it hits
+    // during the strike the blade must read over the target it hits; with no foe there to hit he keeps his place (TASKS 2009: lifted
+    // over everything below him, a hero swinging behind the town's altar popped in front of it at every click)
+    const struck = GT - h.atkT >= 0 && GT - h.atkT < 0.2 && R.en.some((e) => e.deadT < 0 && e.y > h.y && e.y - h.y < 90 && Math.abs(e.x - h.x) < (st.reach || 90) + 60);
+    Y.push([h.y + (struck ? 90 : 0), () => {
       L.shadow(sx(h.x), sy(h.y) + 2 + DECK.dy, 20, 6, 0.85);
       // the cry's ring rolls out on the floor, under the hero (TASKS 1183: over him it cut his chest and head), when the shout comes
       if (h.castK === 'cry' && GT - h.castT > 0.14 && GT - h.castT < 0.74) { const a = GT - h.castT, x0 = Math.min(1, (a - 0.14) / 0.4), q = 1 - (1 - x0) ** 2, r = D.CRY.r * q; for (const k of [1, 0.8]) L.ring(sx(h.x), sy(h.y), r * k, r * k / 1.3, [1, 0.3, 0.12], (k === 1 ? 1 : 0.6) * (1 - SS(0.34, 0.74, a)), 0.12); }

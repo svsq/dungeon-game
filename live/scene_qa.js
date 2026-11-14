@@ -1535,6 +1535,9 @@
     states.push(['shop_wander', climbS(5, (S, R, m, h) => { R.shop = SIM.stockShopFor(R, 5, 'wander'); R.shop.line = 3; S.screen = 'shop'; S.hover = 'buy:0'; })]);
     // the Altar of Souls on the square (TASKS 1011): its prompt, and its screen opened there mid-run
     states.push(['town_altar_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; })]);
+    // TASKS 2009: the hero behind the altar, standing and mid-swing, is behind it in both, its candle flames over him, not holes in him
+    for (const [nm, sw] of [['town_altar_behind', 0], ['town_altar_behind_swing', 1]]) states.push([nm, climbS(0, (S, R, m, h) => { const A = m.town.svc.altar; h.x = A.x + 12; h.y = A.y - 20; h.back = 1;
+      if (sw) { const T = SIM.K.HIT; h.atkT = S.t - T; h.aim = h.atkA = Math.PI / 2; h.face = 1; S.ev.push({ k: 'swing', t: S.t - T, x: h.x, y: h.y, a: h.aim, f: 1 }); } })]);
     states.push(['fork', fx((S, R, h) => { R.hero.cls = 'mage'; R.hero.ab = { fireball: 3, shield: 1, frost: 0 }; S.screen = 'fork'; S.hover = 'fork:1'; })]);
     // TASKS 1857: a card lit by the first press and sealed (the pointer gone to the other, which stays unlit); a warrior's fork whose
     // two ways carry the potion icons; on the hero's page what a point and the next rank give, and a visit's points with «Сбросить»
