@@ -1486,18 +1486,21 @@
     sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = !sh.used && bank >= o.cost && !D.giftBlocked(R.hero, Gf), st = stN(S, b.id, can), cx = b.x + b.w / 2, iw = b.w - 44;
       KIT.nine('torn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : can ? [1, 1, 0, 1] : POOR } }); L.uiBox('al_g' + i, b.x + 20, b.y + 20, b.w - 40, b.h - 40, 0);
       if (Gf.relic || Gf.evo) KIT.seal(b.x + b.w - 40, b.y + 40, 1);
-      KIT.cell('al_cl' + i, cx - 64, b.y + 44, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52, 112, can ? undefined : { alpha: 0.5 });
       // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1861)
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
       const ds = rank && !Gf.flat ? D.giftDesc(Gf, rank + 1) : Gf.desc;
       // a fourth line would run into the price: a long text drops to the 20 px floor, packs its lines and lifts the name (review of PR 72)
-      const w21 = wrapWords(ds, iw, 21), long = w21.length > 3, lines = long ? wrapWords(ds, iw, 20) : w21, ny = long ? -18 : 0;
+      const w21 = wrapWords(ds, iw, 21), long = w21.length > 3, lines = long ? wrapWords(ds, iw, 20) : w21, ny0 = long ? -18 : 0, dl = long ? 22 : 25;
+      // (TASKS 2018: the longest text still put «до конца забега» on the price) whatever the line under the text would leave too
+      // little room for, the icon, the name and the text rise by, into the margin over the icon
+      const py = b.y + b.h - 50, wy0 = b.y + Math.max(306, 256 + ny0 + lines.length * dl), up = Math.min(24, Math.max(0, wy0 - (py - 0.62 * L.facePx(28) - 4 - 0.62 * L.facePx(18)))), ny = ny0 - up;
+      KIT.cell('al_cl' + i, cx - 64, b.y + 44 - up, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52 - up, 112, can ? undefined : { alpha: 0.5 });
       KIT.ink('al_n' + i, Gf.name, cx, b.y + 214 + ny, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
-      const dl = long ? 22 : 25; lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + ny + k * dl, { size: long ? 20 : 21, al: 0.5, col: can ? I.t : I.d }));
+      lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + ny + k * dl, { size: long ? 20 : 21, al: 0.5, col: can ? I.t : I.d }));
       const wn = rank ? TXT('hud.altar.rank', { p1: rank, p2: rank + 1 }) : Gf.relic ? TXT('hud.altar.relic') : Gf.evo ? TXT('hud.altar.evo') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5');
-      KIT.ink('al_w' + i, wn, cx, b.y + Math.max(306, 256 + ny + lines.length * dl), { size: 18, fit: iw, al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
+      KIT.ink('al_w' + i, wn, cx, wy0 - up, { size: 18, fit: iw, al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
       const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, x0 = cx - cw / 2;
-      icon('crystal', x0, b.y + b.h - 66, 30); KIT.ink('al_c' + i, cs, x0 + 40, b.y + b.h - 50, { size: 28, col: can ? SOUL : I.d }); });
+      icon('crystal', x0, py - 16, 30); KIT.ink('al_c' + i, cs, x0 + 40, py, { size: 28, col: can ? SOUL : I.d }); });
     KIT.button('al_leave', byId('leave'), stN(S, 'leave'));
     const rc = D.rerollCost(sh.rolls || 0, SIM.Q.depOf(R)), rb = Object.assign({}, byId('reroll'), { on: !sh.used && bank >= rc, label: TXT('hud.altar.reroll', { cost: rc }) }); KIT.button('al_reroll', rb, stN(S, 'reroll', rb.on));
     const left = 10 - (R.donations || 0), b = Object.assign({}, byId('donate'), { on: left > 0 && R.hero.gold >= 1000, label: left ? byId('donate').label : TXT('hud.altar.b.label') });
