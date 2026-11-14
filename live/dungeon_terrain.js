@@ -937,6 +937,7 @@
           const hor = hz[j], cs = [...new Set(path.slice(j ? j + 1 : 0, j2 + 2).flatMap(blk))], U = (k) => (hor ? k % W : Math.floor(k / W)), V = (k) => (hor ? Math.floor(k / W) : k % W);
           crossings.push({ kind: 'slabs', cells: cs, axis: hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, bend: 1, of: B.cells[0], span: [Math.min(...cs.map(U)), Math.max(...cs.map(U)), Math.min(...cs.map(V))] }); j = j2 + 1; }
         return true; };
+      const done = new Set();
       for (const B of crossings.filter((c) => c.lava && !c.chasm)) { if (alts >= (ftype === 'terrace' && A.bend ? A.bend.max : A.max) || len0 < 0) break; const ban = new Set(B.cells), ds = reach(s0, ban); if (ds[e0] >= 0) continue;
         nearX = new Set(crossings.flatMap((c) => c.cells.flatMap((q) => [q, q + 1, q - 1, q + W, q - W])));
         const de = reach(e0, ban), cand = [], offB = (x, y) => B.cells.every((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) >= A.off);
@@ -957,8 +958,8 @@
           lavaUnder.push(...c.deck); for (const k of c.deck) under.add(k);
           // (a crust by the slabs would have floor on two sides: it goes back to lava)
           for (let i = crust.length - 1; i >= 0; i--) if (D4.some((o) => under.has(crust[i] + o) && c.deck.includes(crust[i] + o))) { cr.delete(crust[i]); crust.splice(i, 1); }
-          crossings.push({ kind: 'slabs', cells: c.deck, axis: c.hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, of: B.cells[0], span: [Math.min(...c.deck.map(U)), Math.max(...c.deck.map(U)), Math.min(...c.deck.map(V))] }); alts++; B.done = 1; break; }
-        if (!B.done && ftype === 'terrace' && A.bend && bend(B, ban, ds, de)) alts++; }
+          crossings.push({ kind: 'slabs', cells: c.deck, axis: c.hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, of: B.cells[0], span: [Math.min(...c.deck.map(U)), Math.max(...c.deck.map(U)), Math.min(...c.deck.map(V))] }); alts++; done.add(B); break; }
+        if (!done.has(B) && ftype === 'terrace' && A.bend && bend(B, ban, ds, de)) alts++; }
       // a cave's stream crosses a tunnel wall to wall, no lava beside it for slabs (TASKS 1726): a dry tunnel through the rock round
       // the crossing instead, from the tunnel `off` cells before it to the one past it, `len` cells at most, its cells three of rock
       // off any floor but at its two mouths, by no secret; the walk keeps its length
