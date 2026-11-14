@@ -1058,6 +1058,16 @@
       // (TASKS 1943) every hall keeps its own monster, `need`: the arrival's gap took run 169's 3rd floor's golem, a small prison's cut its skeleton
       for (const [sd, f] of [[169, 3], [12, 1], [15, 1], [21, 1], ...Array.from({ length: 10 }, (_, i) => [i + 1, (i % 3) + 1])]) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd });
         for (const r of m.rooms.filter((q) => q.hall)) if (!(f === 1 && HL.kinds[r.hall].early) && !m.enemies.some((e) => e.room === r.id && e.type === HL.kinds[r.hall].need)) out.push(`magma run ${sd} f${f}: the ${r.hall} hall without its ${HL.kinds[r.hall].need}`); }
+      // (TASKS 1963) a terrace's way round joins the two banks of the crossing it is laid for (`of`), past its first and last rows
+      for (const [seed, f, rs] of [[15918, 14, 56], [17654, 14, 112], [20837, 15, 182], [20692, 14, 210]]) { const m = DG.genFloor(seed, f, { mode: 'campaign', runSeed: rs, from: 1, town: 1 }), W = m.W, X = m.crossings, deck = new Set(X.flatMap((c) => c.cells)), cr = new Set(m.crust || []);
+        if (!X.some((c) => c.bend)) out.push(`town run ${rs} f${f}: no way round a terrace's crossing to check`);
+        for (const of of new Set(X.filter((c) => c.bend).map((c) => c.of))) { const B = X.find((c) => !c.bend && c.cells.includes(of)); if (!B) { out.push(`town run ${rs} f${f}: a way round for no crossing at ${of}`); continue; }
+          const Bc = new Set(B.cells), along = (k) => (B.axis === 'x' ? k % W : Math.floor(k / W)), lo = Math.min(...B.cells.map(along)), hi = Math.max(...B.cells.map(along)), st = B.axis === 'x' ? 1 : W;
+          const ends = [[lo, -st], [hi, st]].map(([v, o]) => B.cells.filter((k) => along(k) === v).map((k) => k + o).find((n) => m.cells[n] === 1 && !Bc.has(n)));
+          if (ends.some((k) => k === undefined)) { out.push(`town run ${rs} f${f}: the crossing at ${of} has no bank past an end`); continue; }
+          const d = new Int32Array(W * m.H).fill(-1), q = [ends[0]]; d[ends[0]] = 0;
+          for (let i = 0; i < q.length && d[ends[1]] < 0; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && (m.cells[n] === 1 || deck.has(n) || cr.has(n)) && !Bc.has(n)) { d[n] = d[q[i]] + 1; q.push(n); } }
+          if (d[ends[1]] < 0) out.push(`town run ${rs} f${f}: the way round the crossing at ${of} does not join its two banks`); } }
       // (TASKS 1958) the arrival's gap is kept round where the hero comes out of the stairs (DG.arrivalAt), not the old spot by the opening
       for (const [sd, f] of [[203, 14], [14, 14], [21, 13], [35, 15]]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: true }); enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero;
         if (!m.up) { out.push(`town run ${sd} f${f}: no stairs up to check the arrival's gap by`); continue; } const [ax, ay] = DG.arrivalAt(m.up, m.biome); if (Math.hypot(h.x - ax, h.y - ay) > 1.5 * TILE) out.push(`town run ${sd} f${f}: the hero comes out ${Math.round(Math.hypot(h.x - ax, h.y - ay))} px off the arrival spot`);
