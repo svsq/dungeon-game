@@ -1,7 +1,7 @@
 // live/sim_checks_saves.js — selfCheck's parts for floors left and come back to, scrolls, time away. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    boxHit, D, descend, DG, enterFloor, exitKind, FROM, interact, K, killEnemy, newQuest, newRun, persist, spawn, STAGE, step, TILE, useItem } = SIMX;
+    boxHit, D, descend, DG, enterFloor, exitKind, fstat, FROM, interact, K, killEnemy, loadSlot, newQuest, newRun, persist, spawn, STAGE, step, TILE, useItem } = SIMX;
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
   // TASKS 1007, 1008, 1027: in a run through the town every floor has its stairs up in the start room, reachable from the spawn
   // (and a run that is not through the town has none); a floor left and come back to is as it was left (a kill, an open chest, loot
@@ -68,7 +68,7 @@
     // step can make it now) loads in the town with its portal
     { const T3 = spawn(0, {}); T3.run = newRun(T3, 'campaign', 77, { town: 1, allFree: 1 }); T3.screen = 'play'; const Q = T3.run, hq = Q.hero, M = () => Q.memo[1];
       const home = () => { Q.portal = { f: 1, x: hq.x, y: hq.y }; enterFloor(T3, Q, 0, undefined, 'portal'); }, gate = (S, P) => { P.hero.x = P.map.town.svc.portal.x; P.hero.y = P.map.town.svc.portal.y + 30; interact(S, P); };
-      const err = console.error, cp = root.SIMX.captivePlace, ofs = root.SIMX.offersOf; console.error = () => {};
+      const err = console.error, cp = root.SIMX.captivePlace, ofs = root.SIMX.dealOffers, rel = root.SIMX.release; console.error = () => {}; root.SIMX.release = true;
       try {
         enterFloor(T3, Q, 1); const ids = Q.en.filter((e) => !D.BOSSES[e.type]).slice(0, 3).map((e) => e.id); for (const e of Q.en) if (ids.includes(e.id)) { e.hp = 0; e.deadT = T3.t; }
         Q.stats[1].kills = 3; Q.seen.fill(1); home(); M().d.p.map = { p: { gone: { p: { step: { v: 1 } } } } }; gate(T3, Q);
@@ -80,15 +80,15 @@
         gate(T3, Q); root.SIMX.captivePlace = cp;
         if (Q.floor !== 0 || !Q.town || !Q.map.town || !Q.portal || Q.portal.f !== 1 || Q.log.fl.length !== n0 || JSON.stringify(M().d) !== d0 || T3.floorFails !== 1 || Q.hero !== hq)
           out.push(`memo: a floor step that fails leaves the run half moved (floor ${Q.floor}, town ${Q.town}, portal ${JSON.stringify(Q.portal)}, hero kept ${Q.hero === hq})`);
-        gate(T3, Q); hq.bag[6] = { b: 'scroll', n: 2, id: Q.nextId++ }; hq.read = { t0: T3.t, i: 6 }; root.SIMX.offersOf = () => { throw new Error('a step that fails'); };
-        for (let k = 0; k < 240 && hq.read; k++) step(T3, { keys: [] }); root.SIMX.offersOf = ofs;
+        gate(T3, Q); hq.bag[6] = { b: 'scroll', n: 2, id: Q.nextId++ }; hq.read = { t0: T3.t, i: 6 }; root.SIMX.dealOffers = () => { throw new Error('a step that fails'); };
+        for (let k = 0; k < 240 && hq.read; k++) step(T3, { keys: [] }); root.SIMX.dealOffers = ofs;
         if (Q.floor !== 1 || Q.portal || !hq.bag[6] || hq.bag[6].n !== 2) out.push('memo: a scroll read for a way home that does not open is spent, or a portal is left');
         home(); Q.floor = 1; Q.town = 0; Q.portal = null; M().d = { p: { map: { p: { town: { v: Q.map.town } } } } };
         const U = spawn(1, JSON.parse(JSON.stringify(persist(T3)))); U.run = null; root.SIMX.loadSlot(U, U.slot); const Z = U.run;
         if (!Z || Z.floor !== 0 || !Z.town || !Z.portal || Z.portal.f !== 1) out.push('memo: a save with the floor\'s number over the town\'s map does not load in the town with its portal');
         else { gate(U, Z); if (Z.floor !== 1 || Z.town || Z.map.town || Z.portal) out.push('memo: the mended save\'s portal does not lead back to the floor'); } }
       catch (e) { out.push('memo: the kept floors\' checks fail: ' + e.message); }
-      finally { console.error = err; root.SIMX.captivePlace = cp; root.SIMX.offersOf = ofs; } }
+      finally { console.error = err; root.SIMX.captivePlace = cp; root.SIMX.dealOffers = ofs; root.SIMX.release = rel; } }
     // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
     // town's portal brings him back beside it, and the stairs lead on
     for (const f of [2, 4, 6, 8]) { const T2 = spawn(0, {}); T2.run = newRun(T2, 'campaign', 31 + f, { town: 1, allFree: 1 }); T2.screen = 'play'; const Q = T2.run, hq = Q.hero; enterFloor(T2, Q, f);
@@ -121,8 +121,8 @@
         void keep; void en; }
       // (review of PR 69: a way down that does not open counts no win and keeps the campaign, and the next try counts it; on a copy)
       { const T4 = spawn(1, JSON.parse(JSON.stringify(persist(S2)))), Q = T4.saved; T4.run = Q; T4.saved = null; T4.screen = 'play'; const w = T4.meta.wins || 0, sh = T4.meta.shards;
-        const cp = root.SIMX.captivePlace, err = console.error; root.SIMX.captivePlace = () => { throw new Error('a step that fails'); }; console.error = () => {};
-        try { descend(T4, Q); } finally { root.SIMX.captivePlace = cp; console.error = err; }
+        const cp = root.SIMX.captivePlace, rel = root.SIMX.release, err = console.error; root.SIMX.captivePlace = () => { throw new Error('a step that fails'); }; root.SIMX.release = true; console.error = () => {};
+        try { descend(T4, Q); } finally { root.SIMX.captivePlace = cp; root.SIMX.release = rel; console.error = err; }
         if (Q.floor !== F || Q.campaignWon || Q.mode !== 'campaign' || (T4.meta.wins || 0) !== w || T4.meta.shards !== sh) out.push('climb: a way down past the colossus that does not open counts the win or leaves the campaign');
         descend(T4, Q); if (T4.meta.wins !== w + 1 || Q.floor !== F + 1 || !Q.campaignWon) out.push('climb: the win is not counted on the try after a way down that did not open'); }
       descend(S2, R2); const w0 = S2.meta.wins, s0 = S2.meta.shards;
@@ -148,6 +148,39 @@
     { const S = play(); S.demo = 1; step(S, { keys: [], away: 1 }); if (S.screen !== 'play') out.push('away: the attract demo pauses'); }
     return out;
   }
+  // TASKS 2066: a floor step that throws goes up with its trace in the sources, the checks and the bots, and counts no failure; only
+  // the packed build (SIMX.release) goes back and tells the player. A step that does not fail ends in the same state in both
+  function floorFailCheck() {
+    const out = [], err = console.error, cp = SIMX.captivePlace, rel = SIMX.release, { stateJson } = SIMX.checks.kit;
+    const fresh = () => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; return S; };
+    console.error = () => {};
+    try {
+      for (const release of [false, true]) { const S = fresh(), R = S.run, f0 = R.floor, n0 = S.floorFails || 0; let thrown = null;
+        SIMX.release = release; SIMX.captivePlace = () => { throw new Error('a step that fails'); };
+        try { enterFloor(S, R, 1); } catch (e) { thrown = e; } finally { SIMX.captivePlace = cp; }
+        if (!release && (!thrown || !String(thrown.stack).includes('a step that fails'))) out.push('floor step: in a check a failing step does not go up with its trace');
+        if (!release && (S.floorFails || 0) !== n0) out.push('floor step: a failing step in a check is counted as a floor failure');
+        if (release && (thrown || S.floorFails !== n0 + 1 || R.floor !== f0 || !R.msg)) out.push('floor step: in the packed build a failing step is thrown, or leaves the run moved or the player untold'); }
+      const way = (release) => { SIMX.release = release; const S = fresh(); for (const f of [1, 2, 0, 1]) enterFloor(S, S.run, f, undefined, f === 0 ? 'portal' : 'down'); return stateJson(S.run); };
+      if (way(false) !== way(true)) out.push('floor step: the packed build and a check end a floor step that does not fail in different states');
+    } finally { console.error = err; SIMX.captivePlace = cp; SIMX.release = rel; }
+    return out;
+  }
+  // TASKS 2075: a run saved before its floor's count or the town's board was kept has both on loading through a slot, before any step
+  function oldSaveCheck() {
+    const out = [], base = () => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; return S; };
+    const cut = { stats: (R) => { delete R.stats; }, offers: (R) => { delete R.offers; delete R.offerB; } };
+    for (const [name, strip] of Object.entries(cut)) { const S = base(); if (S.run.floor !== 0) { out.push('old save: a new run through the town does not start in it'); continue; }
+      const P = JSON.parse(JSON.stringify(persist(S))); strip(P.run);
+      const T = spawn(1, P); if (!T.saved || !loadSlot(T, T.slot)) { out.push(`old save: the run saved without ${name} is not loaded`); continue; }
+      const R = T.run, count = (() => { try { return fstat(R); } catch (err) { return null; } })(); if (!count || typeof count.foes !== 'number') out.push(`old save: no floor count after loading a run saved without ${name}`);
+      if (!SIMX.offersOf(R).length) out.push(`old save: no board of offers after loading a run saved without ${name}`); }
+    { const P = JSON.parse(JSON.stringify(persist(base()))), err = console.error; P.run.map.secrets.push({ kind: 'lever', trig: { k: 'sconce', t: 99 } }); console.error = () => {};
+      try { spawn(1, P); } catch (e) { out.push('old save: a saved run holding a sconce that no torch carries stops the game from starting'); } finally { console.error = err; } }
+    return out;
+  }
+  SIMX.checks.add('oldSaveCheck', oldSaveCheck);
+  SIMX.checks.add('floorFailCheck', floorFailCheck);
   SIMX.checks.add('awayCheck', awayCheck);
   SIMX.checks.add('climbCheck', climbCheck, { slow: true });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -46,7 +46,7 @@ try {
   if (args.includes('--colossus')) {
     const rows = await page.evaluate(() => {
       const gl = G.gl, base = SCENE.QA().states.find(([n]) => n === 'colossus_basalt')[1], round = (v) => +v.toFixed(1), pct = (a, q) => a.slice().sort((x, y) => x - y)[Math.floor(a.length * q)];
-      const frame = (S, m, out) => { const g0 = m.geometry || 0, a = performance.now(); for (let i = 0; i < 2; i++) SIM.step(S, { keys: [], px: 0, py: 0 }); const b = performance.now(); SCENE.state = S; SCENE.render(S.t + 0.01); gl.finish(); const c = performance.now(); out.sim.push(b - a); out.draw.push(c - b); out.geo += (m.geometry || 0) - g0; };
+      const frame = (S, m, out) => { const g0 = SIM.Q.rev(m), a = performance.now(); for (let i = 0; i < 2; i++) SIM.step(S, { keys: [], px: 0, py: 0 }); const b = performance.now(); SCENE.state = S; SCENE.render(S.t + 0.01); gl.finish(); const c = performance.now(); out.sim.push(b - a); out.draw.push(c - b); out.geo += SIM.Q.rev(m) - g0; };
       return [['idle', 0], ['fists', 0], ['crack', 0], ['charge', 0], ['boulder', 1], ['imps', 1], ['shatter', 1], ['erupt', 2]].map(([mv, ph]) => {
         const S = structuredClone(base), R = S.run, b = R.en[0], out = { sim: [], draw: [], geo: 0 }; SCENE.state = S;
         for (let i = 0; i < 5; i++) SCENE.render(S.t + 0.01 + i / 60);

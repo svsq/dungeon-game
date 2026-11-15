@@ -2,7 +2,7 @@
 // A stage of tryGen (ARCHITECTURE.md §4.2): it reads the floor's shared values from GF and leaves there what later stages use; null rerolls.
 (function (root) {
   const DGX = root.DGX, {
-    D, ENEMIES, LIGHT_R, NO_SHOP, TILE, archLegs, inRm, onArchLeg, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays, shuffleBy } = DGX;
+    D, ENEMIES, LIGHT_R, NO_SHOP, TILE, archLegs, byId, inRm, linkId, onArchLeg, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays, shuffleBy } = DGX;
   // a pack's plan cut down to lim: an entry marked keep is cut last (a small nest's cut took its one priest, TASKS 1647), and a hall's
   // own monster, one of it, last of all (TASKS 1943: a small prison's cut took its one skeleton, the rush's last entry; the nest's own
   // is the smouldering dead, all its entries but the priest, and keeping them all cut the priest at the end; PR 79 review: more keep
@@ -756,21 +756,21 @@
       if (q.kind !== 'lever') return;
       const pl0 = q.front[1], plate = (c) => { const [x, y] = c; used.add(key(x, y)); q.trig = { k: 'plate', x: wx(x), y: y * TILE + TILE / 2, cx: x, cy: y }; };
       if (!plain) { plate(pl0); return; }
-      const near = torches.map((t, k) => [t, k]).filter(([t]) => t.kind === 'wall' && !t.side && t.lever === undefined && !secrets.some((sc) => sc.room === t.r) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - t.x) < 2 * TILE && Math.abs(d.y - t.y) < 2 * TILE) && Math.hypot(t.x - q.x, t.y - q.y) < 8 * TILE && Math.hypot(t.x - q.x, t.y - q.y) > TILE);
+      const near = torches.filter((t) => t.kind === 'wall' && !t.side && t.lever === undefined && !secrets.some((sc) => sc.room === t.r) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - t.x) < 2 * TILE && Math.abs(d.y - t.y) < 2 * TILE) && Math.hypot(t.x - q.x, t.y - q.y) < 8 * TILE && Math.hypot(t.x - q.x, t.y - q.y) > TILE);
       const seen = new Map([[key(fx, fy), 0]]), st = secCells.has(fy * W + fx) ? [] : [[fx, fy]], plates = [];
       while (st.length) { const [x, y] = st.shift(), d0 = seen.get(key(x, y)); if (d0 >= 3 && free(x, y) && !doorway(x, y) && !inR(start, x, y) && !inR(sh, x, y)) plates.push([x, y]); if (d0 >= 8) continue;
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay; if (at(nx, ny) === 1 && !secCells.has(ny * W + nx) && !seen.has(key(nx, ny))) { seen.set(key(nx, ny), d0 + 1); st.push([nx, ny]); } } }
       // a sconce counts only if the walk from it to the wall it opens is short: one behind the wall, a floor's walk away, read as a bug (TASKS 1360)
-      const nearW = near.filter(([t]) => seen.has(key(Math.floor(t.x / TILE), Math.floor((t.y + 40) / TILE))));
+      const nearW = near.filter((t) => seen.has(key(Math.floor(t.x / TILE), Math.floor((t.y + 40) / TILE))));
       const walls = !cave && hostR && hostR.y > 1 ? leverAt(hostR).filter((x) => Math.abs(wx(x) - q.x) < 8 * TILE && Math.abs(hostR.y * TILE - q.y) < 8 * TILE && Math.abs(wx(x) - q.x) > TILE) : [];
-      const roll = Sr(); if (nearW.length && (roll < 0.34 || (!walls.length && !plates.length))) { const [t, k] = sp(nearW); t.lever = i; q.trig = { k: 'sconce', t: k }; }
+      const roll = Sr(); if (nearW.length && (roll < 0.34 || (!walls.length && !plates.length))) { const t = sp(nearW); t.lever = i; q.trig = { k: 'sconce', t: linkId(torches, t) }; }
       else if (walls.length && (roll < 0.67 || !plates.length)) { const x = sp(walls); used.add(key(x, hostR.y)); hangs.push([wx(x), hostR.y]); q.trig = { k: 'lever', x: wx(x), y: hostR.y * TILE - 24 }; }
       else plate(plates.length ? sp(plates) : pl0); });
     // a cache whose way in cannot be reached on foot (a rare one behind a prop or off a cut-off shore) is laid again, so no cache is unopenable
     { const blk = solids(), seenC = new Set([key(start.cx, start.cy)]), st = [[start.cx, start.cy]]; while (st.length) { const [x, y] = st.pop(); for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay, k = key(nx, ny); if (at(nx, ny) === 1 && !blk.has(k) && !seenC.has(k)) { seenC.add(k); st.push([nx, ny]); } } }
       const okAt = (x, y) => seenC.has(key(x, y)), cell = (px, py) => okAt(Math.floor(px / TILE), Math.floor(py / TILE));
       for (const q of secrets) { if (q.parent !== undefined) continue; const P = q.trig, Z = q.pz;
-        const fine = Z ? Z.items.every((it) => cell(it.x, Z.k === 'levers' ? it.y + 48 : it.y)) : P ? (P.k === 'plate' ? okAt(P.cx, P.cy) : P.k === 'lever' ? cell(P.x, P.y + 48) : cell(torches[P.t].x, torches[P.t].y + 48)) : q.front.some(([x, y]) => okAt(x, y));
+        const fine = Z ? Z.items.every((it) => cell(it.x, Z.k === 'levers' ? it.y + 48 : it.y)) : P ? (P.k === 'plate' ? okAt(P.cx, P.cy) : P.k === 'lever' ? cell(P.x, P.y + 48) : cell(byId(torches, P.t).x, byId(torches, P.t).y + 48)) : q.front.some(([x, y]) => okAt(x, y));
         if (!fine) return null; } }
     // a locked room's key lies on this side of its doors, in a chest or on an elite, or a lever on a top wall works them; with
     // none of these to be had, its doors are left unlocked
@@ -1012,7 +1012,7 @@
       const lay = (k, cand, ordered) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1] - hazards.filter((z) => z.k === k && !z.tail && !z.islet).length;
         for (const [x, y] of ordered ? cand : shuf(cand)) { if (n <= 0) break; if (!clear(x, y) || hazards.some((z) => z.k === k && Math.hypot(z.x - wx(x), z.y - wy(y)) < H.apart * TILE)) continue;
           const z = { k, x: wx(x), y: wy(y), per: H.per[0] + Z() * (H.per[1] - H.per[0]), ph: Z() }; hazards.push(z); n--;
-          if (k === 'vent') { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); } } };
+          if (k === 'vent') { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: linkId(hazards, z) }); } } };
       const roomOf = (x, y) => { const q = rooms.find((r) => r.type !== 'secret' && inRm(r, x, y)); return q ? q.id : -1; };
       // (TASKS 461) laid at random they stood on the walk to the stairs 1.5 rings a floor, a third of floors none: HZ.fall.aim rocks
       // go first on its narrows, a ridge between the lava or a crossing's landing, and the vents by the chests off it, where a
@@ -1098,12 +1098,11 @@
           if (!row.every(onFloor) || !seals(row)) continue;
           // (PR 64 review: a sanctum by a gate lost its fire priest to the calm rule below) a gate keeps clear of a hall's own shooter
           { const at0 = midOf(row); if (enemies.some((e) => rooms[e.room] && rooms[e.room].hall && HL.kinds[rooms[e.room].hall].need === e.type && calmOf(e, at0))) continue; }
-          const per = G.per, ph = Z(); for (const z of row) { const [x, y] = cellOf(z); z.per = per; z.ph = ph; z.ax = d === 1 ? on : 0; z.ay = d === 1 ? 0 : on; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
+          const per = G.per, ph = Z(); for (const z of row) { const [x, y] = cellOf(z); z.per = per; z.ph = ph; z.ax = d === 1 ? on : 0; z.ay = d === 1 ? 0 : on; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: linkId(hazards, z) }); }
           // (and a share of the walk's rock tails goes, the player's decision on 1645: the gate is not to raise the floor's damage)
           // (from a run's far ends only: a hole in its middle broke its even step)
           { const gone = new Set(); for (const z0 of hazards) { if (z0.k !== 'fall' || !z0.aim || z0.tail) continue; const run = hazards.map((z, j) => [z, j]).filter(([z]) => z.k === 'fall' && z.tail && z.per === z0.per), off = ([z]) => Math.abs((((z.ph - z0.ph) % 1 + 1.5) % 1) - 0.5);
               run.sort((a, b) => off(b) - off(a)).slice(0, G.tails).forEach(([, j]) => gone.add(j)); }
-            for (const d of decor) if (d.haz !== undefined) d.haz -= [...gone].filter((j) => j < d.haz).length;
             for (const j of [...gone].sort((p, q) => q - p)) hazards.splice(j, 1); }
           break; }
         // no shooter stands within G.calm cells of a gate (TASKS 1920: an archer by 24 of 68 gates made waiting for the window a worse
@@ -1138,6 +1137,9 @@
     for (const c of crossings) { const legs = archLegs({ W, cells, crust }, c); if (legs && decor.some((d) => d.solid && !d.wall && d.n && kept(d) && onArchLeg(legs, d.n, d.x, d.y))) c.kind = 'slabs'; }
     for (const legs of legsOf()) { const off = (list, nm) => { for (let i = list.length - 1; i >= 0; i--) if (nm(list[i]) && onArchLeg(legs, nm(list[i]), list[i].x, list[i].y)) list.splice(i, 1); };
       off(decor, (d) => d.solid && !d.wall && d.n); off(pots, () => 'pot'); off(torches, (t) => t.kind === 'brazier' && t.kind); }
+    // (TASKS 2063) no cut above leaves a link naming a record that is gone or another one: a sconce's secret holds its torch, a vent prop its hazard
+    const sconceOk = (q, i) => !q.trig || q.trig.k !== 'sconce' || (byId(torches, q.trig.t) || {}).lever === i, ventOk = (d) => d.haz === undefined || !!byId(hazards, d.haz);
+    if (!secrets.every(sconceOk) || !decor.every(ventOk)) return null;
     // cells taken by solid props: the flow fields route around them
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); if (shop) for (const [x, y] of shop.solid) bl(x, y);

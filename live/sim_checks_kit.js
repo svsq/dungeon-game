@@ -8,5 +8,7 @@
   // a run whose townsfolk have no quest business (no offers, the Keeper's chain in hand), for the checks of the talk and the workshops
   const noQuests = (R) => { R.offers = []; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; };
   const swing = (S, R, q) => { const h = R.hero; h.x = q.x; h.y = q.y + 34; h.vx = h.vy = 0; h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let j = 0; j < 40; j++) step(S, Object.assign({ keys: [] }, A)); };
-  Object.assign(SIMX.checks.kit, { noWelcome, plainRun, noQuests, swing });
+  // the state as tools/samecheck.mjs writes it, sets and typed arrays whole
+  const stateJson = (v) => JSON.stringify(v, (k, x) => (x instanceof Set ? [...x] : x instanceof Map ? [...x.entries()] : ArrayBuffer.isView(x) ? [...x] : x));
+  Object.assign(SIMX.checks.kit, { noWelcome, plainRun, noQuests, swing, stateJson });
 })(typeof window !== 'undefined' ? window : globalThis);

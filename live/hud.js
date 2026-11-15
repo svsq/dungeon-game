@@ -543,7 +543,7 @@
     return G.flat ? d : TXT('hud.tip.giftN', { d, n, times }); };
   function buffList(R, GT) {
     const h = R.hero, list = [], gift = (id) => D.GIFTS.find((g) => g.id === id);
-    if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff', gift: 1, name: gift('bless').name, desc: gift('bless').desc });
+    if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+' + gift('bless').v + '%', col: '#9cc8ff', gift: 1, name: gift('bless').name, desc: gift('bless').desc });
     if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff', gift: 1, name: TXT('hud.tip.greed') });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
     for (const G of D.GIFTS) if (G.power && D.hasPower(h, G.id)) list.push({ id: 'g_' + G.id, ic: G.icon, v: '', col: '#ffd27a', gift: 1, name: G.name, desc: G.desc });
@@ -1499,7 +1499,7 @@
       icon('crystal', x0, py - 16, 30); KIT.ink('al_c' + i, cs, x0 + 40, py, { size: 28, col: can ? SOUL : I.d }); });
     KIT.button('al_leave', byId('leave'), stN(S, 'leave'));
     const rc = D.rerollCost(sh.rolls || 0, SIM.Q.depOf(R)), rb = Object.assign({}, byId('reroll'), { on: !sh.used && bank >= rc, label: TXT('hud.altar.reroll', { cost: rc }) }); KIT.button('al_reroll', rb, stN(S, 'reroll', rb.on));
-    const left = 10 - (R.donations || 0), b = Object.assign({}, byId('donate'), { on: left > 0 && R.hero.gold >= 1000, label: left ? byId('donate').label : TXT('hud.altar.b.label') });
+    const left = D.DONATE.max - (R.donations || 0), b = Object.assign({}, byId('donate'), { on: left > 0 && R.hero.gold >= D.DONATE.gold, label: left ? byId('donate').label : TXT('hud.altar.b.label') });
     KIT.button('al_donate', b, stN(S, 'donate', b.on), 'wax');
     KIT.light('al_gold', TXT('hud.altar.6', { gold: R.hero.gold }), b.x + b.w + 40, b.y + 18, { size: 22, col: C.gold });
     KIT.light('al_limit', TXT('hud.altar.7', { left }), b.x + b.w + 40, b.y + 48, { size: 21, col: '#cdb89a' });

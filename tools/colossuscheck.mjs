@@ -46,16 +46,21 @@ try {
       results[name + '_pop'] = { px: +pop.toFixed(2), at };
       return fr;
     };
+    // the striking right fist lands on the contact point; the left fist, the colossus's rest while it is stuck, hangs this far over it
+    // (TASKS 1965: 29 px with the hip at 0.14, 41 at 0.2): its own limit, so a worse reach fails and the right fist stays strict
+    const REACH = { R: 8, L: 30 };
     for (const move of ['fists', 'crack']) {
       const fr = trace('colossus_' + move), M = DATA.BOSSES.boss_colossus.moves[move];
       const contact = fr.filter((f) => f.e.mv === move && f.t >= f.e.t0 + M.wind && (move === 'fists' ? f.t < (f.e.openUntil || f.e.t0 + M.wind + M.duration + M.stuck) : f.t < f.e.t0 + M.wind + M.duration));
-      let gap = 0;
+      const gaps = { L: 0, R: 0 };
       for (const f of contact) for (const side of move === 'fists' ? ['L', 'R'] : ['R']) {
         if (f.j.hip[1] > f.j.ground[1] - 15 || f.j['elbow' + side][1] > f.j.ground[1]) failures.push(move + ': body or elbow below ground');
         const p = DATA.colossusContact(f.e, side), target = [f.j.ground[0] + p.x - f.e.x, f.j.ground[1] + p.y - f.e.y - 0.11 * DATA.ENEMIES.boss_colossus.h];
-        gap = Math.max(gap, dist(f.j['hand' + side], target));
+        gaps[side] = Math.max(gaps[side], dist(f.j['hand' + side], target));
       }
-      if (!contact.length || gap > 8) failures.push(move + ': fists miss contact by ' + gap.toFixed(2));
+      for (const side of ['L', 'R']) if (gaps[side] > REACH[side]) failures.push(`${move}: the ${side} fist misses contact by ${gaps[side].toFixed(2)}`);
+      if (!contact.length) failures.push(move + ': no contact frames');
+      const gap = Math.max(gaps.L, gaps.R);
       const i = fr.findIndex((f) => f.t >= f.e.t0 + M.wind), down = fr[i].j.handR[1] - fr[i - 1].j.handR[1];
       if (down <= 0) failures.push(move + ': striking hand does not descend');
       if (move === 'crack') {

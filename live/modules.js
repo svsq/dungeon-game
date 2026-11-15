@@ -14,7 +14,7 @@
   };
   const text = listed(/^text_[a-z]{2}_\w+\.js$/, 'TEXT_FILES', 'text_<lang>_<domain>.js'), ui = listed(/^ui_(?!kit\.js$|files\.js$)\w+\.js$/, 'UI_FILES', 'ui_<screen>.js');
   const parts = { data: ['text.js', ...text, 'text_notes_ru.js', 'text_talk_ru.js', 'text_names_ru.js', 'data_core.js', 'data_balance.js', 'data_world.js', 'data_enemies.js', 'data_items.js', 'data_runs.js', 'data_hero.js', 'data_powers.js', 'data_forks.js', 'data_town.js', 'data_changes.js', 'ui_kit.js', ...ui],
-    sim: ['sim_core.js', 'sim_items.js', 'sim_floor.js', 'sim_enemies.js', 'sim_hero.js', 'sim_world.js', 'sim_events.js', 'sim_powers.js', 'sim_unlocks.js', 'sim_bosses.js', 'sim_town.js', 'sim_ui.js'],
+    sim: ['sim_map.js', 'sim_core.js', 'sim_items.js', 'sim_floor.js', 'sim_enemies.js', 'sim_hero.js', 'sim_world.js', 'sim_events.js', 'sim_powers.js', 'sim_unlocks.js', 'sim_bosses.js', 'sim_town.js', 'sim_ui.js'],
     dungeon: ['dungeon_rooms.js', 'dungeon_links.js', 'dungeon_terrain.js', 'dungeon_fill.js'],
     scene: ['scene_core.js', 'scene_map.js', 'scene_folk.js', 'scene_hero.js', 'scene_actors.js'] };
   const page = ['assets.js', 'sizes.js', 'rigs.js', 'gl.js', 'font_data.js', 'lib.js', ...parts.data, 'data.js', 'dungeon.js', ...parts.dungeon, ...parts.sim, 'sim.js', 'monsters.js', ...parts.scene, 'scene.js', 'scene_world.js', 'scene_light.js', 'scene_fx.js', 'scene_qa.js', 'hud_kit.js', 'hud.js', 'audio.js', 'pad.js'];

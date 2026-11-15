@@ -9,7 +9,7 @@
     stepArena, stepBossMove, stepDrops, stepProjectiles, struck, tearWebs, throwAway, TILE, toPx, UI, under, usePotion, wearIfFree, wideClear } = SIMX;
   const { noWelcome, plainRun, swing } = SIMX.checks.kit;
   const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5000 + sd); const q = S.run.map.secrets.find(f); if (q) return [S, q]; } return [null, null]; };
-  const standAt = (R, q) => { const h = R.hero, P = q.trig, tc = P && P.k === 'sconce' ? R.map.torches[P.t] : null; Object.assign(h, { vx: 0, vy: 0 });
+  const standAt = (R, q) => { const h = R.hero, P = q.trig, tc = P && P.k === 'sconce' ? DG.byId(R.map.torches, P.t) : null; Object.assign(h, { vx: 0, vy: 0 });
     if (q.kind === 'banner') { h.x = q.x; h.y = q.y + 34; } if (q.kind === 'shelf' || q.kind === 'statue') { h.x = q.x; h.y = q.y + 70; } if (tc) { h.x = tc.x; h.y = tc.y + 50; } if (P && P.k === 'lever') { h.x = P.x; h.y = P.y + 50; } if (P && P.k === 'plate') { h.x = P.x; h.y = P.y; } };
   const pressE = (S) => { step(S, { keys: ['KeyE'], px: 960, py: 540 }); for (let k = 0; k < 6; k++) step(S, { keys: [], px: 960, py: 540 }); };
   const playItem = (S, R, q, j) => { const it = q.pz.items[j], h = R.hero, st0 = q.pz.step; for (let k = 0; k < 3 && !it.on && q.pz.step === st0 && !q.open; k++) { if (q.pz.k === 'levers') { h.x = it.x; h.y = it.y + 50; } else { h.x = it.x + 20; h.y = it.y + 6; } h.vx = h.vy = 0; pressE(S); } };
@@ -680,8 +680,8 @@
       const flood = () => { const seen = new Set([Math.floor(b.y / TILE) * W + Math.floor(b.x / TILE)]), q = [...seen]; let out = 0;
         for (let i = 0; i < q.length; i++) { const k = q[i], x = k % W, y = Math.floor(k / W); if (x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h) out++;
           for (const n of [k + 1, k - 1, k + W, k - W]) if (!seen.has(n) && walk(n)) { seen.add(n); q.push(n); } } return out; };
-      for (const d of m.doors) if (d.arena) for (const [x, y] of d.cells) m.cells[y * W + x] = 5;
-      if (!flood()) { const y = r.y + (r.h >> 1); for (let x = r.x + r.w - 1; x <= r.x + r.w + 3; x++) { if (m.cells[y * W + x] !== 3) m.lava++; m.cells[y * W + x] = 3; } m.geometry = (m.geometry || 0) + 1; }
+      for (const d of m.doors) if (d.arena) SIMX.mapw.fillCells(m, d.cells, 5);
+      if (!flood()) { const y = r.y + (r.h >> 1); for (let x = r.x + r.w - 1; x <= r.x + r.w + 3; x++) { if (m.cells[y * W + x] !== 3) m.lava++; SIMX.mapw.setCell(m, y * W + x, 3); } }
       if (!flood()) out.push('arena lava: the river cut through run 1 floor 6\'s arena wall leads nowhere');
       R.hero.x = b.x; R.hero.y = b.y + 100; stepArena(S, R);
       if (flood()) out.push('arena lava: the hero walks out of the sealed arena over lava'); }
@@ -1084,7 +1084,7 @@
     { let hosted = 0, alike = 0; for (let sd = 1; sd <= 16; sd++) for (const f of [1, 3, 5, 7]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 13550 + sd); if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; for (const q of m.secrets) { if (q.dir !== 'u') continue; const r = m.rooms.find((o) => o.id === q.host); if (!r) continue; hosted++; if (D.STATUE_SECRET.plans.includes(r.plan)) alike++; } }
       if (hosted && alike < hosted * 0.25) out.push(`dressed rooms: only ${alike} of ${hosted} top-wall secrets are in rooms dressed alike`); }
     for (const mode of ['campaign', 'cave']) for (let sd = 1; sd <= 16; sd++) for (const f of [1, 2, 4]) { const S = spawn(0, {}); S.run = newRun(S, mode, 13600 + sd); if (f > 1) enterFloor(S, S.run, f); const m = S.run.map;
-      m.secrets.forEach((q, i) => { const P = q.trig; if (!P) return; const t = P.k === 'sconce' ? m.torches[P.t] : null, foot = t ? [Math.floor(t.x / TILE), Math.floor((t.y + 40) / TILE)] : P.k === 'lever' ? [Math.floor(P.x / TILE), Math.floor((P.y + 48) / TILE)] : [P.cx, P.cy], [fx, fy] = q.front[5], seen = new Map([[fy * m.W + fx, 0]]), st = [[fx, fy]]; let d = -1;
+      m.secrets.forEach((q, i) => { const P = q.trig; if (!P) return; const t = P.k === 'sconce' ? DG.byId(m.torches, P.t) : null, foot = t ? [Math.floor(t.x / TILE), Math.floor((t.y + 40) / TILE)] : P.k === 'lever' ? [Math.floor(P.x / TILE), Math.floor((P.y + 48) / TILE)] : [P.cx, P.cy], [fx, fy] = q.front[5], seen = new Map([[fy * m.W + fx, 0]]), st = [[fx, fy]]; let d = -1;
         while (st.length && d < 0) { const [x, y] = st.shift(), g = seen.get(y * m.W + x); if (x === foot[0] && y === foot[1]) { d = g; break; } if (g >= 12) continue; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (y + b) * m.W + x + a, c = cell(m, x + a, y + b); if ((c === 1 || c === 5) && !seen.has(k)) { seen.set(k, g + 1); st.push([x + a, y + b]); } } }
         if (d < 0) out.push(`secret ${mode} ${13600 + sd} f${f}#${i}: its ${P.k} is more than 12 steps from the wall it opens`); }); }
     let wrecks = 0;

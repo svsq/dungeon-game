@@ -66,6 +66,7 @@
       for (const lim of [48, 64]) for (const e of cand) { if (places() >= (lim > 48 ? 2 : want)) break; if (e[2] > lim || edges.filter(over).some((f) => Math.abs(midX(f) - midX(e)) < W / 6)) continue; edges.push(e); deg[e[0]]++; deg[e[1]]++; } }
     // a pocket hangs off its nearest room and leads nowhere else
     for (let p = main; p < rooms.length; p++) { let best = null; for (let b = 0; b < main; b++) if (!dead(b)) { const d = dist(rooms[p], rooms[b]); if (!best || d < best[2]) best = [b, p, d]; } edges.push(best); }
+    let loopCand, loopWant;
     if (!pl) for (let a = 0; a < main; a++) for (let b = a + 1; b < main; b++) { if (dead(a) || dead(b)) continue;
       if (edges.some((e) => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a))) continue;
       const d = dist(rooms[a], rooms[b]); if (d < (LY ? LY.loops[0] : 26) && R() < (LY ? LY.loops[1] : 0.28)) edges.push([a, b, d]); }
@@ -74,7 +75,7 @@
         for (let i = 0; i < q.length; i++) for (const [p, o] of tree) for (const [u, v] of [[p, o], [o, p]]) if (u === q[i] && h[v] > h[u] + 1) { h[v] = h[u] + 1; q.push(v); } return h; };
       const cand = []; if (!terr && !lakeEnds) for (let a = 0; a < main; a++) { const h = hopT(a); for (let b = a + 1; b < main; b++) { const d = dist(rooms[a], rooms[b]); if (!dead(a) && !dead(b) && h[b] >= AR.loopHops && d < 44 && side(rooms[a]) === side(rooms[b])) cand.push([a, b, d]); } }
       shuffleBy(cand, R);
-      var loopCand = cand, loopWant = ri(...AR.loops); }
+      loopCand = cand; loopWant = ri(...AR.loops); }
     // (a two-cell corridor runs on the line and the cell past it, as it always has; a three-cell one is centred on it)
     const carveH = (x0, x1, y, wd = 2) => { const o = wd === 3 ? -1 : 0; for (let x = Math.min(x0, x1) + o; x <= Math.max(x0, x1) + o + wd - 1 - (wd === 2 ? 1 : 0); x++) for (let j = 0; j < wd; j++) if (!at(x, y + o + j)) set(x, y + o + j, 1); };
     const carveV = (y0, y1, x, wd = 2) => { const o = wd === 3 ? -1 : 0; for (let y = Math.min(y0, y1) + o; y <= Math.max(y0, y1) + o + wd - 1 - (wd === 2 ? 1 : 0); y++) for (let i = 0; i < wd; i++) if (!at(x + o + i, y)) set(x + o + i, y, 1); };

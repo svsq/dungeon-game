@@ -51,7 +51,7 @@
   const isFull = (S) => S.saves.every((r, i) => r || (i === S.slot && (S.run || S.saved)));
   function loadSaves(S, P) { const n = D.SAVE_SLOTS, list = Array.isArray(P.saves) ? P.saves.slice(0, n) : [];
     S.saves = Array.from({ length: n }, (_, i) => (list[i] && list[i].map ? list[i] : null));
-    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateSecrets(R); SIMX.mendArches(R); SIMX.regate(R); }
+    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateKept(R, 'loadSaves'); SIMX.mendArches(R); SIMX.regate(R); }
     S.slot = Number.isInteger(P.slot) && P.slot >= 0 && P.slot < n ? P.slot : 0;
     if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; }
     pickLatest(S); }
@@ -73,7 +73,7 @@
   // the floor waits under its name a moment as on an arrival (TASKS 1812): an elite left at arm's length struck at once. The hero
   // waits with it (holdClocks), so nothing a load gives can be chained into a dodge
   function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.potAsk = null; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t };
-    SIMX.mendRun(S, R); R.holdT = S.t + RESUME_HOLD; }
+    SIMX.mendRun(S, R); SIMX.mendCounts(R); R.holdT = S.t + RESUME_HOLD; }
   const RESUME_HOLD = 1.2;
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }

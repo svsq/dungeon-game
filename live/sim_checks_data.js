@@ -13,5 +13,17 @@
     for (const [k, P] of Object.entries(D.POWERS)) if (P.id !== k) out.push(`data: POWERS.${k} carries the id ${P.id}`);
     for (const [ab, ranks] of Object.entries(D.FORKS)) for (const [rank, ids] of Object.entries(ranks)) for (const id of ids) if (!D.POWERS[id]) out.push(`data: the fork ${ab} ${rank} names ${id}, which POWERS lacks`);
   }
+  // one name for two effects makes the player mix them up (2071); gifts are left out, a gift of a power carries the power's name by design
+  function namesCheck(out) {
+    const owner = new Map();
+    const take = (table, id, name) => {
+      if (name === undefined) return;
+      if (owner.has(name)) out.push(`data: the name "${name}" is held by both ${owner.get(name)} and ${table}.${id}`);
+      else owner.set(name, `${table}.${id}`);
+    };
+    for (const P of Object.values(D.POWERS)) take('POWERS', P.id, P.name);
+    for (const M of D.META) take('META', M.id, M.name);
+  }
   SIMX.checks.add('dataIdsCheck', idsCheck);
+  SIMX.checks.add('dataNamesCheck', namesCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

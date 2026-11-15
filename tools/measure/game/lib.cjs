@@ -2,8 +2,9 @@ const ROOT = require('path').resolve(process.env.ROOT || require('path').join(__
 const SIM = require(ROOT + '/live/sim.js'), D = require(ROOT + '/live/data.js'), DG = require(ROOT + '/live/dungeon.js');
 const T = 32, N4 = (W) => [1, -1, W, -W];
 
+const fresh = () => SIM.spawn(0, {});
 const mk = (sd, f, keepEnemies) => {
-  const S = SIM.create(); S.demo = 0; S.meta = S.meta || {}; S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; if (f > 1) SIM.enterFloor(S, S.run, f);
+  const S = fresh(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; if (f > 1) SIM.enterFloor(S, S.run, f);
   const R = S.run; if (!keepEnemies) R.en = []; return S;
 };
 const cellOf = (m, x, y) => Math.floor(y / T) * m.W + Math.floor(x / T);
@@ -38,4 +39,4 @@ const idle = (S, sec) => { for (let i = 0; i < Math.round(sec / SIM.DT); i++) SI
 const ringCells = (m, z) => { const out = []; if (z.k === 'surge') return z.cells.slice(); const H = D.HAZ[z.k];
   for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const k = cellOf(m, z.x, z.y) + j * m.W + i; if (D.hazIn(z, (k % m.W + 0.5) * T, (Math.floor(k / m.W) + 0.5) * T)) out.push(k); } return out; };
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
-module.exports = { solidCells, way, ROOT, SIM, D, DG, T, mk, cellOf, walkable, bfs, follow, idle, ringCells, mean, evNow };
+module.exports = { solidCells, way, ROOT, SIM, D, DG, T, fresh, mk, cellOf, walkable, bfs, follow, idle, ringCells, mean, evNow };

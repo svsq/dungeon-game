@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     BAL, BASES, D, DG, DT, ENEMIES, FROM, K, RUN, STAGE, boxHit, snapCam, dep, dif, eliteK, ev, gearName, itemPower,
-    potCount, potion, reveal, rnd, rollAffixes, rollItem, shove, stats, tally, who } = SIMX;
+    mapw, potCount, potion, reveal, rev, rnd, rollAffixes, rollItem, shove, stats, tally, who } = SIMX;
   // ---------------- run & floor ----------------
   function newHero(meta, cls = 'warrior') {
     const up = meta.up || {}, C = D.CLASSES[cls], ab = {}, cd = {};
@@ -67,7 +67,7 @@
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
     for (const e of R.en) if (e.elite && !D.BOSSES[e.type]) { e.mods = SIMX.rollMods(R, d, e); if (SIMX.has(e, 'ward')) e.ward = Math.round(e.max * SIMX.MOD.ward.share); }
     // a closed door is a solid cell (5) that blocks sight like rock until it opens
-    for (const d of m.doors || []) if (!d.open) for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5;
+    for (const d of m.doors || []) if (!d.open) mapw.fillCells(m, d.cells, 5);
     R.keys = 0;
     R.shop = !m.shop ? null : SIMX.stockShop(R, d, m.wander ? 'wander' : undefined);
     R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = SIMX.chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s)); SIMX.eventsBuild(R);
@@ -138,11 +138,11 @@
     else { const B = freshFloor(R, f, M), mp = mapPrint(B.map), same = !M.mp || M.mp === mp; if (!M.mp) M.mp = mp;
       // a diff that no longer fits the floor built now (TASKS 1917): the floor is built anew as an old generator's is, so the way on is
       // never shut; the explored map stays only on the same layout
-      try { if (!same) throw new Error('the floor is built otherwise than it was kept'); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
+      try { if (!same) throw new Error('the floor is built otherwise than it was kept'); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); relinkSconces(B.map); for (const k of FLOOR_KEYS) R[k] = B[k]; }
       catch (err) { console.error('restoreFloor', f, 'diff does not fit, floor built anew', err); const seen = M.seen, rseen = M.rseen; BASE.delete(M); migrateFloor(R, f, M);
         if (same) { M.seen = seen; M.rseen = rseen; } old = true; } }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
-    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); return old; }
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateKept(R, 'restoreFloor'); mapw.touch(R.map); return old; }
   function seatFoe(R, e, sol = SIMX.solids(R), room) { const m = R.map, E = ENEMIES[e.type], r = E.r, x0 = e.x, y0 = e.y, fits = (x, y) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r),
       clear = (x, y) => (room === undefined || DG.inRm(m.rooms[room], Math.floor(x / D.TILE), Math.floor(y / D.TILE))) && fits(x, y);
     if (E.ghost || E.deep || E.lake) return; if (E.kind === 'salamander') { e.hx = e.x; e.hy = e.y; return; } shove(m, e, r, true, sol);
@@ -161,9 +161,11 @@
   // a floor that fails to build or restore (TASKS 1993) leaves the run as it was before the step: a half-made one, floor N over the
   // town's map, was saved and loaded back as the town under the floor's name, and the next stash wrote the town into floor N.
   // The run's top-level objects are refilled in place, so a caller's R.hero or R.map in hand stays the run's own. A run with no floor
-  // yet (newRun) has nothing to go back to, and its failure is thrown on
+  // yet (newRun) has nothing to go back to, and its failure is thrown on. Only the packed build (pack.py sets __STATIC__) goes back and
+  // tells the player it failed; in the sources, in the checks and in the bots the error goes up with its trace, as a code error must
+  // not become a message that a golden run or a bot walks past (TASKS 2066), and nothing is cloned for a step that cannot be undone
   function enterFloor(S, R, f, gen, how = 'down') {
-    if (!R.map) { goFloor(S, R, f, gen, how); return true; }
+    if (!R.map || !SIMX.release) { goFloor(S, R, f, gen, how); return true; }
     const { memo, ...rest } = R, was = structuredClone(rest), refs = Object.assign({}, rest), kept = memo && Object.entries(memo).map(([k, M]) => [k, M, Object.assign({}, M)]);
     try { goFloor(S, R, f, gen, how); return true; }
     catch (err) { console.error('enterFloor', f, err);
@@ -201,7 +203,7 @@
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not
     // write the state (TASKS 1025)
-    if (f === 0) { const asked = R.offerB !== undefined, o0 = (R.offers || []).length, oL = SIMX.offersOf(R).length; R.newOffers = asked && oL > o0 ? 1 : 0; R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
+    if (f === 0) { const asked = R.offerB !== undefined, o0 = (R.offers || []).length; SIMX.dealOffers(R); R.newOffers = asked && R.offers.length > o0 ? 1 : 0; R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
       const bn = R.bossN || 0, old = R.townShop; R.townShop = null;
       if (old && (old.boss || 0) === bn) { R.shop = old; if ((old.at || 0) < (R.deepest || 0)) { SIMX.restock(R, R.shop, SIMX.tradeDepth(R)); R.shop.at = R.deepest; } }
       else { R.shop = SIMX.stockShop(R, SIMX.tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
@@ -246,7 +248,10 @@
     return { foes: R.en.filter(counted).length, kills: R.en.filter((e) => counted(e) && e.deadT >= 0).length,
       lootN: R.chests.reduce((n, c) => n + (c.loot ? c.loot.length : 0), 0) + R.drops.filter((d) => d.loot).length, loot: 0,
       secN: (m.secrets || []).length, sec: (m.secrets || []).filter((q) => q.open).length }; }
-  const fstat = (R) => { R.stats = R.stats || {}; return R.stats[R.floor] || (R.stats[R.floor] = floorStat(R)); };
+  const fstat = (R) => R.stats[R.floor];
+  // a run saved before its floor's count was kept gets it here, in a step, never in a read
+  const fillStats = (R) => { R.stats = R.stats || {}; return R.stats[R.floor] || (R.stats[R.floor] = floorStat(R)); };
+  const mendCounts = (R) => { if (!R.map) return; fillStats(R); if (R.floor === 0) SIMX.dealOffers(R); };
   // totals over the given floors' stats; a category with nothing in it is left out of the average, never counted as 0%
   function completion(list) {
     const T = { floors: list.length, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0 };
@@ -345,31 +350,36 @@
     const hid = secretMask(m); for (let y = q.ty - STAIRS.r; y <= q.ty + STAIRS.r; y++) for (let x = q.tx - STAIRS.r; x <= q.tx + STAIRS.r; x++) if (x >= 0 && y >= 0 && x < m.W && y < m.H && !hid.has(y * m.W + x)) R.seen[y * m.W + x] = 1; }
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
-  const MASK = { key: '', set: null };
+  const MASK = { rev: 0, set: null };
   // a cache saved before the walls stopped breaking (TASKS 1691): a flagstone in front of it, so it stays openable; a statue saved
   // with its slide as a distance in px takes this branch's side and cell count
   // a false bookcase is broken now, not moved (TASKS 1852): one saved open, on its hinge (0.3.0) or slid along the wall (a build of
   // 1851), lies in planks at its own place, its cell free; a shut one stands there whole, to be broken
   function shelfLoad(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); delete q.hinge; delete q.held; if (!d) { delete q.slide; return; }
     const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = q.slide ? k0 + q.slide.s * q.slide.n : k0; delete q.slide; d.x = q.x;
-    m.block = m.block.filter((b) => b !== k0 && b !== k1); if (q.open) { d.solid = 0; d.broken = 1; d.brokeT = -9; } else { d.solid = 1; delete d.broken; delete d.brokeT; m.block.push(k0); } }
+    mapw.blockDrop(m, k0, k1); if (q.open) { d.solid = 0; d.broken = 1; d.brokeT = -9; } else { d.solid = 1; delete d.broken; delete d.brokeT; mapw.blockPush(m, k0); } }
   // (TASKS 1944) a floor laid before GEN_VERSION 24 may hold a lava arch with no legs on the crust, which the scene drew as an arch
   // over dry floor: the floor in play lies in the save, not in the memo the version rebuilds, so it is turned to slabs as the
   // generator turns it now (dungeon_fill.js, PR 64 review)
   function mendArches(R) { const m = R && R.map; if (!m || !m.crossings || !m.cells) return; for (const c of m.crossings) if (c.kind === 'arch' && c.lava && !DG.archLegs(m, c)) c.kind = 'slabs'; }
-  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
-  function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
-    if (MASK.key === key) return MASK.set; const set = new Set();
+  // (TASKS 2063) a floor in play saved before its torches had ids holds its sconce by place in the list, which a cut had moved: the sconce is the torch that
+  // carries the secret's own number, as the generator laid it
+  const relinkSconce = (m, q, i) => { if (!q.trig || q.trig.k !== 'sconce') return; const t = m.torches.find((o) => o.lever === i); if (!t) throw new Error(`secret ${i} holds a sconce that no torch carries`); q.trig.t = DG.linkId(m.torches, t); };
+  const relinkSconces = (m) => (m.secrets || []).forEach((q, i) => relinkSconce(m, q, i));
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } relinkSconces(m); }
+  const migrateKept = (R, where) => { try { migrateSecrets(R); } catch (err) { console.error(`${where}: a run keeps a secret it cannot link`, err); } };
+  function secretMask(m) { const key = rev(m);
+    if (MASK.rev === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) set.add(y * m.W + x);
       for (const k of q.hide) set.add(k); }
-    MASK.key = key; MASK.set = set; return set; }
+    MASK.rev = key; MASK.set = set; return set; }
   // the minimap's sheet: the floor's open cells and a wall round them, so it holds no band of blank rock (TASKS 1759); an unfound
   // secret room is rock here too, or the cut's edge would give it away. Only the cells seen so far count (review of PR 57): a sheet
   // cut to the whole floor told its size before a step was taken. It grows by whole blocks of cells from a smallest size round the
   // floor's start, so it keeps still while the hero walks and changes only as he goes past its edge. The town is seen whole
   const CUT = { key: '', r: null }, CUT_Q = 4, CUT_MIN = [30, 20];
-  function mapCut(R) { const m = R.map, n = R.seen.reduce((a, b) => a + (b ? 1 : 0), 0), key = m.seed + ':' + m.floor + ':' + n + ':' + (m.secrets || []).map((q) => q.open).join('');
+  function mapCut(R) { const m = R.map, n = R.seen.reduce((a, b) => a + (b ? 1 : 0), 0), key = rev(m) + ':' + n;
     if (CUT.key === key) return CUT.r;
     const hid = secretMask(m), st = !m.town && m.rooms && m.rooms[m.start]; let x0 = m.W, y0 = m.H, x1 = -1, y1 = -1;
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { const i = y * m.W + x, c = hid.has(i) ? 0 : SIMX.cell(m, x, y);
@@ -383,6 +393,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
+    release: false, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, mendCounts, completion, runCompletion, completionHints, stepHazards,
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, migrateKept, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,9 +1,9 @@
 // bendstat.cjs (r15): terrace bends (TASKS 1939) on the town run, floors 13-16, seeds 7..7n: per bend its straight legs (one crossing per leg),
 // the longest leg in cells, how many 90-degree turns; prints per-floor rows and totals. node tools/measure/frame/bendstat.cjs [seeds=40]
 const ROOT = require('path').resolve(process.env.ROOT || require('path').join(__dirname, '../../..'));
-const SIM = require(ROOT + '/live/sim.js');
+const SIM = require(ROOT + '/live/sim.js'), { fresh } = require('../game/lib.cjs');
 const N = +process.argv[2] || 40, rows = []; let floors = 0, terr = 0, withB = 0;
-for (let i = 1; i <= N; i++) { const sd = i * 7; const S = SIM.create(); S.demo = 0; S.meta = S.meta || {}; S.meta.shards = 9999; S.run = SIM.newRun(S, 'campaign', sd, { town: true }); S.screen = 'play';
+for (let i = 1; i <= N; i++) { const sd = i * 7; const S = fresh(); S.meta.shards = 9999; S.run = SIM.newRun(S, 'campaign', sd, { town: true }); S.screen = 'play';
   for (const f of [13, 14, 15, 16]) { SIM.enterFloor(S, S.run, f); const m = S.run.map; if (m.biome !== 'magma') continue; floors++; if (m.ftype !== 'terrace') continue; terr++;
     const legs = (m.crossings || []).filter((c) => c.bend); if (!legs.length) continue; withB++;
     // legs of one bend follow each other in the list and share `of`; a new bend starts where `of` changes or the previous leg's axis repeats

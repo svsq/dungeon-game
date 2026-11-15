@@ -1,16 +1,15 @@
 // live/sim_events.js — the event rooms (R-12, TASKS 361): a floor's events (R.events, from map.events), E at an event's spot, its
 // yes/no question, its rule every step and its end. One of the sim's files (ARCHITECTURE.md §4.2).
 (function (root) {
-  const SIMX = root.SIMX, { D, DG, TILE, ev } = SIMX;
+  const SIMX = root.SIMX, { D, DG, TILE, ev, mapw } = SIMX;
   // a rule per entry of data.js EVENTS.pool, every part optional: setup(R, E) as its floor is built; start(S, R, E) on «yes» (on E with
   // no question); step(S, R, E) every step while it runs; reward(S, R, E) as it ends. With no step it ends as it starts; a rule with a
   // step ends it by eventDone. The probe is the checks' and the QA's: never drawn (w 0), it ends at once
   // (`leave(S, R, E)`, optional too: the floor is left while it runs; it puts the event back as it was before «yes»)
-  // a skull door's grates (TASKS 362): shut, each cell of them is a shut door's cell (5) for walking, sight and the minimap; m.shut
-  // tells the flow fields; the room's box holds the hero off its lava while they are down, as a sealed arena's does
+  // a skull door's grates (TASKS 362): shut, each cell of them is a shut door's cell (5) for walking, sight and the minimap; the room's box holds the hero off its lava while they are down, as a sealed arena's does
   function grates(R, E, down) { const m = R.map, r = m.rooms[E.room];
-    for (const g of E.gates || []) for (const [x, y] of g.cells) m.cells[y * m.W + x] = down ? 5 : 1;
-    m.shut = (m.shut || 0) + 1; m.arenaBox = down ? [r.x, r.y, r.x + r.w, r.y + r.h] : null; }
+    for (const g of E.gates || []) mapw.fillCells(m, g.cells, down ? 5 : 1);
+    m.arenaBox = down ? [r.x, r.y, r.x + r.w, r.y + r.h] : null; }
   const trialFoes = (R, E) => R.en.filter((e) => e.summ === 'trial' && e.room === E.room && e.deadT < 0);
   function trialOff(S, R, E) { grates(R, E, 0); for (const e of trialFoes(R, E)) { e.deadT = S.t; e.hp = 0; } R.en = R.en.filter((e) => !(e.summ === 'trial' && e.room === E.room)); E.st = 'idle'; E.wave = 0; E.waveT = 0; E.tries = 0; S.saveN++; }
   const TRIAL = {
@@ -73,7 +72,7 @@
   const awake = (e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'home';
   const CAPTIVE = {
     // the cage's cells are blocked as a story captive's are (1328): the way fields then lead round it, not into its bars
-    setup(R, E) { const m = R.map, tx = Math.floor(E.x / TILE), ty = Math.floor(E.y / TILE); for (let y = ty - 1; y <= ty; y++) for (let x = tx - 1; x <= tx + 1; x++) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x); },
+    setup(R, E) { const m = R.map, tx = Math.floor(E.x / TILE), ty = Math.floor(E.y / TILE); for (let y = ty - 1; y <= ty; y++) for (let x = tx - 1; x <= tx + 1; x++) mapw.blockOnce(m, y * m.W + x); },
     can(S, R, E) { if (R.keys > 0) return true; R.msg = { s: TXT('EVENTS.captive.nokey'), t: S.t, d: 3 }; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y }); return false; },
     start(S, R, E) { const P = D.EVENTS.pool.captive, m = R.map; R.keys--;
       E.goal = m.shop && R.shop ? { k: 'shop', x: m.shop.front.x, y: m.shop.front.y } : { k: 'up', x: m.spawn.x, y: m.spawn.y };
