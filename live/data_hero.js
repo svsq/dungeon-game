@@ -170,6 +170,7 @@
   for (const G of GIFTS) G.desc = giftDesc(G);
   const BLESS = GIFTS.find((G) => G.id === 'bless');
   TXT.bind('sim_hero.sanctum.msg', BLESS); TXT.bind('EVENTS.fountain.bless', BLESS);
+  const heroDmgK = (h) => (h.bless ? 1 + BLESS.v / 100 : 1);
   // the altar of souls takes `gold` for `shards` shard(s), `max` times a run
   const DONATE = { max: 10, gold: 1000, shards: 1 };
   for (const k of ['sim_town.donate.s', 'hud.altar.7', 'UI.altar.r.donate.label', 'sim_town.donate']) TXT.bind(k, DONATE);
@@ -187,5 +188,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, giftCost, rerollCost, xpNeed, DONATE });
+  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -18,6 +18,17 @@
     const leg = dist(R.hipL, R.kneeL) + dist(R.kneeL, R.ankleL);
     same('step', G.step, LEG_SHARE * leg * D.ENEMIES.boss_colossus.h / R.h);
     same('step in BOSSES', D.BOSSES.boss_colossus.step, G.step);
+    depthCheck(out, G.depth);
+  }
+  // the rig's dz is DATA.stepDz (monsters.js is not loaded here, so its source is read for the call); stepDz must follow the table
+  // the sim's contact reads, or the drawn foot and the sim's step part in depth (TASKS 2080)
+  function depthCheck(out, P) {
+    const src = fs.readFileSync(path.join(__dirname, 'monsters.js'), 'utf8');
+    if (!/dz: DATA\.stepDz\(off, A, diry\)/.test(src)) out.push('colossus: the rig does not take its step\'s dz from DATA.stepDz');
+    const dz = () => [D.stepDz(1, 0, 1), -D.stepDz(0, 1, -1)], [ahead, back] = dz();
+    if (ahead !== P.ahead || back !== P.back) out.push(`colossus: stepDz gives ahead ${ahead}, back ${back}, COLOSSUS_GEO.depth says ${P.ahead}, ${P.back}`);
+    const was = { ...P }; P.ahead *= 2; P.back *= 2;
+    try { const [a2, b2] = dz(); if (a2 !== P.ahead || b2 !== P.back) out.push('colossus: stepDz does not follow COLOSSUS_GEO.depth'); } finally { Object.assign(P, was); }
   }
   SIMX.checks.add('colossusRigCheck', rigCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -47,7 +47,7 @@
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch); a stride lengthened by
       // strideK tilts it less in depth (TASKS 1802: the goblin's legs stretched 32 % walking down)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
-      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: (0.6 * off * diry - 0.3 * A * Math.abs(diry)) / Math.pow(Math.max(1, o.strideK || 1), 0.75) };
+      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: DATA.stepDz(off, A, diry) / Math.pow(Math.max(1, o.strideK || 1), 0.75) };
       if (o.amb) { const B = o.amb, fw = SS(side === 'L' ? 0 : 0.45, side === 'L' ? 0.55 : 1, B.w), dx = B.x0 + (B.x1 - B.x0) * fw - B.x, dy = B.y0 + (B.y1 - B.y0) * fw - B.y;
         const lf = fw > 0 && fw < 1 ? Math.pow(Math.sin(Math.PI * fw), 0.6) * RG.h * (o.lift || 0.038) * 0.8 : 0;
         Object.assign(tg[side], { off: Math.hypot(dx, dy) / s, tx: tg[side].tx + dx * face / s, ty: tg[side].ty - lf, lift: tg[side].lift + lf, dz: tg[side].dz + dy / s }); }
