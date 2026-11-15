@@ -52,7 +52,9 @@
     if (s === undefined) { if (ELS.size < 32) s = ELS.size; else { const [old, os] = ELS.entries().next().value; ELS.delete(old); s = os; } } else ELS.delete(id);
     ELS.set(id, s); return s; };
   // the town's own legend (TASKS 1023): its services instead of the dungeon's rooms, bosses and altars
-  const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')], ['board', TXT('TOWN_LEG.9')]];
+  const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')], ['board', TXT('TOWN_LEG.9')], ['give', TXT('TOWN_LEG.give')], ['turn', TXT('TOWN_LEG.turn')]];
+  // the quest badge's look over a giver's head, shared by its legend rows: the glow's colour and the glyph's ink per mark, the dark plate behind
+  const QMARK_TONE = { '!': { glow: [1, 0.62, 0.18], ink: '#ffb040' }, '?': { glow: [1, 0.86, 0.3], ink: '#ffe070' } }, QMARK_PLATE = [[0.09, 0.06, 0.05], [0.05, 0.035, 0.03]];
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
   const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
   // an event of the floor not done yet (TASKS 2021, R-12, R-35) has its mark once seen, and its line while one is seen
@@ -251,11 +253,11 @@
     // a giver off the screen has a small one at its edge, the map shows his mark either way
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
       const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ('town_' + f.role)[1], k, W, H), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
-      const x = at.x, y = at.y + bob, col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18], bw = Q.box[0] * sc, bh = Q.box[1] * sc;
+      const x = at.x, y = at.y + bob, col = QMARK_TONE[mk].glow, bw = Q.box[0] * sc, bh = Q.box[1] * sc;
       const box = { i: f.i, x: x - bw / 2, y: at.y - bh / 2, w: bw, h: bh }; MKB.push(box); occupied.push(box);
       G.blend('add'); L.glow(x, y, Q.glow * sc, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
-      L.rrect(x - Q.w * sc / 2, y - Q.h * sc / 2, Q.w * sc, Q.h * sc, 12 * sc, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
-      lab('qmk' + f.i, mk, x, y + sc, { size: Q.label * sc, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });
+      L.rrect(x - Q.w * sc / 2, y - Q.h * sc / 2, Q.w * sc, Q.h * sc, 12 * sc, QMARK_PLATE[0], QMARK_PLATE[1], 0.82);
+      lab('qmk' + f.i, mk, x, y + sc, { size: Q.label * sc, al: 0.5, col: QMARK_TONE[mk].ink });
       actorZones.push({ x: x - bw / 2, y: y - bh / 2, w: bw, h: bh }); nameZones.push({ x: x - bw / 2 - 2, y: y - bh / 2 - 2, w: bw + 4, h: bh + 4 }); }
     // the townsfolk's lines (TASKS 1015): a pair, the first line then the second, over the speaker's head; the merchant's call
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
@@ -701,6 +703,7 @@
     if (id === 'board') { L.solid(x - s * 0.5, y - s * 0.42, s, s * 0.62, [0.5, 0.36, 0.22]); L.solid(x - s * 0.32, y - s * 0.28, s * 0.64, s * 0.34, [0.86, 0.8, 0.62]); L.solid(x - s * 0.08, y + s * 0.2, s * 0.16, s * 0.32, [0.36, 0.26, 0.16]); return; }
     if (id === 'craft') { L.solid(x - s * 0.45, y + s * 0.1, s * 0.9, s * 0.25, [0.6, 0.6, 0.66]); L.solid(x - s * 0.25, y - s * 0.15, s * 0.5, s * 0.28, [0.75, 0.75, 0.8]); L.solid(x - s * 0.08, y - s * 0.5, s * 0.16, s * 0.4, [0.62, 0.42, 0.24]); return; }
     if (id === 'way') { const c = [0.62, 0.7, 1]; L.solid(x - s / 2, y + s * 0.3, s, s * 0.2, [0.4, 0.38, 0.45]); L.solid(x - s * 0.22, y - s / 2, s * 0.44, s * 0.82, [0.5, 0.47, 0.56]); L.solid(x - s * 0.08, y - s * 0.32, s * 0.16, s * 0.5, c); return; }
+    if (id === 'give' || id === 'turn') { const mk = id === 'give' ? '!' : '?'; L.rrect(x - s / 2, y - s / 2, s, s, 4, QMARK_PLATE[0], QMARK_PLATE[1]); KIT.ink('mm_g' + id, mk, x, y + 1, { size: s + 4, al: 0.5, col: QMARK_TONE[mk].ink, bold: true }); return; }
     if (id === 'quest') { const a = a0; L.rrect(x - s / 2 - 2, y - s / 2 - 2, s + 4, s + 4, s / 2 + 2, [0.08, 0.05, 0.03], [0.08, 0.05, 0.03], a); L.solid(x, y, s * 0.62, s * 0.62, [1, 0.78, 0.25], Math.PI / 4, s * 0.31, s * 0.31, a); L.solid(x, y, s * 0.26, s * 0.26, [1, 0.97, 0.8], Math.PI / 4, s * 0.13, s * 0.13, a); return; }
     // an event: a bone-white skull in a dark rim, its eyes lit red (the boss's gem is red with a white skull)
     if (id === 'event') { const r = s / 2; L.rrect(x - r - 1.5, y - r - 1.5, s + 3, s + 3, r + 1.5, [0.06, 0.04, 0.04], [0.06, 0.04, 0.04]); L.rrect(x - r, y - r, s, s * 0.85, r, [0.95, 0.9, 0.78], [0.72, 0.66, 0.55]);

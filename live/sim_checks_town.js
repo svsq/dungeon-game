@@ -26,6 +26,11 @@
         if (!m.town.yardSolid.some((p) => Math.floor(p.y / TILE) === Math.floor(e / m.W) && Math.floor(p.x / TILE) === e % m.W - 1)) out.push(`town ${sd}: the rails end short of the mason's yard`); }
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
+    // TASKS 2100: the sweeper's round (its legs too) keeps clear of the hero's straight lines from the spawn to each service and from the stairs to the gate
+    { const T = DG.TOWN, G = T.use.exitGate, lines = Object.values(T.use).map((u) => [T.spawn, u]).concat([[T.use.stairs, G]]), R = T.routes.sweeper, SAMPLES = 40;
+      const away = (p, [a, b]) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+      R.forEach((a, i) => { const b = R[(i + 1) % R.length]; for (let k = 0; k <= SAMPLES; k++) { const p = [a[0] + (b[0] - a[0]) * k / SAMPLES, a[1] + (b[1] - a[1]) * k / SAMPLES];
+        if (lines.some((l) => away(p, l) < T.routeClear)) { out.push(`town: the sweeper's round leg ${i} comes within ${T.routeClear} cells of a straight line of the hero's`); break; } } }); }
     // TASKS 2085, 2091: the track's table holds no painting sizes, they come from the assets: a painting twice as large lays sprites twice as
     // deep, as many of them, each a period cut from half the painting's share; the whole track is one painting, one sleeper size and tone, and
     // the sleepers go one period apart along the rails' length in floor space, round each bend too, so a bend leaves no gap or overlap
