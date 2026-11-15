@@ -22,9 +22,12 @@
   const DIRECT = [new RegExp(RECV + String.raw`cells\[[^\]]*\]\s*=[^=]`), new RegExp(RECV + String.raw`(?:cells|block|water)\s*=[^=]`),
     new RegExp(RECV + String.raw`(?:block|water)\.(?:push|splice|pop|shift|unshift|fill|sort|reverse)\b`), new RegExp(RECV + String.raw`(?:block|water)\[[^\]]*\]\s*=[^=]`),
     /\.geometry\b/, new RegExp(String.raw`(?:\bm|\.map)\.shut\b`)];
-  const written = () => { const dir = __dirname, files = fs.readdirSync(dir).filter((f) => /^(sim|scene|hud|ui|monsters)(_\w+)?\.js$/.test(f) && !/^sim_(checks|map)/.test(f)), found = [];
-    for (const f of files) fs.readFileSync(path.join(dir, f), 'utf8').split('\n').forEach((line, i) => { const code = line.replace(/(^|\s)\/\/.*$/, ''); if (DIRECT.some((re) => re.test(code))) found.push(`${f}:${i + 1}`); });
+  // a water set of its own beside waterSet (the scene's WET)
+  const OWN_WATER = [/\bWET\b/];
+  const scan = (res) => { const dir = __dirname, files = fs.readdirSync(dir).filter((f) => /^(sim|scene|hud|ui|monsters)(_\w+)?\.js$/.test(f) && !/^sim_(checks|map)/.test(f)), found = [];
+    for (const f of files) fs.readFileSync(path.join(dir, f), 'utf8').split('\n').forEach((line, i) => { const code = line.replace(/(^|\s)\/\/.*$/, ''); if (res.some((re) => re.test(code))) found.push(`${f}:${i + 1}`); });
     return found; };
+  const written = () => scan(DIRECT);
   function mapRevCheck(out) {
     const m = plain(9).run.map, keys = Object.keys(m);
     for (const k of ['rev', 'geometry', 'shut']) if (keys.includes(k)) out.push(`maprev: the map holds ${k}, which a copy, a save and the map's print would carry`);
@@ -60,7 +63,18 @@
     if (held !== -1) out.push('maprev: the cell a sliding statue holds is walked over');
     if (!q.open || freed < 0) out.push('maprev: the flow field still holds the statue\'s cell after its slide is over (the cached field, not a new one)');
   }
+  // TASKS 2074: an arena's flood grows the water of a map whose set was already made, and the sim and the scene read the same set
+  function waterCheck(out) {
+    const m = plain(9).run.map, k = m.cells.findIndex((c, i) => c === 1 && !m.water.includes(i)), at = { x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE };
+    const before = SIMX.waterSet(m); if (before.has(k) || SIMX.inWater(m, at)) out.push('maprev: a dry floor cell reads as water');
+    mapw.addWater(m, [k]);
+    if (!SIMX.waterSet(m).has(k)) out.push('maprev: the water set stays as it was before the flood');
+    if (!SIMX.inWater(m, at)) out.push('maprev: the sim does not wade in the flooded cell');
+    mapw.dropWater(m, [k]); if (SIMX.waterSet(m).has(k)) out.push('maprev: the water set keeps a cell the arena drained');
+    for (const at2 of scan(OWN_WATER)) out.push(`maprev: ${at2} keeps a water set of its own`);
+  }
   SIMX.checks.add('mapRevCheck', mapRevCheck);
+  SIMX.checks.add('mapWaterCheck', waterCheck);
   SIMX.checks.add('mapTwinCheck', twinCheck);
   SIMX.checks.add('mapStatueCheck', statueCheck, { slow: true });
 })(typeof window !== 'undefined' ? window : globalThis);

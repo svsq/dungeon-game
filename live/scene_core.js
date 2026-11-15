@@ -936,7 +936,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const glowBeat = (d, t) => (d.n === 'crystal_cv' || d.n === 'obsidian_mg' ? 0.94 + 0.04 * Math.sin(t * 2.3 + d.x) + 0.02 * Math.sin(t * 7.1 + d.y) : 0.84 + 0.16 * Math.sin(t * 0.9 + (d.x * 0.37 + d.y * 0.11)));
   // a roof drop of m.drips falls for DRIP_FALL s and lands at ph + n·p (audio.js plays the landing from the same schedule)
   // a cave crossing's boards (TASKS 306): pitch, board to board along the way; up, the fire cup's height on a torch post
-  const BRIDGE = { pitch: 12, up: 66 }, WET = new WeakMap();
+  const BRIDGE = { pitch: 12, up: 66 };
   const DRIP_FALL = 0.38, dripAge = (q, t) => { const a = (t - q.ph) % q.p; return a < 0 ? a + q.p : a; };
   // (TASKS 1787, 1788: a biome with a candle keeps its own colour in the braziers and fires and in the wall torches of a room with a
   // hearth; a room without one is lit by warm candles, as the concept's side rooms are; the QA harness swaps and extends m.torches, so the cache follows the array and its length)
@@ -965,6 +965,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
 
   Object.assign(SCX, {
     SC, L, M, D, TILE, SZ, PIX, TRAP_HOLE, TRAP_SPIKE, BAKE, SEEN, VOID, views, rnd, SS, FALL_DROP, zoneAt, GLOW, glowOf, GLOW_COL,
-    glowBeat, BRIDGE, WET, DRIP_FALL, dripAge, torchCol, torchZ, sconceK, DOOR, STAND, CANDLE, TABLE_WICKS, DEDGE });
+    glowBeat, BRIDGE, DRIP_FALL, dripAge, torchCol, torchZ, sconceK, DOOR, STAND, CANDLE, TABLE_WICKS, DEDGE });
   Object.defineProperties(SCX, { W: { get: () => W }, H: { get: () => H }, Z: { get: () => Z }, VW: { get: () => VW }, VH: { get: () => VH }, LT: { get: () => LT } });
 })(typeof window !== 'undefined' ? window : globalThis);

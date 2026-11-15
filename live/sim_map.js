@@ -20,6 +20,9 @@
   const unlatch = (m, L, t) => { L.open = 1; L.openT = t; touch(m); };
   // a whole field laid anew (a floor put back from a save, a QA state's own floor)
   const put = (m, field, v) => { m[field] = v; touch(m); };
+  // the water's cells as a set, one for the sim's wading and the scene's rings alike (TASKS 2074): a flood grows m.water under both
+  const WATER = new WeakMap();
+  const waterSet = (m) => { let w = WATER.get(m); if (!w || w.rev !== rev(m)) WATER.set(m, w = { rev: rev(m), cells: new Set(m.water || []) }); return w.cells; };
   const mapw = { rev, touch, setCell, fillCells, blockPush, blockOnce, blockDrop, addWater, dropWater, unlatch, put };
-  Object.assign(SIMX, { mapw, rev });
+  Object.assign(SIMX, { mapw, rev, waterSet });
 })(typeof window !== 'undefined' ? window : globalThis);

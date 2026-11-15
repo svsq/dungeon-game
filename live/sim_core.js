@@ -1,7 +1,7 @@
 // live/sim_core.js — the sim's base: constants, rng, the event bus S.ev and the run's log, run and stage lookups, map queries (cells, collisions, water, lava, webs, flow fields, sight) and the camera clamp.
 // One of the sim's files (ARCHITECTURE.md §4.2): names from earlier files come from SIMX at load, calls into later ones go through SIMX.
 (function (root) {
-  const SIMX = (root.SIMX = root.SIMX || {}), { rev } = SIMX;
+  const SIMX = (root.SIMX = root.SIMX || {}), { rev, waterSet } = SIMX;
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
   const { TILE, ENEMIES, BAL, ELITE, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
   const DT = 1 / 120, L = 26.0;
@@ -115,9 +115,8 @@
     return D.BRINK.reach.some((r) => dropCell(m, Math.floor((e.x + dx / d * r) / TILE), Math.floor((e.y + dy / d * r) / TILE))); };
   const onLava = (m, o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor(o.y / TILE); return cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx); };
   // shallow water (dungeon.js m.water) lies on floor cells: anyone wades through it slowed, and it puts out a burning one
-  const WET = new WeakMap(), WADE = 0.75;
-  const inWater = (m, o) => { if (!m.water || !m.water.length) return false; let w = WET.get(m); if (!w || w.rev !== rev(m)) WET.set(m, w = { rev: rev(m), cells: new Set(m.water) });
-    return w.cells.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)); };
+  const WADE = 0.75;
+  const inWater = (m, o) => !!m.water && m.water.length > 0 && waterSet(m).has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
   const onPlate = (a, tr) => Math.abs(a.x - tr.x) < TILE - 4 && Math.abs(a.y - tr.y) < TILE - 6;
   // a web on the floor (dungeon.js m.webs) holds whoever wades in, spiders aside, until it is torn
   const WEB = { k: 0.4, mon: 0.5, rx: 28, ry: 17 };

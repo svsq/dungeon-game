@@ -8,6 +8,9 @@
     const worst = (S) => { const h = S.run.hero; h.lvl = 99; h.gold = 999999; h.xp = 1; h.pts = 99; h.sp = 99; S.meta.shards = 99999; h.ab = { whirl: 5, fireball: 5, shield: 5 };
       for (let i = 0; i < 24; i++) h.bag[i] = Object.assign(SIM.rollItem(S.run, 8, 4), { id: 1000 + i }); h.bag[0] = { id: 2000, b: 'hp_potion', n: 9, rar: 0, lvl: 1, mods: {} }; };
     const h0 = (S) => S.run.hero;
+    // a state drawn once while it is built, for what the scene keeps of a map between two frames of it
+    const drawn = (S) => { const was = SC.state; SC.state = S; try { SC.render(S.t + 0.01); } finally { SC.state = was; } };
+    const FLOOD_STEPS = 600;
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
       ['title', play((S) => { S.demo = 1; })],
@@ -1443,6 +1446,13 @@
       const attack = frames.find((S) => S.run.en[0].phase === 1 && S.run.proj.some((p) => p.src === S.run.en[0].id && (p.k === 'wave' || p.k === 'jet')));
       if (!complete || !attack || !complete.run.en.some((e) => e.type === 'drowned')) throw new Error('Incomplete live phase two QA');
       states.push(['cave_flood_complete', structuredClone(complete)], ['cave_phase2_attack', structuredClone(attack)]);
+      // TASKS 2074: the arena drawn once mid-flood, then flooded to the end on the same map: the hero on the cell the water reached
+      // last wades in it, his foam and rings drawn from the water as it is now
+      const mid = structuredClone(frames.find((S) => S.run.map.flood && S.run.map.flood.n > 0 && S.run.map.flood.n < S.run.map.flood.cells.length)), m = mid.run.map, F = m.flood, h = mid.run.hero, k = F.cells[F.cells.length - 1];
+      h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; mid.run.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; drawn(mid);
+      for (let i = 0; i < FLOOD_STEPS && F.n < F.cells.length; i++) SIM.step(mid, { keys: [] });
+      if (F.n < F.cells.length) throw new Error('The arena\'s flood does not reach its end');
+      mid.run.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['cave_flood_grown', mid]);
     }
     states.push(['serpent_flood_warning', structuredClone(transitions.serpent_flood[45])]);
     states.push(['serpent_flood', structuredClone(transitions.serpent_flood[100])]);
