@@ -5,7 +5,7 @@ import os, sys, glob, numpy as np
 from PIL import Image
 from scipy import ndimage
 ROOT = os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-G = os.path.join(ROOT, 'art', 'gen')
+G = os.path.join(ROOT, os.environ.get('DIR', 'art/gen'))  # DIR=live/assets for what the game loads (r8 town)
 DEF = ['arch_mg', 'banner_mg', 'basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'bridge_post_mg', 'forge_mg', 'obsidian_mg', 'skel_mg', 'slab_mg_a', 'slab_mg_b', 'slab_mg_c', 'slab_mg_d',
        'stairs_mg', 'stairs_up_mg', 'vent_mg', 'dc_ash_mg', 'dc_splash_mg', 'en_imp', 'en_golem', 'en_salamander', 'en_colossus', 'en_golem_core', 'en_cultist']
 parts = sorted(os.path.basename(p)[:-4] for p in glob.glob(os.path.join(G, '*.png')) if os.path.basename(p).split('__')[0] in ('imp', 'golem', 'colossus', 'salamander') and '__' in p)
