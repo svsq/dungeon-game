@@ -312,10 +312,10 @@
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
     const brokenPots = R.pots.filter((p) => p.hp <= 0 && p.kind !== 'gold' && p.kind !== 'goldpile' && vis(p.x, p.y) && !SIM.Q.hidden(m, p)), brokenWrecks = m.decor.filter((d) => d.n === 'wreck_cv' && d.broken && vis(d.x, d.y)), brokenShelves = m.decor.filter((d) => d.n === 'bookshelf' && d.secret !== undefined && d.broken && vis(d.x, d.y));
-    const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
-    const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood ? 'wood' : 'clay', wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
+    const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), 'wreck', 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
     // a broken bookcase (TASKS 1852): its planks as a crate's, wider, and the books it held lying among them once they have fallen
-    const shelfDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 7 + d.y * 5, GT - (d.brokeT ?? -9), true, 12, 1.6, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    const shelfDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 7 + d.y * 5, GT - (d.brokeT ?? -9), 'wood', 12, 1.6, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
     const BOOK_COL = [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12], [0.38, 0.24, 0.12]];
     const shelfBooks = (d) => { const al = SS(0.75, 1.05, GT - (d.brokeT ?? -9)); if (al <= 0) return; const sd = d.x * 3 + d.y;
       for (let j = 0; j < 9; j++) { const bx = sx(d.x) + (rnd(sd, j) - 0.5) * 88, by = sy(d.y) - 2 + rnd(sd, j + 9) * 16, rot = (rnd(sd, j + 18) - 0.5) * 2.4, w = 9 + 3 * rnd(sd, j + 27), hh = 6 + 2 * rnd(sd, j + 36), col = BOOK_COL[j % 4];
