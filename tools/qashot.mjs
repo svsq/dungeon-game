@@ -2,6 +2,8 @@
 //   node tools/qashot.mjs [--states a,b] [--sheets c,d] [--n 12] [--box 260] [--view 1280x720] [--out frames/qashot]
 //   --view: the browser window size; the canvas is 1920 wide and as tall as the window's aspect asks (1080 at 16:9, 1200 at 16:10, up to
 //   1248, TASKS 1861), scaled by the page as a player on that screen sees it; a text drawn off the view is reported
+//   --states all: every state; a text wider than its own container (the smallest uiBox holding its centre, the rule of the skill's
+//   qa.mjs) is reported and the run exits 2 (TASKS 2083: a quest card's line ran onto the journal's right page)
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,12 +28,20 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
-  await page.evaluate(() => { window.__Q = SCENE.QA(); });
-  for (const name of states) {
+  const all = await page.evaluate(() => { window.__Q = SCENE.QA(); return __Q.states.map((q) => q[0]); });
+  let over = 0;
+  for (const name of states[0] === 'all' ? all : states) {
     const ok = await page.evaluate(([name, tweak]) => { const st = (__Q.states.find((q) => q[0] === name) || [])[1]; if (!st) return false; if (tweak) new Function('S', tweak)(st); SCENE.state = st; SCENE.render(st.t + 0.01); return true; }, [name, tweak]);
     if (!ok) { console.log('no state', name); continue; }
     const off = await page.evaluate(() => (window.__UI || []).filter((q) => q.k === 'text' && (q.x < 0 || q.y < 0 || q.x + q.w > SIM.VIEW.W || q.y + q.h > SIM.VIEW.H)).map((q) => q.s));
-    await page.locator('#c').screenshot({ path: path.join(out, name + '.png') }); console.log('state', name, off.length ? 'OFF VIEW: ' + off.slice(0, 3).join(' | ') : '');
+    const wide = await page.evaluate(() => { const ui = (window.__UI || []).map((u, i) => Object.assign({ i }, u)), hits = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
+      const covers = ui.filter((u) => u.k === 'cover'), boxes = ui.filter((u) => u.k === 'box'), out = [];
+      for (const t of ui.filter((u) => u.k === 'text' && !covers.some((c) => c.i > u.i && hits(u, c)))) { const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
+        const b = boxes.filter((b) => cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h && !covers.some((c) => c.i > b.i && c.i < t.i && hits(b, c))).sort((a, c) => a.w * a.h - c.w * c.h)[0];
+        const px = b ? Math.max(b.x + b.pad - t.x, t.x + t.w - (b.x + b.w - b.pad), 0) : 0; if (px > 1) out.push(`"${t.s}" over ${b.id} by ${Math.round(px)} px`); }
+      return out; });
+    over += wide.length;
+    await page.locator('#c').screenshot({ path: path.join(out, name + '.png') }); console.log('state', name, off.length ? 'OFF VIEW: ' + off.slice(0, 3).join(' | ') : '', wide.length ? 'WIDER THAN ITS BOX: ' + wide.join(' | ') : '');
   }
   for (const name of sheets) {
     const url = await page.evaluate(([name, N, BOX, F0, F1]) => {
@@ -45,4 +55,5 @@ try {
     if (!url) { console.log('no sheet', name); continue; }
     fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(url.split(',')[1], 'base64')); console.log('sheet', name);
   }
+  if (over) process.exitCode = 2;
 } finally { if (errors.length) console.log('errors:', errors.slice(0, 5).join(' | ')); await browser.close(); server.close(); }

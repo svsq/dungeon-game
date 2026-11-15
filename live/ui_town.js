@@ -4,6 +4,7 @@
   const D = root.DATA || (root.DATA = {}), { UI } = D;
   const { SHOP, SLOTS, STASH } = D;
   const { CELL, STEP, grid, sortCol, paperClose, bagGrid, tabRow } = UI.kit;
+  const CARD_PAD = 16;
   UI.add('town', {
     // a town workshop (TASKS 1013): the worn gear in a row and the bag under it on the left, the chosen piece, its affixes, the price
     // and the work's button on the right
@@ -28,18 +29,18 @@
     // six rows, one per giver, leave the bottom to the close button
     board: (n) => { const P = { x: 130, y: 60, w: 1660, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 6); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
-      r.push(paperClose(P)); return { P, r }; },
+      r.push(paperClose(P)); return { P, r, text: { x: P.x + 700, w: P.w - 970 }, gap: 24 }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // past ten quests the list scrolls (TASKS 1884): nine rows from top, the tenth slot says how many more lie above and below
     journal: (n, canDrop, top = 0) => { const P = { x: 330, y: 80, w: 1260, h: 880 }, r = [], many = n > 10, rows = many ? 9 : Math.min(n, 10), t = many ? Math.max(0, Math.min(n - 9, top | 0)) : 0;
-      for (let k = 0; k < rows; k++) r.push({ id: 'q:' + (t + k), i: t + k, x: P.x + 30, y: P.y + 110 + k * 68, w: 470, h: 60 });
+      for (let k = 0; k < rows; k++) r.push({ id: 'q:' + (t + k), i: t + k, x: P.x + 30, y: P.y + 110 + k * 68, w: 470, h: 60, pad: CARD_PAD });
       if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
       r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 290, y: P.y + 16, w: 230, h: 48 }, paperClose(P));
       return { P, r, top: t, rows, more: many ? { above: t, below: n - t - rows, x: P.x + 30, y: P.y + 110 + 9 * 68, w: 470, h: 60 } : null }; },
     // the first row shown: the one asked, moved just enough to keep the chosen quest (index si) in sight
     journalTop: (n, si, top = 0) => (n <= 10 ? 0 : Math.max(0, Math.min(n - 9, Math.max(si - 8, Math.min(si, top | 0))))),
     notes: (n, page) => { const P = { x: 330, y: 80, w: 1260, h: 880 }, r = [], per = 12, on = Math.min(per, Math.max(0, n - page * per));
-      for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: P.x + 30, y: P.y + 110 + i * 52, w: 470, h: 46 });
+      for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: P.x + 30, y: P.y + 110 + i * 52, w: 470, h: 46, pad: CARD_PAD });
       r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 130, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 130, w: 150, h: 52 });
       r.push(paperClose(P)); return { P, r, per }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
