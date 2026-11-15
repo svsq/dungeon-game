@@ -1,7 +1,7 @@
 // live/sim_checks_saves.js — selfCheck's parts for floors left and come back to, scrolls, time away. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    boxHit, D, descend, DG, enterFloor, exitKind, FROM, interact, K, killEnemy, newQuest, newRun, persist, spawn, STAGE, step, TILE, useItem } = SIMX;
+    boxHit, D, descend, DG, enterFloor, exitKind, fstat, FROM, interact, K, killEnemy, loadSlot, newQuest, newRun, persist, spawn, STAGE, step, TILE, useItem } = SIMX;
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
   // TASKS 1007, 1008, 1027: in a run through the town every floor has its stairs up in the start room, reachable from the spawn
   // (and a run that is not through the town has none); a floor left and come back to is as it was left (a kill, an open chest, loot
@@ -166,6 +166,18 @@
     } finally { console.error = err; SIMX.captivePlace = cp; SIMX.release = rel; }
     return out;
   }
+  // TASKS 2075: a run saved before its floor's count or the town's board was kept has both on loading through a slot, before any step
+  function oldSaveCheck() {
+    const out = [], base = () => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; return S; };
+    const cut = { stats: (R) => { delete R.stats; }, offers: (R) => { delete R.offers; delete R.offerB; } };
+    for (const [name, strip] of Object.entries(cut)) { const S = base(); if (S.run.floor !== 0) { out.push('old save: a new run through the town does not start in it'); continue; }
+      const P = JSON.parse(JSON.stringify(persist(S))); strip(P.run);
+      const T = spawn(1, P); if (!T.saved || !loadSlot(T, T.slot)) { out.push(`old save: the run saved without ${name} is not loaded`); continue; }
+      const R = T.run, count = (() => { try { return fstat(R); } catch (err) { return null; } })(); if (!count || typeof count.foes !== 'number') out.push(`old save: no floor count after loading a run saved without ${name}`);
+      if (!SIMX.offersOf(R).length) out.push(`old save: no board of offers after loading a run saved without ${name}`); }
+    return out;
+  }
+  SIMX.checks.add('oldSaveCheck', oldSaveCheck);
   SIMX.checks.add('floorFailCheck', floorFailCheck);
   SIMX.checks.add('awayCheck', awayCheck);
   SIMX.checks.add('climbCheck', climbCheck, { slow: true });

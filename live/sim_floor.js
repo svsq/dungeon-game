@@ -251,6 +251,7 @@
   const fstat = (R) => R.stats[R.floor];
   // a run saved before its floor's count was kept gets it here, in a step, never in a read
   const fillStats = (R) => { R.stats = R.stats || {}; return R.stats[R.floor] || (R.stats[R.floor] = floorStat(R)); };
+  const mendCounts = (R) => { if (!R.map) return; fillStats(R); if (R.floor === 0) SIMX.dealOffers(R); };
   // totals over the given floors' stats; a category with nothing in it is left out of the average, never counted as 0%
   function completion(list) {
     const T = { floors: list.length, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0 };
@@ -390,6 +391,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    release: false, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, completion, runCompletion, completionHints, stepHazards,
+    release: false, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, mendCounts, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);
