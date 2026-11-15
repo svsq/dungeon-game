@@ -124,16 +124,16 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     const p = want ? document.documentElement.requestFullscreen && document.documentElement.requestFullscreen() : document.exitFullscreen && document.exitFullscreen();
     if (p && p.catch) p.catch(() => { fullAsked = null; if (changed) fullBack(fullNow()); }); };
   // the update (TASKS 1870): the desktop build's state comes from its main process, the browser's from GitHub's newest release (the
-  // packed build only, the live preview reloads too often); a found version's short notes come from its release, and the sim's
-  // asks (play.updReq) go back to the main process or open the release's page
+  // packed build only, the live preview reloads too often); a found version's notes are those of every release after the installed
+  // one up to it, from GitHub's list (TASKS 2089), and the sim's asks (play.updReq) go back to the main process or open the release's page
   const REL = 'https://api.github.com/repos/svsq/dungeon-game/releases', notesOf = {};
   let updBase = null, upd, updN = Date.now();
   const getJson = (u) => fetch(u, { headers: { accept: 'application/vnd.github+json' } }).then((r) => (r.ok ? r.json() : null));
   const updSet = () => { const v = updBase.v; upd = Object.assign({}, updBase, { notes: notesOf[v] || [], n: ++updN });
-    if (updBase.st === 'avail' && v && !(v in notesOf)) { notesOf[v] = []; getJson(`${REL}/tags/v${v}`).then((j) => { if (j) { notesOf[v] = DATA.relNotes(j.body); if (updBase) updSet(); } }).catch(() => {}); } };
+    if ((updBase.st === 'avail' || updBase.st === 'web') && v && !(v in notesOf)) { notesOf[v] = []; getJson(`${REL}?per_page=50`).then((j) => { notesOf[v] = DATA.relLog(j, DATA.VERSION, v); if (updBase) updSet(); }).catch(() => {}); } };
   if (desk && desk.update) { desk.update.on((st) => { updBase = st; updSet(); }); desk.update.state().then((st) => { if (st && !updBase) { updBase = st; updSet(); } }).catch(() => {}); }
   else if (STATIC || q.has('upd')) getJson(`${REL}/latest`).then((j) => { const v = j && String(j.tag_name || '').replace(/^v/, '');
-    if (v && DATA.verNewer(v, DATA.VERSION)) { notesOf[v] = DATA.relNotes(j.body); updBase = { web: 1, st: 'web', v, url: j.html_url }; updSet(); } }).catch(() => {});
+    if (v && DATA.verNewer(v, DATA.VERSION)) { updBase = { web: 1, st: 'web', v, url: j.html_url }; updSet(); } }).catch(() => {});
   document.addEventListener('fullscreenchange', () => fullBack(!!document.fullscreenElement));
   if (desk) desk.onFull((on) => fullBack(on));
   // pointer in view pixels (VW×VH); click is true for exactly one sim step

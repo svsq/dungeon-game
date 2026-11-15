@@ -560,19 +560,37 @@
         const ask = () => (U.updReq ? U.updReq.k : ''), was = () => (U.updReq ? U.updReq.n : 0);
         U.focus = 'update'; k2(U, 'Enter'); if (!U.updOpen || ask() !== 'check') out.push('update: the item does not open its window and ask for a check');
         let w = was(); step(U, { keys: [], upd: upd({ st: 'check' }) }); k2(U, 'Enter'); if (U.updOpen || U.focus !== 'update' || was() !== w) out.push('update: «Закрыть» over a check does not close back onto the item');
-        step(U, { keys: [], upd: upd({ st: 'avail', v: '9.9.9', notes: D.relNotes('### A\n\n- one\n  two\n- three\n\n### B\n\n- four') }) });
-        if (U.upd.notes.join('|') !== 'one two|three') out.push('update: a release\'s notes are not its first section\'s points: ' + U.upd.notes.join('|'));
+        step(U, { keys: [], upd: upd({ st: 'avail', v: '9.9.9', notes: [{ v: '9.9.9', items: D.relNotes('### A\n\n- one\n  two\n- three\n\n### B\n\n- four') }] }) });
+        if (U.upd.notes[0].items.join('|') !== 'one two|three') out.push('update: a release\'s notes are not its first section\'s points: ' + U.upd.notes[0].items.join('|'));
         if (!D.updMark(U.upd)) out.push('update: a version found leaves no mark on the menu');
-        { const long = 'Доспехи складываются аккуратнее, а запасная броня в сумке больше не мешает носить оружие и щит вместе со всем остальным добром', Z = UI.upd({ st: 'avail', v: '9.9.9', notes: [long] }).rows.filter((r) => r.k === 'note');
+        { const long = 'Доспехи складываются аккуратнее, а запасная броня в сумке больше не мешает носить оружие и щит вместе со всем остальным добром', Z = UI.upd({ st: 'avail', v: '9.9.9', notes: [{ v: '9.9.9', items: [long] }] }).rows.filter((r) => r.k === 'note');
           if (Z.length !== 2 || !Z[1].s.endsWith('…') || Z[1].s.length > 48) out.push('update: a long «Что нового» point is not two lines ending in «…» within the width: ' + Z.map((r) => r.s).join('|'));
           else if (!long.split(' ').includes(Z[1].s.slice(0, -1).split(' ').pop())) out.push('update: a long «Что нового» point is cut inside a word: ' + Z[1].s); }
         U.focus = 'update'; w = was(); k2(U, 'Enter'); if (was() !== w) out.push('update: the item asks for a new check over a version already found');
-        k2(U, 'Enter'); if (ask() !== 'get') out.push('update: «Скачать и обновить» does not ask for the download');
+        k2(U, 'Enter'); if (ask() !== 'get') out.push('update: «Обновить» does not ask for the download');
         step(U, { keys: [], upd: upd({ st: 'err', err: 'down', v: '9.9.9' }) }); k2(U, 'Enter'); if (ask() !== 'get') out.push('update: a new try after a broken download does not download again');
         step(U, { keys: [], upd: upd({ st: 'err', err: 'net' }) }); k2(U, 'Enter'); if (ask() !== 'check') out.push('update: a new try offline does not check again');
         const R = U.run = newRun(U, 'campaign', 47); step(U, { keys: [], upd: upd({ st: 'ready', v: '9.9.9' }) }); k2(U, 'ArrowRight'); k2(U, 'ArrowLeft'); k2(U, 'Enter');
         if (ask() !== 'run' || U.run || U.saved !== R) out.push('update: «Перезапустить» does not save the run in play and ask for the restart');
         k2(U, 'Escape'); if (U.updOpen || U.screen !== 'menu') out.push('update: Escape does not close the window');
+        // TASKS 2089: the notes are every release after the installed one up to the found one, the newest first; «Обновить» restarts the game
+        // as soon as the download is in and the main menu is up, and a download that ends in a run waits for the menu
+        { const rel = (v, b) => ({ tag_name: 'v' + v, body: b }), list = [rel('0.5.2', '### Х\n\n- b'), rel('0.5.4', '- d'), rel('0.5.3', '### Самое главное\n\n- a\n- aa'), rel('0.5.1', '- c'), rel('0.5.5', '- e'), rel('0.5.0', '')];
+          const L = D.relLog(list, '0.5.1', '0.5.4'); if (L.map((r) => r.v).join('|') !== '0.5.4|0.5.3|0.5.2' || L[1].items.join('|') !== 'a|aa') out.push('update: the releases between the installed and the found are wrong: ' + JSON.stringify(L));
+          if (D.relLog(null, '0.5.1', '0.5.4').length) out.push('update: no list gives some releases');
+          const rels = (n) => Array.from({ length: n }, (_, i) => ({ v: '0.5.' + (n + 2 - i), items: ['один пункт журнала для проверки окна', 'второй пункт журнала, подлиннее первого, чтобы не вместился в одну строку окна обновления', 'третий', 'четвёртый'] }));
+          for (const n of [2, 3, 4, 9]) { const Z = UI.upd({ st: 'avail', v: '9.9.9', notes: rels(n) }), nr = Z.rows.filter((r) => r.k === 'note' || r.k === 'ver' || r.k === 'more'), vers = Z.rows.filter((r) => r.k === 'ver').length;
+            if (vers !== Math.min(n, 3) || (Z.rows.some((r) => r.k === 'more') !== n > 3) || nr.length > 9) out.push('update: ' + n + ' releases do not fit the notes\' room: ' + vers + ' versions, ' + nr.length + ' rows');
+            if (Z.A.y + Z.A.h > 968) out.push('update: ' + n + ' releases push the window below the keys\' line: ' + (Z.A.y + Z.A.h)); }
+          const mk = (st) => { const C = spawn(0, {}); C.screen = 'menu'; step(C, { keys: [], quit: 1, upd: upd({ st: 'avail', v: '9.9.9' }) }); C.focus = 'update'; k2(C, 'Enter'); k2(C, 'Enter'); step(C, { keys: [], upd: upd({ st, v: '9.9.9', pct: 40 }) }); return C; };
+          const asked = (C) => (C.updReq ? C.updReq.k : '');
+          let C = mk('down'); if (!C.updGo || asked(C) === 'run') out.push('update: «Обновить» does not hold the restart for the end of the download');
+          const Rn = C.run = newRun(C, 'campaign', 48); C.screen = 'play'; step(C, { keys: [], upd: upd({ st: 'ready', v: '9.9.9' }) });
+          if (asked(C) === 'run' || C.run !== Rn) out.push('update: a download that ends in a run restarts the game in play');
+          C.screen = 'menu'; step(C, { keys: [] }); if (asked(C) !== 'run' || C.run || C.saved !== Rn || C.updGo) out.push('update: a download that ended in a run does not restart, saving the run, once the menu is up');
+          C = mk('ready'); if (asked(C) !== 'run' || C.updGo) out.push('update: a download that ends on the main menu does not restart at once');
+          C = mk('err'); C.screen = 'play'; step(C, { keys: [], upd: upd({ st: 'ready', v: '9.9.9' }) }); C.screen = 'menu'; step(C, { keys: [] }); if (C.updGo || asked(C) === 'run') out.push('update: a failed download still restarts the game later');
+          C = spawn(0, {}); C.screen = 'menu'; step(C, { keys: [], quit: 1, upd: upd({ st: 'ready', v: '9.9.9' }) }); step(C, { keys: [] }); if (asked(C) === 'run') out.push('update: a download nobody asked for restarts the game'); }
         const B = spawn(0, {}); B.screen = 'menu'; step(B, { keys: [], upd: { web: 1, st: 'none', n: 1 } }); if (UI.menu(false, 0, 0, false, false, B.upd).some((b) => b.id === 'update')) out.push('update: the browser shows the item with no newer version');
         step(B, { keys: [], upd: { web: 1, st: 'web', v: '9.9.9', n: 2 } }); B.focus = 'update'; k2(B, 'Enter'); k2(B, 'Enter'); if (!B.updOpen || !B.updReq || B.updReq.k !== 'open') out.push('update: the browser\'s window does not open the release page');
         if (!D.verNewer('0.10.0', '0.9.9') || D.verNewer('v0.4.1', '0.4.1') || D.verNewer('0.4.0', '0.4.1')) out.push('update: versions compare wrong'); }

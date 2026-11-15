@@ -118,6 +118,8 @@
   // the update's window (TASKS 1870): its buttons ask the page (S.updReq, a count and a kind), the page asks the main process and
   // sends the new state back through the input; ←→ walk the buttons, Enter presses the lit one, Escape closes the window
   const updAsk = (S, k) => { S.updReq = { n: ((S.updReq && S.updReq.n) || 0) + 1, k }; };
+  // the restart: a run still in play is saved as «Выход» saves it, and the page writes the save before it asks for the restart
+  const updRestart = (S) => { S.updGo = 0; if (S.run) saveRun(S); S.saveN++; updAsk(S, 'run'); };
   const updClose = (S) => { S.updOpen = 0; S.focus = 'update'; S.hover = ''; };
   const updWin = (S, inp, keys, x, y, click) => { const U = UI.upd(S.upd), ids = U.r.map((q) => q.id), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (b && inp.moved) S.focus = b.id;
@@ -127,14 +129,16 @@
     if (keys.Escape) { updClose(S); ev(S, { k: 'ui', x, y }); return; }
     const id = click ? (b && b.id) : keys.Enter ? S.focus : null; if (!id) return;
     ev(S, { k: 'ui', x, y });
-    if (id === 'get') updAsk(S, 'get');
+    if (id === 'get') { S.updGo = 1; updAsk(S, 'get'); }
     else if (id === 'open') updAsk(S, 'open');
-    else if (id === 'retry') updAsk(S, S.upd && S.upd.err === 'down' ? 'get' : 'check');
-    // the restart: a run still in play is saved as «Выход» saves it, and the page writes the save before it asks for the restart
-    else if (id === 'run') { if (S.run) saveRun(S); S.saveN++; updAsk(S, 'run'); }
+    else if (id === 'retry') { if (S.upd && S.upd.err === 'down') S.updGo = 1; updAsk(S, S.upd && S.upd.err === 'down' ? 'get' : 'check'); }
+    else if (id === 'run') updRestart(S);
     else updClose(S); };
   SCREEN.menu = (S, inp, keys, x, y, click) => {
     if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
+    // «Обновить» pressed (TASKS 2089): the download that ends while the main menu is up restarts the game at once; one that ends in a
+    // run or the town waits here, and the restart comes with the first step on the menu
+    if (S.updGo && S.upd && S.upd.st === 'ready') { updRestart(S); return; }
     if (S.updOpen) { updWin(S, inp, keys, x, y, click); return; }
     const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit, S.upd), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     const order = U.map((q) => q.id);

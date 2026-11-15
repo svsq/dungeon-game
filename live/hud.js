@@ -1313,6 +1313,8 @@
     U.rows.forEach((r, i) => { const id = 'up_r' + i;
       if (r.k === 'note') { if (r.first) dot(A.x + 92, r.y); KIT.ink(id, wordFit(id, r.s, A.w - 180, 22), A.x + 108, r.y, { size: 22, fit: A.w - 180 }); }
       else if (r.k === 'head') KIT.ink(id, r.s, A.x + 80, r.y, { size: 24, col: I.r });
+      else if (r.k === 'ver') KIT.ink(id, r.s, A.x + 92, r.y, { size: 22, col: I.t, bold: true });
+      else if (r.k === 'more') KIT.ink(id, wordFit(id, r.s, A.w - 180, 20), A.x + 92, r.y, { size: 20, fit: A.w - 180, col: I.d });
       else KIT.ink(id, r.s, A.x + A.w / 2, r.y, { size: r.k === 'dim' ? 22 : 28, al: 0.5, fit: A.w - 120, col: r.k === 'dim' ? I.d : I.t }); });
     if (U.bar) { const B = U.bar; L.rrect(B.x - 2, B.y - 2, B.w + 4, B.h + 4, 6, [0.42, 0.27, 0.15]); L.rrect(B.x, B.y, B.w, B.h, 5, [0.86, 0.76, 0.58]);
       if (B.pct > 0) L.rrect(B.x + 3, B.y + 3, Math.max(8, (B.w - 6) * B.pct / 100), B.h - 6, 3, [0.62, 0.16, 0.09], [0.42, 0.09, 0.05]);

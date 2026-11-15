@@ -34,12 +34,14 @@
       ['menu_quit', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.focus = 'quit'; })],
       // the update (TASKS 1870): the desktop item quiet, focused, and with its mark for a version found, its download and the restart;
       // the browser's item; the window in every state, the longest notes the changelog's menu lines may make (five of 80 characters)
-      ...(() => { const U = (o) => Object.assign({ can: 1, st: 'idle', n: 1, v: '0.5.0' }, o), long = Array.from({ length: 5 }, (_, i) => TXT('QA.states.newsMain').slice(0, 80 - i));
+      ...(() => { const U = (o) => Object.assign({ can: 1, st: 'idle', n: 1, v: '0.5.0' }, o), long = [{ v: '0.5.3', items: Array.from({ length: 5 }, (_, i) => TXT('QA.states.newsMain').slice(0, 80 - i)) }],
+          rels = (n) => Array.from({ length: n }, (_, i) => ({ v: '0.5.' + (n + 2 - i), items: Array.from({ length: 4 }, (_, j) => TXT('QA.states.newsMain').slice(0, 80 - i - j)) }));
         const menu = (n, u, f) => [n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.upd = u; S.focus = f || ''; })];
         const win = (n, u, f) => [n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.upd = u; S.updOpen = 1; S.focus = f || ''; })];
         return [menu('menu_upd', U(), 'update'), menu('menu_upd_avail', U({ st: 'avail' })), menu('menu_upd_down', U({ st: 'down', pct: 42 }), 'update'), menu('menu_upd_ready', U({ st: 'ready' })),
           ['menu_upd_web', mk((S) => { S.saved = null; S.upd = { web: 1, st: 'web', v: '0.5.0', n: 1 }; S.focus = 'update'; })],
-          win('upd_check', U({ st: 'check' })), win('upd_none', U({ st: 'none', v: DATA.VERSION })), win('upd_avail', U({ st: 'avail', notes: (DATA.CHANGES[0] || {}).main || [] })),
+          win('upd_check', U({ st: 'check' })), win('upd_none', U({ st: 'none', v: DATA.VERSION })), win('upd_avail', U({ st: 'avail', notes: [{ v: '0.5.3', items: (DATA.CHANGES[0] || {}).main || [] }] })),
+          win('upd_avail_two', U({ st: 'avail', notes: rels(2) })), win('upd_avail_three', U({ st: 'avail', notes: rels(3) })), win('upd_avail_many', U({ st: 'avail', notes: rels(6) }), 'later'),
           win('upd_avail_long', U({ st: 'avail', notes: long }), 'later'), win('upd_avail_bare', U({ st: 'avail' })), win('upd_down', U({ st: 'down', pct: 42 })), win('upd_down_0', U({ st: 'down', pct: 0 })),
           win('upd_ready', U({ st: 'ready' })), win('upd_err_net', U({ st: 'err', err: 'net' })), win('upd_err_other', U({ st: 'err', err: 'other' }), 'close'), win('upd_err_down', U({ st: 'err', err: 'down' })),
           ['upd_web', mk((S) => { S.saved = null; S.upd = { web: 1, st: 'web', v: '0.5.0', n: 1, notes: long }; S.updOpen = 1; })]]; })(),
