@@ -1,6 +1,6 @@
 // live/sim_checks_colossus.js — selfCheck's part for the colossus's step geometry (TASKS 2073). Node only, like sim_checks.js.
 (function (root) {
-  const SIMX = root.SIMX, { D } = SIMX;
+  const SIMX = root.SIMX, { D } = SIMX, fs = require('fs'), path = require('path');
   // rigs.js is run as the page runs it (tools/scenebox.cjs: the logic may not stand up a page), so whatever it assigns after the table reaches the check too
   const { rigs } = require('../tools/scenebox.cjs');
   // a regenerated rig writes the same joints as the same floats, and a redrawn one moves a joint by a pixel at least, so a millionth of a
