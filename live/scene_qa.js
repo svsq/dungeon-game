@@ -607,6 +607,12 @@
     // the magma caves' caches (TASKS 410, the player's note: they are found too easily), shut, as the hero comes up to them
     for (const [n, f, stage] of [['magma_secret_lever', (o) => o.kind === 'lever' && o.trig && o.trig.k !== 'plate', 0], ['magma_secret_plate', plate, 0]]) { const S = secretS(f, stage, 0, 'magma'); if (S) states.push([n, S]); }
     for (const [n, stage, age] of [['cave_secret_plate', 0], ['cave_secret_plate_sink', 2, 0.04], ['cave_secret_plate_open', 3]]) { const S = secretS(plate, stage, age, 'cave'); if (S) states.push([n, S]); }
+    // TASKS 2081: two maps of one seed and floor, a different secret found on each and the same cells seen (all but the first secret's
+    // wall), drawn one after the other: the minimap and the fog over that wall are each map's own
+    { let base = null; for (let sd = 1; sd < 120 && !base; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); if (S.run.map.secrets.length >= 2) base = S; }
+      if (base) for (const [n, i] of [['map_twin_a', 0], ['map_twin_b', 1]]) { const S = structuredClone(base), R = S.run, m = R.map, q = m.secrets[0], o = m.secrets[i], h = R.hero;
+        SIM.openSecret(S, R, o, true); o.openT = S.t - 9; R.en = []; R.msg = null; S.ev = []; R.seen.fill(1); R.rseen.fill(1); for (const [x, y] of q.wall) R.seen[y * m.W + x] = 0;
+        h.x = q.x - q.dx * 3 * TILE; h.y = q.y - q.dy * 3 * TILE; R.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2]; states.push([n, S]); } }
     // the endless descent (TASKS 353): each biome's first-size and capped-size floor, each of the five bosses in its arena, the menu
     // with a record depth, the end of a run that set a new one
     { const at = (f, find) => { for (let sd = 1; sd < 400; sd++) if (find(DATA.stageOf('endless', f, sd))) return sd; return 0; };

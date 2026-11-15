@@ -203,7 +203,7 @@
   // the box [x0, y0, x1, y1] of cells that differ from what `rec` last saw on this same map, null if it must be rebuilt whole: another
   // map, or a layout that moved with no cell changing (a flood grows m.water, which the cells don't show); false when the key moved
   // for a write the masks cannot see (a prop's cell, a lock's latch) and the cells, water and secrets stand as they were
-  const cellsChanged = (m, rec) => { const stable = m.seed + ':' + m.floor + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('') + ':' + (m.water || []).length; let box = null;
+  const cellsChanged = (m, rec) => { const stable = SIM.Q.keyOf(m.rooms.map((r) => (r.zone || '-')[0]).join(''), (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join(''), (m.water || []).length); let box = null;
     const same = rec.map === m && rec.stable === stable && !!rec.cells && rec.cells.length === m.cells.length;
     if (same) for (let i = 0; i < m.cells.length; i++) if (rec.cells[i] !== m.cells[i]) { const x = i % m.W, y = Math.floor(i / m.W);
       if (!box) box = [x, y, x, y]; else { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); } }
@@ -331,7 +331,7 @@
   }
   function seenTex(R) {
     const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n = (Math.imul(n, 31) + R.seen[i]) | 0;
-    const key = m.seed + ':' + m.floor + ':' + n + ':' + R.rseen.join('');
+    const key = SIM.Q.revKey(m, n, R.rseen.join(''));
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = G.canvas(); }
     const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d', { willReadFrequently: true }), im = g.createImageData(m.W, m.H);
@@ -360,7 +360,7 @@
     const cache = water ? SPELL_WATER : SPELL_FLOOR;
     // a rolling hash of the cells and the explored mask: no string of the whole map per frame (TASKS 242)
     const m = R.map; let hsh = 0; for (let i = 0; i < m.cells.length; i++) hsh = (Math.imul(hsh, 31) + m.cells[i] * 2 + (R.seen[i] ? 1 : 0)) | 0;
-    const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
+    const key = SIM.Q.revKey(m, hsh, (m.secrets || []).filter((q) => q.open).length);
     if (cache.key === key) return cache.rec;
     const cv = cache.cv || (cache.cv = G.canvas()); cv.width = m.W; cv.height = m.H;
     const g = cv.getContext('2d', { willReadFrequently: true }), im = g.createImageData(m.W, m.H), hidden = SIM.Q.secretMask(m);

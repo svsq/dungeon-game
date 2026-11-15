@@ -23,6 +23,9 @@
   // the water's cells as a set, one for the sim's wading and the scene's rings alike (TASKS 2074): a flood grows m.water under both
   const WATER = new WeakMap();
   const waterSet = (m) => { let w = WATER.get(m); if (!w || w.rev !== rev(m)) WATER.set(m, w = { rev: rev(m), cells: new Set(m.water || []) }); return w.cells; };
+  // a cache's key as text (TASKS 2081); one of a map's own starts from its revision, which no other map ever shares, never from its seed and floor
+  const keyOf = (...parts) => parts.join(':');
+  const revKey = (m, ...parts) => keyOf(rev(m), ...parts);
   const mapw = { rev, touch, setCell, fillCells, blockPush, blockOnce, blockDrop, addWater, dropWater, unlatch, put };
-  Object.assign(SIMX, { mapw, rev, waterSet });
+  Object.assign(SIMX, { mapw, rev, waterSet, keyOf, revKey });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -658,7 +658,7 @@
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
     // (a dark room, TASKS 365, is left off the map: its cells read as rock, its way in as a dead end)
-    const hid = new Set([...SIM.Q.secretMask(m), ...SIM.Q.darkMask(R)]), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
+    const hid = new Set([...SIM.Q.secretMask(m), ...SIM.Q.darkMask(R)]), key = SIM.Q.revKey(m, n, R.chests.map((c) => c.open).join(''), R.rseen.join(''), (m.secrets || []).map((q) => q.open).join(''), (m.doors || []).map((d) => d.open).join(''));
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d', { willReadFrequently: true }); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;

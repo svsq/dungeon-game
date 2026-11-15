@@ -22,8 +22,8 @@
   const DIRECT = [new RegExp(RECV + String.raw`cells\[[^\]]*\]\s*=[^=]`), new RegExp(RECV + String.raw`(?:cells|block|water)\s*=[^=]`),
     new RegExp(RECV + String.raw`(?:block|water)\.(?:push|splice|pop|shift|unshift|fill|sort|reverse)\b`), new RegExp(RECV + String.raw`(?:block|water)\[[^\]]*\]\s*=[^=]`),
     /\.geometry\b/, new RegExp(String.raw`(?:\bm|\.map)\.shut\b`)];
-  // a water set of its own beside waterSet (the scene's WET)
-  const OWN_WATER = [/\bWET\b/];
+  // a water set of its own beside waterSet (the scene's WET), and a cache keyed by a map's seed and floor, which two maps share
+  const OWN_WATER = [/\bWET\b/], SEED_KEY = [/seed\s*\+\s*':'/];
   const scan = (res) => { const dir = __dirname, files = fs.readdirSync(dir).filter((f) => /^(sim|scene|hud|ui|monsters)(_\w+)?\.js$/.test(f) && !/^sim_(checks|map)/.test(f)), found = [];
     for (const f of files) fs.readFileSync(path.join(dir, f), 'utf8').split('\n').forEach((line, i) => { const code = line.replace(/(^|\s)\/\/.*$/, ''); if (res.some((re) => re.test(code))) found.push(`${f}:${i + 1}`); });
     return found; };
@@ -73,8 +73,16 @@
     mapw.dropWater(m, [k]); if (SIMX.waterSet(m).has(k)) out.push('maprev: the water set keeps a cell the arena drained');
     for (const at2 of scan(OWN_WATER)) out.push(`maprev: ${at2} keeps a water set of its own`);
   }
+  // TASKS 2081: two maps of one seed and floor never share a cache key, the revision tells them apart
+  function keyCheck(out) {
+    const a = plain(9).run.map, b = plain(9).run.map;
+    if (SIMX.revKey(a, 1) === SIMX.revKey(b, 1)) out.push('maprev: two maps of one seed and floor share a cache key');
+    const r = SIMX.revKey(a, 1); mapw.touch(a); if (SIMX.revKey(a, 1) === r) out.push('maprev: a map\'s cache key stays put over a write');
+    for (const at of scan(SEED_KEY)) out.push(`maprev: ${at} keys a cache by the seed`);
+  }
   SIMX.checks.add('mapRevCheck', mapRevCheck);
   SIMX.checks.add('mapWaterCheck', waterCheck);
+  SIMX.checks.add('mapKeyCheck', keyCheck);
   SIMX.checks.add('mapTwinCheck', twinCheck);
   SIMX.checks.add('mapStatueCheck', statueCheck, { slow: true });
 })(typeof window !== 'undefined' ? window : globalThis);
