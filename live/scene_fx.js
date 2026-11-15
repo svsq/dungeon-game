@@ -20,7 +20,8 @@
     G.blend('add');
     // shrine and portal
     if (m.town) for (const q of m.town.lights) { const L0 = TOWN_LIGHT[q.kind]; if (!L0 || !L0.glow || !vis(q.x, q.y)) continue; const [gx, gy, gr, ga] = L0.glow, b = q.kind === 'runes' || q.kind === 'altar' ? 0.8 + 0.2 * Math.sin(t * 1.3 + q.x) : flick(q.x * 3 + q.y);   // (the altar's glow beats as its light does, TASKS 2009: a fire's flicker over the hero by it)
-      if (q.kind === 'adit') { const px = Math.round(sx(q.x) + gx), py = Math.round(sy(q.y) + gy); for (const [r, a] of [[14, 0.14], [10, 0.2], [6, 0.34]]) { L.solid(px - r, py - Math.round(r * 0.6), 2 * r, 2 * Math.round(r * 0.6), L0.col, 0, 0, 0, a * b); L.solid(px - Math.round(r * 0.6), py - r, 2 * Math.round(r * 0.6), 2 * r, L0.col, 0, 0, 0, a * b); } continue; }
+      if (q.kind === 'adit') { const px = Math.round(sx(q.x) + gx), py = Math.round(sy(q.y) + gy); for (const [r, a] of [[14, 0.14], [10, 0.2], [6, 0.34]]) { L.solid(px - r, py - Math.round(r * 0.6), 2 * r, 2 * Math.round(r * 0.6), L0.col, 0, 0, 0, a * b); L.solid(px - Math.round(r * 0.6), py - r, 2 * Math.round(r * 0.6), 2 * r, L0.col, 0, 0, 0, a * b); }
+        L.glow(px, py, L0.lamp.r, L0.lamp.col, L0.lamp.amt * b, L0.lamp.k); continue; }
       L.glow(sx(q.x) + gx, sy(q.y) + gy, gr, L0.col, ga * b); }
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
     // a trapped chest gives itself away to a careful eye: now and then a thread of dust from under the lid (TASKS 1357)

@@ -40,7 +40,7 @@
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
     // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
-    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.17, 0.157, 0.17], ambK: 0.65, ambLvl: 1.0, fireK: 1.1, bigK: 0.55, torch: [1.0, 0.66, 0.36], torchR: 0.55, spill: [1.1, 0.35], topLift: 1.3, floorG: 1.3, wallG: [0.9, 0.9, 0, 1.05], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
+    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.17, 0.157, 0.17], ambK: 0.65, ambLvl: 1.0, fireK: 1.1, bigK: 0.55, torch: [1.0, 0.66, 0.36], torchR: 0.55, spill: [1.1, 0.35], topLift: 1.6, floorG: 1.3, wallG: [0.9, 0.9, 0, 1.05], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
       tint: [1, 1, 1], roster: [], props: [], town: true },
   };
 
