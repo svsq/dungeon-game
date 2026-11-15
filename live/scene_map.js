@@ -19,8 +19,10 @@
     runes: { r: 150, col: [0.46, 0.58, 0.85], amt: 1.2, dy: 20, core: 28, glow: [0, 8, 26, 0.3] }, altar: { r: 150, col: [0.36, 0.54, 0.95], amt: 1.3, dy: 34, core: 36, glow: [0, -14, 34, 0.5] }, portal: { r: 110, col: [1, 0.58, 0.24], amt: 0.7, dy: 0, core: 30, glow: [0, 0, 30, 0.2] },
     stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 13, 1] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
   const PAVE_K = 1, PAVE_TS = 160;
-  // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
-  const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
+  // rail_tw_h in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77; one sleeper's box, one rail's band and the
+  // gauge between the rails' middles (live/assets size). `reach`: the sleepers drawn longer than painted, out past the rails, and
+  // `h`: the world height of the painted piece's 131 px
+  const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72, sleeper: [23, 4, 61, 124], band: [20, 46], gauge: 64, reach: 1.3, H: 38 };
   // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
   const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', mason: 'bin', sweeper: 'fire' };
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
@@ -29,6 +31,17 @@
 
   const railPts = D.railPts;
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
+  // the rails lie on the floor (TASKS 2012): each stretch is laid in floor space and squashed to the view's depth with the town's
+  // other flat things, so the adit's plumb stretch recedes (close sleepers) instead of standing up the screen as a ladder, and the
+  // sleepers, cut from the piece one by one, reach out past the rails, which run over them unbroken as two bands of the same piece
+  function track(pts) {
+    const k = RAIL.H / RAIL.h, K = D.CART.floor, [s0, t0, s1, t1] = RAIL.sleeper, [b0, b1] = RAIL.band, per = RAIL.per * k, U = { grade: [1, 1.35, 0, 1] };
+    const sw = (s1 - s0) * k, sl = (t1 - t0) * k * RAIL.reach, bh = (b1 - b0) * k, g = RAIL.gauge * k;
+    const lay = (fn) => { let carry = 0; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, (by - ay) / K), a = Math.atan2((by - ay) / K, bx - ax);
+      let d = carry; for (; d < len; d += per) fn(M.of(M.t(ax + (bx - ax) * d / len, ay + (by - ay) * d / len), M.s(1, K), M.r(a))); carry = d - len; } };
+    lay((m) => L.sprite('rail_tw_h', 0, 0, { m, w: sw, h: sl, pivot: [sw / 2, sl / 2], src: [s0 / RAIL.w, t0 / RAIL.h, s1 / RAIL.w, t1 / RAIL.h], u: U }));
+    for (const side of [-1, 1]) lay((m) => L.sprite('rail_tw_h', 0, 0, { m, w: per + 0.5, h: bh, pivot: [per / 2, bh / 2 - side * g / 2], src: [RAIL.u0, b0 / RAIL.h, RAIL.u0 + RAIL.per / RAIL.w, b1 / RAIL.h], u: U }));
+  }
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 8;
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (c(x, y) !== 1 || P.has(y * m.W + x)) continue;
@@ -39,13 +52,8 @@
         if (d + 0.45 * rnd(x * 4 + i, y * 4 + j) > 0.55) continue;
         const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
         L.sprite(B.pave, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [1, PAVE_K, 0, 1] } }); } }
-    // the rails: one sleeper period of the straight piece (a gap's middle to the next, so it repeats without its end caps) laid
-    // edge to edge along the line through the rail cells' centres, turned to each stretch, at the piece's own proportions
-    const T = m.town, pts = railPts(m), RH = 38, RP = RH * RAIL.per / RAIL.h;
-    let carry = 0;
-    for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, by - ay), a = Math.atan2(by - ay, bx - ax);
-      let d = carry; for (; d < len; d += RP) { const x = ax + (bx - ax) * d / len, y = ay + (by - ay) * d / len;
-        L.sprite('rail_tw_h', 0, 0, { m: M.of(M.t(x, y), M.r(a)), w: RP + 0.5, h: RH, pivot: [RP / 2, RH / 2], src: [RAIL.u0, 0, RAIL.u0 + RAIL.per / RAIL.w, 1], u: { grade: [1, 1.35, 0, 1] } }); } carry = d - len; }
+    const T = m.town;
+    track(railPts(m));
     // the portal's disc and the rune ring lie flat on the floor: squashed to the view's depth (TASKS 1030: drawn round they stood up)
     const disc = (n, o, w, u) => { const [w0, h0] = SZ(n), k = w / w0, h = h0 * k * 0.68; L.puff(o.x, o.y + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite(n, o.x - w / 2, o.y - h / 2, { w, h, u }); };
     // the rune ring's grooves are thin: lifted, so the enchanter's blue light finds them

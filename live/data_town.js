@@ -96,13 +96,16 @@
   // `roll` and narrows to the front one's width (`squash`, its long side foreshortening as it turns away) to keep its wheels on the
   // bend; the front one never turns: its uprights stay plumb and only its axle tilts (a shear) to lie square to the rails on the
   // floor squashed to the view's depth (`floor`, as the floor discs). One painting at a time: a cross-fade showed both carts at once
-  const CART = { side: 23, front: 58, straight: 45, roll: 30, squash: 0.8, floor: 0.68, reach: 14 };
+  // `seat`: the 3/4 painting's point that rides the rails' middle, off its bottom centre in parts of its size (TASKS 2012: at the
+  // bottom centre its near wheels ran on the rails' middle and the box hung out over the far rail and past it); it eases back to
+  // the bottom centre through the turn, where the front painting takes over from there
+  const CART = { side: 23, front: 58, straight: 45, roll: 30, squash: 0.8, floor: 0.68, reach: 14, seat: [-0.2, -0.14] };
   const cartView = (pts, s) => {
     const tot = pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0),
       at = (d) => { d = Math.max(0, Math.min(tot, d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } },
       q0 = at(s - CART.reach), q1 = at(s + CART.reach), th = Math.atan2(Math.abs(q1[1] - q0[1]), Math.abs(q1[0] - q0[0])) * 180 / Math.PI, R2D = 180 / Math.PI;
     if (th < CART.front) { const k = Math.max(0, Math.min(1, (th - CART.straight) / (CART.front - CART.straight))), sx = 1 - (1 - CART.squash) * k;
-      return { th, side: 1, sx, rot: -(th - Math.atan(Math.tan(CART.side / R2D) / sx) * R2D), tilt: 0 }; }
+      return { th, side: 1, turn: k, sx, rot: -(th - Math.atan(Math.tan(CART.side / R2D) / sx) * R2D), tilt: 0 }; }
     return { th, side: 0, sx: 1, rot: 0, tilt: Math.atan(CART.floor * CART.floor / Math.tan(th / R2D)) * R2D };
   };
   Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, railPts, CART, cartView });
