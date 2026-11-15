@@ -84,6 +84,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const downloadLog = (res) => { const d = new Date(), pad = (n) => String(n).padStart(2, '0'), stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
     const body = Object.assign({ date: d.toISOString() }, res.log, { result: Object.assign({}, res, { log: undefined }) });
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(body, null, 1)], { type: 'application/json' })); a.download = `crypt-run-${stamp}.json`; a.click(); };
+  SIMX.release = STATIC;
   let play = null, acc = 0, simT = 0, speed = 1, paused = false, stepOnce = false, fps = 60;
   try { const sv = JSON.parse(sessionStorage.getItem('live2') || 'null');                     // restore across live reloads
     if (sv) { simT = sv.simT; speed = sv.speed; paused = sv.paused; if (sv.play) { play = Object.assign(SIM.create(), sv.play); }

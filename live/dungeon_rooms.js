@@ -64,7 +64,7 @@
     // a random order along the chain; the lava pours into its rock once the floor is laid (platLava). The plateaus on its shore are
     // smaller than the plain floor's and ring it
     // a floor type's own sizes and spacing over the plain floor's (data.js ARCH.plateau[type])
-    const TY = Object.assign({}, AR, MIX ? Object.assign({}, MIX, { lakes: 0, gap: AR.blend.gap }) : {}, plat && ftype && AR[ftype] ? AR[ftype] : {}), shareOf = !plat ? null : MIX ? [Math.min(MIX.share[0], AR[ftype].share[0]), Math.max(MIX.share[1], AR[ftype].share[1])] : (AR[ftype] && AR[ftype].share) || AR.lava.share;
+    const TY = Object.assign({}, AR, MIX ? Object.assign({}, MIX, { lakes: 0, gap: AR.blend.gap }) : {}, plat && ftype && AR[ftype] ? AR[ftype] : {}), shareOf = !plat ? null : MIX ? [Math.min(MIX.share[0], AR[ftype].share[0]), Math.max(MIX.share[1], AR[ftype].share[1])] : [...((AR[ftype] && AR[ftype].share) || AR.lava.share)];
     // a cave floor of the magma caves (TASKS 431) is laid out as the water caves' are, halls in the rock and winding tunnels, its
     // water lava; pl: the plateaus' layout (everything else of the magma caves holds for both)
     const lc = plat && ftype === 'cave', pl = plat && !lc;

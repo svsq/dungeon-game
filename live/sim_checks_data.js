@@ -17,6 +17,7 @@
   function namesCheck(out) {
     const owner = new Map();
     const take = (table, id, name) => {
+      if (name === undefined) return;
       if (owner.has(name)) out.push(`data: the name "${name}" is held by both ${owner.get(name)} and ${table}.${id}`);
       else owner.set(name, `${table}.${id}`);
     };

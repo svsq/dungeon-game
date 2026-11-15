@@ -121,8 +121,8 @@
         void keep; void en; }
       // (review of PR 69: a way down that does not open counts no win and keeps the campaign, and the next try counts it; on a copy)
       { const T4 = spawn(1, JSON.parse(JSON.stringify(persist(S2)))), Q = T4.saved; T4.run = Q; T4.saved = null; T4.screen = 'play'; const w = T4.meta.wins || 0, sh = T4.meta.shards;
-        const cp = root.SIMX.captivePlace, err = console.error; root.SIMX.captivePlace = () => { throw new Error('a step that fails'); }; console.error = () => {};
-        try { descend(T4, Q); } finally { root.SIMX.captivePlace = cp; console.error = err; }
+        const cp = root.SIMX.captivePlace, rel = root.SIMX.release, err = console.error; root.SIMX.captivePlace = () => { throw new Error('a step that fails'); }; root.SIMX.release = true; console.error = () => {};
+        try { descend(T4, Q); } finally { root.SIMX.captivePlace = cp; root.SIMX.release = rel; console.error = err; }
         if (Q.floor !== F || Q.campaignWon || Q.mode !== 'campaign' || (T4.meta.wins || 0) !== w || T4.meta.shards !== sh) out.push('climb: a way down past the colossus that does not open counts the win or leaves the campaign');
         descend(T4, Q); if (T4.meta.wins !== w + 1 || Q.floor !== F + 1 || !Q.campaignWon) out.push('climb: the win is not counted on the try after a way down that did not open'); }
       descend(S2, R2); const w0 = S2.meta.wins, s0 = S2.meta.shards;

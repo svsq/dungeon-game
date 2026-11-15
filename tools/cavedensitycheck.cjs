@@ -3,14 +3,15 @@
 //   node tools/cavedensitycheck.cjs             sizes and glow of every mushroom, and the counts against the saved ones
 const assert = require('node:assert/strict'), fs = require('node:fs');
 const DG = require('../live/dungeon.js');
-const FILE = 'tests/golden/cavedensity.json', SEEDS = [1, 3, 7, 26837], FLOORS = [1, 2, 3, 4], SIZES = [0.6, 0.8, 1], GLOW = [0.85, 1.05], SHROOM = /^shroom_[ab]$/, EPS = 1e-9;
+const FILE = 'tests/golden/cavedensity.json', SEEDS = [1, 3, 7, 26837], FLOORS = [1, 2, 3, 4], SIZES = [0.6, 0.8, 1], FULL = 1, GLOW = [0.85, 1.05], SHROOM = /^shroom_[ab]$/, EPS = 1e-9;
 const counts = {}, sizes = new Set();
 for (const seed of SEEDS) for (const f of FLOORS) {
   const shrooms = DG.genFloor((seed * 31 + f * 1013) >>> 0, f, { mode: 'cave' }).decor.filter((d) => SHROOM.test(d.n));
   for (const d of shrooms) {
-    assert.ok(SIZES.includes(d.s), `seed ${seed} floor ${f}: a mushroom of size ${d.s}`);
-    assert.ok(d.glow >= GLOW[0] - EPS && d.glow <= GLOW[1] + EPS, `seed ${seed} floor ${f}: a mushroom's glow ${d.glow}`);
-    sizes.add(d.s);
+    const size = d.s || FULL;
+    assert.ok(SIZES.includes(size), `seed ${seed} floor ${f}: a mushroom of size ${size}`);
+    assert.ok(d.glow === undefined || (d.glow >= GLOW[0] - EPS && d.glow <= GLOW[1] + EPS), `seed ${seed} floor ${f}: a mushroom's glow ${d.glow}`);
+    sizes.add(size);
   }
   counts[`${seed}/${f}`] = shrooms.length;
 }

@@ -3,9 +3,9 @@
 // without looking: time, hits by source (vent, gate, rock, surge, burn, spike, lava), stuck. HP shares (the blow before a shield takes its part) count against an 850-HP
 // hero (QA level 15); the sim's hero is level 1, so the share of max-HP hits is taken from the sim and the flat ticks from 850.
 // Rebuilt for r15 (r14 hazT.cjs and arrive2.cjs were lost 12.11.2026): new base, compare with r14 by trend only.
-const { SIM, D, T, way, follow, idle, evNow, mean } = require('./lib.cjs'); const N = +(process.argv[2] || 20), HERO_HP = 850;
+const { SIM, D, T, way, follow, idle, evNow, mean, fresh } = require('./lib.cjs'); const N = +(process.argv[2] || 20), HERO_HP = 850;
 const rows = [];
-for (let sd = 1; sd <= N; sd++) { const S = SIM.create(); S.demo = 0; S.meta = S.meta || {}; S.run = SIM.newRun(S, 'campaign', sd * 7, { town: true }); S.screen = 'play';
+for (let sd = 1; sd <= N; sd++) { const S = fresh(); S.run = SIM.newRun(S, 'campaign', sd * 7, { town: true }); S.screen = 'play';
   for (let g = 1; g <= 16; g++) { SIM.enterFloor(S, S.run, g); if (g < 13) continue; const R = S.run, m = R.map, h = R.hero; if (m.biome !== 'magma') continue;
     if (R.maxHp0 === undefined) R.maxHp0 = h.hp; const maxHp = R.maxHp0, keep = () => { h.hp = 1e5; }; const snap = JSON.stringify({ x: h.x, y: h.y });
     // arrival

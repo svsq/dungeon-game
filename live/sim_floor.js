@@ -164,7 +164,6 @@
   // yet (newRun) has nothing to go back to, and its failure is thrown on. Only the packed build (pack.py sets __STATIC__) goes back and
   // tells the player it failed; in the sources, in the checks and in the bots the error goes up with its trace, as a code error must
   // not become a message that a golden run or a bot walks past (TASKS 2066), and nothing is cloned for a step that cannot be undone
-  const RELEASE = typeof window !== 'undefined' && !!window.__STATIC__;
   function enterFloor(S, R, f, gen, how = 'down') {
     if (!R.map || !SIMX.release) { goFloor(S, R, f, gen, how); return true; }
     const { memo, ...rest } = R, was = structuredClone(rest), refs = Object.assign({}, rest), kept = memo && Object.entries(memo).map(([k, M]) => [k, M, Object.assign({}, M)]);
@@ -391,6 +390,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    release: RELEASE, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, completion, runCompletion, completionHints, stepHazards,
+    release: false, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);
