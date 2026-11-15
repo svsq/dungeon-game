@@ -19,8 +19,13 @@
     runes: { r: 150, col: [0.46, 0.58, 0.85], amt: 1.2, dy: 20, core: 28, glow: [0, 8, 26, 0.3] }, altar: { r: 150, col: [0.36, 0.54, 0.95], amt: 1.3, dy: 34, core: 36, glow: [0, -14, 34, 0.5] }, portal: { r: 110, col: [1, 0.58, 0.24], amt: 0.7, dy: 0, core: 30, glow: [0, 0, 30, 0.2] },
     stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 13, 1] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
   const PAVE_K = 1, PAVE_TS = 160;
-  // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
-  const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
+  // the track's two paintings in their own pixels (live/assets size; TASKS 2012): `per` one sleeper and the ballast after it, `at` the
+  // middle of the first gap between two sleepers (where a period is cut, so it repeats without its ends), `gauge` between the rails'
+  // middles. `h` is seen from straight above and laid in floor space, `v` runs up the screen as the 3/4 camera sees it, for a stretch
+  // within `steep` degrees of plumb (the adit's); `gauge` (view px) sizes both, as the cart's wheels were set on; `lift` brings each
+  // painting's sleepers to one brown (the plumb one came out a quarter lighter)
+  const RAIL = { gauge: 18.6, steep: 20, h: { tex: 'rail_tw_h', w: 1516, h: 355, at: 198, per: 160, gauge: 123.5, lift: 1.35 },
+    v: { tex: 'rail_tw_v', w: 489, h: 1526, at: 190, per: 137, gauge: 161, lift: 1.08 } };
   // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
   const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', mason: 'bin', sweeper: 'fire' };
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
@@ -29,6 +34,22 @@
 
   const railPts = D.railPts;
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
+  // the rails lie on the floor (TASKS 2012): a stretch across the screen is laid in floor space and squashed to the view's depth with
+  // the town's other flat things; the adit's plumb stretch takes the painting that already recedes, its sleepers drawn closer
+  // as the floor goes away. Either way one period of the painting (a sleeper, its ballast and the rails over them) after another
+  function track(pts) {
+    const K = D.CART.floor, cut = (P) => [P.at / P.w, P.at / P.h];
+    const lay = (P, along, size, src, place) => { const k = RAIL.gauge / P.gauge, per = P.per * k; let carry = 0;
+      for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], plumb = Math.atan2(Math.abs(bx - ax), Math.abs(by - ay)) * 180 / Math.PI < RAIL.steep;
+        if (plumb !== (P === RAIL.v)) { carry = 0; continue; }
+        const len = along(bx - ax, by - ay);
+        let d = carry; for (; d < len; d += per) { const [w, h] = size(P, k, per); L.sprite(P.tex, 0, 0, { m: place(ax + (bx - ax) * d / len, ay + (by - ay) * d / len, bx - ax, by - ay), w, h, pivot: [w / 2, h / 2], src: src(P), u: { grade: [1, P.lift, 0, 1] } }); }
+        carry = d - len; } };
+    lay(RAIL.h, (dx, dy) => Math.hypot(dx, dy / K), (P, k, per) => [per + 0.5, P.h * k], (P) => [cut(P)[0], 0, cut(P)[0] + P.per / P.w, 1],
+      (x, y, dx, dy) => M.of(M.t(x, y), M.s(1, K), M.r(Math.atan2(dy / K, dx))));
+    lay(RAIL.v, (dx, dy) => Math.hypot(dx, dy), (P, k, per) => [P.w * k, per + 0.5], (P) => [0, cut(P)[1], 1, cut(P)[1] + P.per / P.h],
+      (x, y, dx, dy) => { const up = dy > 0 ? 1 : -1; return M.of(M.t(x, y), M.r(Math.atan2(-dx * up, dy * up))); });
+  }
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 8;
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (c(x, y) !== 1 || P.has(y * m.W + x)) continue;
@@ -39,13 +60,8 @@
         if (d + 0.45 * rnd(x * 4 + i, y * 4 + j) > 0.55) continue;
         const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
         L.sprite(B.pave, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [1, PAVE_K, 0, 1] } }); } }
-    // the rails: one sleeper period of the straight piece (a gap's middle to the next, so it repeats without its end caps) laid
-    // edge to edge along the line through the rail cells' centres, turned to each stretch, at the piece's own proportions
-    const T = m.town, pts = railPts(m), RH = 38, RP = RH * RAIL.per / RAIL.h;
-    let carry = 0;
-    for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, by - ay), a = Math.atan2(by - ay, bx - ax);
-      let d = carry; for (; d < len; d += RP) { const x = ax + (bx - ax) * d / len, y = ay + (by - ay) * d / len;
-        L.sprite('rail_tw_h', 0, 0, { m: M.of(M.t(x, y), M.r(a)), w: RP + 0.5, h: RH, pivot: [RP / 2, RH / 2], src: [RAIL.u0, 0, RAIL.u0 + RAIL.per / RAIL.w, 1], u: { grade: [1, 1.35, 0, 1] } }); } carry = d - len; }
+    const T = m.town;
+    track(railPts(m));
     // the portal's disc and the rune ring lie flat on the floor: squashed to the view's depth (TASKS 1030: drawn round they stood up)
     const disc = (n, o, w, u) => { const [w0, h0] = SZ(n), k = w / w0, h = h0 * k * 0.68; L.puff(o.x, o.y + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite(n, o.x - w / 2, o.y - h / 2, { w, h, u }); };
     // the rune ring's grooves are thin: lifted, so the enchanter's blue light finds them
@@ -53,7 +69,9 @@
   }
   function bake(m) {
     const key = mapKey(m); if (BAKE.key === key) return; BAKE.key = key;
-    const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome], changed = cellsChanged(m, BAKE), box = changed && BAKE.tg && BAKE.tg.w === MW && BAKE.tg.h === MH ? changed : null;
+    const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome], changed = cellsChanged(m, BAKE), kept = !!BAKE.tg && BAKE.tg.w === MW && BAKE.tg.h === MH;
+    if (changed === false && kept) return;
+    const box = changed && kept ? changed : null;
     // the shaders read the masks a few cells around each pixel: the falling cells' neighbours repaint, the rest of the map stands
     const clip = (tg) => { if (!box) { G.clip(null); return; } const x = Math.max(0, (box[0] - 8) * TILE), y = Math.max(0, (box[1] - 8) * TILE); G.clip(tg, x, y, Math.min(MW, (box[2] + 9) * TILE) - x, Math.min(MH, (box[3] + 9) * TILE) - y); };
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
@@ -196,21 +214,25 @@
   // a set of cells (lava, water) as a soft mask, 4 texels a cell, blurred over about a cell so its 0.5 contour runs along the cells'
   // edges and rounds their corners
   const MASKS = {};
-  // a map's key with its secrets' state: an unfound secret room is rock to the masonry and the abyss, found it gets its rim
-  const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + (m.geometry || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
+  // a map's key is its revision (sim_map.js): any write to the floor moves it, a found secret room, which gets its rim, among them
+  const mapKey = (m) => SIM.Q.rev(m);
   // the box [x0, y0, x1, y1] of cells that differ from what `rec` last saw on this same map, null if it must be rebuilt whole: another
-  // map, or a key that moved with no cell changing (a flood grows m.water, which the cells don't show)
-  const cellsChanged = (m, rec) => { const stable = m.seed + ':' + m.floor + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('') + ':' + (m.water || []).length; let box = null;
-    if (rec.stable === stable && rec.cells && rec.cells.length === m.cells.length) for (let i = 0; i < m.cells.length; i++) if (rec.cells[i] !== m.cells[i]) { const x = i % m.W, y = Math.floor(i / m.W);
+  // map, or a layout that moved with no cell changing (a flood grows m.water, which the cells don't show); false when the key moved
+  // for a write the masks cannot see (a prop's cell, a lock's latch) and the cells, water and secrets stand as they were
+  const cellsChanged = (m, rec) => { const stable = SIM.Q.keyOf(m.rooms.map((r) => (r.zone || '-')[0]).join(''), (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join(''), (m.water || []).length); let box = null;
+    const same = rec.map === m && rec.stable === stable && !!rec.cells && rec.cells.length === m.cells.length;
+    if (same) for (let i = 0; i < m.cells.length; i++) if (rec.cells[i] !== m.cells[i]) { const x = i % m.W, y = Math.floor(i / m.W);
       if (!box) box = [x, y, x, y]; else { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); } }
-    rec.stable = stable; rec.cells = Uint8Array.from(m.cells); return box; };
+    rec.map = m; rec.stable = stable; rec.cells = Uint8Array.from(m.cells); return same && !box ? false : box; };
   // R: the soft mask; G, B (vec, optional): a direction per cell (x, y in -1..1) around 0.5, not blurred: the shader reads its cell's
   // own with texelFetch
   // reach: how many cells away `has` looks. Only the cells that changed are redone, out to what the blur can carry: an arena's edge
   // falling a cell at a time rebuilt every mask whole on each of some 60 frames, up to 490 ms apiece (TASKS 1362)
   function maskTex(m, name, has, vec, passes = 2, reach = 0) {
     const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null, im: null, stable: '', cells: null }), key = mapKey(m); if (M.key === key) return M.rec; M.key = key;
-    const K = 4, W = m.W * K, H = m.H * K, pad = 2 * passes, changed = cellsChanged(m, M), box = changed && M.im && M.im.width === W && M.im.height === H ? changed : null;
+    const K = 4, W = m.W * K, H = m.H * K, pad = 2 * passes, changed = cellsChanged(m, M), kept = !!M.im && M.im.width === W && M.im.height === H;
+    if (changed === false && kept && M.rec) return M.rec;
+    const box = changed && kept ? changed : null;
     const x0 = box ? Math.max(0, (box[0] - reach) * K - pad) : 0, y0 = box ? Math.max(0, (box[1] - reach) * K - pad) : 0, x1 = box ? Math.min(W, (box[2] + 1 + reach) * K + pad) : W, y1 = box ? Math.min(H, (box[3] + 1 + reach) * K + pad) : H;
     // the output's every texel reads this far at each pass, so a window `pad` wider blurs them exactly as the whole map would
     const ax0 = Math.max(0, x0 - pad), ay0 = Math.max(0, y0 - pad), AW = Math.min(W, x1 + pad) - ax0, AH = Math.min(H, y1 + pad) - ay0;
@@ -234,8 +256,15 @@
   }
   // a river's crust drifts its way (dungeon.js lavaFlow: 0 right, 1 down, 2 left, 3 up); a pool, or the staged field, lies still
   const FLOW = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-  // the magma caves' lava runs on under its slabs and bridges, not under a stone arch (TASKS 401)
-  const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m); if (!u) { const arch = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => c.cells)); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !arch.has(k)))); } return u; };
+  // a stone arch (TASKS 480, 1925): its crown `crown` of its height up from `gap` px under the walk's near edge; the walk's cells whose far
+  // edge lies above `deck` of its height under the crown carry basalt slabs, the rest lie under its span
+  const ARCH = { crown: 0.35, deck: 0.12, gap: 2 };
+  const archNear = (m, c) => (Math.max(...c.cells.map((k) => Math.floor(k / m.W))) + 1) * TILE;
+  const archWalk = (m, c) => { const ht = SZ('arch_mg')[1], y1 = archNear(m, c); return c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + ARCH.gap - ARCH.crown * ht + ARCH.deck * ht); };
+  // the magma caves' lava runs on under its slabs and bridges and under an arch's span, not under the arch's walk (TASKS 401); under the span
+  // it was left out too while the arch was a solid deck, and the open arch of 1925 showed a dark patch with straight edges there (TASKS 1962)
+  const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m);
+    if (!u) { const walk = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => archWalk(m, c))); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !walk.has(k)))); } return u; };
   const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.Q.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x), (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
   // its glow (the emissive pass, drawn over everything) leaves out what lies under a crossing, or it shines through the slabs and planks
   const surgeTex = (m, z) => { const lv = new Map(z.cells.map((k, i) => [k, z.lv[i]])), F = fallsOf(m), f = F.length ? F.reduce((a, b) => (Math.hypot(b.x - z.x, b.y - z.y) < Math.hypot(a.x - z.x, a.y - z.y) ? b : a)) : z;
@@ -325,7 +354,7 @@
   }
   function seenTex(R) {
     const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n = (Math.imul(n, 31) + R.seen[i]) | 0;
-    const key = m.seed + ':' + m.floor + ':' + n + ':' + R.rseen.join('');
+    const key = SIM.Q.revKey(m, n, R.rseen.join(''));
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = G.canvas(); }
     const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d', { willReadFrequently: true }), im = g.createImageData(m.W, m.H);
@@ -354,7 +383,7 @@
     const cache = water ? SPELL_WATER : SPELL_FLOOR;
     // a rolling hash of the cells and the explored mask: no string of the whole map per frame (TASKS 242)
     const m = R.map; let hsh = 0; for (let i = 0; i < m.cells.length; i++) hsh = (Math.imul(hsh, 31) + m.cells[i] * 2 + (R.seen[i] ? 1 : 0)) | 0;
-    const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
+    const key = SIM.Q.revKey(m, hsh, (m.secrets || []).filter((q) => q.open).length);
     if (cache.key === key) return cache.rec;
     const cv = cache.cv || (cache.cv = G.canvas()); cv.width = m.W; cv.height = m.H;
     const g = cv.getContext('2d', { willReadFrequently: true }), im = g.createImageData(m.W, m.H), hidden = SIM.Q.secretMask(m);
@@ -372,6 +401,6 @@
   }
 
   Object.assign(SCX, {
-    TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, railPts, bake, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, swimTex, fallU, cliffTex, lavaNearTex,
+    ARCH, archNear, archWalk, TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, railPts, bake, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, swimTex, fallU, cliffTex, lavaNearTex,
     crustTex, topTex, veinTex, waterTex, deepTex, SRC_KIND, SRC_DIR, openTex, voidTex, seenTex, spellFloor });
 })(typeof window !== 'undefined' ? window : globalThis);

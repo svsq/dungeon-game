@@ -2,9 +2,9 @@
 // A pass of SC.render (ARCHITECTURE.md §4.3): it reads the frame's shared values from F and leaves there what later passes use.
 (function () {
   const SCX = window.SCX, {
-    ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
-    PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
-    deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, flameAt, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
+    ARCH, ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
+    PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, cliffTex, crustTex,
+    archNear, archWalk, deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, flameAt, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   const HERO_RIM = { x: 0, y: 0 };
   // a colossus's crack in local (along, across) world px, one shape for the wind-up's hairlines and the split that runs (TASKS 1749):
@@ -127,7 +127,7 @@
     if (!caveW) for (const k of m.waterBridges || []) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE; if (!vis(x, y)) continue;
       const n = rnd(k, 3) < 0.35 ? 'water_stone_b' : 'water_stone_a', [w, hh] = SZ(n), jx = Math.round((rnd(k, 5) - 0.5) * 4) * 2;
       L.shadow(sx(x + jx), sy(y + hh / 2), w * 0.45, 4, 0.5); drawProp(n, sx(x + jx), sy(y) + hh / 2, { flip: rnd(k, 9) < 0.5, u: { grade: [0.85, 0.72, 0, 1] } }); }
-    const wetSet = WET.get(m) || (WET.set(m, new Set(m.water)), WET.get(m));
+    const wetSet = SIM.Q.waterSet(m);
     const dryCrossings = new Set((m.crossings || []).filter((c) => c.kind === 'bridge' || c.kind === 'ford').flatMap((c) => c.cells));
     const inWet = (x, y) => { const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE); return SIM.Q.cell(m, cx, cy) === 6 || wetSet.has(cy * m.W + cx); };
     const ev2 = (v) => Math.round(v / 2) * 2;
@@ -156,11 +156,10 @@
       L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: fl, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
       drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { tint: [1.35, 1.28, 1.25, 1] } }); drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { cut: [foot - hh * 0.3, 2, 1] }, warm: HERO.lavaWarm(x, y) });   // (the warm foot by the lava, TASKS 1793)
       basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, fl]); } };
-    const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
-      // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
-      // river it was redrawn 7–15× smaller than painted and lost its contour)
-      const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
-      basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
+    const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = archNear(m, c);
+      // (its size is fixed on the art grid, TASKS 480: scaled to the river it was redrawn 7–15× smaller than painted and lost its contour)
+      const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + ARCH.gap - ARCH.crown * ht);
+      basaltSlabs(c, archWalk(m, c));
       L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); // (TASKS 1925: its legs dark red in the lava's light as ref_cave_lava's, C 9.6 against 12.8; its crown stays grey)
       L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [1.8, 0.42, 0.24, 0.9] } }); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.95, 0.5, 0.32, 0.55], cut: [Y + 0.5 * ht, 40, 1] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
@@ -312,10 +311,10 @@
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
     const brokenPots = R.pots.filter((p) => p.hp <= 0 && p.kind !== 'gold' && p.kind !== 'goldpile' && vis(p.x, p.y) && !SIM.Q.hidden(m, p)), brokenWrecks = m.decor.filter((d) => d.n === 'wreck_cv' && d.broken && vis(d.x, d.y)), brokenShelves = m.decor.filter((d) => d.n === 'bookshelf' && d.secret !== undefined && d.broken && vis(d.x, d.y));
-    const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
-    const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood ? 'wood' : 'clay', wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
+    const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), 'wreck', 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
     // a broken bookcase (TASKS 1852): its planks as a crate's, wider, and the books it held lying among them once they have fallen
-    const shelfDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 7 + d.y * 5, GT - (d.brokeT ?? -9), true, 12, 1.6, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    const shelfDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 7 + d.y * 5, GT - (d.brokeT ?? -9), 'wood', 12, 1.6, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
     const BOOK_COL = [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12], [0.38, 0.24, 0.12]];
     const shelfBooks = (d) => { const al = SS(0.75, 1.05, GT - (d.brokeT ?? -9)); if (al <= 0) return; const sd = d.x * 3 + d.y;
       for (let j = 0; j < 9; j++) { const bx = sx(d.x) + (rnd(sd, j) - 0.5) * 88, by = sy(d.y) - 2 + rnd(sd, j + 9) * 16, rot = (rnd(sd, j + 18) - 0.5) * 2.4, w = 9 + 3 * rnd(sd, j + 27), hh = 6 + 2 * rnd(sd, j + 36), col = BOOK_COL[j % 4];
@@ -462,6 +461,7 @@
     const WAX = { grade: [0.8, 0.55, 0, 1] }, WAX_T = { grade: [0.9, 0.8, 0, 1] };
     // candles standing on a table are one painted piece with it (table_candles): the pair drawn apart never sat right
     const onTable = (c) => m.decor.find((t) => t.n === 'table' && Math.abs(t.x - c.x) <= 6 && c.y - t.y === 1);
+    const BROKEN_AS = { wreck_cv: D.WRECK.rest };
     const lit = new Set(m.decor.filter((c) => c.n === 'candles' && c.lift).map(onTable).filter(Boolean));
     // a chain fence on the plateau's edge (TASKS 405): iron posts with a cap, two chains of links sagging between them, on the art grid
     // (struck or brushed, TASKS 466, its chains swing: the sag beats and dies away)
@@ -478,7 +478,7 @@
     const TOWN_TONE = { forge_tw: { tint: [0.74, 0.7, 0.9, 1] }, gate_tw: { tint: [0.86, 0.82, 0.95, 1] }, blocks_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_b: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_c: { tint: [0.86, 0.82, 0.95, 1] }, stone_tw_a: { grade: [1, 1.3, 0, 1] }, stone_tw_b: { grade: [1, 1.3, 0, 1] } };
     m.decor.forEach((d, i) => { if (d.openT !== undefined && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => coffinOpen(d, sx(d.x), sy(d.y), GT - d.openT, jig('d' + i))]); });
     // (TASKS 2006: the town's gate sorts at its foot like any prop; keyed at its top, the hero by it was drawn standing on its masonry)
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), warm: m.cliff && SCX.warmsBy(d.alt || d.n) ? HERO.lavaWarm(d.x, d.y) : 0, u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.broken && !BROKEN_AS[d.n]) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : (d.broken && BROKEN_AS[d.n]) || d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), warm: m.cliff && SCX.warmsBy(d.alt || d.n) ? HERO.lavaWarm(d.x, d.y) : 0, u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
     // the Altar of Souls' candle flames are the altar's own, sorted right after it (TASKS 2009: in the fx pass they burnt over a hero
     // behind it or in front of it alike, flickering holes in him)
     if (m.town && vis(m.town.svc.altar.x, m.town.svc.altar.y)) { const A = m.town.svc.altar; Y.push([A.y, () => { G.blend('emit'); [-21, -12, 16, 26].forEach((dx, i) => flameAt(sx(A.x) + dx, sy(A.y) - 53, 7, 13, [1, 0.72, 0.3], i * 7 + 3, Math.sin(t * 2.3 + i), t)); G.blend(); }]); }
@@ -634,13 +634,6 @@
         const x = (c + 0.5) * TILE + (rnd(c, 7) - 0.5) * 20, n = rnd(c, 3) < 0.5 ? 'basalt_a' : 'basalt_b', y = (r.y + 0.3) * TILE + (rnd(c, 4) - 0.5) * 24, k = 0.82 + rnd(c, 8) * 0.26; if (vis(x, y) && known(x, y)) Y.push([y - 40, () => drawProp(n, sx(x), sy(y), { flip: rnd(c, 5) < 0.5, k })]); } } }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
     if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = u.free ? 'stairs_up_free' : m.biome === 'magma' ? 'stairs_up_mg' : 'stairs_up', [w, hh] = SZ(st); if (st === 'stairs_up_mg') PROP_BAS.push([st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, w, hh, false]); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
-    // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
-    if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
-      const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);
-      Y.push([u.y + 6, () => { const X = sx(u.x) - w / 2, Yt = sy(u.y) + 10 - hh; L.shadow(sx(u.x), sy(u.y) + 4, w * 0.28, 6, 0.5);
-        L.inked(() => L.sprite('waystone', X, Yt, { w, h: hh, u: { tint: [0.6, 0.58, 0.66, 1] } }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 });
-        if (k > 0.01) { G.blend('emit'); for (let j = 0; j < 2; j++) L.sprite('waystone_runes', X, Yt, { w, h: hh, u: { alpha: k } }); G.blend();
-          G.blend('add'); L.glow(X + 0.455 * w, Yt + 0.48 * hh, 0.3 * hh, [0.45, 0.65, 1], 0.22 * k, 2.4); G.blend(); } }]); }
     // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
     if (m.town) drawCart(R, m, GT, Y, sx, sy);
     if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
@@ -735,7 +728,7 @@
     // during the strike the blade must read over the target it hits; with no foe or breakable there to hit he keeps his place (TASKS 2009: lifted
     // over everything below him, a hero swinging behind the town's altar popped in front of it at every click)
     const below = (o) => o.y > h.y && o.y - h.y < 90 && Math.abs(o.x - h.x) < (st.reach || 90) + 60;
-    const struck = GT - h.atkT >= 0 && GT - h.atkT < 0.2 && (R.en.some((e) => e.deadT < 0 && below(e)) || R.pots.some((p) => (p.hp > 0 || p.brokeT >= h.atkT) && below(p)) || m.decor.some((d) => d.n === 'wreck_cv' && (!d.broken || d.brokeT >= h.atkT) && below(d)));
+    const struck = GT - h.atkT >= 0 && GT - h.atkT < 0.2 && (R.en.some((e) => e.deadT < 0 && below(e)) || R.pots.some((p) => p.kind !== 'gold' && p.kind !== 'goldpile' && (p.hp > 0 || p.brokeT >= h.atkT) && below(p)) || m.decor.some((d) => d.n === 'wreck_cv' && (!d.broken || d.brokeT >= h.atkT) && below(d)));
     Y.push([h.y + (struck ? 90 : 0), () => {
       L.shadow(sx(h.x), sy(h.y) + 2 + DECK.dy, 20, 6, 0.85);
       // the cry's ring rolls out on the floor, under the hero (TASKS 1183: over him it cut his chest and head), when the shout comes

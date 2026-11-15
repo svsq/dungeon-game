@@ -3,7 +3,7 @@
 import json, glob, os, re, sys
 ROOT = os.path.join(os.path.dirname(__file__), '..')
 T, fails = {}, []
-ru = open(os.path.join(ROOT, 'live/text_ru.js'), encoding='utf8').read()
+ru = ''.join(open(f, encoding='utf8').read() for f in sorted(glob.glob(os.path.join(ROOT, 'live/text_ru_*.js'))))
 def walk(v, at):
     if isinstance(v, str):
         if re.search('[—–]', v): fails.append(at + ': a dash')

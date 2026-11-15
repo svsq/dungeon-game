@@ -2,7 +2,7 @@
 // A stage of tryGen (ARCHITECTURE.md §4.2): it reads the floor's shared values from GF and leaves there what later stages use; null rerolls.
 (function (root) {
   const DGX = root.DGX, {
-    inRm, narrowTo, straightRuns } = DGX;
+    inRm, narrowTo, straightRuns, shuffleBy } = DGX;
   DGX.links = (GF) => {
     const {
       AR, H, LY, R, TY, W, apart, at, blob, boss, cave, cells, figAt, figHit, ftype, holdHit, keep, main, pl, ri, riverY, rooms, seed, set,
@@ -66,6 +66,7 @@
       for (const lim of [48, 64]) for (const e of cand) { if (places() >= (lim > 48 ? 2 : want)) break; if (e[2] > lim || edges.filter(over).some((f) => Math.abs(midX(f) - midX(e)) < W / 6)) continue; edges.push(e); deg[e[0]]++; deg[e[1]]++; } }
     // a pocket hangs off its nearest room and leads nowhere else
     for (let p = main; p < rooms.length; p++) { let best = null; for (let b = 0; b < main; b++) if (!dead(b)) { const d = dist(rooms[p], rooms[b]); if (!best || d < best[2]) best = [b, p, d]; } edges.push(best); }
+    let loopCand, loopWant;
     if (!pl) for (let a = 0; a < main; a++) for (let b = a + 1; b < main; b++) { if (dead(a) || dead(b)) continue;
       if (edges.some((e) => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a))) continue;
       const d = dist(rooms[a], rooms[b]); if (d < (LY ? LY.loops[0] : 26) && R() < (LY ? LY.loops[1] : 0.28)) edges.push([a, b, d]); }
@@ -73,8 +74,8 @@
     else { const tree = edges.slice(), hopT = (a) => { const h = rooms.map(() => 99), q = [a]; h[a] = 0;
         for (let i = 0; i < q.length; i++) for (const [p, o] of tree) for (const [u, v] of [[p, o], [o, p]]) if (u === q[i] && h[v] > h[u] + 1) { h[v] = h[u] + 1; q.push(v); } return h; };
       const cand = []; if (!terr && !lakeEnds) for (let a = 0; a < main; a++) { const h = hopT(a); for (let b = a + 1; b < main; b++) { const d = dist(rooms[a], rooms[b]); if (!dead(a) && !dead(b) && h[b] >= AR.loopHops && d < 44 && side(rooms[a]) === side(rooms[b])) cand.push([a, b, d]); } }
-      for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
-      var loopCand = cand, loopWant = ri(...AR.loops); }
+      shuffleBy(cand, R);
+      loopCand = cand; loopWant = ri(...AR.loops); }
     // (a two-cell corridor runs on the line and the cell past it, as it always has; a three-cell one is centred on it)
     const carveH = (x0, x1, y, wd = 2) => { const o = wd === 3 ? -1 : 0; for (let x = Math.min(x0, x1) + o; x <= Math.max(x0, x1) + o + wd - 1 - (wd === 2 ? 1 : 0); x++) for (let j = 0; j < wd; j++) if (!at(x, y + o + j)) set(x, y + o + j, 1); };
     const carveV = (y0, y1, x, wd = 2) => { const o = wd === 3 ? -1 : 0; for (let y = Math.min(y0, y1) + o; y <= Math.max(y0, y1) + o + wd - 1 - (wd === 2 ? 1 : 0); y++) for (let i = 0; i < wd; i++) if (!at(x + o + i, y)) set(x + o + i, y, 1); };
@@ -119,10 +120,11 @@
       const hor = R() < 0.5, sides = (hor ? ['l', 'r'] : ['u', 'd']).slice(0, C.gates);
       for (const sd of sides) { if (sd === 'u') carveV(court.y, y0, court.cx - 1); if (sd === 'd') carveV(court.y + court.h - 1, y1, court.cx - 1); if (sd === 'l') carveH(court.x, x0, court.cy - 1); if (sd === 'r') carveH(court.x + court.w - 1, x1, court.cy - 1); }
       court.ring = [x0, y0, x1, y1]; court.gates = sides;
-      GF.moat = (x, y) => x >= x0 + C.ring && x <= x1 - C.ring && y >= y0 + C.ring && y <= y1 - C.ring && !inRm(court, x, y) && cells[y * W + x] !== 1; }
+      // the moat is taken once the gates are dug, so the gates' cells are open and not of it
+      GF.moat = new Set(); for (let y = y0 + C.ring; y <= y1 - C.ring; y++) for (let x = x0 + C.ring; x <= x1 - C.ring; x++) if (!inRm(court, x, y) && cells[y * W + x] !== 1) GF.moat.add(y * W + x); }
     // a tomb's way between two neighbours (TASKS 378): two cells wide straight through the wall they share, at a random place along it
-    const opening = (A, B) => { const hor = A.x + A.w + 2 === B.x || B.x + B.w + 2 === A.x, L = hor ? (A.x < B.x ? A : B) : (A.y < B.y ? A : B), O = L === A ? B : A;
-      const lo = hor ? Math.max(A.y, B.y) : Math.max(A.x, B.x), hi = hor ? Math.min(A.y + A.h, B.y + B.h) : Math.min(A.x + A.w, B.x + B.w), t = ri(lo + 1, Math.max(lo + 1, hi - 3)); void O;
+    const opening = (A, B) => { const hor = A.x + A.w + 2 === B.x || B.x + B.w + 2 === A.x, L = hor ? (A.x < B.x ? A : B) : (A.y < B.y ? A : B);
+      const lo = hor ? Math.max(A.y, B.y) : Math.max(A.x, B.x), hi = hor ? Math.min(A.y + A.h, B.y + B.h) : Math.min(A.x + A.w, B.x + B.w), t = ri(lo + 1, Math.max(lo + 1, hi - 3));
       for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { if (hor) set(L.x + L.w + i, t + j, 1); else set(t + j, L.y + L.h + i, 1); } };
     const toRing = (O) => { let b = null, bd = 1e9; for (const [x, y] of ringC) { const d = Math.hypot(x - O.cx, y - O.cy); if (d < bd) { bd = d; b = [x, y]; } } return { cx: b[0], cy: b[1] }; };
     for (const [a, b] of edges) { const A = rooms[a], B = rooms[b];
@@ -156,7 +158,7 @@
       const base = walks(), kept = () => { const now = walks(); return now.every((v, i) => base[i] < 0 || v >= base[i] * C.keep); };
       const hopT = (a) => { const h = rooms.map(() => 99), q = [a]; h[a] = 0; for (let i = 0; i < q.length; i++) for (const [p, o] of tree) for (const [u, v] of [[p, o], [o, p]]) if (u === q[i] && h[v] > h[u] + 1) { h[v] = h[u] + 1; q.push(v); } return h; };
       const cand = []; for (let a = 0; a < main; a++) { if (dead(a)) continue; const h = hopT(a); for (let b = a + 1; b < main; b++) { const d = dist(rooms[a], rooms[b]); if (!dead(b) && h[b] >= C.hops && d < C.d) cand.push([a, b, d]); } }
-      for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+      shuffleBy(cand, R);
       let want = ri(...C.n); for (const e of cand) { if (want <= 0) break; const c0 = cells.slice(), k0 = new Set(keep); tunnel(rooms[e[0]], rooms[e[1]]);
         if (kept()) { edges.push(e); want--; continue; } for (let k = 0; k < W * H; k++) cells[k] = c0[k]; keep.clear(); for (const k of k0) keep.add(k); } }
     if (pl) { const top = longest(); let got = 0;
@@ -167,14 +169,14 @@
       // again at the next plateau (no short cut: both ways are about as long); the floor's first loop may cost the walk down to
       // AR.loopLast, so every floor has one
       const twin = terr || lakeEnds ? [] : lines.slice(0, main - 1).filter((q) => !dead(q.a) && !dead(q.b) && Math.hypot(rooms[q.a].cx - rooms[q.b].cx, rooms[q.a].cy - rooms[q.b].cy) >= 22 && side(rooms[q.a]) === side(rooms[q.b]));
-      for (let i = twin.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [twin[i], twin[j]] = [twin[j], twin[i]]; }
+      shuffleBy(twin, R);
       for (const q of twin) { if (loopWant <= 0) break; const c0 = cells.slice(), k0 = new Set(keep), n0 = lines.length; ridge(rooms[q.a], rooms[q.b], -q.s0);
         if (longest() >= top * (got ? AR.loopKeep : AR.loopLast)) { loopWant--; got++; continue; }
         for (let k = 0; k < W * H; k++) cells[k] = c0[k]; keep.clear(); for (const k of k0) keep.add(k); lines.length = n0; } }
     // a ledge: a spur two cells wide off the middle of a ridge, out to a small pad over the lava or the chasm, a dead end for a chest,
     // an ambush or a cache (a pocket, as in the cave)
     if (pl) { const isFloor = (x, y) => at(x, y) !== 0;
-      const pool = lines.filter((q) => q.line.length >= 40); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+      const pool = lines.filter((q) => q.line.length >= 40); shuffleBy(pool, R);
       for (let n = ri(...AR.ledges), i = 0; n > 0 && i < pool.length * 3; i++) { const q = pool[i % pool.length], m = q.line.length, at0 = Math.floor(m * (0.3 + 0.4 * R())), [px, py] = q.line[at0];
         const [qx, qy] = q.line[Math.min(m - 1, at0 + 4)], [ox, oy] = q.line[Math.max(0, at0 - 4)], tl = Math.hypot(qx - ox, qy - oy) || 1, sd = R() < 0.5 ? -1 : 1, nx = -(qy - oy) / tl * sd, ny = (qx - ox) / tl * sd;
         const d = 6 + 2 * R(), w = ri(5, 6), h = ri(5, 6), cx = Math.round(px + nx * d), cy = Math.round(py + ny * d), x = cx - (w >> 1), y = cy - (h >> 1);

@@ -4,8 +4,8 @@
   const SIMX = root.SIMX;
   const {
     BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, K, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
-    dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroSt, hidden, isCons, losClear, pick,
-    potion, propBoxes, ri, rnd, rollItem, secretMask, under } = SIMX;
+    dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroRoll, heroSt, hidden, isCons, losClear, pick,
+    mapw, potion, propBoxes, ri, rnd, rollItem, secretMask, under } = SIMX;
   // ---------------- actions ----------------
   function usePotion(S, R, b) {
     const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? TXT('sim_world.usePotion.s') : TXT('sim_world.usePotion.s.2') }); return; }
@@ -85,7 +85,7 @@
       ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
     // the archer's (TASKS 1120, 1161): a fan of arrows closing on the cursor; a trap at the cursor (stepTraps springs it); a leap back
     // as a dash with a shot down the aim; each arrow, trap and leap shot may crit
-    const shot = () => heroShotRoll(R, h, st);
+    const shot = () => heroRoll(R, h, st);
     // the fan leaves at the loose, once the bow is up (TASKS 1744: loosed on the key, it flew while the bow still hung at the hip)
     if (id === 'volley') { h.volleyT = S.t + D.VOLLEY.loose; h.volleyK = AR.k; return; }
     if (id === 'trap') { const T = D.TRAP;
@@ -97,10 +97,9 @@
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
     SIMX.firePowers(S, R, 'cast:' + id, Object.assign({ x: h.x, y: h.y, a: h.aim }, fired));
   }
-  const heroShotRoll = (R, h, st) => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c]; };
   function looseVolley(S, R) { const h = R.hero, st = heroSt(S), V = D.VOLLEY, [ox, oy] = hand(h), far = Math.hypot((h.mx ?? ox + Math.cos(h.aim) * 200) - ox, (h.my ?? oy + Math.sin(h.aim) * 200) - oy), k = h.volleyK || 1;
     const arc = Math.max(V.min, Math.min(V.arc, 2 * Math.atan2(V.w / 2, far) * 180 / Math.PI)), projs = []; h.volleyT = null;
-    for (let i = 0; i < V.n; i++) { const [d, c] = heroShotRoll(R, h, st); projs.push(heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * k), c, 'arrow', BASES[st.wtype])); }
+    for (let i = 0; i < V.n; i++) { const [d, c] = heroRoll(R, h, st); projs.push(heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * k), c, 'arrow', BASES[st.wtype])); }
     ev(S, { k: 'volley', x: h.x, y: h.y, a: h.aim }); SIMX.firePowers(S, R, 'cast:volley', { x: h.x, y: h.y, a: h.aim, projs }); }
   function setTrap(S, R, x, y, fx, fy, dmg, crit) { const own = (R.htraps = (R.htraps || []).filter((q) => !q.done)); if (own.length >= D.TRAP.max) own.shift(); own.push({ id: R.nextId++, x, y, fx, fy, t0: S.t, dmg, crit }); ev(S, { k: 'trapset', x, y }); }
   // the archer's traps (TASKS 1120, 1161): armed after TRAP.arm s, the first monster on one is struck and held, its blow put off as
@@ -167,7 +166,7 @@
     d.openT = S.t; ev(S, { k: 'summon', x: d.x, y: d.y - 14 }); R.msg = { s: TXT('sim_world.coffin.msg'), t: S.t, d: 2 }; }
   // a wreck gives way to its third blow (TASKS 1361): what was left aboard, or who was
   function hitWreck(S, R, d) { const m = R.map, W0 = D.WRECK; d.hits = (d.hits || 0) + 1; if (d.hits < W0.hp) return;
-    d.broken = 1; d.brokeT = S.t; d.solid = 0; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); m.block = m.block.filter((b) => b !== k); ev(S, { k: 'break', x: d.x, y: d.y, kind: 'crate' }); R.trauma = Math.min(1, R.trauma + 0.3);
+    d.broken = 1; d.brokeT = S.t; d.solid = 0; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); mapw.blockDrop(m, k); ev(S, { k: 'break', x: d.x, y: d.y, kind: 'crate' }); R.trauma = Math.min(1, R.trauma + 0.3);
     if (rnd(R) < W0.loot) { drop(R, d.x, d.y + 10, { kind: 'item', item: rollItem(R, dep(R), W0.q, undefined, W0) }); drop(R, d.x, d.y + 10, { kind: 'gold', n: ri(R, 8, 16) + dep(R) * 2 }); return; }
     if (cleared(R)) return;
     const E = ENEMIES.ghost, f = dep(R), n = ri(R, W0.ghosts[0], W0.ghosts[1]), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), room = DG.roomAt(m, d.x, d.y);
@@ -183,7 +182,7 @@
   // a secret's fake wall: its foot (q.x, q.y) is the middle of the opening on the host side. Blows do nothing to the wall: it opens by
   // its cover or mechanism alone (E at a banner, a statue, a sconce or a lever; a bookcase broken; a flagstone underfoot; a puzzle solved)
   function openSecret(S, R, q, quiet) {
-    const m = R.map, i = m.secrets.indexOf(q), kind = q.kind; q.open = 1; q.openT = S.t; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1;
+    const m = R.map, i = m.secrets.indexOf(q), kind = q.kind; q.open = 1; q.openT = S.t; mapw.fillCells(m, q.wall, 1);
     if (q.slide) statueOf(m, i, true, !quiet); else if (kind === 'shelf') shelfOf(m, i, false, S.t);
     if (quiet) return;
     if (kind === 'shelf') { const d = m.decor.find((o) => o.secret === i); if (d) ev(S, { k: 'break', x: d.x, y: d.y, kind: 'crate' }); }
@@ -195,13 +194,13 @@
   }
   // a false bookcase broken to planks and books (it stops blocking its cell; t: when, for the pieces' flight) or stood up again
   function shelfOf(m, i, stand, t = -9) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
-    d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; if (stand) delete d.brokeT; else d.brokeT = t; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
+    d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; if (stand) delete d.brokeT; else d.brokeT = t; mapw.blockDrop(m, k); if (stand) mapw.blockPush(m, k); }
   // a statue slid along the wall to its far cell (the drawing follows q.openT), or put back
   // (hold: the stone is still on its way, the cell it leaves is freed by stepStatues once the slide is over)
   function statueOf(m, i, moved, hold) { const d = m.decor.find((o) => o.secret === i), q = m.secrets[i]; if (!d || !q.slide) return; const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = k0 + q.slide.s * q.slide.n, x1 = q.x + q.slide.s * q.slide.n * TILE;
-    d.x = moved ? x1 : q.x; q.held = moved && hold ? 1 : 0; m.block = m.block.filter((b) => b !== k0 && b !== k1); m.block.push(moved ? k1 : k0); if (q.held) m.block.push(k0); }
+    d.x = moved ? x1 : q.x; q.held = moved && hold ? 1 : 0; mapw.blockDrop(m, k0, k1); mapw.blockPush(m, moved ? k1 : k0); if (q.held) mapw.blockPush(m, k0); }
   function stepStatues(S, R) { const m = R.map;
-    (m.secrets || []).forEach((q, i) => { if (!q.held || S.t - q.openT < D.STATUE_SECRET.slide) return; const d = m.decor.find((o) => o.secret === i), k = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE); q.held = 0; m.block = m.block.filter((b) => b !== k); }); }
+    (m.secrets || []).forEach((q, i) => { if (!q.held || S.t - q.openT < D.STATUE_SECRET.slide) return; const d = m.decor.find((o) => o.secret === i), k = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE); q.held = 0; mapw.blockDrop(m, k); }); }
   // the cells a statue passes over on its way, so it never closes on the hero
   const slidePath = (q, fy) => Array.from({ length: q.slide.n }, (_, j) => [Math.floor(q.x / TILE) + q.slide.s * (j + 1), fy]);
   const heroOnPath = (R, q) => { const fy = Math.floor((q.y + 22) / TILE), hx = Math.floor(R.hero.x / TILE), hy = Math.floor(R.hero.y / TILE); return slidePath(q, fy).some(([x, y]) => x === hx && y === hy); };
@@ -210,7 +209,7 @@
     if (!R.dbgOpen) { R.dbgOpen = []; m.secrets.forEach((q, i) => { if (!q.open) { openSecret(S, R, q, true); R.dbgOpen.push(i); } }); return; }
     const htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE);
     for (const i of R.dbgOpen) { const q = m.secrets[i], r = m.rooms[q.room]; q.open = 0; delete q.openT; delete q.hits; if (q.trig) delete q.trig.downT; if (q.pz) resetPuzzle(m, q);
-      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (q.slide) statueOf(m, i, false); else if (q.kind === 'shelf') shelfOf(m, i, true);
+      mapw.fillCells(m, q.wall, 4); if (q.slide) statueOf(m, i, false); else if (q.kind === 'shelf') shelfOf(m, i, true);
       if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.fx = h.fy = null; h.vx = h.vy = 0; } }
     R.dbgOpen = null; }
   // debug: every item of loot this floor still holds, where it is and whether the hero can get to it, and the books: what the
@@ -270,7 +269,7 @@
       if (obstacles.some((o) => Math.hypot(x - o.x, y - o.y) < radius + o.r + 4) || R.en.some((e) => e.deadT < 0 && Math.hypot(x - e.x, y - e.y) < radius + ENEMIES[e.type].r + 4)) continue;
       candidates.push({ x, y });
     }
-    for (let i = candidates.length - 1; i > 0; i--) { const j = ri(R, 0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
+    D.shuffleBy(candidates, () => rnd(R));
     const positions = [];
     for (const p of candidates) if (positions.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= 2 * radius + 4)) { positions.push(p); if (positions.length === group.length) break; }
     if (positions.length !== group.length && !some) return 0;
@@ -296,15 +295,15 @@
   const inLeaf = (h, [x, y]) => Math.hypot(h.x - (x + 0.5) * TILE, (h.y - (y + 0.5) * TILE) * 1.6) < 31;
   const leafHeld = (d) => leafCells(d).filter(([x, y]) => !(d.wait || []).some(([a, b]) => a === x && b === y));
   function stepLeaves(S, R) { const m = R.map, h = R.hero;
-    for (const d of m.doors || []) { if (!d.wait || !d.wait.length) continue; for (const [x, y] of d.wait) if (!inLeaf(h, [x, y]) && !m.block.includes(y * m.W + x)) m.block.push(y * m.W + x); d.wait = d.wait.filter((c) => inLeaf(h, c)); } }
+    for (const d of m.doors || []) { if (!d.wait || !d.wait.length) continue; for (const [x, y] of d.wait) if (!inLeaf(h, [x, y])) mapw.blockOnce(m, y * m.W + x); d.wait = d.wait.filter((c) => inLeaf(h, c)); } }
   function openDoor(S, R, d, kick) {
     const m = R.map, h = R.hero, L = doorLock(m, d), i = m.doors.indexOf(d);
     if (d.arena && R.arena && R.arena.active) return;
     if (L) { if (L.kind !== 'key' || !(R.keys > 0)) { if (S.t - (d.nopeT ?? -9) > 1) { d.nopeT = S.t; ev(S, { k: 'locked', x: d.x, y: d.y, i });
           ev(S, { k: 'nope', x: h.x, y: h.y, s: L.kind === 'key' ? TXT('sim_world.openDoor.s') : TXT('sim_world.openDoor.s.2') }); } return; }
-      R.keys--; L.open = 1; L.openT = S.t; ev(S, { k: 'unlatch', x: d.x, y: d.y, i }); R.msg = { s: TXT('sim_world.openDoor.msg.s'), t: S.t }; }
-    d.open = 1; d.openT = S.t; d.kick = kick ? 1 : 0; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 1;
-    d.wait = leafCells(d).filter((c) => inLeaf(h, c)); for (const [x, y] of leafHeld(d)) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x);
+      R.keys--; mapw.unlatch(m, L, S.t); ev(S, { k: 'unlatch', x: d.x, y: d.y, i }); R.msg = { s: TXT('sim_world.openDoor.msg.s'), t: S.t }; }
+    d.open = 1; d.openT = S.t; d.kick = kick ? 1 : 0; mapw.fillCells(m, d.cells, 1);
+    d.wait = leafCells(d).filter((c) => inLeaf(h, c)); for (const [x, y] of leafHeld(d)) mapw.blockOnce(m, y * m.W + x);
     if (kick) R.trauma = Math.min(1, R.trauma + 0.15);
     ev(S, { k: 'door', x: d.x, y: d.y, i, kick: d.kick });
   }
@@ -314,7 +313,7 @@
   // a lever on a top wall, worked from in front of it like a sconce
   const leverNear = (R) => { const h = R.hero; return (R.map.locks || []).find((L) => L.kind === 'lever' && !L.open && Math.abs(h.x - L.lever.x) < 36 && h.y > L.lever.y && h.y - L.lever.y < 90); };
   function pullLever(S, R, L) {
-    const m = R.map, li = m.locks.indexOf(L); L.open = 1; L.openT = S.t; R.trauma = Math.min(1, R.trauma + 0.25);
+    const m = R.map, li = m.locks.indexOf(L); mapw.unlatch(m, L, S.t); R.trauma = Math.min(1, R.trauma + 0.25);
     ev(S, { k: 'lever', x: L.lever.x, y: L.lever.y, i: li });
     for (const d of m.doors) if (d.lock === li && !d.open) openDoor(S, R, d, 0);
     R.msg = { s: TXT('sim_world.pullLever.msg.s'), t: S.t };
@@ -325,7 +324,7 @@
     return (m.secrets || []).find((q) => { if (q.open || shut(q)) return false;
       if (q.kind === 'banner') return Math.abs(h.x - q.x) < 40 && h.y > q.y && h.y - q.y < 64;
       if (q.kind === 'shelf' || q.kind === 'statue') return Math.abs(h.x - q.x) < 56 && h.y > q.y && h.y - q.y < 100;
-      if (q.trig && q.trig.k === 'sconce') { const t = m.torches[q.trig.t]; return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; }
+      if (q.trig && q.trig.k === 'sconce') { const t = DG.byId(m.torches, q.trig.t); return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; }
       if (q.trig && q.trig.k === 'lever') return Math.abs(h.x - q.trig.x) < 36 && h.y > q.trig.y && h.y - q.trig.y < 90; return false; }); }
   const secretHow = (q) => (q.kind === 'puzzle' ? q.pz.k : q.kind === 'lever' ? q.trig.k : q.kind);
   // a puzzle (TASKS 1692): the piece the hero stands at, three levers on a wall or three candles on the floor worked in the order their scratches count
@@ -383,6 +382,6 @@
 
   Object.assign(SIMX, { looseVolley, setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
-    leverNear, pullLever, secretUnder, hitShelf, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
+    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

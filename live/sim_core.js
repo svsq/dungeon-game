@@ -1,7 +1,7 @@
 // live/sim_core.js — the sim's base: constants, rng, the event bus S.ev and the run's log, run and stage lookups, map queries (cells, collisions, water, lava, webs, flow fields, sight) and the camera clamp.
 // One of the sim's files (ARCHITECTURE.md §4.2): names from earlier files come from SIMX at load, calls into later ones go through SIMX.
 (function (root) {
-  const SIMX = (root.SIMX = {});
+  const SIMX = (root.SIMX = root.SIMX || {}), { rev, waterSet } = SIMX;
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
   const { TILE, ENEMIES, BAL, ELITE, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
   const DT = 1 / 120, L = 26.0;
@@ -18,15 +18,16 @@
   const HINT = TXT('HINT');
   // STEP: a step's length at a run (TASKS 1802: 20 px stepped 8.7 times a second at a quarter of his height; 26 broke his gait's bob and his knees walking down)
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 22 };
-  const DEMO_SEED = 4247, CAM_FEET = 18;
+  // CAM_LOOK: how far toward the cursor the camera leans, as a share of the cursor's offset from the window's middle
+  const DEMO_SEED = 4247, CAM_FEET = 18, CAM_LOOK = 0.12;
   const EEL_MOUTH = [44, 56];   // where the eel's mouth is when it is up: ahead of it and over the water (view px; the scene draws it there)
 
   // ---------------- rng (state lives in the run: deterministic replay) ----------------
-  const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; let t = Math.imul(R.rs ^ (R.rs >>> 15), 1 | R.rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; return D.mulOut(R.rs); };
   const ri = (R, a, b) => a + Math.floor(rnd(R) * (b - a + 1));
   const pick = (R, arr) => arr[Math.floor(rnd(R) * arr.length)];
   const ev = (S, e) => { e.t = S.t;
-    S.ev.push(e); if (!S.demo && !(S.run && S.run.test) && SIMX.META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
+    S.ev.push(e); if (!S.demo && !(S.run && S.run.test) && META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log && !S.demo) note(S, e); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
@@ -47,7 +48,8 @@
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' elite' : '') : '?';
   // the statistics (TASKS 1309): `from` is the number of runs finished before these counters existed, so the screen can say they
   // started late instead of passing a short count off as the whole history
-  const statsOf = (S) => S.meta.stats || (S.meta.stats = { from: S.meta.runs || 0, all: {}, cls: {} });
+  const statsOf = (S) => S.meta.stats;
+  const initStats = (S) => S.meta.stats || (S.meta.stats = { from: S.meta.runs || 0, all: {}, cls: {} });
   const tally = (S, R, k, n = 1, max) => { if (S.demo || !R || !n || R.test) return; const T = statsOf(S), id = D.clsOf(R.hero).id, C = T.cls[id] || (T.cls[id] = {});
     for (const o of [T.all, C]) o[k] = max ? Math.max(o[k] || 0, n) : (o[k] || 0) + n; };
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
@@ -66,7 +68,7 @@
     else if (e.k === 'cast' || e.k === 'whirl' || e.k === 'shield') add(L.ab, e.k === 'cast' ? 'fireball' : e.k);
     if (e.k === 'equip' || e.k === 'unequip') { const st = SIMX.heroSt(S); (L.gear = L.gear || []).push({ t: +e.t.toFixed(2), slot: e.slot, on: e.on || null, off: e.off || null, maxHp: st.maxHp, def: st.def, atk: st.atk }); }
     if (e.k === 'bless') { const st = SIMX.heroSt(S); (L.gifts = L.gifts || []).push(e.cost == null ? { t: +e.t.toFixed(2), id: e.id, revive: 1 } : { t: +e.t.toFixed(2), id: e.id, name: e.s, cost: e.cost, maxHp: st.maxHp, def: st.def, atk: st.atk }); } }
-  SIMX.META_EV = new Set(['kill', 'hit', 'pickup', 'bless']);
+  const META_EV = new Set(['kill', 'hit', 'pickup', 'bless']);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 
@@ -114,9 +116,8 @@
     return D.BRINK.reach.some((r) => dropCell(m, Math.floor((e.x + dx / d * r) / TILE), Math.floor((e.y + dy / d * r) / TILE))); };
   const onLava = (m, o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor(o.y / TILE); return cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx); };
   // shallow water (dungeon.js m.water) lies on floor cells: anyone wades through it slowed, and it puts out a burning one
-  const WET = new WeakMap(), WADE = 0.75;
-  const inWater = (m, o) => { if (!m.water || !m.water.length) return false; let w = WET.get(m); if (!w) WET.set(m, w = new Set(m.water));
-    return w.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)); };
+  const WADE = 0.75;
+  const inWater = (m, o) => !!m.water && m.water.length > 0 && waterSet(m).has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
   const onPlate = (a, tr) => Math.abs(a.x - tr.x) < TILE - 4 && Math.abs(a.y - tr.y) < TILE - 6;
   // a web on the floor (dungeon.js m.webs) holds whoever wades in, spiders aside, until it is torn
   const WEB = { k: 0.4, mon: 0.5, rx: 28, ry: 17 };
@@ -166,13 +167,12 @@
     let cx = Math.floor(x0 / TILE), cy = Math.floor(y0 / TILE);
     for (let i = 1; i <= n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, nx = Math.floor(x / TILE), ny = Math.floor(y / TILE);
       if (pinch(m, cx, cy, nx, ny)) return false; cx = nx; cy = ny; if (i < n && wall(x, y - 8) && wall(x, y)) return false; } return true; };
-  // doors (dungeon.js m.doors, m.locks): a door shut by a lock that is not open yet; the doors' state for the caches' keys
+  // doors (dungeon.js m.doors, m.locks): a door shut by a lock that is not open yet
   const doorLock = (m, d) => { const L = d.lock >= 0 && m.locks ? m.locks[d.lock] : null; return L && !L.open ? L : null; };
-  const doorKey = (m) => (m.doors || []).map((d) => (d.open ? 'o' : doorLock(m, d) ? 'l' : 'c')).join('') + ':' + (m.geometry || 0) + ':' + (m.shut || 0);
   // flow field from a target tile over open floor: derived data, cached by key, never in the state
   // a field per target, a few kept: the bot asks for its own fields between the monsters' each step, and one slot was rebuilt
-  // every time (TASKS 467); a secret opened changes the floor without the doors' key
-  const FLOW = new Map(), FLOW2 = new Map(), secKey = (m) => (m.secrets || []).map((q) => (q.open ? 1 : 0)).join('');
+  // every time (TASKS 467); each field is keyed by the map's revision (sim_map.js), which any write to the floor moves
+  const FLOW = new Map(), FLOW2 = new Map();
   let BQ = new Int32Array(0);
   function bfs(m, tx, ty, lim, doors) {
     const W = m.W, H = m.H, N = W * H, d = new Int16Array(N).fill(-1), cs = m.cells, pass = new Uint8Array(N); if (BQ.length < N) BQ = new Int32Array(N);
@@ -189,14 +189,14 @@
     return d;
   }
   function flow(m, tx, ty, any) {
-    const C = any ? FLOW2 : FLOW, key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m) + ':' + secKey(m); let d = C.get(key);
+    const C = any ? FLOW2 : FLOW, key = rev(m) + ':' + tx + ',' + ty; let d = C.get(key);
     if (d) { C.delete(key); C.set(key, d); return d; }
     d = bfs(m, tx, ty, any ? 400 : 40, any); if (C.size >= 16) C.delete(C.keys().next().value); C.set(key, d); return d;
   }
   // a monster walking back to its post may be far from it: a whole-floor field per post, a few kept at once
   const HOME = new Map();
   function homeFlow(m, tx, ty) {
-    const fk = m.seed + ':' + m.floor + ':' + (m.geometry || 0) + ':' + doorKey(m); if (HOME.fk !== fk) { HOME.clear(); HOME.fk = fk; }
+    const fk = rev(m); if (HOME.fk !== fk) { HOME.clear(); HOME.fk = fk; }
     const key = ty * m.W + tx; let d = HOME.get(key);
     if (!d) { d = bfs(m, tx, ty, 400); if (HOME.size >= 24) HOME.delete(HOME.keys().next().value); }
     else HOME.delete(key);
@@ -209,7 +209,7 @@
   const CHOICE = new WeakMap();
   function reveal(R, arrive) {
     const m = R.map, h = R.hero, W = m.W, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE), ri2 = DG.roomAt(m, h.x, h.y);
-    const k = tx + ':' + ty + ':' + (m.secrets || []).map((q) => q.open).join('') + ':' + doorKey(m);
+    const k = tx + ':' + ty + ':' + rev(m);
     if (REV.arr === R.seen && REV.k === k) return ri2;
     REV.arr = R.seen; REV.k = k;
     const hid = SIMX.secretMask(m), inMap = (x, y) => x >= 0 && y >= 0 && x < W && y < m.H;
@@ -271,15 +271,17 @@
       for (const [x, y] of d.cells) { R.seen[y * W + x] = 1; for (const k of up) if (inMap(x, y - k)) R.seen[(y - k) * W + x] = 1; } }
     return ri2;
   }
-  // the camera may leave the map by more than the HUD's width, so a room at the edge never sits under the minimap or the bars
-  function clampCam(R, c) { const m = R.map, w = WIN(R);
-    const fit = (v, a, b, s) => (b - a <= s ? (a + b - s) / 2 : clamp(v, a, b - s));
-    // the window's foot may drop below its bound as far as it takes to keep the hero's feet over the bottom panel (TASKS 1911)
-    const foot = (b) => Math.max(b, R.hero ? R.hero.y + CAM_FEET + (UI.bp.h + UI.bp.foot) / zoomOf(R) : b);
-    // the town is one fixed courtyard: past its ruins there is only void, so the view stays on it (TASKS 1612)
-    if (m.town) { c[0] = fit(c[0], 2 * TILE, 54 * TILE, w.W); c[1] = fit(c[1], 2 * TILE, foot(35 * TILE), w.H); return; }
-    // at ×0,5 the window can be wider than a small floor and its margins: the floor then sits in its middle (TASKS 1302)
-    c[0] = fit(c[0], -620, m.W * TILE + 620, w.W); c[1] = fit(c[1], -380, foot(m.H * TILE + 300), w.H); }
+  // the window keeps some of the map in it and otherwise follows the hero anywhere, so on every cell of every map at every zoom he
+  // stands at the camera's aim (TASKS 1732, the player's choice): the HUD's parts keep to the view's edges and corners, the aim is clear
+  // of them. Bounds held near the map put him there at its edges: the floors' 620/380 px once the zoom-out widened the window (the
+  // hero at the left third of the view, three quarters of it fog), the town's courtyard (TASKS 1612) under the minimap and the effects
+  function clampCam(R, c) { const m = R.map, w = WIN(R); c[0] = clamp(c[0], -w.W, m.W * TILE); c[1] = clamp(c[1], -w.H, m.H * TILE); }
+  // the cells the checks of the camera stand the hero on: the open one farthest toward each side and corner of a map (ok marks where he
+  // may stand), with the way [dx, dy] it lies
+  const CAM_EDGES = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+  const camEdges = (m, ok) => CAM_EDGES.map(([dx, dy]) => { let best = null, bs = -Infinity;
+    for (let k = 0; k < ok.length; k++) { if (!ok[k]) continue; const x = k % m.W, y = Math.floor(k / m.W), s = dx * x + dy * y; if (s > bs) { bs = s; best = { x, y, dx, dy }; } }
+    return best; }).filter(Boolean);
   // the hero stands in the middle of the field over the bottom panel, not of the whole window (TASKS 1951 а): under him the view
   // was a quarter shorter than over him
   const camAimY = (R, h) => h.y - 30 - WIN(R).H / 2 + (UI.bp.h + UI.bp.foot) / 2 / zoomOf(R);
@@ -287,8 +289,8 @@
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW, VIEW_H, viewFor, setView, uiDy,
-    zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, finalFloor, exitKind, campaignDone, dif, who, statsOf, tally,
+    zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
-    brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam, camAimY, CAM_FEET });
+    brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
+    losClear, overLava, doorLock, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -34,5 +34,5 @@ const result=await page.evaluate(()=>{
 });
 for(const shot of result.shots){fs.writeFileSync(path.join(out,shot.name+'.png'),Buffer.from(shot.url.split(',')[1],'base64'));delete shot.url;}
 fs.writeFileSync(path.join(out,'extra.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result.report));for(const [label,r] of Object.entries(result.report)){if(!r.dead||!r.events.includes(label==='eel_spit'?'spit':label==='eel'?'bite':label==='crab_rush'?'rush':'pinch'))throw Error('Incomplete actor '+label);}
-fs.writeFileSync(path.join(out,'errors.json'),JSON.stringify(errors));if(errors.length)throw Error(errors.join('\n'));
+fs.writeFileSync(path.join(out,'errors_cavefullactors.json'),JSON.stringify(errors));if(errors.length)throw Error(errors.join('\n'));
 }finally{await browser.close();server.close();}

@@ -47,7 +47,7 @@
     strike(S, R, P, ctx) { if (ctx.e) hitEnemy(S, R, ctx.e, atk(S, P, ctx), false, R.hero.x, R.hero.y, P.kb ?? 0.5, 'thorns'); },
     dropTrap(S, R, P, ctx) { const [x, y] = pos(R, ctx); SIMX.setTrap(S, R, x, y + 4, x, y + 4, atk(S, P, ctx), false); },
   };
-  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25, chilled: (S, h, ctx) => !!ctx.e && ctx.e.chillT > S.t, held: (S, h, ctx) => !!ctx.e && ctx.e.deadT < 0 && (ctx.e.rootT || 0) > S.t, dead: (S, h, ctx) => !!ctx.e && ctx.e.deadT >= 0 };
+  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, threshold: (S, h, ctx, P) => D.pastThreshold(heroSt(S), P.th), chilled: (S, h, ctx) => !!ctx.e && ctx.e.chillT > S.t, held: (S, h, ctx) => !!ctx.e && ctx.e.deadT < 0 && (ctx.e.rootT || 0) > S.t, dead: (S, h, ctx) => !!ctx.e && ctx.e.deadT >= 0 };
   const onOf = (P) => (P.trig.startsWith('every:') ? 'hit' : P.trig);
   const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.each || 0);
   // what changes a shot goes before what copies it, so the side balls of a split carry every change whatever order the powers were taken in
@@ -59,7 +59,7 @@
   let depth = 0;
   function firePowers(S, R, trig, ctx = {}) { const h = R.hero, own = heroPowers(h);
     if (!own || R.town || depth > (trig === 'kill' ? 2 : 0)) return;
-    for (const id of order(own, trig)) { const P = D.POWERS[id]; if (P.if && !IFS[P.if](S, h, ctx)) continue;
+    for (const id of order(own, trig)) { const P = D.POWERS[id]; if (P.if && !IFS[P.if](S, h, ctx, P)) continue;
       const N = every(P); if (N && ((h.powerN = h.powerN || {})[id] = (h.powerN[id] || 0) + 1) % N) continue;
       if (P.icd && S.t < ((h.powerT || {})[id] ?? -1e9) + P.icd) continue;
       if (P.p !== undefined && rnd(R) >= P.p) continue;
@@ -72,6 +72,6 @@
   function dashTouch(S, R) { const h = R.hero; if (!hasOn(h, 'dashTouch')) return; if (!h.dashHit || h.dashHit.t !== h.dashT) h.dashHit = { t: h.dashT, ids: [] };
     for (const e of R.en) if (e.deadT < 0 && !under(e) && !h.dashHit.ids.includes(e.id) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.25) < ENEMIES[e.type].r + K.R + 10) { h.dashHit.ids.push(e.id); firePowers(S, R, 'dashTouch', { e, x: e.x, y: e.y }); } }
   function chooseFork(S, R, i) { const h = R.hero, P = D.forkPending(h); if (!P) return; (h.forks = h.forks || {})[D.forkKey(P.ab, P.rank)] = i; (h.powers = h.powers || {})[D.FORKS[P.ab][P.rank][i]] = 1; S.saveN++; }
-  function thresholdTip(S, R) { const h = R.hero, T = D.THRESHOLD[D.clsOf(h).id]; if (T && !h.thTip && heroSt(S)[T[0]] >= T[1]) { h.thTip = 1; R.msg = { s: T[2], t: S.t, d: 4 }; } }
+  function thresholdTip(S, R) { const h = R.hero, cls = D.clsOf(h).id; if (!h.thTip && D.pastThreshold(heroSt(S), cls)) { h.thTip = 1; R.msg = { s: TXT('TH.' + cls + '.tip'), t: S.t, d: 4 }; } }
   Object.assign(SIMX, { heroPowers, drinkFires, chooseFork, thresholdTip, firePowers, powersHurt, dashTouch, POWER_FX: FX });
 })(typeof window !== 'undefined' ? window : globalThis);

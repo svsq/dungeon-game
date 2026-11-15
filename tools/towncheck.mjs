@@ -145,7 +145,7 @@ for (const seed of seeds) for (const N of floors) {
 
 // ---------------- the browser ----------------
 const REQUIRED = ['zone_town', 'town_services', 'town_npc', 'town_portal', 'town_quests'];
-const townState = (n) => REQUIRED.includes(n) || /^(town_|quest_|journal|climb_|way_|merchant_|shop_wander|scroll_read|folk_)/.test(n);
+const townState = (n) => REQUIRED.includes(n) || /^(town_|quest_|journal|climb_|merchant_|shop_wander|scroll_read|folk_)/.test(n);
 // the promise of each prompt: the words on it and what E must then open
 const PROMISE = [[/Алтарь душ/, 'meta'], [/сундук-хранилище/, 'stash'], [/кузнец/, 'craft:forge|talk:smith'], [/зачарователь/, 'craft:enchant|talk:enchanter'], [/торговать/, 'shop'], [/Лавка закрыта/, 'play'],
   [/спуститься на 1-й этаж/, 'floor 1'], [/портал на этаж (\d+)/, 'floor $1'], [/врата/, 'gate']];

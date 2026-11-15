@@ -489,16 +489,23 @@
   // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
   // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
   const DEBRIS_T = 0.42, DEBRIS_END = DEBRIS_T * 1.35 + 0.2, SHARDS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 'shard_' + i);
+  // each material's grade on the floor (sat, lift + spread) and in water: the plank paintings sit at hue 9–16° and the shards are
+  // brighter than their own pot, so beside a blood stain (hue 1°) they read as more of it (TASKS 1736); pulled toward the crate's
+  // brown (hue 21°, sat 0.65), a wreck's planks greyer still, soaked
+  const TONE = (sat, lift, spread, tint) => ({ sat, lift, spread, tint }), CLAY = TONE(0.82, 0.9, 0.16, [0.95, 1.08, 0.95, 1]);
+  const DEBRIS_LOOK = { wood: { planks: 1, dry: TONE(0.72, 1, 0.22, [0.92, 1.12, 0.95, 1]), wet: TONE(0.66, 0.92, 0.2, [0.9, 1.1, 0.98, 1]) },
+    wreck: { planks: 1, dry: TONE(0.55, 0.98, 0.2, [0.86, 1.06, 1.02, 1]), wet: TONE(0.5, 0.9, 0.18, [0.84, 1.05, 1.04, 1]) },
+    clay: { planks: 0, dry: CLAY, wet: CLAY } };
   // wet(dx, dy): the landing spot from the break is on water. In air (air = true) a piece is drawn in the Y band, so it passes in front of what it flies over
-  function debris(x, y, seed, a, wood, n, sp, air, wet, t) { for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, dx = Math.cos(an) * far, dy = 3 + Math.sin(an) * far * 0.62, W = wet(dx, dy);
+  function debris(x, y, seed, a, mat, n, sp, air, wet, t) { const LK = DEBRIS_LOOK[mat], wood = !!LK.planks; for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, dx = Math.cos(an) * far, dy = 3 + Math.sin(an) * far * 0.62, W = wet(dx, dy);
       const dur = DEBRIS_T * (0.75 + 0.6 * rnd(seed, i + 29)), b = Math.max(0, a) - dur, q = Math.min(1, Math.max(0, a) / dur), hop = W ? 1 : Math.min(1, Math.max(0, b) / 0.2), flying = q < 1 || hop < 1; if (flying !== !!air) continue;
       const H = 26 + 22 * rnd(seed, i + 7), z = 4 * q * (1 - q) * H + (hop < 1 && b >= 0 ? 4 * hop * (1 - hop) * H * 0.18 : 0), s = W ? 1 : 0.9 + 0.1 * hop, rest = (rnd(seed, i + 13) - 0.5) * (wood ? 1.1 : 3.1), spin = (1 - q) * (rnd(seed, i + 19) - 0.5) * 16, kick = W ? 0 : (1 - hop) * (rnd(seed, i + 31) - 0.5) * 1.3, r0 = rnd(seed, i + 23);
       const fl = W && wood ? SS(0, 1.2, b) : 0, ph = i * 1.7 + seed, bob = Math.sin(t * 1.6 + ph) * 1.2 * fl, px = x + dx * q * s + Math.sin(t * 0.37 + ph) * 3.5 * fl, gy = y - 10 * (1 - q) + dy * q * s + Math.cos(t * 0.29 + ph) * 2 * fl, py = gy - z + bob, rot = rest + spin + kick + Math.sin(t * 0.8 + ph) * 0.07 * fl, gone = W && !wood ? SS(0, 0.7, b) : 0; if (gone >= 1) continue;
-      const small = i >= 5, w = wood ? (small ? 9 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)) * (sp > 1 ? 1.25 : 1) : 0, h0 = w * 210 / 952 * (small ? 1.7 : 1.45), N = SHARDS[i % SHARDS.length], [sw, sh] = wood ? [w, h0] : SZ(N), al = 1 - gone;
+      const small = i >= 5, PL = i % 2 ? 'plank_b' : 'plank_a', [plW, plH] = SZ(PL), w = wood ? (small ? 9 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)) * (sp > 1 ? 1.25 : 1) : 0, h0 = w * plH / plW * (small ? 1.7 : 1.45), N = SHARDS[i % SHARDS.length], [sw, sh] = wood ? [w, h0] : SZ(N), al = 1 - gone;
       if (W && q >= 1) { const pr = (t * 0.55 + rnd(seed, i + 37)) % 1; if (wood) L.ring(px, gy + 2, sw * (0.55 + 0.35 * pr), 4 + 3 * pr, [0.5, 0.68, 0.7], 0.32 * (1 - pr), 0.25); if (b < 0.55) { const k = b / 0.55; L.ring(px, gy + 1, 3 + sw * 0.6 * k, 2 + 7 * k, [0.62, 0.78, 0.8], 0.7 * (1 - k), 0.2); } }
       else if (!W) L.shadow(px, gy + 2, sw * 0.5, 3 + (wood ? 1 : 0), 0.45 * (1 - 0.5 * Math.min(1, z / 40)));
-      const u = { grade: wood ? [0.95, W ? 0.92 + 0.2 * r0 : 1.08 + 0.3 * r0, 0, 1] : [1, 0.9 + 0.22 * r0, 0, 1], alpha: al };
-      L.inked(() => L.sprite(wood ? (i % 2 ? 'plank_b' : 'plank_a') : N, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }), { r: 2, n: 4, col: [0.09, 0.04, 0.04], dy: 0 }); } }
+      const tn = W ? LK.wet : LK.dry, u = { grade: [tn.sat, tn.lift + tn.spread * r0, 0, 1], tint: tn.tint, alpha: al };
+      L.inked(() => L.sprite(wood ? PL : N, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }), { r: 2, n: 4, col: [0.09, 0.04, 0.04], dy: 0 }); } }
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   // a coffin that let its tenant out: the box bared, its lid shoved off to one side and left hanging over the edge

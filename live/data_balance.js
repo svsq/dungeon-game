@@ -36,5 +36,5 @@
   const DIFF = { easy: { name: TXT('DIFF.easy.name'), dmg: 0.75, hp: 0.75, xp: 1 }, normal: { name: TXT('DIFF.normal.name'), dmg: 1, hp: 1, xp: 1 }, hard: { name: TXT('DIFF.hard.name'), dmg: 1.3, hp: 1.25, xp: 1 } };
   const DIFF_ORDER = ['easy', 'normal', 'hard'];
 
-  Object.assign(D, { BAL, dmgAt, hpAt, deepEnd, deepAxis, DEEP_AXES, DIFF, DIFF_ORDER });
+  Object.assign(D, { BAL, dmgAt, hpAt, deepEnd, deepAxis, DIFF, DIFF_ORDER });
 })(typeof window !== 'undefined' ? window : globalThis);

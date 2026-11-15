@@ -2,7 +2,7 @@
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data, no state; data.js checks the set.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
-  Object.assign(D.POWERS, {
+  const FORK_POWERS = {
     f_whirl_3a: { id: 'f_whirl_3a', ab: 'whirl', name: TXT('POWERS.f_whirl_3a.name'), desc: TXT('POWERS.f_whirl_3a.desc'), trig: 'cast:whirl', fx: 'nova', k: 0.3, r: 130, kb: 0 },
     f_whirl_3b: { id: 'f_whirl_3b', ab: 'whirl', name: TXT('POWERS.f_whirl_3b.name'), desc: TXT('POWERS.f_whirl_3b.desc'), trig: 'cast:whirl', fx: 'heal', v: 0.03 },
     f_whirl_6a: { id: 'f_whirl_6a', ab: 'whirl', name: TXT('POWERS.f_whirl_6a.name'), desc: TXT('POWERS.f_whirl_6a.desc'), trig: 'cast:whirl', fx: 'stun', r: 125, t: 0.4, boss: 0.1 },
@@ -39,9 +39,10 @@
     f_leap_3b: { id: 'f_leap_3b', ab: 'leap', name: TXT('POWERS.f_leap_3b.name'), desc: TXT('POWERS.f_leap_3b.desc'), trig: 'cast:leap', fx: 'slow', r: 130, t: 2, slow: 0.6 },
     f_leap_6a: { id: 'f_leap_6a', ab: 'leap', name: TXT('POWERS.f_leap_6a.name'), desc: TXT('POWERS.f_leap_6a.desc'), trig: 'cast:leap', fx: 'burnGround', k: 0.25, t: 2, per: 0.5 },
     f_leap_6b: { id: 'f_leap_6b', ab: 'leap', name: TXT('POWERS.f_leap_6b.name'), desc: TXT('POWERS.f_leap_6b.desc'), trig: 'cast:leap', fx: 'nova', k: 0.5, r: 90, kb: 1 },
-    th_warrior: { id: 'th_warrior', trig: 'hit', if: 'str25', fx: 'stun', t: 0.4, boss: 0.1, icd: 1.5 },
-    th_mage: { id: 'th_mage', trig: 'cast:fireball', if: 'int25', ...D.SHARDS },
-  });
+    th_warrior: { id: 'th_warrior', trig: 'hit', if: 'threshold', th: 'warrior', fx: 'stun', t: 0.4, boss: 0.1, icd: 1.5 },
+    th_mage: { id: 'th_mage', trig: 'cast:fireball', if: 'threshold', th: 'mage', ...D.SHARDS },
+  };
+  Object.assign(D.POWERS, FORK_POWERS); D.bakePowerDescs(FORK_POWERS);
   const FORKS = {
     whirl: { 3: ['f_whirl_3a', 'f_whirl_3b'], 6: ['f_whirl_6a', 'f_whirl_6b'] },
     charge: { 3: ['f_charge_3a', 'f_charge_3b'], 6: ['f_charge_6a', 'f_charge_6b'] },
@@ -55,9 +56,11 @@
   };
   const FORK_RANKS = [3, 6];
   // a class's stat threshold (R-02): cheap reason to raise its main stat; the archer's is the second dash in sim_hero
-  const STAT_POWER = { warrior: 'th_warrior', mage: 'th_mage' }, THRESHOLD = { warrior: ['str', 25, TXT('TH.warrior')], mage: ['int', 25, TXT('TH.mage')], archer: ['agi', 20, TXT('TH.archer')] };
+  const STAT_POWER = { warrior: 'th_warrior', mage: 'th_mage' }, THRESHOLD = { warrior: { stat: 'str', v: 25 }, mage: { stat: 'int', v: 25 }, archer: { stat: 'agi', v: 20 } };
+  for (const cls in THRESHOLD) TXT.bind('TH.' + cls + '.tip', THRESHOLD[cls]);
+  const pastThreshold = (st, cls) => { const T = THRESHOLD[cls]; return !!T && st[T.stat] >= T.v; };
   const forkKey = (ab, rank) => ab + ':' + rank;
   // the first choice this hero owes: a rank reached with no way picked
   const forkPending = (h) => { for (const A of D.clsOf(h).abs) for (const rank of FORK_RANKS) if ((h.ab[A.id] || 0) >= rank && FORKS[A.id] && !((h.forks || {})[forkKey(A.id, rank)] >= 0)) return { ab: A.id, rank }; return null; };
-  Object.assign(D, { FORKS, FORK_RANKS, STAT_POWER, THRESHOLD, forkKey, forkPending });
+  Object.assign(D, { FORKS, FORK_RANKS, STAT_POWER, THRESHOLD, pastThreshold, forkKey, forkPending });
 })(typeof window !== 'undefined' ? window : globalThis);

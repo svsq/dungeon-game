@@ -9,6 +9,7 @@
 - `game/`: геймплей, симуляция без браузера (`survey.cjs`, `lib.cjs`, `dbg.cjs`).
 - `motion/`: анимация, тела для `evalq.mjs` (`gate.js`, `gatet.js`, `flash.js`, `strip14.js`, `victor.js`, `pops.js`, `volley.js`, `coffin.js` …) и `trace.mjs`.
 - `fidelity/`: сверка с `study/refs/ref_cave_lava.png`, Lab-замеры по кадрам (`mask14.py`, `falledge.py`, `lemon.py`, `shoremap.*` …), общий модуль `labc.py`.
+- `perf/`: замер кадра, выделений и роста кучи (`profile.mjs`), отгрузка проверок в сборку (`packcheck.cjs`), загрузка сима в Node (`loadtime.cjs`); задача 2040.
 - `frame/`: кадр, наборы состояний для `shot.mjs` (`set1.js`, `set2.js`, `set3.js`, `shore.js`, `chapter.js`) и разбор (`census.py`, `blobs.py`, `nn.py`, `shore_offset.py`).
 
 Новый раунд правит скрипт на месте, старая версия остаётся в истории git. Если скрипт меряет иначе, чем раньше, это пишется в отчёте и в `MAGMA_LIMITS.md` («Замечания к старым замерам»).

@@ -4,14 +4,20 @@
 // lava, torches, decor) → validation (everything reachable from the start, spawns on open floor).
 (function (root) {
   const D = root.DATA || require('./data.js');
-  const { TILE, ENEMIES } = D, DGX = (root.DGX = {});
+  const { TILE, ENEMIES, mul32, shuffleBy } = D, DGX = (root.DGX = {});
   // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
   const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5, shroom: 5, shroom_a: 5, shroom_b: 5, crystal_cv: 6.5, vent_mg: 5, obsidian_mg: 6.5 };
+  // the floor generator's version (R-18): a floor kept by a run through the town is a diff against its rebuild, so a save made by
+  // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
+  // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
+  // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
+  // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
+  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 35;
   // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
   const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
   // (set by the sim), 6 deep water (blocks walking and knockback, not projectiles or sight)
-  const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
   // a room's shape (TASKS 374): its box (x, y, w, h) is its core, where everything set against a wall or in rows stands, and
   // `wings`, boxes of floor joined to it (a cross's arms, an L's foot, a round hall's caps), are its floor as well
@@ -20,12 +26,13 @@
 
   function genFloor(seed, floor, opts = {}) {
     // a floor without a secret room is rerolled a few times before one is accepted, unless it meant to have none
-    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, attempt < 16, false, attempt < 14); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) { if (attempt >= 14) m.loose = 1; return m; } }
+    // deprecated: kept for the map hash (GEN_PRINT, mapPrint); not ported to Godot (m.loose)
+    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, false, attempt < 14); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) { if (attempt >= 14) m.loose = 1; return m; } }
     // (a floor no try above lays, which a magma floor's walk to the stairs left 1 seed in 300: a crash on entering it, never a
     // floor; reached only past them, so every floor they lay stays as it is; loose: their walk to the stairs may be nine tenths)
-    for (let attempt = 20; attempt < 40; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, false, false, attempt >= 36); if (m) { m.loose = 1; return m; } }
+    for (let attempt = 20; attempt < 40; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, false, attempt >= 36); if (m) { m.loose = 1; return m; } }
     // (a layout of TASKS 379–380 no try lays, its rooms finding no room on the map: the plain rooms and corridors, not a crash)
-    for (let attempt = 40; attempt < 60; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, Object.assign({}, opts, { stage: Object.assign({}, opts.stage, { lay: 'rooms' }) }), false, false, attempt >= 56); if (m) return m; }
+    for (let attempt = 40; attempt < 60; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, Object.assign({}, opts, { stage: Object.assign({}, opts.stage, { lay: 'rooms' }) }), false, attempt >= 56); if (m) return m; }
     throw new Error('dungeon generation failed');
   }
 
@@ -137,7 +144,19 @@
   // the river's end (dry), if any, no shorter than `choice` of the best
   const riverAt = (R, b) => R.via.map((d, p) => [d[b], p]).filter((q) => q[0] > 0).sort((x, y) => x[0] - y[0]);
   const riverOk = (R, b, choice) => { const ws = riverAt(R, b), dry = R.dry[b]; return ws.length >= 2 && ws[1][0] <= ws[0][0] * choice && (dry < 0 || dry >= ws[0][0] * choice); };
-  function tryGen(seed, runFloor, opts, strict, mixed, lastTry, altTry) {
+  // the rim no cell is laid on through `set`: the walks and floods of every stage step to a cell's four neighbours with no bound test, and rely on rock all round the map
+  const onRim = (x, y, W, H) => !(x > 1 && y > 2 && x < W - 2 && y < H - 2);
+  // a record another one links to (a sconce's torch, a vent prop's hazard, TASKS 2063) gets an `id` when first linked, and the link holds
+  // the id, never the record's place in its list: the cuts of the lists after the link (a brazier on an arch's leg, a gate's rock tails) move places
+  const linkId = (list, o) => { if (o.id === undefined) o.id = list.reduce((n, p) => Math.max(n, p.id === undefined ? 0 : p.id), 0) + 1; return o.id; };
+  const byId = (list, id) => list.find((o) => o.id === id);
+  // the stages tryGen runs before the contents, in this order; DGX.audit is set by a check only (sim_checks_genguard.js): view(stage, GF)
+  // hands a stage the shared values to read, after(stage, GF, map) looks at what it left and reroll(stage) counts a stage's null, and with it null a floor is laid as it was
+  const STAGES = ['rooms', 'links', 'terrain'];
+  DGX.audit = null;
+  // the named passes of a stage a check leaves out to see the floor without them (tools/cavelightcheck.mjs: caveDensity); empty in play
+  DGX.leaveOut = new Set();
+  function tryGen(seed, runFloor, opts, strict, lastTry, altTry) {
     const GF = {};
     const R = mul32(seed), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pick = (arr) => arr[Math.floor(R() * arr.length)];
     // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; runFloor: its place in the run; floor: its
@@ -153,16 +172,16 @@
     // spacing, its links (long narrow ridges with dead-end ledges) and what lies off the floor (lava, the chasm, a wall at the top only)
     const arch = ST.arch || N.arch, AR = D.ARCH[arch], plat = arch === 'plateau', cave = arch === 'cave' || plat;
     const [W, H] = ST.size || (cave ? N.size[floor - 1] : [72, 54]), cells = new Array(W * H).fill(0), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : cells[y * W + x]);
-    // (moat: a fortress's rock between its ring and its court, TASKS 380, no corridor is dug through once the gates are)
+    // (moat: the cells of a fortress's rock between its ring and its court, TASKS 380, no corridor is dug through once the gates are)
     GF.moat = null;
-    const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2 && !(GF.moat && v === 1 && GF.moat(x, y))) cells[y * W + x] = v; };
+    const set = (x, y, v) => { if (!onRim(x, y, W, H) && !(GF.moat && v === 1 && GF.moat.has(y * W + x))) cells[y * W + x] = v; };
     Object.assign(GF, {
-      AR, FM, H, R, ST, W, altTry, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
+      AR, FM, H, R, ST, W, altTry, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, opts, pick, plat, ri,
       runFloor, seed, set, strict });
-    if (DGX.rooms(GF) === null) return null;
-    if (DGX.links(GF) === null) return null;
-    if (DGX.terrain(GF) === null) return null;
-    const m = DGX.fill(GF);
+    const view = (stage) => (DGX.audit ? DGX.audit.view(stage, GF) : GF), seen = (stage, out) => { if (DGX.audit) DGX.audit.after(stage, GF, out); };
+    const rerolled = (stage) => { if (DGX.audit) DGX.audit.reroll(stage); return null; };
+    for (const stage of STAGES) { if (DGX[stage](view(stage)) === null) return rerolled(stage); seen(stage); }
+    const m = DGX.fill(view('fill')); seen('fill', m); if (!m) return rerolled('fill');
     // a modifier only raises a cap or a chance, so a floor may have no room for it; the banner must never name one the floor lacks
     if (m && m.mod && MOD_HELD[m.mod] && !MOD_HELD[m.mod](m)) { if (strict) return null; m.mod = null; }
     if (m) markEvents(m, ST, opts, seed);
@@ -191,7 +210,7 @@
         gates.push({ dir: p.dir, cells: run, x: side ? ex * TILE : (a[0] + n / 2) * TILE, y: side ? (a[1] + n / 2) * TILE : ey * TILE }); }
       const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; },
     // the dark room (TASKS 365): a room with a pack to fight in the dark. Its wall torches and loose candles are put out (`dark`: the
-    // render neither draws nor lights them; the lists keep their order, as a lever's sconce is found by its index); a room with a fire
+    // render neither draws nor lights them; the lists keep their order, as a prop's knock key is its place in its list); a room with a fire
     // on its floor (a brazier, a crystal, a forge), a secret's sconce or candles, or a zone's own light is not one
     dark: (m, r) => { const inside = (o) => inRm(r, Math.floor(o.x / TILE), Math.floor(o.y / TILE), 1), mine = (t) => t.r === r.id || inside(t);
       if (r.zone || m.enemies.filter((e) => e.room === r.id).length < D.EVENTS.pool.dark.pack) return null;
@@ -256,7 +275,7 @@
     const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx);
     const rooms = m.rooms.filter((r) => r.type === 'combat' && !r.hall && !r.locked && !r.pocket && !r.isle && !r.event && r.w * r.h >= EV.area && !way.has(r.id));
     const big = (r, E) => r.w * r.h >= (E.area || EV.area);
-    for (let i = rooms.length - 1; i > 0; i--) { const j = Math.floor(Er() * (i + 1)); [rooms[i], rooms[j]] = [rooms[j], rooms[i]]; }
+    shuffleBy(rooms, Er);
     const out = [];
     for (const id of ids) { const E = pool[id];
       for (const r of rooms) { if (r.event || !big(r, E)) continue;
@@ -453,7 +472,8 @@
     // merchant's counter, and it stood behind it for good on seed 52)
     const block = []; const bk = (x, y) => { const k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (!block.includes(k)) block.push(k); };
     for (const d of decor) if (d.solid) bk(d.x, d.y); for (const t of torches) if (t.kind !== 'wall') bk(t.x, t.y); for (const [x, y] of shop.solid) bk(x, y); for (const [x, y] of T.yardSolid) bk(wx(x), wy(y));
-    return { seed, floor: 0, town: { svc, use: T.use, rails, yardSolid: T.yardSolid.map(at), pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block, decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
+    // deprecated: kept for the map hash (GEN_PRINT, mapPrint); not ported to Godot (rugs, ambush)
+    return { seed, floor: 0, town: { svc, use: structuredClone(T.use), rails, yardSolid: T.yardSolid.map(at), pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block, decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
       ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: cells.filter((c) => c === 1).length, down: null, enemies: [], chests: [], pots: [], traps: [], torches,
       decor, shrines: [], rugs: [], shop, secrets: [], secretsWanted: 0, pits: [], ledges: [], lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
       water: [], waterFlow: {}, waterFeatures: [], waterBridges: [], deep: 0, crossings: [], doors: [], locks: [], webs: [], ambush: [], drips: [], flora: [], serpentPools: [], floodCells: [] };
@@ -477,9 +497,10 @@
   // where the hero comes out of the stairs up (TASKS 1958): the sim stands him here (sim_floor.js arrive), the generator keeps its
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
-  root.DUNGEON = { FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, eventSpot, EVENT_PLACE, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  Object.assign(D, { GEN_VERSION });
+  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
-  Object.assign(DGX, { archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
+  Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
   if (typeof module !== 'undefined') { for (const f of require('./modules.js').parts.dungeon) require('./' + f); module.exports = root.DUNGEON; }
 })(typeof window !== 'undefined' ? window : globalThis);

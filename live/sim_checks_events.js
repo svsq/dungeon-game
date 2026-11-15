@@ -1,6 +1,7 @@
 // live/sim_checks_events.js — selfCheck's part for the event rooms (TASKS 361, 1817). Node only, like sim_checks.js.
 (function (root) {
-  const SIMX = root.SIMX, { D, DG, TILE, enterFloor, newRun, spawn, step } = SIMX;
+  const SIMX = root.SIMX, {
+    D, DG, enterFloor, newRun, spawn, step, TILE } = SIMX;
   const MODES = [['campaign', {}], ['campaign', { town: 1 }], ['cave', {}], ['magma', {}]];
   // the probe asked for on every floor of each run: marked in the same layout as the floor without it, the same each time, in a
   // plain fight's room off the walk to the stairs, its spot open and its room cleared; a prop on its spot cuts no way to the stairs
@@ -339,5 +340,14 @@
     for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= D.RUNS[mode].floors; f++) { const m2 = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, Object.assign({ mode, runSeed: sd }, o));
       if ((m2.events || []).some((x) => x.id === 'library') && (!o.town || !P.biomes.includes(m2.biome))) out.push(`${tag}: drawn in the ${mode}${o.town ? ' (town)' : ''} run on a ${m2.biome} floor ${f}`); }
   }
-  Object.assign(SIMX, { checkLibraryPlay, checkEventGen, checkEventPlay, checkTrialPlay, checkBloodPlay, checkHexPlay, checkFountainPlay, checkDicePlay, checkDarkPlay, checkCaptivePlay });
+  SIMX.checks.add('eventGenCheck', checkEventGen);
+  SIMX.checks.add('eventPlayCheck', checkEventPlay);
+  SIMX.checks.add('trialPlayCheck', checkTrialPlay);
+  SIMX.checks.add('bloodPlayCheck', checkBloodPlay);
+  SIMX.checks.add('hexPlayCheck', checkHexPlay);
+  SIMX.checks.add('fountainPlayCheck', checkFountainPlay);
+  SIMX.checks.add('dicePlayCheck', checkDicePlay);
+  SIMX.checks.add('darkPlayCheck', checkDarkPlay);
+  SIMX.checks.add('captivePlayCheck', checkCaptivePlay);
+  SIMX.checks.add('libraryPlayCheck', checkLibraryPlay);
 })(typeof window !== 'undefined' ? window : globalThis);

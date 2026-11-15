@@ -1,6 +1,6 @@
 // node survey.cjs N: town-run floors 13-15, layouts, gates, bridges, arrival
-const L = require('./lib.cjs'), { SIM, D, T, cellOf, way, ringCells, mean } = L; const N = +(process.argv[2] || 30);
-const mkT = (sd, f) => { const S = SIM.create(); S.demo = 0; S.meta = S.meta || {}; S.run = SIM.newRun(S, 'campaign', sd * 7, { town: true }); S.screen = 'play'; for (let g = 1; g <= f; g++) SIM.enterFloor(S, S.run, g); return S; };
+const L = require('./lib.cjs'), { SIM, D, T, cellOf, way, ringCells, mean, fresh } = L; const N = +(process.argv[2] || 30);
+const mkT = (sd, f) => { const S = fresh(); S.run = SIM.newRun(S, 'campaign', sd * 7, { town: true }); S.screen = 'play'; for (let g = 1; g <= f; g++) SIM.enterFloor(S, S.run, g); return S; };
 module.exports = { mkT };
 if (require.main === module) {
 const rows = [];

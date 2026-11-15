@@ -196,7 +196,7 @@
   // hero comes in with the archers (and from the 3rd floor a mage) at the far end behind them; shore, drowned in the hall's shallows;
   // hall, slimes in a big hall (area in cells); bones, the old dungeon's kinds, now and then with an archer or a mage at the back.
   // eel: the chance of an eel in a hall's deep water and in each lake between halls, by floor
-  const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: ['skeleton', 'goblin', 'spider'] };
+  const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: [...BIOMES.dungeon.roster] };
   // the magma caves' packs by role (TASKS 412), each a hall's pick by weight once its kinds have come (BIOMES.magma.from: the 1st
   // floor skeletons, goblins and archers, the 2nd smouldering skeletons and cultists, the 3rd fire priests and demons). plan: in
   // order, [kinds (a kind twice is drawn twice as often), how many, where, keep (cut last when the hall is small)]: near, a few steps in from the way the hero comes; back, the far end; any. The first entry is
@@ -277,6 +277,8 @@
       // eras, as shelves and a lectern have no place in a flooded cave or by the magma; shelves: at most this many new ones on its back wall
       library: { w: 2, minF: 1, room: 'treasure', town: 1, biomes: ['dungeon', 'crypt', 'lava', 'arcane'], solid: 16, near: 70, tag: 84, xp: 0.15, shelves: 2,
         name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
+  // the cursed chest's text names the curse's own number, which EVENTS holds only once its table is built
+  TXT.bind('EVENTS.hex.say', EVENTS); EVENTS.pool.hex.say = TXT('EVENTS.hex.say');
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
@@ -355,7 +357,7 @@
     crystal: 'crystal', crystal_cv: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth', fire: 'fire', bones: 'bone',
     stalag_a: 'stone', stalag_b: 'stone', boulder_a: 'stone', boulder_b: 'stone', wreck_cv: 'wood', tent_cv: 'cloth', skel_cv: 'bone',
     skel_mg: 'bone', fence_mg: 'chain', vent_mg: 'ember', anvil_tw: 'metal', forge_tw: 'stone', forge_mg: 'stone',
-    basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', skel_mg: 'bone', banner_mg: 'cloth' };
+    basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', banner_mg: 'cloth' };
 
   // a trapped chest (TASKS 1357): from: first floor it appears on; p: chance per chest, max per floor; fuse: seconds from the click to
   // the blast, time to step or dash away; r: the blast's reach; hp: share of max health, never the killing blow
@@ -367,8 +369,9 @@
   const STATUE_SECRET = { p: 0.35, planned: 0.85, plans: ['gallery', 'hall', 'crypt', 'sanctum', 'library'], hostP: 0.6, slide: 1.2 };
   // a struck coffin may let out what lies in it (TASKS 1353): rolled once per coffin, one per room at most; rise: seconds it takes to climb out
   const COFFIN = { p: (f) => Math.min(0.35, 0.12 + 0.03 * f), rise: 1 };
-  // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
+  // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew;
+  // `rest`: the painting of what is left lying there, its keel and half its ribs (TASKS 1736: only splinters marked where it had stood)
   const SHELF_SECRET = { hp: 3 };
-  const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2 };
+  const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2, rest: 'wreck_cv_broken' };
   Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

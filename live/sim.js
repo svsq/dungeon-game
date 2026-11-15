@@ -5,21 +5,21 @@
 (function (root) {
   if (typeof module !== 'undefined') for (const f of require('./modules.js').parts.sim) require('./' + f);
   const SIMX = root.SIMX, {
-    overLava, ARROW_Y, CRUST, D, DEMO_SEED, DOOM, DT, ENEMIES, FOLK_OUCH, HINT, K, L, LOOT, REWARD, RIG, TILE, UI, VIEW, VIEW_H, viewFor, setView, uiDy, atBoard, atCounter, atCraft,
-    atExitGate, atGate, atSoulAltar, atStash, boardOffers, brinkOf, canDonate, cell, chasm, completion, completionHints, craftCost, craftItem, crustAt,
-    campaignDone, damageName, debugSecrets, dep, doorLock, exitKind, doorNear, enterFloor, ev, flightReach, flow, folkNear, fstat, gateNear, gateWays, gift,
-    noteNear, captiveNear, shopShut, craftShut, giveQuest, hand, hidden, hitProps, isCons, itemIcon, itemMods, itemName, journalOf, keeperPages, killEnemy, leverNear,
-    lootAudit, losClear, newQuest, newRun, offerOf, offersOf, openChest, openDoor, openSecret, pullLever, questFloor, questIcon, questLine,
-    questMark, questMarks, questOn, questPlace, questTalk, rebalanceRun, rebuildArrival, rollItem, runCompletion, runReward, rwLine,
-    secretMask, serpentMouth, springAmbush, stashOf, stats, stepBossMove, stepLen, stepPlay, stepUI, stockShop, storyStep, takeQuest, toPx,
-    tradeDepth, turnIn, typeMods } = SIMX;
+    overLava, ARROW_Y, CRUST, D, DEMO_SEED, DOOM, DT, ENEMIES, FOLK_OUCH, HINT, K, L, REWARD, RIG, TILE, UI, VIEW, viewFor, setView, uiDy, atBoard, atCounter, atCraft,
+    atExitGate, atGate, atSoulAltar, atStash, boardOffers, brinkOf, canDonate, cell, chasm, completionHints, craftCost, craftItem, crustAt,
+    campaignDone, damageName, debugSecrets, dep, doorLock, exitKind, doorNear, enterFloor, ev, flightReach, flow, folkNear, fillStats, fstat, gateNear, gateWays,
+    noteNear, captiveNear, shopShut, craftShut, giveQuest, hand, hidden, hitProps, isCons, itemIcon, itemMods, itemName, journalOf, killEnemy, leverNear,
+    lootAudit, losClear, newRun, offersOf, openChest, openDoor, openSecret, pullLever, questIcon, questLine,
+    questMark, questMarks, questTalk, rebalanceRun, rebuildArrival, rollItem, runCompletion, rwLine,
+    secretMask, serpentMouth, stashOf, stats, stepBossMove, stepLen, stepPlay, stepUI, stockShop, toPx,
+    tradeDepth, typeMods } = SIMX;
   // ---------------- top level ----------------
   function create() {
     // the attract demo: floor 1 of a fixed seed, a level-3 hero next to the first fight, driven by a scripted bot
-    const S = base(); S.demo = 1; S.screen = 'play'; S.run = newRun(S, 'campaign', DEMO_SEED);
+    const S = base(); SIMX.settleStash(S); S.demo = 1; S.screen = 'play'; S.run = newRun(S, 'campaign', DEMO_SEED);
     const R = S.run, h = R.hero; h.lvl = 3; h.ab.fireball = 1; h.base.str += 4; const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
-    const room = R.map.rooms[R.map.start]; for (const e of R.en) e.hp = Math.min(e.hp, 40);
-    R.msg = null; S.ev = []; S.saveN = 0; void room;
+    for (const e of R.en) e.hp = Math.min(e.hp, 40);
+    R.msg = null; S.ev = []; S.saveN = 0;
     return S;
   }
   function base() { return { t: 0, steps: 0, wt0: 0, ev: [], screen: 'menu', hover: '', meta: { shards: 0, up: {}, runs: 0, wins: 0, best: 0 }, run: null, saved: null, saves: Array(D.SAVE_SLOTS).fill(null), slot: 0,
@@ -28,7 +28,7 @@
   const spawn = (worldT, persist = {}) => { const S = base(); S.wt0 = worldT; S.seedBase = (Math.floor(worldT * 1000) % 100000) + 1;
     if (persist.meta) S.meta = Object.assign(S.meta, persist.meta, { up: Object.assign({}, persist.meta.up || {}) });
     // the «Мешок» ranks of 1340 (+3 cells each) become pouches, one for every two ranks bought (TASKS 1687)
-    if (S.meta.up.bag) { S.meta.up.pouch = Math.max(S.meta.up.pouch || 0, Math.min(D.BAG.max, Math.ceil(S.meta.up.bag / 2))); delete S.meta.up.bag; } if (S.meta.zoom !== undefined) S.meta.zoom = D.zoomFix(S.meta.zoom); SIMX.statsOf(S); if (persist.run && persist.run.map) { S.saved = persist.run; rebalanceRun(S.saved); SIMX.migrateSecrets(S.saved); SIMX.mendArches(S.saved); SIMX.regate(S.saved); S.t = Math.max(S.t, persist.run.t || 0) + DT; }
+    if (S.meta.up.bag) { S.meta.up.pouch = Math.max(S.meta.up.pouch || 0, Math.min(D.BAG.max, Math.ceil(S.meta.up.bag / 2))); delete S.meta.up.bag; } if (S.meta.zoom !== undefined) S.meta.zoom = D.zoomFix(S.meta.zoom); SIMX.initStats(S); SIMX.settleStash(S); if (persist.run && persist.run.map) { S.saved = persist.run; rebalanceRun(S.saved); SIMX.migrateKept(S.saved, 'spawn'); SIMX.mendArches(S.saved); SIMX.regate(S.saved); S.t = Math.max(S.t, persist.run.t || 0) + DT; }
     SIMX.loadSaves(S, persist); fitBag(S, S.saved); return S; };
   // a run saved before a pouch was bought gets the pouch's empty cells on the end of its bag; nothing in it moves
   const fitBag = (S, R) => { const B = R && R.hero && R.hero.bag; if (!B) return; for (let n = D.bagLen(S.meta.up); B.length < n;) B.push(null); };
@@ -41,7 +41,7 @@
   function step(S, inp = {}) {
     if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
     S.pressWas = !!inp.press;
-    rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
+    rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fillStats(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
     // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1877): a browser tab cannot, so «Выход» waits for its word
     if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
@@ -110,13 +110,13 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null, slot: S.slot, saves: S.saves });
 
-  root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, VIEW_H, viewFor, setView, uiDy, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, persist,
-    stepLen, stats, gift, itemName, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
-  root.SIM.chooseFork = SIMX.chooseFork; root.SIM.uniqueItem = SIMX.uniqueItem; root.SIM.genApart = SIMX.genApart; root.SIM.migrateSecrets = SIMX.migrateSecrets;
-  // what the render may ask the sim (ARCHITECTURE.md §8): reads of the state, never a change to it (fstat fills a memo the step
-  // has already filled; at replays the attract demo into its own cache). The render takes nothing else from SIM but constants
+  root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, viewFor, setView, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, persist,
+    stepLen, stats, itemName, hitProps, secretMask, hidden, fstat, completionHints, damageName, canDonate, runCompletion, REWARD, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, offersOf, questMark, questTalk, giveQuest, questMarks, questLine, rwLine, journalOf, folkNear, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
+  root.SIM.chooseFork = SIMX.chooseFork; root.SIM.uniqueItem = SIMX.uniqueItem; root.SIM.genApart = SIMX.genApart; root.SIM.migrateSecrets = SIMX.migrateSecrets; root.SIM.mapw = SIMX.mapw;
+  // what the render may ask the sim (ARCHITECTURE.md §8): reads of the state, never a change to it (at replays the attract demo
+  // into its own cache). The render takes nothing else from SIM but constants
   root.SIM.Q = {
-    depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
+    depOf: dep, at, campaignDone, cell, rev: SIMX.rev, waterSet: SIMX.waterSet, revKey: SIMX.revKey, keyOf: SIMX.keyOf, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
     noteNear, captiveNear, eventNear: SIMX.eventNear, darkMask: SIMX.darkMask, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, crackSpan: SIMX.crackSpan, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, typing: SIMX.typing, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot, talkWalk: SIMX.talkWalk, talkFirst: SIMX.talkFirst, boardRows: SIMX.boardRows, legShown };

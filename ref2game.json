@@ -63,7 +63,7 @@
    "hero_arm",
    "hero_leg",
    "hero_back",
-   "hero_body_back",
+   "hero_body_back*",
    "brute",
    "goblin",
    "skeleton",

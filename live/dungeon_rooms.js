@@ -5,7 +5,9 @@
     D, mul32, noise2, rectsOf } = DGX;
   DGX.rooms = (GF) => {
     const {
-      AR, H, R, ST, W, boss, cave, depth, floor, lastTry, mixed, opts, plat, ri, seed, set } = GF;
+      AR, H, R, ST, W, boss, cave, depth, floor, lastTry, opts, plat, ri, seed, set, strict } = GF;
+    // a room keeps its own copy of the data's growth pair, so no later pass can change the table through the map
+    const growOf = (K, flip) => K.grow && (flip ? [K.grow[1], K.grow[0]] : [...K.grow]);
     // ---- rooms ----
     // a cave's rooms stand six cells apart and more: the rock between them holds its water and its long tunnels
     // a small map (the endless descent's first floors, TASKS 349) takes smaller rooms, or eight of them never fit
@@ -62,7 +64,7 @@
     // a random order along the chain; the lava pours into its rock once the floor is laid (platLava). The plateaus on its shore are
     // smaller than the plain floor's and ring it
     // a floor type's own sizes and spacing over the plain floor's (data.js ARCH.plateau[type])
-    const TY = Object.assign({}, AR, MIX ? Object.assign({}, MIX, { lakes: 0, gap: AR.blend.gap }) : {}, plat && ftype && AR[ftype] ? AR[ftype] : {}), shareOf = !plat ? null : MIX ? [Math.min(MIX.share[0], AR[ftype].share[0]), Math.max(MIX.share[1], AR[ftype].share[1])] : (AR[ftype] && AR[ftype].share) || AR.lava.share;
+    const TY = Object.assign({}, AR, MIX ? Object.assign({}, MIX, { lakes: 0, gap: AR.blend.gap }) : {}, plat && ftype && AR[ftype] ? AR[ftype] : {}), shareOf = !plat ? null : MIX ? [Math.min(MIX.share[0], AR[ftype].share[0]), Math.max(MIX.share[1], AR[ftype].share[1])] : [...((AR[ftype] && AR[ftype].share) || AR.lava.share)];
     // a cave floor of the magma caves (TASKS 431) is laid out as the water caves' are, halls in the rock and winding tunnels, its
     // water lava; pl: the plateaus' layout (everything else of the magma caves holds for both)
     const lc = plat && ftype === 'cave', pl = plat && !lc;
@@ -99,7 +101,7 @@
       const x0 = left ? fx + Math.ceil(wd / 2) + 2 + L.margin + 1 : 3, x1 = left ? W - 3 : fx - Math.ceil(wd / 2) - 2 - L.margin - 1;
       // (each row comes up to the river by the fall; its end away from it stops short by a share `short` of the width, so the rows
       // stagger like switchbacks, not a stack of bars)
-      for (let y = 3 + AR.cacheRows + AR.gap[1]; ; ) { const rk = mixed ? F() : 0.5, RK = rk < L.ridgeRow.p && terr.rows.length && y + L.ridgeRow.h[1] + L.step[1] + Math.max(L.rowH[1], L.broadRow.h[1]) <= H - 6 ? 'ridge' : rk > 1 - L.broadRow.p && !terr.broad ? (terr.broad = 'arena') : null, RL = RK === 'ridge' ? L.ridgeRow : RK ? L.broadRow : null;
+      for (let y = 3 + AR.cacheRows + AR.gap[1]; ; ) { const rk = strict ? F() : 0.5, RK = rk < L.ridgeRow.p && terr.rows.length && y + L.ridgeRow.h[1] + L.step[1] + Math.max(L.rowH[1], L.broadRow.h[1]) <= H - 6 ? 'ridge' : rk > 1 - L.broadRow.p && !terr.broad ? (terr.broad = 'arena') : null, RL = RK === 'ridge' ? L.ridgeRow : RK ? L.broadRow : null;
         const h = fi(RL ? RL.h : L.rowH); if (y + h > H - 6) break; const k = fi(RL ? RL.per : L.per), gap = 3, cutW = Math.round((x1 - x0) * fr(L.short));
         const ra = left ? x0 : x0 + cutW, rb = left ? x1 - cutW : x1, span = rb - ra - gap * (k - 1);
         const cut = Array.from({ length: k }, () => 0.7 + 0.6 * F()), tot = cut.reduce((a, b) => a + b, 0), row = []; let x = ra;
@@ -121,7 +123,7 @@
     // last, over the floor's count, in the gaps left (in place of plateaus, they left the floor to the lava), or in the last tries
     // where the floor's count is never reached (a lava cave's halls stand far apart); a kind that finds no place in 200 tries is let go. The later tries lay the plain sizes: a seed whose
     // kinds leave no walk long enough (an arena cuts the way short) still gets a floor
-    const MX = plat && mixed && TY.mix, kq = [];
+    const MX = plat && strict && TY.mix, kq = [];
     let nLedge = 0, kt = 0, pend = null, pendT = 0;
     if (MX) { const Q = mul32(seed ^ 0x432a), qi = (a) => a[0] + Math.floor(Q() * (a[1] - a[0] + 1));
       if (MX.arena && !boss) for (let k = qi(MX.arena.n); k > 0; k--) kq.push('arena');
@@ -132,7 +134,7 @@
     if (terr && MX && MX.ledge) { const Q = mul32(seed ^ 0x433e), qi = (a) => a[0] + Math.floor(Q() * (a[1] - a[0] + 1)), K = MX.ledge;
       for (let n = qi(AR.terrace.ledges), i = 0; n > 0 && i < 400; i++) { const w = qi(K.box[0]), h = qi(K.box[1]), x = 3 + Math.floor(Q() * (W - w - 6)), y = 4 + AR.cacheRows + Math.floor(Q() * (H - h - 7 - AR.cacheRows));
         if (!apart(x, y, w, h) || figHit(x, y, w, h) || holdHit(x, y, w, h)) continue;
-        rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: rooms.length, kind: 'ledge', g: K.grow }); n--; } }
+        rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: rooms.length, kind: 'ledge', g: growOf(K) }); n--; } }
     // a catacomb (TASKS 379): its chambers all one size on a grid, a patch of it grown from one cell to the floor's count
     if (LY && LY.grid && !boss) { const [cw, chh] = LY.grid.cell, [sx, sy] = LY.grid.step, cols = Math.floor((W - 6 - cw) / sx) + 1, rows = Math.floor((H - 7 - chh) / sy) + 1;
       const ox = 3 + Math.floor((W - 6 - (cols - 1) * sx - cw) / 2), oy = 4 + Math.floor((H - 7 - (rows - 1) * sy - chh) / 2), got = new Set([ri(0, cols * rows - 1)]);
@@ -173,7 +175,7 @@
       if (sh ? (x + w > W - 3 || y + h > H - 3) : (!apart(x, y, w, h) || figHit(x, y, w, h) || holdHit(x, y, w, h))) continue;
       const r = sh ? shaped(x, y, sh) : { x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: rooms.length };
       if (sh) { if (!rectsOf(r).every(([a, b, c, d]) => apart(a, b, c, d))) continue; Object.assign(r, { type: 'combat', id: rooms.length }); pend = null; }
-      if (K) { r.kind = kind; r.g = K.grow && (up ? [K.grow[1], K.grow[0]] : K.grow); if (kind === kq[0]) { kq.shift(); kt = 0; } }
+      if (K) { r.kind = kind; r.g = growOf(K, up); if (kind === kq[0]) { kq.shift(); kt = 0; } }
       rooms.push(r);
     }
     if (rooms.length < (cave ? 6 : LY.min || 8)) return null;
