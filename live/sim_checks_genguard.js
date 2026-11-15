@@ -1,4 +1,4 @@
-// live/sim_checks_genguard.js — selfCheck's parts for what the floor generator takes for granted (TASKS 2069): rock on the rim after every stage, each stage reading only what an earlier one laid, the fields of ST, a map that shares no object with the data. Node only, like sim_checks.js.
+// live/sim_checks_genguard.js — selfCheck's parts for what the floor generator takes for granted (TASKS 2069): rock on the rim and in a fortress's moat after every stage, each stage reading only what an earlier one laid, the fields of ST, a map that shares no object with the data. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, { D, DG } = SIMX, DGX = root.DGX, fs = require('fs'), path = require('path');
   // REROLL_MAX is what the stages did over the samecheck floors when it was set; a stage that needs more is a change to look at, and the number is raised only by a decision
@@ -14,7 +14,11 @@
     let at = '', rerolls = {};
     const rim = (stage, GF, map) => { const { cells, W, H } = map || GF;
       for (let k = 0; k < cells.length; k++) if (WALKED.includes(cells[k]) && DGX.onRim(k % W, Math.floor(k / W), W, H)) { out.push(`gen rim: after the ${stage} stage floor stands on the rim at ${k % W}, ${Math.floor(k / W)} (${at})`); return; } };
-    DGX.audit = { view: strictView, after: rim, reroll: (stage) => { rerolls[stage] = (rerolls[stage] || 0) + 1; } };
+    // the moat is laid in the links stage with the gates already open, so a gate standing in it is not of it and every cell of it stays rock
+    const moat = (stage, GF, map) => { const { cells, W } = map || GF;
+      for (const k of GF.moat || []) if (WALKED.includes(cells[k])) { out.push(`gen moat: after the ${stage} stage floor is dug into the fortress's moat at ${k % W}, ${Math.floor(k / W)} (${at})`); return; } };
+    const after = (stage, GF, map) => { rim(stage, GF, map); moat(stage, GF, map); };
+    DGX.audit = { view: strictView, after, reroll: (stage) => { rerolls[stage] = (rerolls[stage] || 0) + 1; } };
     try { for (const [label, seed, f, opts] of samecheckFloors()) { at = label; rerolls = {};
       try { DG.genFloor(seed, f, opts); } catch (e) { out.push(`gen stages: ${at}: ${e.message}`); }
       for (const [stage, n] of Object.entries(rerolls)) if (n > (REROLL_MAX[stage] ?? 0)) out.push(`gen rerolls: the ${stage} stage rerolled ${n} times on ${at}, REROLL_MAX (sim_checks_genguard.js) allows ${REROLL_MAX[stage] ?? 0}`);

@@ -10,7 +10,6 @@ const args = process.argv.slice(2), out = args.includes('--out') ? args[args.ind
 const server = http.createServer((q, r) => {
   const file = path.join(process.cwd(), decodeURIComponent(q.url.split('?')[0]));
   fs.readFile(file, (err, bytes) => { if (err) { r.writeHead(404); r.end(); return; }
-    if (q.headers['x-cave-density'] === 'before' && file.endsWith('/live/dungeon_fill.js')) { let src = bytes.toString(); const a = src.indexOf('    if (cave) {\n      const mushrooms ='), b = src.indexOf('    if (cave) for (const d of decor)', a); if (a < 0 || b < 0) throw new Error('density baseline missing'); bytes = Buffer.from(src.slice(0, a) + src.slice(b)); }
     r.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.png') ? 'image/png' : 'text/html'); r.end(bytes);
   });
 });
@@ -19,14 +18,15 @@ const browser = await chromium.launch({ args: ['--use-angle=' + (process.platfor
 const errors = [], results = [];
 try {
   for (const version of ['before', 'after']) {
-    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, extraHTTPHeaders: { 'x-cave-density': version } });
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
     await page.waitForFunction(() => window.__ready);
-    const names = await page.evaluate(() => {
+    const names = await page.evaluate((version) => {
+      if (version === 'before') DGX.leaveOut.add('caveDensity');
       window.lightQA = SCENE.QA();
       return lightQA.states.filter(([n]) => n.startsWith('cave_light_bridge_') || n.startsWith('cave_light_camp_') || ['cave_arena_exit', 'serpent_arena', 'cave_phase2_attack', 'cave_water', 'cave_hall', 'cave_crossing', 'zone_cave'].includes(n)).map(([n]) => n);
-    });
+    }, version);
     for (const name of names) {
       const r = await page.evaluate((name) => {
         const S = structuredClone(lightQA.states.find(([n]) => n === name)[1]), R = S.run, m = R.map, h = R.hero, z = R.zoom || 1;
