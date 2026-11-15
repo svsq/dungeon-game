@@ -187,7 +187,7 @@
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; if (!S.meta.shards) ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_town.noShards') }); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; S.focus = 'stay'; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
-    if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
+    if (atGate(R, S)) { const o = gateWays(R, S); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     // the prompt shows the way out when one is in reach, so E takes it (TASKS 1600)
@@ -504,8 +504,16 @@
   const roomFor = (h, b) => { const cap = D.CONSUMABLES[b].stack; return h.bag.reduce((a, q) => a + (!q ? cap : q.b === b ? Math.max(0, cap - q.n) : 0), 0); };
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
-  const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
-  const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []);
+  // the ring's ways (TASKS 2104): the scroll's portal, and with S given the boss halls the player has opened (S.meta.portals, kept
+  // across runs) and the way down from the first floor beside them; a hardcore run starts from the first floor, so it gets no hall
+  const atGate = (R, S) => !!(R.town && R.map.town && gateWays(R, S).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
+  const hallsOf = (S, R) => (!S || SIMX.hardcore(R) || RUN(R) !== D.RUNS.campaign ? [] : (S.meta.portals || []).filter((f) => f >= 1 && f <= RUN(R).floors));
+  const gateWays = (R, S) => { const o = R.portal ? [{ k: 'portal', f: R.portal.f }] : [], H = hallsOf(S, R);
+    return H.length ? o.concat([{ k: 'down', f: 1 }], H.map((f) => ({ k: 'boss', f }))) : o; };
+  // a boss slain in a campaign through the town opens its hall's portal for good (TASKS 2104), in either mode, as rewards are the same
+  function openHall(S, R) { const P = S.meta.portals || [];
+    if (S.demo || R.test || !R.viaTown || RUN(R) !== D.RUNS.campaign || P.includes(R.floor)) return;
+    S.meta.portals = P.concat(R.floor).sort((a, b) => a - b); S.saveN++; }
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
     if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
@@ -583,6 +591,6 @@
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf, settleStash,
-    stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
+    stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openHall, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell, CART_V });
 })(typeof window !== 'undefined' ? window : globalThis);

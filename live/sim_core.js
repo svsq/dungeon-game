@@ -50,8 +50,14 @@
   // started late instead of passing a short count off as the whole history
   const statsOf = (S) => S.meta.stats;
   const initStats = (S) => S.meta.stats || (S.meta.stats = { from: S.meta.runs || 0, all: {}, cls: {} });
+  // a run's death mode (TASKS 2104): only a run through the town has a town to wake in, so every other run is hardcore, as is a
+  // run saved before the modes
+  const deathOf = (R) => (R.viaTown && R.deathMode === 'normal' ? 'normal' : 'hard');
+  const hardcore = (R) => deathOf(R) === 'hard';
+  // the counters go by mode as well (TASKS 2104): stats.mode.normal and stats.mode.hard, each with the keys of stats.all
   const tally = (S, R, k, n = 1, max) => { if (S.demo || !R || !n || R.test) return; const T = statsOf(S), id = D.clsOf(R.hero).id, C = T.cls[id] || (T.cls[id] = {});
-    for (const o of [T.all, C]) o[k] = max ? Math.max(o[k] || 0, n) : (o[k] || 0) + n; };
+    const md = T.mode || (T.mode = {}), M = md[deathOf(R)] || (md[deathOf(R)] = {});
+    for (const o of [T.all, C, M]) o[k] = max ? Math.max(o[k] || 0, n) : (o[k] || 0) + n; };
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
   const logFloor = (R) => R.log.fl[R.log.fl.length - 1];
   const add = (o, k, n = 1) => { o[k] = (o[k] || 0) + n; };
@@ -289,7 +295,7 @@
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW, VIEW_H, viewFor, setView, uiDy,
-    zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally,
+    zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
     losClear, overLava, doorLock, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });

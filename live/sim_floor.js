@@ -21,6 +21,7 @@
       freeze: 0, trauma: 0, map: null, en: [], proj: [], drops: [], chests: [], pots: [], shrines: [], seen: [], rseen: [], bossDead: 0, won: 0, saveT: 0, msg: null };
     if (!S.demo) R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
     if (o.name) { R.hero.name = o.name; if (R.log) R.log.name = o.name; }
+    if (o.deathMode) { R.deathMode = o.deathMode; if (R.log) R.log.deathMode = o.deathMode; }
     const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.demo ? {} : S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
     const give = (it) => { it.id = R.nextId++; return it; };
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: W, rar: 0, mods: {}, atk: BASES[W].atk }));
@@ -220,6 +221,8 @@
     if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     // (in the magma wall he steps out a cell lower and aside, TASKS 1930: straight below the opening he hid its steps)
     else if (how === 'down' && m.up) [hx, hy] = standNear(R, ...DG.arrivalAt(m.up, m.biome));
+    // through the town's ring to a boss's hall (TASKS 2104): out by the hall's portal home, whether its boss is slain yet or not
+    else if (how === 'boss') { const g = SIMX.hallGate(R) || m.up || m.spawn; [hx, hy] = standNear(R, g.x, g.y + 40); }
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null; h.volleyT = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is

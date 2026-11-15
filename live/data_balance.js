@@ -16,8 +16,8 @@
   // than the forge lord's 6th and a plain blow on the 7th took over 10 % of the health
   // startHpPot: the hero starts with three healing potions: with two, the early deaths came with an empty bag (TASKS 222)
   // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion; blast: the smouldering
-  // dead's blasts together over any `t` s (TASKS 1647)
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 2.15, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.27, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 0, t: 0.22 }, cap: { blow: 0.33, boss: 0.5, blast: { share: 0.5, t: 1.5 } }, deep: { from: 12, hp: 1.1, dmg: 1.06, past: 18, pastHp: 1.06, end: 40 } };
+  // dead's blasts together over any `t` s (TASKS 1647); deathXpLoss: the share of the hero's level's experience a death takes in the normal mode (TASKS 2104)
+  const BAL = { deathXpLoss: 0.1, pop: 0.5, hp: 1.6, dmg: 2.15, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.27, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 0, t: 0.22 }, cap: { blow: 0.33, boss: 0.5, blast: { share: 0.5, t: 1.5 } }, deep: { from: 12, hp: 1.1, dmg: 1.06, past: 18, pastHp: 1.06, end: 40 } };
   // past the campaign's last floor (the endless descent, TASKS 351) monsters grow on with no ceiling: health ×deep.hp and blows
   // ×deep.dmg a floor on top of the campaign's lines (R-05); a blow is still held to BAL.cap of the hero's health
   // Every floor must stay passable (the player's call 08.11.2026, TASKS 385): the hero's strength grew 4 % a floor against the monsters' 13 %,
@@ -35,6 +35,11 @@
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
   const DIFF = { easy: { name: TXT('DIFF.easy.name'), dmg: 0.75, hp: 0.75, xp: 1 }, normal: { name: TXT('DIFF.normal.name'), dmg: 1, hp: 1, xp: 1 }, hard: { name: TXT('DIFF.hard.name'), dmg: 1.3, hp: 1.25, xp: 1 } };
   const DIFF_ORDER = ['easy', 'normal', 'hard'];
+  // what a death does to a run (TASKS 2104), chosen for a new run and kept by it: in the normal mode the hero wakes in the town, in
+  // hardcore the run ends. The first is the default; a run saved before the modes has none and plays as hardcore
+  const DEATH_MODES = { normal: { name: TXT('DEATH.normal.name') }, hard: { name: TXT('DEATH.hard.name') } };
+  const DEATH_ORDER = ['normal', 'hard'];
+  const deathPick = (meta) => (DEATH_ORDER.includes(meta && meta.deathMode) ? meta.deathMode : DEATH_ORDER[0]);
 
-  Object.assign(D, { BAL, dmgAt, hpAt, deepEnd, deepAxis, DIFF, DIFF_ORDER });
+  Object.assign(D, { BAL, dmgAt, hpAt, deepEnd, deepAxis, DIFF, DIFF_ORDER, DEATH_MODES, DEATH_ORDER, deathPick });
 })(typeof window !== 'undefined' ? window : globalThis);

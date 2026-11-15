@@ -4,6 +4,8 @@
     'DIFF.easy.name': 'Лёгкая',
     'DIFF.normal.name': 'Нормальная',
     'DIFF.hard.name': 'Тяжёлая',
+    'DEATH.normal.name': 'Обычный',
+    'DEATH.hard.name': 'Хардкор',
     'NAME.boss_serpent': 'Тальассар',
     'NAME.boss_colossus': 'Энкелад',
     'NAME.boss_forge': 'Хазмодей',

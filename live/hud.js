@@ -380,10 +380,10 @@
     if (m.town && SIM.Q.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, TXT('hud.world.25')];
     if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
     if (SIM.Q.atExitGate(R)) pr = [m.town.svc.exitGate.x, m.town.svc.exitGate.y - 110, TXT('hud.world.gate')];
-    if (SIM.Q.atGate(R)) { const o = SIM.Q.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.29', { f: o[0].f })]; }
+    if (SIM.Q.atGate(R, S)) { const o = SIM.Q.gateWays(R, S); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length === 1 ? TXT('hud.world.29', { f: o[0].f }) : TXT('hud.world.ring.open')]; }
     if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
     if (!pr && tz) pr = [tz.x, tz.y - 46, TXT('hud.world.take', { p1: SIM.Q.itemName(tz.item) })];
-    if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
+    if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R, S).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
     if (pr && S.screen === 'play' && !(R.leaving > 0) && !SIM.Q.greetHold(R) && !S.ev.some((e) => e.k === 'floor' && S.t - e.t < 0.5)) { const s = pr[2], sub = pr[3], bh = sub ? 64 : 40, w = Math.max(lw('prompt', s, { size: 24 }), sub ? lw('prompt_j', sub, { size: 20 }) : 0) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
@@ -1108,11 +1108,13 @@
     const U = D.UI.classes(S.meta), dif = S.meta.diff || 'normal', cur = D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior';
     const lit = litOf(S, U.map((q) => q.id)), sl = (id) => ({ hover: lit === id, press: S.hover === id && !!S.pressWas, focus: false, off: false });
     KIT.tabs('cl_d', U.filter((b) => b.dif), 'dif:' + dif, S, { fill: true, lit });
+    KIT.tabs('cl_m', U.filter((b) => b.death), 'death:' + D.deathPick(S.meta), S, { fill: true, lit });
     // the difficulty is the player's own choice (TASKS 1825), so the line tells the story instead of advising the easy one
     // what the lit or chosen difficulty changes, in the numbers the sim plays by (TASKS 1886)
     const dk = lit.startsWith('dif:') ? lit.slice(4) : dif, Dd = D.DIFF[dk] || D.DIFF.normal, pc = (v) => String(Math.round(Math.abs(v - 1) * 100));
     const dp = { dmg: pc(Dd.dmg), hp: pc(Dd.hp) };
-    KIT.light('cl_dl', dk === 'easy' ? TXT('UI.classes.diff.easy', dp) : dk === 'hard' ? TXT('UI.classes.diff.hard', dp) : TXT('UI.classes.diff.normal', dp), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
+    const mk = lit.startsWith('death:') ? lit.slice(6) : null, ml = mk && TXT('UI.classes.death.' + mk, { xp: Math.round(D.BAL.deathXpLoss * 100) });
+    KIT.light('cl_dl', ml || (dk === 'easy' ? TXT('UI.classes.diff.easy', dp) : dk === 'hard' ? TXT('UI.classes.diff.hard', dp) : TXT('UI.classes.diff.normal', dp)), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
     const tip = TXT('UI.classes.hint');
     KIT.light('cl_s', tip, W / 2, 158, { size: 20, fit: W - 200, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 144, W - 200, 30, 0);
     for (const b of U.filter((q) => q.cls)) {
@@ -1210,6 +1212,8 @@
     const sy = G0.y + G0.h + 96, sh = TXT('hud.stats.hand', { n: grp(S.meta.shards || 0) }), shw = lw('sa_hw', sh, { size: 28 }) + 56;
     icon('dc_shards', B.R.x + B.R.w / 2 - shw / 2, sy - 22, 44); KIT.ink('sa_hand', sh, B.R.x + B.R.w / 2 - shw / 2 + 56, sy, { size: 28 });
     if (S.meta.bestEndless) KIT.ink('sa_end', TXT('hud.stats.endless', { n: S.meta.bestEndless }), B.R.x + B.R.w / 2, sy + 44, { size: 22, al: 0.5, col: KIT.INK.d });
+    // the modes' own counters and records (TASKS 2104), each under the other
+    D.DEATH_ORDER.forEach((k, i) => { const M = (T.mode || {})[k] || {}; KIT.ink('sa_md' + k, TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: grp(M.wins || 0), d: grp(M.deaths || 0), b: M.best || 0 }), B.R.x + B.R.w / 2, sy + (S.meta.bestEndless ? 76 : 44) + i * 28, { size: 22, al: 0.5, fit: B.R.w - 40, col: KIT.INK.d }); });
     const back = U.r.find((o) => o.id === 'back'); KIT.button('sa_back', back, KIT.st(S, 'back'));
     const ky = U.B.y + U.B.h + 36, kw = lw('sa_keys_w', TXT('hud.stats.keys'), { size: 26 }); L.uiBox('sa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('sa_keys', TXT('hud.stats.keys'), W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
@@ -1662,17 +1666,18 @@
     KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   function gate(S, R, t) {
-    const o = SIM.Q.gateWays(R), U = D.UI.gate(o.length), P = U.P, I = KIT.INK;
+    const o = SIM.Q.gateWays(R, S), U = D.UI.gate(o.length), P = U.P, I = KIT.INK;
     dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 380, [0.45, 0.55, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend();
     KIT.panel('gate', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('gt_t', W / 2, P.y + 16, 460, TXT('hud.gate'), { h: 76, size: 36 });
     KIT.light('gt_s', TXT('hud.gate.2'), W / 2, P.y + 118, { size: 22, al: 0.5, col: '#cdb89a' });
-    o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), nm = TXT('hud.gate.3', { f: q.f }), x = b.x + 108, iw = b.w - 108 - 40;
+    o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), x = b.x + 108, iw = b.w - 108 - 40, is = Math.min(48, b.h - 12);
+      const nm = q.k === 'boss' ? TXT('hud.gate.boss', { name: (D.ENEMIES[D.stageOf('campaign', q.f).boss] || { name: '' }).name, f: q.f }) : q.k === 'down' ? TXT('hud.gate.down') : TXT('hud.gate.3', { f: q.f });
+      const ds = q.k === 'boss' ? TXT('hud.gate.boss.2') : q.k === 'down' ? TXT('hud.gate.down.2') : TXT('hud.gate.5');
       KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox('gt_r' + i, b.x + 30, b.y, b.w - 60, b.h, 2);
-      icon('it_scroll', b.x + 44, b.y + 12, 48);
-      KIT.ink('gt_n' + i, nm, x, b.y + 26, { size: 26, fit: iw, col: st.hover ? I.r : I.t });
-      const ds = TXT('hud.gate.5');
-      KIT.ink('gt_d' + i, ds, x, b.y + 52, { size: 18, fit: iw, col: I.d }); });
+      icon('it_scroll', b.x + 44, b.y + (b.h - is) / 2, is);
+      KIT.ink('gt_n' + i, nm, x, b.full ? b.y + 26 : b.y + b.h / 2 + 8, { size: 26, fit: iw, col: st.hover ? I.r : I.t });
+      if (b.full) KIT.ink('gt_d' + i, ds, x, b.y + 52, { size: 18, fit: iw, col: I.d }); });
     KIT.button('gt_leave', U.r[o.length], stN(S, 'leave'));
     KIT.light('gt_help', TXT('hud.gate.6'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }

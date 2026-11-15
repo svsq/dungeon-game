@@ -27,6 +27,8 @@
     { id: 'gfx', key: 'gfx', name: () => TXT('UI.settings.gfx'), stops: [0, 1, 2], def: 2, fmt: (v) => (v === 0 ? TXT('UI.settings.gfx.0') : v === 1 ? TXT('UI.settings.gfx.1') : TXT('UI.settings.gfx.2')), ends: () => [TXT('UI.settings.gfx.lo'), TXT('UI.settings.gfx.hi')] },
     // the fullscreen (TASKS 1864): a checkbox, as on ref_ui_settings_b; the sim keeps the wish, the page applies it and reports it back
     { id: 'full', key: 'full', name: () => TXT('UI.settings.full'), stops: [0, 1], def: 0, check: true }];
+  // the start screen's top row (TASKS 2104): the difficulty's tabs, then apart from them the death mode's
+  const CLS_TABS = { y: 44, h: 60, dw: 260, mw: 220, gap: 16, sep: 64 };
   // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
   const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
   // five save slots: five rows of a portrait and four columns fill the left page at a readable size, as on ref_ui_saves_b
@@ -55,10 +57,12 @@
     // the start screen (TASKS 1103, 1304): the difficulty's tabs over the class cards, a card a ready class, side by side, the start
     // and back buttons under them
     // with no kit to choose (a first hero) the cards lose the kit button's row, or about 70 px of each stay empty (TASKS 1757)
-    classes: (meta) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2, TW = 300, tg = 16;
+    classes: (meta) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2, T = CLS_TABS, dl = D.DIFF_ORDER, ml = D.DEATH_ORDER;
+      const dw = dl.length * T.dw + (dl.length - 1) * T.gap, tx = 960 - (dw + T.sep + ml.length * T.mw + (ml.length - 1) * T.gap) / 2;
       const CH = ids.some((id) => D.kitsOf(id, meta).length > 1) ? 696 : 650, by = 182 + CH + 18;
       return ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 60, y: 762, w: W - 120, h: 44 }))
-        .concat(D.DIFF_ORDER.map((d, i, a) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: 960 - (a.length * TW + (a.length - 1) * tg) / 2 + i * (TW + tg), y: 44, w: TW, h: 60 })))
+        .concat(dl.map((d, i) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: tx + i * (T.dw + T.gap), y: T.y, w: T.dw, h: T.h })))
+        .concat(ml.map((d, i) => ({ id: 'death:' + d, death: d, label: D.DEATH_MODES[d].name, on: true, x: tx + dw + T.sep + i * (T.mw + T.gap), y: T.y, w: T.mw, h: T.h })))
         .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 182, w: W, h: CH })))
         // the hero's name between «Назад» and «В путь» (TASKS 1879): the field, and the die that throws a name into it
         .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 1284, y: by, w: 300, h: 68 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 336, y: by, w: 300, h: 68 },

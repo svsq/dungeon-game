@@ -7,7 +7,7 @@
   const D = root.DATA, KEYS = [
     'ROOM_SHAPES', 'FOLK', 'FOLK_SAY', 'KEEPER', 'folkClock', 'folkInit', 'placeName', 'colossusStepAt', 'colossusContact', 'TILE', 'ZOOM',
     'ZOOMS', 'zoomFix', 'SETTINGS', 'BIOMES', 'ARCH', 'HAZ', 'hazCycle', 'hazClock', 'hazIn', 'hazAxes', 'RUNS', 'runOf', 'wanderAt', 'stageOf', 'rosterAt', 'CAVE_PACKS',
-    'MAGMA_PACKS', 'DIFF', 'DIFF_ORDER', 'floorName', 'ENEMIES', 'BOSSES', 'bossPhase', 'bossMove', 'BAL', 'dmgAt', 'hpAt', 'ELITE',
+    'MAGMA_PACKS', 'DIFF', 'DIFF_ORDER', 'DEATH_MODES', 'DEATH_ORDER', 'deathPick', 'floorName', 'ENEMIES', 'BOSSES', 'bossPhase', 'bossMove', 'BAL', 'dmgAt', 'hpAt', 'ELITE',
     'eliteK', 'windOf', 'under', 'ELITE_MODS', 'eliteMods', 'modPool', 'TIPS', 'eliteName', 'ELITE_GROUP', 'ELITE_NAMES', 'SLOTS', 'SLOT_NAME', 'BASES',
     'ITEM_BAL', 'STASH', 'CRAFT', 'CAPTIVES', 'NOTES', 'STORY', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'turnFill', 'NAMED', 'storyChain', 'reqLvl',
     'CONSUMABLES', 'RARITY', 'AFFIXES', 'AFFIX_W', 'LOOT_OVER', 'LEGEND_NAMES', 'UNIQUES', 'bossUniques', 'floorUnique', 'EPIC_POWER', 'epicPool', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'EVENTS', 'CLASSES', 'clsOf', 'classesReady', 'uiAt', 'CLASS_LOOT', 'wears', 'clsNames', 'ABILITIES', 'CRIT', 'AB_MAX', 'abRank', 'MASTERY', 'masteryK', 'masteryTake', 'SHIELD_T',

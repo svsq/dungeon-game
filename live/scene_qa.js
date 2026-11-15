@@ -98,6 +98,9 @@
         S.screen = 'stats'; S.statTab = tab; S.focus = 'tab:' + tab; S.hover = tab === 'all' ? 'tab:mage' : ''; })]),
       ['stats_back', mk((S) => { Object.assign(S.meta, { runs: 3, wins: 0, best: 4, shards: 120, stats: { from: 0, all: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 }, cls: { mage: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 } } } });
         S.screen = 'stats'; S.statTab = 'mage'; S.focus = 'back'; S.hover = 'back'; })],
+      // the modes' counters under the endless record (TASKS 2104), the widest numbers
+      ['stats_modes', mk((S) => { Object.assign(S.meta, { runs: 1284, wins: 140, best: 32, bestEndless: 47, shards: 9999999, stats: { from: 0, all: { runs: 1284, wins: 140, deaths: 99853 }, cls: {}, mode: { normal: { wins: 120, deaths: 98765, best: 16 }, hard: { wins: 20, deaths: 1088, best: 32 } } } });
+        S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; })],
       // the saved games (TASKS 1311): none; every slot taken with the widest lines (a test run's name, level 99, two-digit floors,
       // thousands of hours, a save from before the dates), the keyboard on a slot, on «Загрузить», an empty slot chosen, the delete question
       ...(() => { const fill = (S, n) => { const runs = [['magma', 12, 99, 'hard', 3600 * 4321 + 59 * 60], ['campaign', 0, 1, 'easy', 59], ['cave', 14, 47, 'normal', 3600 * 9 + 5 * 60], ['campaign', 16, 63, 'normal', 3600 * 123], ['endless', 47, 88, 'hard', 3600 * 77 + 600]];
@@ -1676,6 +1679,9 @@
     states.push(['classes_focus_tab', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'easy'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'dif:hard'; })]);
     states.push(['classes_dif_hard', mk((S) => { S.meta.cls = 'archer'; S.meta.diff = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'cls:archer'; S.hover = 'dif:normal'; })]);
     states.push(['classes_won', mk((S) => { S.meta.cls = 'mage'; S.meta.diff = 'normal'; S.meta.wins = 1; S.meta.open = Object.fromEntries(DATA.UNLOCKS.filter((u) => u.kind === 'kit').map((u) => [u.id, 1])); S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'cave'; S.focus = 'kit:mage'; })]);
+    // the death mode's tabs (TASKS 2104): hardcore chosen by the keyboard, and the normal mode lit by the pointer with its line
+    states.push(['classes_death_hard', mk((S) => { S.meta.cls = 'warrior'; S.meta.deathMode = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'death:hard'; })]);
+    states.push(['classes_death_hover', mk((S) => { S.meta.cls = 'mage'; S.meta.deathMode = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'death:normal'; })]);
     states.push(['classes_go', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'go'; S.hover = 'go'; S.pressWas = true; })]);
     // the keyboard's focus on each row of the start screen (TASKS 1856): the chosen tab, the chosen card, «В путь», each told apart
     // from the plain choice
@@ -1903,6 +1909,13 @@
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // past the campaign (PR #21 review): the portal of the descent
     states.push(['town_gate_descent', climbS(0, (S, R, m, h) => { R.campaignWon = 1; R.memo = Object.assign({}, R.memo, { 14: { mode: 'endless' }, 15: { mode: 'endless' }, 16: { mode: 'endless' } }); R.portal = { f: 15, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; })]);
+    // the boss halls opened in earlier runs (TASKS 2104): beside the scroll's portal and the way down, a few; then every hall of the
+    // campaign, the rows thinned to fit; the prompt by the ring with more than one way
+    { const halls = Array.from({ length: DATA.RUNS.campaign.floors }, (_, i) => i + 1).filter((f) => DATA.stageOf('campaign', f).boss);
+      const ring = (S, R, m, h, P) => { R.deathMode = 'normal'; S.meta.portals = P; R.offers = []; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; };
+      states.push(['town_gate_halls', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 2)); R.portal = { f: 5, x: 0, y: 0 }; S.screen = 'gate'; S.hover = 'go:2'; })]);
+      states.push(['town_gate_halls_all', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls); R.portal = { f: 15, x: 0, y: 0 }; S.screen = 'gate'; S.hover = 'go:' + (halls.length + 1); })]);
+      states.push(['town_gate_halls_prompt', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); })]); }
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // a chapter boss's portal home (TASKS 383): the town's ring of stones and rune disc in its hall, the hero at it

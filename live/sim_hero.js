@@ -177,7 +177,7 @@
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
     const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || SIMX.chapterEnd(R, e)), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
-    if (D.BOSSES[e.type]) { SIMX.captiveBoss(S, R, e); SIMX.finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); } }
+    if (D.BOSSES[e.type]) { SIMX.captiveBoss(S, R, e); SIMX.finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); SIMX.openHall(S, R); } }
     if (big && !R.chests.some((c) => c.boss)) LOOT.boss.forEach((o, i) => { const it = rollItem(R, dep(R), o.q, undefined, o); drop(R, e.x, e.y, { kind: 'item', item: i ? it : SIMX.bossPrize(R, e, it) }); });
     if (fin) { R.bossDead = 1; R.msg = { s: TXT('sim_hero.killEnemy.msg.s', { name: ENEMIES[e.type].name }), t: S.t }; }
     e.x = ox; e.y = oy;
@@ -210,7 +210,7 @@
     if (R.log && h.deadT < 0) { const L = logFloor(R); L.time += DT; L.minHp = Math.min(L.minHp, h.hp / st.maxHp); L.minMp = Math.min(L.minMp, h.mp / st.maxMp); L.maxHp = st.maxHp; L.maxMp = st.maxMp; L.atk = st.atk; L.def = st.def; }
     // mouse → world aim
     const Z = zoomOf(R), mx = R.cam[0] + inp.px / Z, my = R.cam[1] + inp.py / Z;
-    if (h.deadT >= 0) { if (t - h.deadT > 1.6) return SIMX.endRun(S, 'dead'); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
+    if (h.deadT >= 0) { if (t - h.deadT > 1.6) return SIMX.heroFell(S); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
     // Keys pressed in it, or in the hold on «Продолжить», are kept for the first step after it (TASKS 227, review of PR 57)

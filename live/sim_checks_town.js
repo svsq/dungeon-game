@@ -368,7 +368,43 @@
       if (near < C.rope.gap) out.push(`cart: the rope of ${f} comes ${near.toFixed(1)} px to the rails' axis at ${at} px, under ${C.rope.gap}`); }
     return out;
   }
+  // TASKS 2104: hardcore's death ends the run; the normal mode's wakes the hero in the town with a share of his level's experience
+  // gone, his level, gear and floors kept, and a boss fight he fell in called off; a boss slain opens its hall in the meta, the hall
+  // outlives the run, the ring of a new normal run offers it beside the way down from the first floor and leads to the boss's floor,
+  // a hardcore run's ring offers none; the counters go by mode, and a run saved before the modes plays as hardcore
+  function deathModeCheck() { const out = [], LVL = 3, XP = 50;
+    const fresh = (mode, S = spawn(0, {})) => { const R = newRun(S, 'campaign', 11, { town: 1, deathMode: mode }); S.run = R; S.screen = 'play'; return [S, R]; };
+    const die = (S, R) => { R.hero.ifr = 0; SIMX.killHero(S, R); for (let i = 0; i < 400 && S.run === R && R.hero.deadT >= 0; i++) step(S, { keys: [] }); };
+    const bossF = Array.from({ length: D.RUNS.campaign.floors }, (_, i) => i + 1).find((f) => D.stageOf('campaign', f).boss);
+    { const [S, R] = fresh('hard'); enterFloor(S, R, 1); die(S, R);
+      if (S.run || S.screen !== 'dead') out.push(`death mode: a hardcore death leaves the screen ${S.screen} and the run ${!!S.run}`);
+      if (!S.result || S.result.deathMode !== 'hard') out.push(`death mode: a hardcore run's result records the mode ${S.result && S.result.deathMode}`);
+      const M = S.meta.stats.mode || {}; if (!(M.hard && M.hard.deaths === 1) || (M.normal && M.normal.deaths)) out.push(`death mode: a hardcore death is counted ${JSON.stringify(M)}`); }
+    { const [S, R] = fresh('normal'), h = R.hero; enterFloor(S, R, 1); h.lvl = LVL; h.xp = XP; const gold = h.gold = 77, wpn = h.eq.weapon.id, lost = Math.min(XP, Math.round(D.xpNeed(LVL) * D.BAL.deathXpLoss)); die(S, R);
+      if (S.run !== R || S.screen !== 'play' || !R.town) out.push(`death mode: a normal death does not wake the hero in the town (screen ${S.screen}, floor ${R.floor})`);
+      if (h.deadT !== -1 || h.hp !== heroSt(S).maxHp) out.push('death mode: the hero wakes in the town still dead or hurt');
+      if (h.lvl !== LVL || h.xp !== XP - lost) out.push(`death mode: a normal death leaves level ${h.lvl} and ${h.xp} xp, not ${LVL} and ${XP - lost}`);
+      if (h.gold !== gold || !h.eq.weapon || h.eq.weapon.id !== wpn) out.push('death mode: a normal death takes the gold or the gear');
+      if (!R.memo || !R.memo[1]) out.push('death mode: a normal death drops the floor it happened on');
+      const M = S.meta.stats.mode || {}; if (!(M.normal && M.normal.deaths === 1) || (M.hard && M.hard.deaths)) out.push(`death mode: a normal death is counted ${JSON.stringify(M)}`); }
+    if (!SIMX.hardcore({ viaTown: 1 })) out.push('death mode: a run saved before the modes is not hardcore');
+    if (!bossF) { out.push('death mode: the campaign has no boss floor'); return out; }
+    { const [S, R] = fresh('normal'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]);
+      R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 1; die(S, R); enterFloor(S, R, bossF); const b2 = R.en.find((e) => D.BOSSES[e.type]);
+      if ((R.arena && R.arena.active) || !b2 || b2.hp !== b2.max || b2.deadT >= 0) out.push('death mode: a boss fight the hero fell in is still on, or the boss not whole, when he comes back'); }
+    const [S, R] = fresh('hard'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]); R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIMX.killEnemy(S, R, b);
+    if (!(S.meta.portals || []).includes(bossF)) { out.push(`death mode: the boss of floor ${bossF} opens no hall in the meta (${JSON.stringify(S.meta.portals)})`); return out; }
+    const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S))));
+    if (!(S2.meta.portals || []).includes(bossF)) out.push('death mode: the opened hall does not outlive the save');
+    const [, R2] = fresh('normal', S2), o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
+    if (!go || !o.some((q) => q.k === 'down' && q.f === 1)) out.push(`death mode: a new normal run's ring offers ${JSON.stringify(o)}`);
+    if (go) { SIMX.gateGo(S2, R2, go); const g = SIMX.hallGate(R2);
+      if (R2.floor !== bossF || !g || Math.hypot(R2.hero.x - g.x, R2.hero.y - g.y) > 2 * TILE) out.push(`death mode: the hall's portal leads to floor ${R2.floor}, ${g ? Math.round(Math.hypot(R2.hero.x - g.x, R2.hero.y - g.y)) : '?'} px from its portal`); }
+    { const [S3, R3] = fresh('hard', S2); if (SIMX.gateWays(R3, S3).length) out.push(`death mode: a hardcore run's ring offers ${JSON.stringify(SIMX.gateWays(R3, S3))}`); }
+    return out;
+  }
   SIMX.checks.add('townCheck', townCheck);
+  SIMX.checks.add('deathModeCheck', deathModeCheck);
   SIMX.checks.add('cartCheck', cartCheck);
   SIMX.checks.add('folkCheck', folkCheck);
   SIMX.checks.add('shopTownCheck', shopTownCheck);

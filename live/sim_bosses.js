@@ -57,18 +57,25 @@
   function finishArena(S, R, e) {
     if (R.arena) R.arena.active = 0;
     for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.loot = SIMX.bossLoot(R, e); c.pay = chapterEnd(R, e) ? 0 : LOOT.mini.gold; SIMX.fstat(R).lootN += c.loot.length; ev(S, { k: 'unseal', x: c.x, y: c.y }); }
+    unseal(S, R, e);
+    // the campaign's last boss leaves one too (TASKS 514): a run through the town ends in the town
+    if (R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
+    if (lastFloor(R) && R.arena && R.arena.gate) R.msg = { s: ENEMIES[e.type].name + TXT('sim_bosses.finishArena.msg.s'), t: S.t };
+    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e) && !R.chests.some((c) => c.boss)) drop(R, e.x, e.y, { kind: 'item', item: SIMX.bossPrize(R, e, rollItem(R, dep(R), 2)) }); }
+  }
+  // the hall let out of its fight: its water and lava gone, its doors open, the boss's summons and eggs dead
+  function unseal(S, R, e) {
     R.map.flood = null; R.map.arenaBox = null;
     if (R.map.arenaWater?.length) { mapw.dropWater(R.map, R.map.arenaWater); R.map.arenaWater = []; }
     for (const k of R.map.arenaLava || []) if (R.map.cells[k] === 3) { mapw.setCell(R.map, k, 1); R.map.lava--; }
     R.map.arenaLava = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.fires = (R.fires || []).filter((p) => p.src !== e.id);
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
-    for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
-    // the campaign's last boss leaves one too (TASKS 514): a run through the town ends in the town
-    if (R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
-    if (lastFloor(R) && R.arena && R.arena.gate) R.msg = { s: ENEMIES[e.type].name + TXT('sim_bosses.finishArena.msg.s'), t: S.t };
-    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e) && !R.chests.some((c) => c.boss)) drop(R, e.x, e.y, { kind: 'item', item: SIMX.bossPrize(R, e, rollItem(R, dep(R), 2)) }); }
-  }
+    for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0; }
+  // a hero fallen in a boss's fight in the normal mode (TASKS 2104): the fight is called off and the boss goes back to its post
+  // whole, so the floor kept is no sealed hall and the fight starts over when he comes back
+  function callOff(S, R) { const b = R.arena && R.arena.active && R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0); if (!b) return;
+    unseal(S, R, b); Object.assign(b, { hp: b.max, st: 'idle', x: b.hx, y: b.hy, vx: 0, vy: 0, kbx: 0, kby: 0, phase: 0, t0: -9, cdT: 0, burn: 0 }); R.arena = null; }
   // the portal home a chapter boss leaves (TASKS 383): in its hall, kept clear of the stairs and the altar so E never picks the wrong one
   function bossGate(R, e) { const r = R.map.rooms[e.room], cx = (r.x + r.w / 2) * TILE, cy = (r.y + r.h / 2) * TILE, far = [R.map.exit, ...(R.map.down ? [R.map.down] : []), ...R.shrines];
     let best = null, bd = -1;
@@ -81,7 +88,10 @@
   // portal is set on load and when its floor is entered again; its old way out is gone (exitKind)
   function regate(R) { if (!R || !R.viaTown || R.town || !R.map || !R.bossDead || (R.arena && R.arena.gate)) return;
     // (its body may be cleared away: then its hall from the map)
-    const k = R.map.rooms.findIndex((q) => q.type === 'boss'), b = (R.en || []).find((e) => D.BOSSES[e.type]) || (k >= 0 ? { room: k } : null); if (!b) return; R.arena = Object.assign(R.arena || { active: 0, room: b.room, t0: 0 }, { active: 0 }); R.arena.gate = bossGate(R, b); }
+    const b = hallBoss(R); if (!b) return; R.arena = Object.assign(R.arena || { active: 0, room: b.room, t0: 0 }, { active: 0 }); R.arena.gate = bossGate(R, b); }
+  const hallBoss = (R) => { const k = R.map.rooms.findIndex((q) => q.type === 'boss'); return (R.en || []).find((e) => D.BOSSES[e.type]) || (k >= 0 ? { room: k } : null); };
+  // where the hall's portal home stands, or will once its boss falls (TASKS 2104: the town's ring opens onto it)
+  const hallGate = (R) => { const b = hallBoss(R); return (R.arena && R.arena.gate) || (b ? bossGate(R, b) : null); };
   const gateNear = (R) => { const g = R.arena && R.arena.gate, h = R.hero; return g && !R.town && Math.hypot(g.x - h.x, g.y - h.y) < 64 ? g : null; };
   function bossWebs(S, R, e, M) {
     const m = R.map, r = m.rooms[e.room];
@@ -386,6 +396,6 @@
   // foot, so the prop draws after it) inside its box cannot be seen, so it hops to the nearest open spot instead
 
   Object.assign(SIMX, {
-    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, bossGate, regate, gateNear, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
+    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, bossGate, regate, gateNear, callOff, hallGate, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
     beginBossMove, bossThink, roar, bossSummon, wideClear, colossusRise, colossusStep, poolOk, colossusBoulder, colossusRain, stepBossMove, crackSpan });
 })(typeof window !== 'undefined' ? window : globalThis);
