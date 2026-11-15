@@ -38,10 +38,21 @@
   const feedOf = (ev, t, n = 5) => { const f = ev.filter((e) => FEED_K.has(e.k) && t - e.t < 3);
     return f.filter((e, i) => !(e.k === 'nope' && e.s && f.some((q, j) => j > i && q.k === 'nope' && q.s === e.s))).slice(-n); };
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
+  // a currency's count, wherever a screen shows one (TASKS 2084): the icon, then the number on its own parchment plate. Each screen
+  // used to draw its own copy, and a fix to one never reached the others three releases running, so a screen hands in only which
+  // currencies and their values; the look is this one record, and a group's plates all take its widest number's width
+  const PURSE = { icons: { gold: 'it_gold', shards: 'crystal', key: 'it_key' }, plate: 'btn', ink: 't', size: 26, h: 42, icon: 32, gap: 6, padX: 22, minW: 64, inset: 12, ty: 1, step: [10, 8] };
+  const purseBox = (rows, measure) => { const P = PURSE, cw = Math.ceil(Math.max(P.minW, ...rows.flat().map((q) => measure(q.s, P.size) + 2 * P.padX))), uw = P.icon + P.gap + cw, n = Math.max(...rows.map((r) => r.length));
+    return { w: n * uw + (n - 1) * P.step[0], h: rows.length * P.h + (rows.length - 1) * P.step[1], cw, uw }; };
+  // rows: [[{ k: 'gold', s }, ...], ...]; al places the block's x by its left (0), middle (0.5) or right (1) edge
+  const purseLay = (rows, x, y, measure, al = 0) => { const P = PURSE, B = purseBox(rows, measure), x0 = Math.round(x - B.w * al);
+    return rows.flatMap((row, j) => row.map((q, i) => { const ux = x0 + i * (B.uw + P.step[0]), uy = y + j * (P.h + P.step[1]), px = ux + P.icon + P.gap;
+      return Object.assign({}, q, { ic: P.icons[q.k], icon: { x: ux, y: uy + (P.h - P.icon) / 2, s: P.icon }, plate: { x: px, y: uy, w: B.cw, h: P.h }, c: [px + B.cw / 2, uy + P.h / 2 + P.ty] }); })); };
   UI.add('kit', {
     // the bottom panel's height and its gap to the view's foot: the HUD lays it out by them and the camera keeps the hero above it (TASKS 1911)
-    bp: { h: 122, foot: 6 },
+    bp: { h: 122, foot: 6, purseY: 10 },
+    purse: PURSE,
   });
-  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV };
+  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay };
   UI.share('kit', { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf });
 })(typeof window !== 'undefined' ? window : globalThis);
