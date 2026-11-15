@@ -1,7 +1,7 @@
 // live/sim_checks_town.js — selfCheck's parts for the town: folk, services, talks, notes, the cart and the town loop. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    BASES, boardOffers, campaignDone, D, dep, DG, DT, endRun, ENEMIES, enterFloor, folkFree, folkOf, folkR, heroShot, heroSt, hitFolk, hurtHero,
+    BASES, boardOffers, campaignDone, CART_V, D, dep, DG, DT, endRun, ENEMIES, enterFloor, folkFree, folkOf, folkR, heroShot, heroSt, hitFolk, hurtHero,
     interact, K, newQuest, newRun, offerOf, persist, questMark, REWARD, rollItem, runCompletion, spawn, startRun, stats, step, stockShop, takeQuest,
     TILE, tradeDepth, turnIn, UI } = SIMX;
   const { noWelcome, noQuests } = SIMX.checks.kit;
@@ -327,20 +327,33 @@
     Q.hero.hp = 5; for (let i = 0; i < 30; i++) step(T, { keys: [] }); const tip = Q.msg && Q.msg.tip === 'scroll';
     Q.msg = null; for (let i = 0; i < 30; i++) step(T, { keys: [] }); if (!tip || !T.meta.tipScroll || (Q.msg && Q.msg.tip === 'scroll')) out.push('scroll: the hint at low health does not come once');
     return out; }
-  // TASKS 1781: along the whole rail the cart shows one painting, kept upright: the 3/4 one turned no more than CART.roll (8°) and sheared to have its
-  // wheel line on the rails, uprights plumb (TASKS 2090), the front one never turned and its axle tilted no more than 18 degrees; one change of view at the bend
+  // TASKS 1781, 2090: the floor is flat, so a cart is never sheared, squashed or tipped by the rails' slope: the 3/4 painting turns no more than
+  // CART.trim, the front one not at all, one change of view along the whole rail, and the bend's change keeps the rails' slope under CART.front
   function cartCheck() {
-    const out = [], C = D.CART, R2D = 180 / Math.PI, m = DG.genTown(31), pts = D.railPts(m);
+    const fs = require('fs'), path = require('path'), out = [], C = D.CART, m = DG.genTown(31), pts = D.railPts(m);
     let prev = null, swaps = 0;
     for (let s = 0; s <= 400; s++) { const v = D.cartView(pts, s);
-      if (v.side) { const line = Math.atan(Math.tan((Math.atan(Math.tan(C.side / R2D) / v.sx) * R2D - v.rot) / R2D) - Math.tan(v.tilt / R2D)) * R2D;
-        if (Math.abs(v.rot) > C.roll + 0.5 || v.sx < C.squash - 1e-6 || v.sx > 1 || Math.abs(v.tilt) > C.side + 1) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}°, sheared ${v.tilt.toFixed(0)}° or narrowed to ${v.sx.toFixed(2)}`);
-        if (Math.abs(line - v.th) > 1) out.push(`cart: the 3/4 view's wheel line at ${s} px runs ${line.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`); }
-      else if (v.rot || v.sx !== 1 || Math.abs(v.tilt) > 18 || v.th < 55) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}° or its axle tilts ${v.tilt.toFixed(0)}°`);
+      if (v.tilt || v.sx !== 1) out.push(`cart: the view at ${s} px is sheared ${v.tilt} or narrowed to ${v.sx}`);
+      if (v.side && (Math.abs(v.rot) > C.trim + 1e-6 || v.th >= C.front)) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`);
+      if (!v.side && (v.rot || v.th < C.front)) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}°`);
       if (prev && prev.side !== v.side) swaps++;
-      else if (prev && (Math.abs(prev.rot - v.rot) > 2 || Math.abs(prev.tilt - v.tilt) > 2 || Math.abs(prev.sx - v.sx) > 0.02)) out.push(`cart: the view jumps at ${s} px`);
       prev = v; if (out.length > 4) break; }
     if (swaps !== 1) out.push(`cart: the view changes ${swaps} times along the rails, not once at the bend`);
+    const end = D.cartView(pts, 1e4), th0 = end.th; if (th0 < C.diag - C.trim - 1 || th0 > C.diag + C.trim + 1) out.push(`cart: at the rails' end the slope is ${th0.toFixed(0)}°, not the 3/4 painting's`);
+    // TASKS 2090: the wheels' lug moves no more than CART.lug.step px a frame at the top speed, and the rope on the plumb run keeps CART.rope.gap px
+    // off the rails' axis (the winch's plumb line down to the cart) but at its two ends; the sizes are the paintings' pixels at the sprites' height
+    const sizes = fs.readFileSync(path.join(__dirname, 'sizes.js'), 'utf8'), size = (n) => { const b = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), hh = +new RegExp('\\b' + n + ': (\\d+)').exec(sizes)[1];
+      return [Math.round(hh * b.readUInt32BE(16) / b.readUInt32BE(20)), hh]; };
+    for (const n of Object.keys(C.hubs)) { const [w, h] = size(n); let worst = 0;
+      for (let s = 0; s <= 400; s++) for (const q of [0, 1]) { const a = D.cartLug(n, q, w, h, s), b = D.cartLug(n, q, w, h, s + CART_V / 60); worst = Math.max(worst, Math.hypot(b[0] - a[0], b[1] - a[1])); }
+      if (worst > C.lug.step) out.push(`cart: the lug on ${n} moves ${worst.toFixed(2)} px a frame at the top speed, over ${C.lug.step}`); }
+    const axis = [D.cartWinch(pts), ...pts], dir = Math.sign(pts[pts.length - 1][0] - pts[0][0]) || 1, away = (p) => Math.min(...axis.slice(1).map((b, i) => { const a = axis[i], l2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2,
+      t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])); }));
+    for (const f of ['cart_tw_f', 'cart_tw_f_half', 'cart_tw_f_empty']) { const [w, h] = size(f); let near = 1e9, at = 0;
+      for (let s = 0; s <= 400; s += 2) { const v = D.cartAt(pts, s); if (D.cartView(pts, v.ds).side) continue; const hk = D.cartHook(0, f, w, h), rope = D.cartRope(D.cartWinch(pts), [v.x + hk[0], v.y + hk[1]], dir);
+        let run = 0; for (let i = 1; i < rope.length; i++) { run += Math.hypot(rope[i][0] - rope[i - 1][0], rope[i][1] - rope[i - 1][1]); rope[i].run = run; }
+        for (const p of rope) { if (p.run === undefined || (run - p.run) < C.rope.ends || p.run < C.rope.ends) continue; const g = away(p); if (g < near) { near = g; at = s; } } }
+      if (near < C.rope.gap) out.push(`cart: the rope of ${f} comes ${near.toFixed(1)} px to the rails' axis at ${at} px, under ${C.rope.gap}`); }
     return out;
   }
   SIMX.checks.add('townCheck', townCheck);
