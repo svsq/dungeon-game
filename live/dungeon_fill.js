@@ -883,7 +883,9 @@
       if (free(x, y) && !solid.has(key(x, y)) && !doorway(x, y) && !trapCell(x, y)) { used.add(key(x, y)); return [x, y]; } } return null; };
     for (const r of rooms) { const sp = enemies.filter((e) => e.room === r.id && e.type === 'spider').length; if (!sp) continue;
       for (let i = 0, n = sp >= 2 ? ri(2, 3) : R() < 0.5 ? 1 : 0; i < n; i++) { const p = floorSpot(r); if (p) webs.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, v: ri(0, 1), s: 0.9 + 0.3 * R(), f: R() < 0.5 ? 1 : 0, torn: 0 }); } }
-    if (cave) {
+    // the caves' density pass (TASKS 330): a wall torch in every other big combat room, no vent or stand by a circle, and no mushroom
+    // whose glow the other lights already cover. It draws nothing from R, so a check may leave it out (DGX.leaveOut) and show the floor before it
+    const caveDensity = () => {
       const mushrooms = decor.filter((d) => /^shroom_[ab]$/.test(d.n)), removed = new Set();
       for (const r of plat ? [] : rooms.filter((r) => r.type === 'combat' && r.id % 2 === 0 && r.w * r.h >= 56)) {
         const cand = [];
@@ -907,7 +909,8 @@
         if (near.every(([x, y]) => lights.some(([lx, ly, r]) => Math.hypot(x - lx, (y - ly) / 0.8) <= r * TILE))) removed.add(d);
       }
       for (let i = decor.length - 1; i >= 0; i--) if (removed.has(decor[i])) decor.splice(i, 1);
-    }
+    };
+    if (cave && !DGX.leaveOut.has('caveDensity')) caveDensity();
     if (cave) for (const d of decor) if (/^shroom_[ab]$/.test(d.n)) {
       const v = (Math.imul(Math.round(d.x), 73856093) ^ Math.imul(Math.round(d.y), 19349663)) >>> 0;
       d.s = [0.6, 0.8, 1][v % 3]; d.glow = 0.85 + (v % 5) * 0.05;

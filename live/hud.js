@@ -366,7 +366,7 @@
         // (TASKS 2024: a «+60» flew into the counter's frame and stuck out of it) it is gone by the time it would touch the frame
         const lx = x0 + (tx - x0) * q, ly = y0 + (ty - y0) * q, s = '+' + ev.n, sz = 24 - 6 * q, hw = L.labelW(0, s, { size: sz }) / 2 + 2, hh = 0.62 * L.facePx(sz) + 2;
         const clear = (bx, by, bw, bh) => Math.max(0, bx - lx - hw, lx - hw - (bx + bw), by - ly - hh, ly - hh - (by + bh));
-        const gap = Math.min(clear(BPG.mx + 58, BPG.y + 10, BPG.gw - 28, 44), keysA(S) > 0 ? clear(...keysBox()) : 1e9);
+        const gap = Math.min(clear(BPG.goldPlate.x, BPG.goldPlate.y, BPG.goldPlate.w, BPG.goldPlate.h), keysA(S) > 0 ? clear(...keysBox()) : 1e9);
         lab('gd' + i, s, lx, ly, { size: sz, al: 0.5, col: C.gold, a: (1 - L.SS(0.75, 0.9, a)) * L.SS(0, 18, gap) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
@@ -430,14 +430,15 @@
   // the bottom panel from the state alone (world() keeps labels off it before it is drawn): its box and where each part starts. Its
   // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
   function bpGeo(S, R) {
-    const h = R.hero, gold = String(h.gold), shards = String(S.meta.shards), keys = R.keys > 0 ? String(R.keys) : '', np = potsOf(R).length, ns = D.clsOf(h).abs.length;
-    const NW = 136, FW = 62, FH = 92, CS = 84, PS = 64, SEP = 32, PAD = 28, BH = D.UI.bp.h, CI = 30;
-    const gw = Math.max(130, lw('gold_count', gold, { size: 26 }) + 70), cw = (id, s) => CI + Math.max(56, lw(id, s, { size: 20 }) + 40), sw = cw('shard_count', shards), kw = keys ? cw('key_count', keys) : 0;
-    const mw = Math.max(gw + 44, sw + (kw ? kw + 10 : 0)), vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 12, potW = np * PS + (np - 1) * 12;
+    const h = R.hero, np = potsOf(R).length, ns = D.clsOf(h).abs.length;
+    const NW = 136, FW = 62, FH = 92, CS = 84, PS = 64, SEP = 32, PAD = 28, BH = D.UI.bp.h;
+    // the gold on its own row as on the ref, the soul shards and a floor's key under it
+    const money = purseRows(S, R, [['gold'], ['shards'].concat(R.keys > 0 ? ['key'] : [])]);
+    const mw = D.UI.kit.purseBox(money, purseW).w, vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 12, potW = np * PS + (np - 1) * 12;
     const w = 2 * PAD + vitW + skW + potW + mw + 3 * SEP, x = Math.round(W / 2 - w / 2), y = H - BH - D.UI.bp.foot;
-    const vx = x + PAD, sx = vx + vitW + SEP, px = sx + skW + SEP, mx = px + potW + SEP;
-    return { x, y, w, h: BH, NW, FW, FH, CS, PS, vx, sx, px, mx, gw, sw, kw, gold, shards, keys, seps: [sx - SEP / 2, px - SEP / 2, mx - SEP / 2],
-      goldC: [mx + 44 + gw / 2, y + 33], shardC: [mx + CI + (sw - CI) / 2, y + 81], CI, xp: [x + 20, y + BH - 18, w - 40, 12] };
+    const vx = x + PAD, sx = vx + vitW + SEP, px = sx + skW + SEP, mx = px + potW + SEP, purse = D.UI.kit.purseLay(money, mx, y + D.UI.bp.purseY, purseW), of = (k) => purse.find((q) => q.k === k);
+    return { x, y, w, h: BH, NW, FW, FH, CS, PS, vx, sx, px, mx, purse, seps: [sx - SEP / 2, px - SEP / 2, mx - SEP / 2],
+      goldC: of('gold').c, goldPlate: of('gold').plate, shardC: of('shards').c, xp: [x + 20, y + BH - 18, w - 40, 12] };
   }
   HUD.bp = bpGeo;
   HUD.underHud = (x, y) => underHud(x, y); HUD.zones = () => ZN || hudZones(); HUD.marks = () => MKB;
@@ -450,6 +451,19 @@
   }
   // a brass rule between the panel's parts, a knob at each end (the ref's cast dividers are not in the kit yet)
   const divider = (x, y0, y1) => { L.solid(x - 2, y0, 4, y1 - y0, [0.3, 0.2, 0.1]); L.solid(x - 1, y0, 2, y1 - y0, BRASS); KIT.knob(x, y0, 0.6); KIT.knob(x, y1, 0.6); };
+  // the one drawing of a currency's count (TASKS 2084): a screen names only which currencies, so no screen keeps a look of its own to
+  // drift; each plate is recorded for tools/pursecheck.mjs
+  const purseW = (s, size) => lw(0, s, { size });
+  const PURSE_VAL = { gold: (S, R) => R.hero.gold, shards: (S) => S.meta.shards, key: (S, R) => R.keys };
+  const purseRows = (S, R, rows) => rows.map((r) => r.map((k) => ({ k, s: String(PURSE_VAL[k](S, R)) })));
+  const PURSE_TIP = { gold: (s) => [TXT('hud.altar.6', { gold: s }), TXT('hud.tip.gold')], shards: (s) => [TXT('hud.stats.hand', { n: s }), ''], key: (s) => [TXT('hud.tip.key', { n: s }), TXT('hud.tip.key.2')] };
+  const purseDraw = (group, at, up) => { const P = D.UI.purse, col = KIT.INK[P.ink];
+    for (const q of at) { const { icon: I, plate: B } = q, id = group + '_' + q.k;
+      icon(q.ic, I.x, I.y, I.s); KIT.nine(P.plate, B.x, B.y, B.w, B.h); KIT.ink(id, q.s, q.c[0], q.c[1], { size: P.size, al: 0.5, col });
+      L.uiBox(id + '_b', B.x + P.inset, B.y, B.w - 2 * P.inset, B.h, 0); tipAt(I.x, B.y, B.x + B.w - I.x, B.h, ...PURSE_TIP[q.k](q.s), up);
+      L.UI.push({ k: 'purse', group, res: q.k, id, s: q.s, x: B.x, y: B.y + G.oy, w: B.w, h: B.h, icon: [q.ic, I.x - B.x, I.y - B.y, I.s], plate: P.plate, col }); }
+    return at; };
+  const purse = (group, S, R, rows, x, cy, al = 0) => purseDraw(group, D.UI.kit.purseLay(purseRows(S, R, rows), x, cy - D.UI.purse.h / 2, purseW, al));
   // a key or a count in a small parchment frame at a cell's foot, as on the ref: ink like the plates' numbers, so the panel has one
   // kind of writing, not gold letters and outlined white digits beside it (TASKS 1893)
   const keycap = (id, s, cx, y) => { const w = Math.max(36, lw(id, s, { size: 20 }) + 24); KIT.nine('btn', Math.round(cx - w / 2), y, w, 30); KIT.ink(id, s, cx, y + 16, { size: 20, al: 0.5 }); L.uiBox(id + '_b', Math.round(cx - w / 2), y, w, 30, 0); };
@@ -490,12 +504,7 @@
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
     potsOf(R).forEach(([b, ic, k], i) => { const x = B.px + i * (B.PS + 12), y = B.y + 16;
       K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 11, y + 9, 42); keycap('potk_' + b, onPad() ? PAD_POT[b] : k, x + 12, y - 10); keycap('potn_' + b, pot(b), x + B.PS - 14, y + B.PS - 16); });
-    // the gold on its own plate as on the ref, the soul shards and a floor's key under it the same way: icon first, the count on its own plate (TASKS 1908)
-    icon('it_gold', B.mx, B.y + 14, 36); K.nine('btn', B.mx + 44, B.y + 10, B.gw, 44); K.ink('gold_count', B.gold, B.goldC[0], B.goldC[1], { size: 26, al: 0.5 }); L.uiBox('gold_b', B.mx + 58, B.y + 10, B.gw - 28, 44, 0);
-    tipAt(B.mx, B.y + 10, B.gw + 44, 44, TXT('hud.altar.6', { gold: B.gold }), TXT('hud.tip.gold'), B.y);
-    const cur = (id, ic, s, x, w, title, line) => { const px = x + B.CI, pw = w - B.CI; icon(ic, x, B.y + 67, 26); K.nine('btn', px, B.y + 62, pw, 36); K.ink(id, s, px + pw / 2, B.y + 81, { size: 20, al: 0.5, col: id === 'shard_count' ? '#24407a' : K.INK.t }); L.uiBox(id + '_b', px + 12, B.y + 62, pw - 24, 36, 0); tipAt(x, B.y + 62, w, 36, title, line, B.y); };
-    cur('shard_count', 'crystal', B.shards, B.mx, B.sw, TXT('hud.stats.hand', { n: B.shards }), '');
-    if (B.keys) cur('key_count', 'it_key', B.keys, B.mx + B.sw + 10, B.kw, TXT('hud.tip.key', { n: B.keys }), TXT('hud.tip.key.2'));
+    purseDraw('hud', B.purse, B.y);
     // floor title + minimap
     minimap(S, R, t); tracker(S, R);
     // boss bar
@@ -658,7 +667,7 @@
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
     // (a dark room, TASKS 365, is left off the map: its cells read as rock, its way in as a dead end)
-    const hid = new Set([...SIM.Q.secretMask(m), ...SIM.Q.darkMask(R)]), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
+    const hid = new Set([...SIM.Q.secretMask(m), ...SIM.Q.darkMask(R)]), key = SIM.Q.revKey(m, n, R.chests.map((c) => c.open).join(''), R.rseen.join(''), (m.secrets || []).map((q) => q.open).join(''), (m.doors || []).map((d) => d.open).join(''));
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d', { willReadFrequently: true }); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
@@ -837,10 +846,7 @@
     derived.forEach(([n, v], i) => { const x = Lp.x + 50 + Math.floor(i / half) * (colW + 28), y = dy0 + 6 + (i % half) * 27;
       KIT.light('dv_n' + i, n, x, y, { size: 19, col: '#cdb89a' }); KIT.light('dv_v' + i, v, x + colW, y, { size: 20, al: 1 }); });
     L.uiBox('inv_der', Lp.x + 44, dy0 - 14, Lp.w - 88, half * 27 + 10);
-    { const gs = String(h.gold), ss = String(S.meta.shards), y = Lp.y + Lp.h - 40, gw = lw('inv_g', gs, { size: 26 }) + 40, sw = lw('inv_souls', ss, { size: 26 }) + 40, x0 = cx - (gw + sw + 40) / 2;
-      icon('crystal', x0, y - 16, 32); KIT.light('inv_souls', ss, x0 + 40, y, { size: 26, col: '#9cc8ff' });
-      icon('it_gold', x0 + sw + 40, y - 16, 32); KIT.light('inv_g', gs, x0 + sw + 80, y, { size: 26, col: C.gold });
-      tipAt(x0 - 4, y - 20, sw + 8, 40, TXT('hud.stats.hand', { n: ss })); tipAt(x0 + sw + 36, y - 20, gw + 8, 40, TXT('hud.altar.6', { gold: gs }), TXT('hud.tip.gold')); }
+    purse('inv', S, R, [['gold', 'shards']], cx, Lp.y + Lp.h - 40, 0.5);
     // the bag on the sheet
     bagTabs('inv_tb', U, S);
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? rest(h.bag[b.i], dr) : h.bag[b.i]);
@@ -884,7 +890,7 @@
     // the title on a ribbon over the shelf, as the chest's and the bag's are (TASKS 1891), the merchant's name and trade under it
     const scx = P.x + 268; KIT.banner('sh_t', scx, P.y + 12, 360, TXT('hud.shop.banner'), { h: 64, size: 32 });
     lab('sh_j', (sh.wander ? TXT('hud.shop') : TXT('hud.shop.2')) + ' · ' + (sh.wander ? TXT('hud.shop.job.w') : TXT('hud.shop.job')), scx, P.y + 98, { size: 21, al: 0.5, col: '#cdb89a' });
-    const gs = TXT('hud.shop.gs', { gold: h.gold }); lab('sh_g', gs, P.x + P.w - 130, P.y + 60, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 130 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 42, 36);
+    purse('shop', S, R, [['gold']], P.x + P.w - 130, P.y + 60, 1);
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 19 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 19, col: can ? C.gold : '#9a7a6a' }); };
     lab('sh_buy', R.town ? TXT('hud.shop.3', { p1: sh.at ? TXT('hud.shop.4', { at: sh.at }) : '' }) : sh.wander ? TXT('hud.shop.5', { floor: R.floor }) : TXT('hud.shop.6', { floor: R.floor }), P.x + 60, P.y + 132, { size: 23, col: '#cdb89a' });
     sh.goods.forEach((g, i) => { const b = U.r.find((q) => q.id === 'buy:' + i); slot(S, b, g.n ? Object.assign({}, g.it, { n: g.n }) : g.it); price('shp_b' + i, b, g.price, h.gold >= g.price); });
@@ -1477,7 +1483,6 @@
     dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 420, [0.3, 0.5, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend();
     KIT.panel('altar', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('al_t', W / 2, P.y + 16, 480, TXT('hud.altar'), { h: 76, size: 36 });
-    const bs = String(bank); KIT.light('al_b', bs, P.x + P.w - 56, P.y + 56, { size: 30, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 56 - lw('al_b', bs, { size: 30 }) - 44, P.y + 38, 36);
     { const s = sh.used ? TXT('hud.altar.2') : TXT('hud.altar.3'); KIT.light('al_s', s, W / 2, P.y + 118, { size: 22, fit: P.w - 100, al: 0.5, col: '#cdb89a' }); }
     sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = !sh.used && bank >= o.cost && !D.giftBlocked(R.hero, Gf), st = stN(S, b.id, can), cx = b.x + b.w / 2, iw = b.w - 44;
       KIT.nine('torn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : can ? [1, 1, 0, 1] : POOR } }); L.uiBox('al_g' + i, b.x + 20, b.y + 20, b.w - 40, b.h - 40, 0);
@@ -1499,10 +1504,11 @@
       icon('crystal', x0, py - 16, 30); KIT.ink('al_c' + i, cs, x0 + 40, py, { size: 28, col: can ? SOUL : I.d }); });
     KIT.button('al_leave', byId('leave'), stN(S, 'leave'));
     const rc = D.rerollCost(sh.rolls || 0, SIM.Q.depOf(R)), rb = Object.assign({}, byId('reroll'), { on: !sh.used && bank >= rc, label: TXT('hud.altar.reroll', { cost: rc }) }); KIT.button('al_reroll', rb, stN(S, 'reroll', rb.on));
+    // the banner and the line under it leave the top no room for the pair; it stands by the buttons that spend it, its foot on theirs
+    { const rows = [['gold'], ['shards']], bh = D.UI.kit.purseBox(purseRows(S, R, rows), purseW).h; purse('altar', S, R, rows, P.x + 56, rb.y + rb.h - bh + D.UI.purse.h / 2); }
     const left = D.DONATE.max - (R.donations || 0), b = Object.assign({}, byId('donate'), { on: left > 0 && R.hero.gold >= D.DONATE.gold, label: left ? byId('donate').label : TXT('hud.altar.b.label') });
     KIT.button('al_donate', b, stN(S, 'donate', b.on), 'wax');
-    KIT.light('al_gold', TXT('hud.altar.6', { gold: R.hero.gold }), b.x + b.w + 40, b.y + 18, { size: 22, col: C.gold });
-    KIT.light('al_limit', TXT('hud.altar.7', { left }), b.x + b.w + 40, b.y + 48, { size: 21, col: '#cdb89a' });
+    KIT.light('al_limit', TXT('hud.altar.7', { left }), b.x + b.w + 40, b.y + b.h / 2, { size: 21, col: '#cdb89a' });
     refusal(S, W / 2, P.y + 674);
     KIT.light('al_help', sh.used ? TXT('hud.altar.8') : TXT('hud.altar.9'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
@@ -1548,11 +1554,12 @@
     L0.slice(0, 6).forEach(({ role, q }, i) => { const Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic, gone = took.includes(i);
       panel('bd_r' + i, P.x + 30, y, P.w - 60, 96, { r: 6, a: gone ? 0.7 : undefined });
       if (ic) { panel('bd_ic' + i, P.x + 46, y + 18, 60, 60, { r: 6 }); icon(ic, P.x + 52, y + 24, 48); }
-      const X = P.x + (ic ? 124 : 50);
-      lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: gone ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
-      lab('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 56, { size: 20, col: C.dim });
-      wrapLab('bd_x' + i, Q.text(q), P.x + 700, y + 18, P.w - 970, 20, C.text, C.gold);
-      lab('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 80, { size: 20, col: '#d8b870' });
+      const X = P.x + (ic ? 124 : 50), cw = U.text.x - U.gap - X;
+      L.uiBox('bd_c' + i, X, y, cw, 96, 0);
+      lab('bd_n' + i, Q.name, X, y + 28, { size: 24, fit: cw, col: gone ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 56, { size: 20, fit: cw, col: C.dim });
+      wrapLab('bd_x' + i, Q.text(q), U.text.x, y + 18, U.text.w, 20, C.text, C.gold);
+      lab('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 80, { size: 20, fit: cw, col: '#d8b870' });
       button('bd_take' + i, Object.assign({}, b, gone ? { label: TXT('hud.board.took'), on: false } : { label: TXT('hud.board.label') }), S.hover); });
   }
   // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
@@ -1572,16 +1579,16 @@
       panel('jr_r' + i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : hv ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined, a: q.st === 'turned' && !on ? 0.7 : undefined });
       // ten alike quests tell apart by their floor in the title and their goal under it (TASKS 1863 л); a done or turned-in one, its giver
       const sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: Q.name, f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);
-      lab('jr_n' + i, nm, b.x + 16, b.y + 19, { size: 24, fit: b.w - sw - 48, col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
-      lab('jr_s' + i, st, b.x + b.w - 16, b.y + 19, { size: 20, al: 1, col });
-      lab('jr_f' + i, sub, b.x + 16, b.y + 44, { size: 20, col: C.dim }); });
+      lab('jr_n' + i, nm, b.x + b.pad, b.y + 19, { size: 24, fit: b.w - sw - 3 * b.pad, col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('jr_s' + i, st, b.x + b.w - b.pad, b.y + 19, { size: 20, al: 1, col });
+      lab('jr_f' + i, sub, b.x + b.pad, b.y + 44, { size: 20, fit: b.w - 2 * b.pad, col: C.dim }); });
     const Q = D.QUESTS[sel.key], X = P.x + 540, Wd = P.w - 580, [st, col] = QST[sel.st]; let y = P.y + 130;
     L.solid(X - 20, P.y + 110, 1, P.h - 180, [0.32, 0.2, 0.12], 0, 0, 0, 0.5);
     if (sel.ic) { panel('jr_ic', X, y - 30, 48, 48, { r: 6 }); icon(sel.ic, X + 4, y - 26, 40); }
     lab('jr_dn', Q.name, X + (sel.ic ? 60 : 0), y, { size: 32, col: INK.r }); y += 40;
     lab('jr_dk', TXT('hud.journal.6', { p1: Q.kind === 'story' ? TXT('hud.journal.7') : '', p2: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—' }), X, y, { size: 20, col: INK.d }); y += 44;
     y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 26, INK.t, INK.r) + 18;
-    lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '' }) : ''), X, y, { size: 22, col: INK.g }); y += 48;
+    y += wrapLab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '' }) : ''), X, y, Wd, 22, INK.g) + 19;
     lab('jr_rw0', sel.st === 'turned' ? TXT('hud.journal.9') : TXT('hud.journal.10'), X, y, { size: 22, col: INK.d }); y += 32;
     wrapLab('jr_rw', SIM.Q.rwLine(sel.rw), X, y, Wd, 22, INK.g);
     const dr = U.r.find((q) => q.id === 'drop'); if (dr) button('jr_drop', Object.assign({}, dr, { label: S.jdrop === sel.id && S.t - S.jdropT < 3 ? TXT('hud.journal.drop2') : TXT('hud.journal.drop') }), S.hover);
@@ -1592,7 +1599,7 @@
     lab('ns_t', TXT('hud.notes'), P.x + 40, P.y + 50, { size: 40, col: INK.r }); KIT.button('ns_close', at('close'), stN(S, 'close'));
     if (!L0.length) { wrapLab('ns_none', TXT('hud.notes.none'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
     const sel = D.NOTES.byId[S.noteSel] || D.NOTES.byId[L0[0]];
-    U.r.filter((q) => q.id.startsWith('n:')).forEach((b) => { const N = D.NOTES.byId[L0[b.i]], on = N === sel; if (!N) return; panel('ns_r' + b.i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : S.hover === b.id ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined }); lab('ns_n' + b.i, N.title, b.x + 16, b.y + 23, { size: 22, col: N.kind === 'secret' ? '#9cc8ff' : N.kind === 'boss' ? '#ffc070' : C.gold }); });
+    U.r.filter((q) => q.id.startsWith('n:')).forEach((b) => { const N = D.NOTES.byId[L0[b.i]], on = N === sel; if (!N) return; panel('ns_r' + b.i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : S.hover === b.id ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined }); lab('ns_n' + b.i, N.title, b.x + b.pad, b.y + 23, { size: 22, fit: b.w - 2 * b.pad, col: N.kind === 'secret' ? '#9cc8ff' : N.kind === 'boss' ? '#ffc070' : C.gold }); });
     const X = P.x + 540, Wd = P.w - 580; L.solid(X - 20, P.y + 110, 1, P.h - 180, [0.32, 0.2, 0.12], 0, 0, 0, 0.5); if (sel) { lab('ns_dn', sel.title, X, P.y + 130, { size: 32, col: INK.r }); wrapLab('ns_dt', sel.text, X, P.y + 190, Wd, 26, INK.t); }
     button('ns_p', Object.assign({}, at('prev'), { label: TXT('hud.notes.prev') }), S.hover); button('ns_nx', Object.assign({}, at('next'), { label: TXT('hud.notes.next') }), S.hover); lab('ns_pg', TXT('hud.notes.page', { p: pg + 1, n: Math.max(1, Math.ceil(L0.length / U.per)) }), P.x + 265, P.y + P.h - 104, { size: 22, al: 0.5, col: INK.d }); }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
@@ -1601,8 +1608,7 @@
     dim(0.55); KIT.panel('craft', P.x, P.y, P.w, P.h, 'leather');
     if (!forge) { G.blend('add'); L.glow(P.x + 1170, P.y + 90, 360, [0.3, 0.5, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend(); }
     KIT.banner('cr_t', P.x + 375, P.y + 22, 560, forge ? TXT('hud.craft') : TXT('hud.craft.2'), { h: 72, size: 34 });
-    const gs = TXT('hud.craft.gs', { gold: h.gold }); lab('cr_g', gs, P.x + P.w - 130, P.y + 60, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 130 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 44, 32);
-    if (!forge) { const ss = String(S.meta.shards); lab('cr_sh', ss, P.x + P.w - 130, P.y + 100, { size: 24, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 130 - lw('cr_sh', ss, { size: 24 }) - 36, P.y + 84, 30); }
+    purse('craft', S, R, forge ? [['gold']] : [['gold'], ['shards']], P.x + P.w - 130, P.y + 60, 1);
     lab('cr_eq', TXT('hud.craft.3'), P.x + 60, P.y + 146, { size: 22, col: '#cdb89a' }); bagTabs('cr_tb', U, S);
     for (const b of U.r) { if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot); else if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]); else continue;
       if (b.id === c.sel) edge(b.x - 5, b.y - 5, b.w + 10, b.h + 10, forge ? [1, 0.8, 0.4] : [0.55, 0.75, 1], 3); }

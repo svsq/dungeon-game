@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     BAL, BASES, D, DG, DT, ENEMIES, FROM, K, RUN, STAGE, boxHit, snapCam, dep, dif, eliteK, ev, gearName, itemPower,
-    mapw, potCount, potion, reveal, rev, rnd, rollAffixes, rollItem, shove, stats, tally, who } = SIMX;
+    keyOf, mapw, potCount, potion, reveal, rev, rnd, rollAffixes, rollItem, shove, stats, tally, who } = SIMX;
   // ---------------- run & floor ----------------
   function newHero(meta, cls = 'warrior') {
     const up = meta.up || {}, C = D.CLASSES[cls], ab = {}, cd = {};
@@ -47,7 +47,7 @@
   // cache of its own, so a QA pass mid-game neither evicts the run's floors nor leaves its hundreds behind (PR 56 review)
   let apart = 0; const genApart = (f) => { if (apart) return f(); const g = GEN, n = genMax; GEN = new Map(); genMax = Infinity; apart++; try { return f(); } finally { apart--; GEN = g; genMax = n; } };
   function genKept(kind, seed, f, opts) {
-    const key = kind + ':' + seed + ':' + f + ':' + JSON.stringify(opts || null); let m = GEN.get(key);
+    const key = keyOf(kind, seed, f, JSON.stringify(opts || null)); let m = GEN.get(key);
     if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= genMax) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
     return structuredClone(m);
   }

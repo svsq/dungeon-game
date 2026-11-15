@@ -8,6 +8,9 @@
     const worst = (S) => { const h = S.run.hero; h.lvl = 99; h.gold = 999999; h.xp = 1; h.pts = 99; h.sp = 99; S.meta.shards = 99999; h.ab = { whirl: 5, fireball: 5, shield: 5 };
       for (let i = 0; i < 24; i++) h.bag[i] = Object.assign(SIM.rollItem(S.run, 8, 4), { id: 1000 + i }); h.bag[0] = { id: 2000, b: 'hp_potion', n: 9, rar: 0, lvl: 1, mods: {} }; };
     const h0 = (S) => S.run.hero;
+    // a state drawn once while it is built, for what the scene keeps of a map between two frames of it
+    const drawn = (S) => { const was = SC.state; SC.state = S; try { SC.render(S.t + 0.01); } finally { SC.state = was; } };
+    const FLOOD_STEPS = 600;
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
       ['title', play((S) => { S.demo = 1; })],
@@ -604,6 +607,12 @@
     // the magma caves' caches (TASKS 410, the player's note: they are found too easily), shut, as the hero comes up to them
     for (const [n, f, stage] of [['magma_secret_lever', (o) => o.kind === 'lever' && o.trig && o.trig.k !== 'plate', 0], ['magma_secret_plate', plate, 0]]) { const S = secretS(f, stage, 0, 'magma'); if (S) states.push([n, S]); }
     for (const [n, stage, age] of [['cave_secret_plate', 0], ['cave_secret_plate_sink', 2, 0.04], ['cave_secret_plate_open', 3]]) { const S = secretS(plate, stage, age, 'cave'); if (S) states.push([n, S]); }
+    // TASKS 2081: two maps of one seed and floor, a different secret found on each and the same cells seen (all but the first secret's
+    // wall), drawn one after the other: the minimap and the fog over that wall are each map's own
+    { let base = null; for (let sd = 1; sd < 120 && !base; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); if (S.run.map.secrets.length >= 2) base = S; }
+      if (base) for (const [n, i] of [['map_twin_a', 0], ['map_twin_b', 1]]) { const S = structuredClone(base), R = S.run, m = R.map, q = m.secrets[0], o = m.secrets[i], h = R.hero;
+        SIM.openSecret(S, R, o, true); o.openT = S.t - 9; R.en = []; R.msg = null; S.ev = []; R.seen.fill(1); R.rseen.fill(1); for (const [x, y] of q.wall) R.seen[y * m.W + x] = 0;
+        h.x = q.x - q.dx * 3 * TILE; h.y = q.y - q.dy * 3 * TILE; R.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2]; states.push([n, S]); } }
     // the endless descent (TASKS 353): each biome's first-size and capped-size floor, each of the five bosses in its arena, the menu
     // with a record depth, the end of a run that set a new one
     { const at = (f, find) => { for (let sd = 1; sd < 400; sd++) if (find(DATA.stageOf('endless', f, sd))) return sd; return 0; };
@@ -672,6 +681,8 @@
       R.drops.push({ id: 7210, kind: 'item', item: it(2, 9), x: h.x + 30, y: h.y - 34, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, tossed: 1, rest: 2 }); })]);
     states.push(['hud_low_hp', play((S) => { const R = S.run, h = R.hero; R.msg = null; h.hp = Math.ceil(SIM.Q.stats(h, S.meta).maxHp * 0.14); })]);
     states.push(['hud_pickup', play((S) => { const R = S.run, h = R.hero; R.msg = null; S.ev.push({ k: 'pickup', t: S.t - 0.5, x: h.x, y: h.y, s: SIM.Q.itemName(Object.assign(SIM.rollItem(R, 3, 3), { id: 3001 })), rar: 3 }, { k: 'lvl', t: S.t - 0.3, x: h.x, y: h.y, lvl: 2 }); })]);
+    // the author's frame for TASKS 2084: gold 56 over shards 81, a floor's key beside them
+    states.push(['purse_hud', play((S) => { const R = S.run; R.msg = null; R.hero.gold = 56; S.meta.shards = 81; R.keys = 1; })]);
     // what the HUD's numbers and cells are, under the pointer in the pause (TASKS 1862), at their places on ref B (1872)
     const gifted = (S) => { const h = S.run.hero; h.bless = 1; h.burn = S.t + 2; h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').slice(0, 6).map((g) => [g.id, 2])); };
     states.push(['pause_tip_stat', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = [40, 180]; })]);
@@ -1443,6 +1454,13 @@
       const attack = frames.find((S) => S.run.en[0].phase === 1 && S.run.proj.some((p) => p.src === S.run.en[0].id && (p.k === 'wave' || p.k === 'jet')));
       if (!complete || !attack || !complete.run.en.some((e) => e.type === 'drowned')) throw new Error('Incomplete live phase two QA');
       states.push(['cave_flood_complete', structuredClone(complete)], ['cave_phase2_attack', structuredClone(attack)]);
+      // TASKS 2074: the arena drawn once mid-flood, then flooded to the end on the same map: the hero on the cell the water reached
+      // last wades in it, his foam and rings drawn from the water as it is now
+      const mid = structuredClone(frames.find((S) => S.run.map.flood && S.run.map.flood.n > 0 && S.run.map.flood.n < S.run.map.flood.cells.length)), m = mid.run.map, F = m.flood, h = mid.run.hero, k = F.cells[F.cells.length - 1];
+      h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; mid.run.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; drawn(mid);
+      for (let i = 0; i < FLOOD_STEPS && F.n < F.cells.length; i++) SIM.step(mid, { keys: [] });
+      if (F.n < F.cells.length) throw new Error('The arena\'s flood does not reach its end');
+      mid.run.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['cave_flood_grown', mid]);
     }
     states.push(['serpent_flood_warning', structuredClone(transitions.serpent_flood[45])]);
     states.push(['serpent_flood', structuredClone(transitions.serpent_flood[100])]);
@@ -1758,6 +1776,10 @@
       for (let i = 0; i < 10; i++) { const key = i < 5 ? 'chapter' : 'named', f = i < 5 ? ch[i % ch.length] : 2 + i; R.quests.push({ id: 950 + i, key, f, need: D.QUESTS[key].need(f), n: 0, st: i === 0 ? 'done' : 'taken', from: sd[i % 5], rw: D.questReward(D.QUESTS[key].rw, f), title: TXT('QA.title') }); }
       S.jsel = 951; S.screen = 'journal'; })]);
     states.push(['journal_empty', keeperS((S, R) => { R.quests = []; S.screen = 'journal'; })]);
+    // TASKS 2083: every fetch quest on a two-digit floor, its thing in a secret room, the longest line a card holds; the longest chosen
+    states.push(['journal_long_lines', keeperS((S, R) => { R.offers = []; const roles = Object.keys(D.QUEST_SAY).sort((a, b) => D.QUEST_SAY[b].thing.length - D.QUEST_SAY[a].thing.length);
+      R.quests = roles.map((role, i) => ({ id: 980 + i, key: 'fetch', f: 12, need: 1, n: 0, st: 'taken', from: role, thing: D.QUEST_SAY[role].thing, ic: D.QUEST_SAY[role].ic, where: 'secret', rw: D.questReward(D.QUESTS.fetch.rw, 12) }));
+      S.jsel = 980; S.screen = 'journal'; })]);
     // the longest real names where a label once shrank to fit (review of PR 57): no font step is under 20 px now, so a name longer than
     // its box loses its tail to «…» instead of running out of the panel
     const longest = (o) => Object.keys(o).sort((a, b) => o[b].length - o[a].length || (a < b ? -1 : 1));
@@ -1778,6 +1800,11 @@
     // TASKS 1885: the second row just taken stays in place, dimmed, its button out with «Взято»; the pointer on the row under it
     states.push(['town_board_took', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 }));
       S.bdRows = SIM.Q.boardRows(R); SIM.giveQuest(S, R, S.bdRows[1].role); S.bdTook = [1]; S.screen = 'board'; S.hover = 'take:2'; })]);
+    // TASKS 2083: the longest reward a quest gives on any floor, the longest giver's name, each with an icon that narrows the left column
+    states.push(['town_board_long', keeperS((S, R) => { const rwl = (key, f) => SIM.rwLine(D.questReward(D.QUESTS[key].rw, f)).length, F = Array.from({ length: 30 }, (_, i) => i + 1);
+      const role = Object.keys(D.FOLK).filter((r) => D.QUEST_SAY[r]).sort((a, b) => D.FOLK[b].name.length - D.FOLK[a].name.length)[0];
+      const rows = Object.keys(D.QUESTS).map((key) => [key, F.reduce((a, f) => (rwl(key, f) > rwl(key, a) ? f : a), 1)]).sort((a, b) => rwl(b[0], b[1]) - rwl(a[0], a[1])).slice(0, 6);
+      S.bdRows = rows.map(([key, f]) => ({ role, q: { key, f, need: D.QUESTS[key].need(f), n: 0, rw: D.questReward(D.QUESTS[key].rw, f), ic: 'qi_horse', thing: TXT('QA.thing'), title: TXT('QA.title') } })); S.bdTook = []; S.screen = 'board'; })]);
     states.push(['town_board_empty', keeperS((S, R) => { R.offers = []; R.offerB = 99; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; S.screen = 'board'; })]);
     states.push(['town_ouch', keeperS((S, R, h) => { const g = R.folk.find((q) => q.role === 'guard'); g.hitT = S.t - 0.25; g.ouch = 2; h.x = g.x - 40; h.y = g.y + 8; R.cam = [g.x - SCX.VW / 2, g.y - 40 - SCX.VH / 2]; })]);
     states.push(['scroll_tip', climbS(2, (S, R, m, h) => { h.bag[5] = { b: 'scroll', n: 3, id: R.nextId++ }; h.hp = 6; R.msg = { s: TXT('QA.msg.s.2'), t: S.t - 0.5, d: 4.5, tip: 'scroll' }; })]);
@@ -1792,7 +1819,7 @@
     // the mason's round from the real sim, not a staged pose: the turn with the stone, the walk, the drop (TASKS 1616)
     { let i = 0, S = folkS((S, R) => { const f = folkAt(R, 'mason'); i = f.i; atStop(R, f, 1); f.t0 = S.t - 3; f.face = 1; camOn(R, f); R.cam = [43 * TILE - SCX.VW / 2, 29 * TILE - SCX.VH / 2]; }); const fr = [];
       for (let k = 0; k < 360; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions.folk_mason_round = fr; folkSubj.folk_mason_round = 'npc' + i; }
-    // what clampCam gives the town at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
+    // a fixed view of the courtyard's middle at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [-64, 52]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [-64, 52]; })]);
     // TASKS 2006: the hero pressed against the gate from the yard, square on and from the side, is behind it, never on its masonry

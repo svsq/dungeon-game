@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, K, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
-    dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroSt, hidden, isCons, losClear, pick,
+    dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroRoll, heroSt, hidden, isCons, losClear, pick,
     mapw, potion, propBoxes, ri, rnd, rollItem, secretMask, under } = SIMX;
   // ---------------- actions ----------------
   function usePotion(S, R, b) {
@@ -85,7 +85,7 @@
       ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
     // the archer's (TASKS 1120, 1161): a fan of arrows closing on the cursor; a trap at the cursor (stepTraps springs it); a leap back
     // as a dash with a shot down the aim; each arrow, trap and leap shot may crit
-    const shot = () => heroShotRoll(R, h, st);
+    const shot = () => heroRoll(R, h, st);
     // the fan leaves at the loose, once the bow is up (TASKS 1744: loosed on the key, it flew while the bow still hung at the hip)
     if (id === 'volley') { h.volleyT = S.t + D.VOLLEY.loose; h.volleyK = AR.k; return; }
     if (id === 'trap') { const T = D.TRAP;
@@ -97,10 +97,9 @@
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
     SIMX.firePowers(S, R, 'cast:' + id, Object.assign({ x: h.x, y: h.y, a: h.aim }, fired));
   }
-  const heroShotRoll = (R, h, st) => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c]; };
   function looseVolley(S, R) { const h = R.hero, st = heroSt(S), V = D.VOLLEY, [ox, oy] = hand(h), far = Math.hypot((h.mx ?? ox + Math.cos(h.aim) * 200) - ox, (h.my ?? oy + Math.sin(h.aim) * 200) - oy), k = h.volleyK || 1;
     const arc = Math.max(V.min, Math.min(V.arc, 2 * Math.atan2(V.w / 2, far) * 180 / Math.PI)), projs = []; h.volleyT = null;
-    for (let i = 0; i < V.n; i++) { const [d, c] = heroShotRoll(R, h, st); projs.push(heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * k), c, 'arrow', BASES[st.wtype])); }
+    for (let i = 0; i < V.n; i++) { const [d, c] = heroRoll(R, h, st); projs.push(heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * k), c, 'arrow', BASES[st.wtype])); }
     ev(S, { k: 'volley', x: h.x, y: h.y, a: h.aim }); SIMX.firePowers(S, R, 'cast:volley', { x: h.x, y: h.y, a: h.aim, projs }); }
   function setTrap(S, R, x, y, fx, fy, dmg, crit) { const own = (R.htraps = (R.htraps || []).filter((q) => !q.done)); if (own.length >= D.TRAP.max) own.shift(); own.push({ id: R.nextId++, x, y, fx, fy, t0: S.t, dmg, crit }); ev(S, { k: 'trapset', x, y }); }
   // the archer's traps (TASKS 1120, 1161): armed after TRAP.arm s, the first monster on one is struck and held, its blow put off as

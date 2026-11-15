@@ -120,7 +120,8 @@
       const hor = R() < 0.5, sides = (hor ? ['l', 'r'] : ['u', 'd']).slice(0, C.gates);
       for (const sd of sides) { if (sd === 'u') carveV(court.y, y0, court.cx - 1); if (sd === 'd') carveV(court.y + court.h - 1, y1, court.cx - 1); if (sd === 'l') carveH(court.x, x0, court.cy - 1); if (sd === 'r') carveH(court.x + court.w - 1, x1, court.cy - 1); }
       court.ring = [x0, y0, x1, y1]; court.gates = sides;
-      GF.moat = (x, y) => x >= x0 + C.ring && x <= x1 - C.ring && y >= y0 + C.ring && y <= y1 - C.ring && !inRm(court, x, y) && cells[y * W + x] !== 1; }
+      // the moat is taken once the gates are dug, so the gates' cells are open and not of it
+      GF.moat = new Set(); for (let y = y0 + C.ring; y <= y1 - C.ring; y++) for (let x = x0 + C.ring; x <= x1 - C.ring; x++) if (!inRm(court, x, y) && cells[y * W + x] !== 1) GF.moat.add(y * W + x); }
     // a tomb's way between two neighbours (TASKS 378): two cells wide straight through the wall they share, at a random place along it
     const opening = (A, B) => { const hor = A.x + A.w + 2 === B.x || B.x + B.w + 2 === A.x, L = hor ? (A.x < B.x ? A : B) : (A.y < B.y ? A : B);
       const lo = hor ? Math.max(A.y, B.y) : Math.max(A.x, B.x), hi = hor ? Math.min(A.y + A.h, B.y + B.h) : Math.min(A.x + A.w, B.x + B.w), t = ri(lo + 1, Math.max(lo + 1, hi - 3));

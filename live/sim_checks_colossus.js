@@ -1,8 +1,8 @@
 // live/sim_checks_colossus.js — selfCheck's part for the colossus's step geometry (TASKS 2073). Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, { D } = SIMX, fs = require('fs'), path = require('path');
-  // rigs.js is one assignment of a JSON object, written by the rig scripts; it is read as that object and no script is run
-  const rigs = () => { const text = fs.readFileSync(path.join(__dirname, 'rigs.js'), 'utf8'); return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); };
+  // rigs.js is run as the page runs it (tools/scenebox.cjs: the logic may not stand up a page), so whatever it assigns after the table reaches the check too
+  const { rigs } = require('../tools/scenebox.cjs');
   // a regenerated rig writes the same joints as the same floats, and a redrawn one moves a joint by a pixel at least, so a millionth of a
   // pixel separates the two; the step is a sum of square roots and may differ in its last digits from the table's
   const EPS = 1e-6;
@@ -18,6 +18,17 @@
     const leg = dist(R.hipL, R.kneeL) + dist(R.kneeL, R.ankleL);
     same('step', G.step, LEG_SHARE * leg * D.ENEMIES.boss_colossus.h / R.h);
     same('step in BOSSES', D.BOSSES.boss_colossus.step, G.step);
+    depthCheck(out, G.depth);
+  }
+  // the rig's dz is DATA.stepDz (monsters.js is not loaded here, so its source is read for the call); stepDz must follow the table
+  // the sim's contact reads, or the drawn foot and the sim's step part in depth (TASKS 2080)
+  function depthCheck(out, P) {
+    const src = fs.readFileSync(path.join(__dirname, 'monsters.js'), 'utf8');
+    if (!/dz: DATA\.stepDz\(off, A, diry\)/.test(src)) out.push('colossus: the rig does not take its step\'s dz from DATA.stepDz');
+    const dz = () => [D.stepDz(1, 0, 1), -D.stepDz(0, 1, -1)], [ahead, back] = dz();
+    if (ahead !== P.ahead || back !== P.back) out.push(`colossus: stepDz gives ahead ${ahead}, back ${back}, COLOSSUS_GEO.depth says ${P.ahead}, ${P.back}`);
+    const was = { ...P }; P.ahead *= 2; P.back *= 2;
+    try { const [a2, b2] = dz(); if (a2 !== P.ahead || b2 !== P.back) out.push('colossus: stepDz does not follow COLOSSUS_GEO.depth'); } finally { Object.assign(P, was); }
   }
   SIMX.checks.add('colossusRigCheck', rigCheck);
 })(typeof window !== 'undefined' ? window : globalThis);
