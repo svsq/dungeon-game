@@ -117,6 +117,8 @@
   // middles in it; the painting's size is not here, `railLay` takes it from the assets. It is seen from straight above and laid in floor
   // space for every stretch, the adit's plumb one too, so the sleepers keep one size and tone round the bend; the table's `gauge` (view px)
   // sizes it, as the cart's wheels were set on; `lift` brings its sleepers to a brown
+  // a walker's turn: the rig's width runs from the old side to the new over `t` s and never narrower than `minW`; the hand and tool targets ride the unclamped width
+  const FOLK_TURN = { t: 0.2, minW: 0.1 };
   const RAIL = { gauge: 18.6, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
   // the sprites that lay a track along `pts`, one period of the painting after another, the count carried round each bend: where each stands,
   // the way the stretch runs (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
@@ -145,7 +147,7 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, railPts, CART, cartView, cartAt, cartLug, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartAt, cartLug, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34 };

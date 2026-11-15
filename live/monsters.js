@@ -13,7 +13,7 @@
   // a townsperson's tool in its hand (TASKS 1015): T = { tex, len: view px, grip: from the top, rel: turn off the forearm or abs: an
   // angle, both as if facing right }; drawn upright the tool's head is at the top. Reports grip and tip (the head)
   MON.tool = (id, T, E, Hd, face, u) => { if (!T || !window.ASSETS[T.tex] || T.len <= 0) return;
-    const sa = T.abs !== undefined ? (face > 0 ? T.abs : Math.PI - T.abs) : ang(E, Hd) + face * (T.rel || 0), th = T.len, tw = th * G.tex(T.tex).w / G.tex(T.tex).h;
+    const sa = T.abs !== undefined ? Math.atan2(Math.sin(T.abs), face * Math.cos(T.abs)) : ang(E, Hd) + face * (T.rel || 0), th = T.len, tw = th * G.tex(T.tex).w / G.tex(T.tex).h;
     L.sprite(T.tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa + Math.PI / 2), M.s(face, 1)), w: tw, h: th, pivot: [tw / 2, th * T.grip], u });
     const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
     L.joint(id, 'grip', P(Hd)); L.joint(id, 'tip', P([Hd[0] + Math.cos(sa) * th * T.grip, Hd[1] + Math.sin(sa) * th * T.grip])); };

@@ -20,6 +20,7 @@
 //   prompt    — *prompt* states: the interaction plate (HUD.promptBox) stays clear of the hero's joint box (it sat on him at a chest)
 //   work      — folk_*_work loops: the tool or the working hand travels at least WORK of the height over the loop (TASKS 1015)
 //   blow      — folk_smith_work: the hammer's lowest point lies on the anvil's top (the blow lands on the anvil)
+//   flip      — folk_*_turn (TASKS 2101): a walker turning round: no hand or tool joint steps over FLIP of the height in one frame
 //   turn      — folk_talk, town_talk: talking, the smith's front hand is toward the hero, on either side of him
 //   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
 //               golem's ground point (the far one swung on past the body and lay behind it)
@@ -333,6 +334,14 @@ if (meta.tr.includes('imp_claw')) {
     if (/^hero.*_death_run$/.test(nm)) { const f0 = fr.find((f) => f.dead >= 0), f1 = f0 && fr.find((f) => f.t - f0.t >= 0.3), sp = f0 ? Math.hypot(f0.vx, f0.vy) : 0;
       if (!f0 || sp <= RUNV || !f1 || !f0.j || !f1.j) { report('inertia', nm, false, !f0 ? 'no frame with the hero dead' : sp <= RUNV ? `the run ${sp.toFixed(0)} px/s is not over ${RUNV.toFixed(0)}` : !f1 ? 'no frame 0.3 s after the death' : 'no trace'); continue; }
       const dx = (f1.j.hip[0] - f1.j.ground[0]) - (f0.j.hip[0] - f0.j.ground[0]); report('inertia', nm, Math.sign(dx) === Math.sign(f0.vx), `the hip moves ${dx.toFixed(1)} px over 0.3 s after the death, the run ${f0.vx.toFixed(0)} px/s`); } } }
+// flip (TASKS 2101): a walker turns round at 1/60 s (folk_*_turn): no hand or tool joint steps more than FLIP of the height between two frames
+{ const FLIP = 0.08, KEYS = ['handL', 'handR', 'grip', 'tip'];
+  for (const nm of meta.tr.filter((n) => /^folk_.*_turn$/.test(n))) {
+    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.ground && j.top); if (fr.length < 10) { report('flip', nm, false, 'no trace'); continue; }
+    const H = tall(fr[0]), keys = KEYS.filter((k) => fr.every((j) => Array.isArray(j[k])));
+    const step = (k) => Math.max(...fr.slice(1).map((j, i) => Math.hypot(j[k][0] - fr[i][k][0], j[k][1] - fr[i][k][1])));
+    const worst = keys.map((k) => [k, step(k)]).sort((a, b) => b[1] - a[1])[0]; if (!worst) { report('flip', nm, false, 'no hand or tool joint'); continue; }
+    report('flip', nm, worst[1] <= FLIP * H, `the ${worst[0]} steps ${worst[1].toFixed(1)} px of the ${H.toFixed(0)} px height in one frame (≤ ${(FLIP * H).toFixed(1)})`); } }
 // recoil (TASKS 1804): a blow on a light body (not heavy, narrower than the brute) throws its head against its hip by RECOIL of its height
 // (every type nodded 0.05–0.08 and the knock-back moved the rest)
 { const RECOIL = 0.1, big = await p.evaluate(() => Object.fromEntries(Object.entries(DATA.ENEMIES).map(([k, E]) => [k, !!(E.heavy || E.r >= 20 || DATA.BOSSES[k])])));

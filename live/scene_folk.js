@@ -160,9 +160,10 @@
     // struck by the hero's blow (TASKS 1033): a flinch back from it, knees giving, the head ducked, over half a second
     { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
       if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
-    // a walker turns like a paper figure, over 0.14 s: mirrored in one tick the whole rig jumped by its own width (TASKS 1409)
-    const tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, 0.14, GT - tT) : 1, rigFace = turnK < 1 ? face * Math.sign(turnK * 2 - 1 || 1) * Math.max(0.1, Math.abs(turnK * 2 - 1)) : face;
-    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * rigFace / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
+    // a walker turns like a paper figure: mirrored in one tick the whole rig jumped by its own width (TASKS 1409); the rig's width keeps
+    // a minimum, but the hand targets ride the unclamped width: through the clamp's sign flip they jumped 0.2 of their reach (TASKS 2101)
+    const FT = D.FOLK_TURN, tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, FT.t, GT - tT) : 1, turnW = turnK < 1 ? face * (turnK * 2 - 1) : face, rigFace = Math.abs(turnW) < FT.minW ? face * Math.sign(turnW * face || 1) * FT.minW : turnW;
+    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * turnW / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
       if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); }
