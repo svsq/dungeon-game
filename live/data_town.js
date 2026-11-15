@@ -104,6 +104,23 @@
   // the sprites' own wheels cannot turn, so studs circle them by the distance rolled (town_motion_r6 5)
   const CART = { side: 39, front: 58, straight: 45, roll: 40, squash: 0.8, floor: 0.68, reach: 14, seat: [-0.27, -0.145], wheel: 0.055,
     hubs: { cart_tw: [[0.391, 0.842], [0.604, 0.679]], cart_tw_half: [[0.392, 0.834], [0.605, 0.661]], cart_tw_empty: [[0.391, 0.832], [0.604, 0.657]] } };
+  // the track's two paintings (TASKS 2012, 2085): `per` one sleeper and the ballast after it and `at` the middle of the first gap between two
+  // sleepers (where a period is cut, so it repeats without its ends), both in the painting's own pixels, `gauge` between the rails'
+  // middles in them; the painting's size is not here, `railLay` takes it from the assets. `h` is seen from straight above and laid in
+  // floor space, `v` runs up the screen as the 3/4 camera sees it, for a stretch within `steep` degrees of plumb (the adit's); the
+  // table's `gauge` (view px) sizes both, as the cart's wheels were set on; `lift` brings each painting's sleepers to one brown
+  const RAIL = { gauge: 18.6, steep: 20, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 }, v: { tex: 'rail_tw_v', at: 190, per: 137, gauge: 161, lift: 1.08 } };
+  // the sprites that lay a track along `pts`, one period of a painting after another: where each stands, the way the stretch runs
+  // (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
+  const railLay = (pts, size) => { const K = CART.floor, out = [];
+    for (const kind of ['h', 'v']) { const P = RAIL[kind], [tw, th] = size(P.tex), k = RAIL.gauge / P.gauge, per = P.per * k, cut = kind === 'h' ? P.at / tw : P.at / th; let carry = 0;
+      for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], plumb = Math.atan2(Math.abs(bx - ax), Math.abs(by - ay)) * 180 / Math.PI < RAIL.steep;
+        if (plumb !== (kind === 'v')) { carry = 0; continue; }
+        const len = kind === 'h' ? Math.hypot(bx - ax, (by - ay) / K) : Math.hypot(bx - ax, by - ay);
+        let d = carry; for (; d < len; d += per) out.push({ kind, tex: P.tex, x: ax + (bx - ax) * d / len, y: ay + (by - ay) * d / len, dx: bx - ax, dy: by - ay, lift: P.lift,
+          w: kind === 'h' ? per + 0.5 : tw * k, h: kind === 'h' ? th * k : per + 0.5, src: kind === 'h' ? [cut, 0, cut + P.per / tw, 1] : [0, cut, 1, cut + P.per / th] });
+        carry = d - len; } }
+    return out; };
   const cartView = (pts, s) => {
     const tot = pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0),
       at = (d) => { d = Math.max(0, Math.min(tot, d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } },
@@ -112,5 +129,5 @@
       return { th, side: 1, turn: k, sx, rot: -(th - Math.atan(Math.tan(CART.side / R2D) / sx) * R2D), tilt: 0 }; }
     return { th, side: 0, sx: 1, rot: 0, tilt: Math.atan(CART.floor * CART.floor / Math.tan(th / R2D)) * R2D };
   };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, railPts, CART, cartView });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, railPts, CART, cartView, RAIL, railLay });
 })(typeof window !== 'undefined' ? window : globalThis);
