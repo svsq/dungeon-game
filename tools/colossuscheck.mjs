@@ -46,9 +46,8 @@ try {
       results[name + '_pop'] = { px: +pop.toFixed(2), at };
       return fr;
     };
-    // the striking right fist lands on the contact point; the left fist, the colossus's rest while it is stuck, hangs this far over it
-    // (TASKS 1965: 29 px with the hip at 0.14, 41 at 0.2): its own limit, so a worse reach fails and the right fist stays strict
-    const REACH = { R: 8, L: 30 };
+    // both fists land on their contact points (TASKS 2082: the far one hung 27–29 px over its own with a limit of its own)
+    const REACH = 8;
     for (const move of ['fists', 'crack']) {
       const fr = trace('colossus_' + move), M = DATA.BOSSES.boss_colossus.moves[move];
       const contact = fr.filter((f) => f.e.mv === move && f.t >= f.e.t0 + M.wind && (move === 'fists' ? f.t < (f.e.openUntil || f.e.t0 + M.wind + M.duration + M.stuck) : f.t < f.e.t0 + M.wind + M.duration));
@@ -58,7 +57,7 @@ try {
         const p = DATA.colossusContact(f.e, side), target = [f.j.ground[0] + p.x - f.e.x, f.j.ground[1] + p.y - f.e.y - 0.11 * DATA.ENEMIES.boss_colossus.h];
         gaps[side] = Math.max(gaps[side], dist(f.j['hand' + side], target));
       }
-      for (const side of ['L', 'R']) if (gaps[side] > REACH[side]) failures.push(`${move}: the ${side} fist misses contact by ${gaps[side].toFixed(2)}`);
+      for (const side of ['L', 'R']) if (gaps[side] > REACH) failures.push(`${move}: the ${side} fist misses contact by ${gaps[side].toFixed(2)}`);
       if (!contact.length) failures.push(move + ': no contact frames');
       const gap = Math.max(gaps.L, gaps.R);
       const i = fr.findIndex((f) => f.t >= f.e.t0 + M.wind), down = fr[i].j.handR[1] - fr[i - 1].j.handR[1];
