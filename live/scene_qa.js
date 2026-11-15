@@ -1774,6 +1774,10 @@
       for (let i = 0; i < 10; i++) { const key = i < 5 ? 'chapter' : 'named', f = i < 5 ? ch[i % ch.length] : 2 + i; R.quests.push({ id: 950 + i, key, f, need: D.QUESTS[key].need(f), n: 0, st: i === 0 ? 'done' : 'taken', from: sd[i % 5], rw: D.questReward(D.QUESTS[key].rw, f), title: TXT('QA.title') }); }
       S.jsel = 951; S.screen = 'journal'; })]);
     states.push(['journal_empty', keeperS((S, R) => { R.quests = []; S.screen = 'journal'; })]);
+    // TASKS 2083: every fetch quest on a two-digit floor, its thing in a secret room, the longest line a card holds; the longest chosen
+    states.push(['journal_long_lines', keeperS((S, R) => { R.offers = []; const roles = Object.keys(D.QUEST_SAY).sort((a, b) => D.QUEST_SAY[b].thing.length - D.QUEST_SAY[a].thing.length);
+      R.quests = roles.map((role, i) => ({ id: 980 + i, key: 'fetch', f: 12, need: 1, n: 0, st: 'taken', from: role, thing: D.QUEST_SAY[role].thing, ic: D.QUEST_SAY[role].ic, where: 'secret', rw: D.questReward(D.QUESTS.fetch.rw, 12) }));
+      S.jsel = 980; S.screen = 'journal'; })]);
     // the longest real names where a label once shrank to fit (review of PR 57): no font step is under 20 px now, so a name longer than
     // its box loses its tail to «…» instead of running out of the panel
     const longest = (o) => Object.keys(o).sort((a, b) => o[b].length - o[a].length || (a < b ? -1 : 1));
@@ -1794,6 +1798,11 @@
     // TASKS 1885: the second row just taken stays in place, dimmed, its button out with «Взято»; the pointer on the row under it
     states.push(['town_board_took', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 }));
       S.bdRows = SIM.Q.boardRows(R); SIM.giveQuest(S, R, S.bdRows[1].role); S.bdTook = [1]; S.screen = 'board'; S.hover = 'take:2'; })]);
+    // TASKS 2083: the longest reward a quest gives on any floor, the longest giver's name, each with an icon that narrows the left column
+    states.push(['town_board_long', keeperS((S, R) => { const rwl = (key, f) => SIM.rwLine(D.questReward(D.QUESTS[key].rw, f)).length, F = Array.from({ length: 30 }, (_, i) => i + 1);
+      const role = Object.keys(D.FOLK).filter((r) => D.QUEST_SAY[r]).sort((a, b) => D.FOLK[b].name.length - D.FOLK[a].name.length)[0];
+      const rows = Object.keys(D.QUESTS).map((key) => [key, F.reduce((a, f) => (rwl(key, f) > rwl(key, a) ? f : a), 1)]).sort((a, b) => rwl(b[0], b[1]) - rwl(a[0], a[1])).slice(0, 6);
+      S.bdRows = rows.map(([key, f]) => ({ role, q: { key, f, need: D.QUESTS[key].need(f), n: 0, rw: D.questReward(D.QUESTS[key].rw, f), ic: 'qi_horse', thing: TXT('QA.thing'), title: TXT('QA.title') } })); S.bdTook = []; S.screen = 'board'; })]);
     states.push(['town_board_empty', keeperS((S, R) => { R.offers = []; R.offerB = 99; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; S.screen = 'board'; })]);
     states.push(['town_ouch', keeperS((S, R, h) => { const g = R.folk.find((q) => q.role === 'guard'); g.hitT = S.t - 0.25; g.ouch = 2; h.x = g.x - 40; h.y = g.y + 8; R.cam = [g.x - SCX.VW / 2, g.y - 40 - SCX.VH / 2]; })]);
     states.push(['scroll_tip', climbS(2, (S, R, m, h) => { h.bag[5] = { b: 'scroll', n: 3, id: R.nextId++ }; h.hp = 6; R.msg = { s: TXT('QA.msg.s.2'), t: S.t - 0.5, d: 4.5, tip: 'scroll' }; })]);
