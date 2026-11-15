@@ -378,7 +378,7 @@
       byE = keys.KeyE && T.act && (T.act.k === 'turn' || (T.act.k === 'take' && T.act.first && settled)),
       byEnter = enter === 'act' && T.act && T.act.k !== 'finish';
     if (T.act && last && ((click && b && b.id === 'act') || byE || byEnter)) { talkAct(S, S.run, T); if (S.screen !== 'talk') S.focus = ''; return; }
-    if (quest && (keys.KeyE || keys.Space)) return;
+    if (quest && (keys.KeyE || keys.Space)) { S.focus = 'act'; ev(S, { k: 'ui', x, y }); return; }
     if (((click && b && b.id === 'talk') || enter === 'talk') && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; ev(S, { k: 'ui', x, y }); return; }
     // a master's last page with no quest on it: E goes on into the workshop, so E, E still reaches the forge (TASKS 1635)
     if (T.craft && last && !T.act && !T.inTopic && keys.KeyE) { SIMX.openCraft(S, S.run, T.craft); return; }

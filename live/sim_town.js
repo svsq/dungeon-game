@@ -85,7 +85,7 @@
       k.home = k.home || { x: k.x, y: k.y }; k.path = sp && sp.path; k.greet = 1; G.sp = sp && { x: sp.x, y: sp.y };
       // the hero is held no longer than the walk takes, and a little more
       G.give = Math.min(GREET.give, (sp ? sp.path.reduce((d, p, j) => d + Math.hypot(p.x - (j ? sp.path[j - 1].x : k.x), p.y - (j ? sp.path[j - 1].y : k.y)), 0) / GREET_V : 0) + GREET.late); k.face = k.face || workFace(R, k); k.walked = 1; k.walkA = t; k.walkB = undefined; k.stuck = 0;
-      k.near = 1; k.sayT = t; k.sayS = D.KEEPER.greet; G.st = 'walk'; G.t1 = t; ev(S, { k: 'say', x: k.x, y: k.y, role: 'keeper' }); return; }
+      k.near = 1; k.sayT = t; k.sayS = D.KEEPER.greet; G.st = 'walk'; G.t1 = t; ev(S, { k: 'say', x: k.x, y: k.y, role: 'keeper' }); R.msg = { s: TXT('sim_town.greet.msg.s'), t: S.t, d: 4 }; return; }
     // a spot he has not reached in time (a hen on it, the hero in the way) he is put on, so he never talks from across the square
     if (G.st === 'walk') { if (k.path && t - G.t1 < (G.give ?? GREET.give)) { if (t - (h.faceT ?? -9) > 0.6 && Math.abs(k.x - h.x) > 8) heroFace(); return; }
       if (k.path && G.sp) { k.x = G.sp.x; k.y = G.sp.y; } k.path = null; k.spd = 0; k.vx = k.vy = 0; G.st = 'meet'; G.t2 = t; faceHero(); return; }
