@@ -3,8 +3,8 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BAL, D, DG, DT, ENEMIES, K, LOOT, RUN, STAGE, TILE, WET, addFire, boxHit, cell, dep, dif, doorKey, drop, ev, flow, hurtHero, lastFloor,
-    losClear, move, openDoor, rnd, rollItem, shove, standNear, steer, who } = SIMX;
+    BAL, D, DG, DT, ENEMIES, K, LOOT, RUN, STAGE, TILE, addFire, boxHit, cell, dep, dif, drop, ev, flow, hurtHero, lastFloor,
+    losClear, mapw, move, openDoor, rev, rnd, rollItem, shove, standNear, steer, who } = SIMX;
   // a hit-stop holds only what the player must react to; the hold under the floor's name on «Продолжить» (TASKS 1812) is the whole
   // floor's and the hero's, as if those 1.2 s never were, so a save and a load dodge nothing (review of PR 57)
   function holdClocks(R, all) {
@@ -42,12 +42,12 @@
     if (b && m.bossType && !R.arena) { const r = m.rooms[b.room], pad = K.R + 4;
       if (h.x > r.x * TILE + pad && h.x < (r.x + r.w) * TILE - pad && h.y > r.y * TILE + pad && h.y < (r.y + r.h) * TILE - pad) {
         R.arena = { active: 1, room: b.room, t0: S.t }; b.st = b.type === 'boss_serpent' ? 'deep' : ENEMIES[b.type].lake ? 'emerge' : 'chase'; b.cdT = S.t + 1; b.seenT = S.t; b.t0 = S.t;
-        for (const d of m.doors) if (d.arena) { d.open = 0; d.openT = -9; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5; }
+        for (const d of m.doors) if (d.arena) { d.open = 0; d.openT = -9; mapw.fillCells(m, d.cells, 5); }
         m.arenaBox = [r.x, r.y, r.x + r.w, r.y + r.h];
         R.msg = { chapter: ENEMIES[b.type].name, s: ENEMIES[b.type].title, t: S.t, d: 3 }; roar(S, R, b);
       }
     }
-    for (const q of R.lavaPending || []) if (S.t >= q.t && m.cells[q.cell] === 1) { m.cells[q.cell] = 3; m.arenaLava = m.arenaLava || []; m.arenaLava.push(q.cell); m.lava++; m.geometry = (m.geometry || 0) + 1; }
+    for (const q of R.lavaPending || []) if (S.t >= q.t && m.cells[q.cell] === 1) { mapw.setCell(m, q.cell, 3); m.arenaLava = m.arenaLava || []; m.arenaLava.push(q.cell); m.lava++; }
     R.lavaPending = (R.lavaPending || []).filter((q) => S.t < q.t);
     if ((R.rocks && R.rocks.length) || (R.cracks && R.cracks.length)) colossusHazards(S, R);
     for (const egg of R.eggs || []) if (egg.hp > 0 && S.t >= egg.hatchT) { egg.hp = 0;
@@ -58,9 +58,9 @@
     if (R.arena) R.arena.active = 0;
     for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.loot = SIMX.bossLoot(R, e); c.pay = chapterEnd(R, e) ? 0 : LOOT.mini.gold; SIMX.fstat(R).lootN += c.loot.length; ev(S, { k: 'unseal', x: c.x, y: c.y }); }
     R.map.flood = null; R.map.arenaBox = null;
-    if (R.map.arenaWater?.length) { const wet = new Set(R.map.arenaWater); R.map.water = R.map.water.filter((k) => !wet.has(k)); R.map.arenaWater = []; WET.delete(R.map); }
-    for (const k of R.map.arenaLava || []) if (R.map.cells[k] === 3) { R.map.cells[k] = 1; R.map.lava--; }
-    R.map.arenaLava = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.fires = (R.fires || []).filter((p) => p.src !== e.id); R.map.geometry = (R.map.geometry || 0) + 1;
+    if (R.map.arenaWater?.length) { mapw.dropWater(R.map, R.map.arenaWater); R.map.arenaWater = []; }
+    for (const k of R.map.arenaLava || []) if (R.map.cells[k] === 3) { mapw.setCell(R.map, k, 1); R.map.lava--; }
+    R.map.arenaLava = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.fires = (R.fires || []).filter((p) => p.src !== e.id);
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
     for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
@@ -192,7 +192,7 @@
   // and the edge, onto the crossing) and it stuck there. Its own field runs over the cells its body clears
   const WIDE = new WeakMap();
   function wideClear(R, e, E) {
-    const m = R.map, key = (m.geometry || 0) + ':' + doorKey(m) + ':' + E.r + ':' + e.room; let c = WIDE.get(m); if (c && c.key === key) return c;
+    const m = R.map, key = rev(m) + ':' + E.r + ':' + e.room; let c = WIDE.get(m); if (c && c.key === key) return c;
     const a = new Uint8Array(m.W * m.H), blk = new Set(m.block), r = m.rooms[e.room], n = Math.ceil(E.r / TILE), open = (q) => m.cells[q] === 1 && !blk.has(q);
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * m.W + x; if (!open(k)) continue;
       const px = (x + 0.5) * TILE, py = (y + 0.5) * TILE; let ok = true;

@@ -5,7 +5,7 @@
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
     eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, exitKind, campaignDone, leverNear,
-    openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
+    mapw, openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
   // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
@@ -275,11 +275,13 @@
   // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
   // a batch more after each boss slain, as the merchant's shelf is stocked anew (TASKS 1026: 2–3 a run were all taken in the first
   // minute); a batch's givers are those with no offer still waiting
-  function offersOf(R) { const G = D.QUEST_GIVE; R.offers = R.offers || []; if (R.offerB === undefined) R.offerB = R.offers.length ? 1 : 0;
+  // dealing is a step of its own, made on arrival in the town (enterFloor); the render and the talks only read (TASKS 2064)
+  function dealOffers(R) { const G = D.QUEST_GIVE; R.offers = R.offers || []; if (R.offerB === undefined) R.offerB = R.offers.length ? 1 : 0;
     while (R.offerB < 1 + (R.bossN || 0)) { const b = R.offerB++; let a = D.mix32((R.seed >>> 0) + 0x51ed27 + b * 7919);
       const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
       for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); } }
-    return R.offers; }
+  }
+  const offersOf = (R) => R.offers || [];
   // the floor a quest taken now points at: past the deepest reached; a goal put on a floor wants one not yet built and no boss's
   function questFloor(R, key) { const Q = D.QUESTS[key], top = RUN(R).floors, d = R.deepest || 0;
     for (let f = Math.max(Q.from || 1, d + (Q.ahead || 1)); f <= top; f++) { if (Q.noBoss && STAGE(R, f).boss) continue; if (Q.fresh && R.memo && R.memo[f]) continue; return f; } return 0; }
@@ -339,7 +341,7 @@
   // no room for the cage must not leave the shop shut for the whole run; the captive goes home free, and a rescue quest in hand is
   // done as by the cage (PR 49 review: it stayed taken, and the Keeper's chain never went on)
   function captivePut(S, R, C, rooms) { const at = cageSpot(R, rooms); if (!at) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'qevent', free: C.who, x: R.hero.x, y: R.hero.y }); return; } Object.assign(C, at); }
-  function captivePlace(S, R) { const m = R.map; for (const C of Object.values(R.captives || {})) { const D0 = D.CAPTIVES[C.who]; if (D0.f !== R.floor || isFree(R, C.who)) continue; if (C.x === undefined && !D0.boss) captivePut(S, R, C); if (C.x !== undefined) for (const k of cageCells(m, C)) if (!m.block.includes(k)) m.block.push(k); } }
+  function captivePlace(S, R) { const m = R.map; for (const C of Object.values(R.captives || {})) { const D0 = D.CAPTIVES[C.who]; if (D0.f !== R.floor || isFree(R, C.who)) continue; if (C.x === undefined && !D0.boss) captivePut(S, R, C); if (C.x !== undefined) for (const k of cageCells(m, C)) mapw.blockOnce(m, k); } }
   function captiveBoss(S, R, e) { for (const C of Object.values(R.captives || {})) if (D.CAPTIVES[C.who].boss && D.CAPTIVES[C.who].f === R.floor && C.x === undefined && !isFree(R, C.who)) { captivePut(S, R, C, [R.map.rooms[e.room]]); captivePlace(S, R); } }
   function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y }); const was = R.msg; ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y }); if (R.msg !== was) { R.msg.t = S.t + 5; R.msgNext = R.msg; } R.msg = { s: D.CAPTIVES[C.who].free, t: S.t, d: 5 }; S.saveN++; }
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
@@ -527,12 +529,12 @@
   function rerollAltar(S, R, sh, x, y) { if (sh.used || !sh.gifts) return; const n = sh.rolls || 0, cost = D.rerollCost(n, dep(R));
     if (S.meta.shards < cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
     S.meta.shards -= cost; sh.rolls = n + 1; sh.gifts = rollGifts(S, R); ev(S, { k: 'ui', x, y }); S.saveN++; }
-  const canDonate = (R) => (R.donations || 0) < 10 && R.hero.gold >= 1000;
+  const canDonate = (R) => (R.donations || 0) < D.DONATE.max && R.hero.gold >= D.DONATE.gold;
   function donate(S, R, x, y) {
-    if ((R.donations || 0) >= 10) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s') }); return; }
-    if (R.hero.gold < 1000) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s.2') }); return; }
-    R.hero.gold -= 1000; R.donations = (R.donations || 0) + 1;
-    giveShards(S, R, 1, R.hero.x, R.hero.y, TXT('sim_town.donate')); S.saveN++;
+    if ((R.donations || 0) >= D.DONATE.max) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s') }); return; }
+    if (R.hero.gold < D.DONATE.gold) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s.2') }); return; }
+    R.hero.gold -= D.DONATE.gold; R.donations = (R.donations || 0) + 1;
+    giveShards(S, R, D.DONATE.shards, R.hero.x, R.hero.y, TXT('sim_town.donate')); S.saveN++;
   }
   // ---------------- the merchant ----------------
   // his shelf for this floor: the gear first (the showpiece at least SHOP.best rarity), then potions and scrolls in stacks
@@ -575,7 +577,7 @@
 
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
-    craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
+    craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });

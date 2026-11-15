@@ -49,13 +49,6 @@
   const clsNames = (b) => ((BASES[b] || {}).cls || []).map((c) => D.CLASSES[c].name).join(', ');
   // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
-  // the floor generator's version (R-18): a floor kept by a run through the town is a diff against its rebuild, so a save made by
-  // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
-  // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
-  // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
-  // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
-  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943); selfCheck holds the generator's print to its version
-  const GEN_VERSION = 34;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   // the chance of a find above the hero's level: `base`, `per` more for each floor he is ahead of it, at most `cap`; at most `up` levels above
   const LOOT_OVER = { base: 0.04, per: 0.06, cap: 0.3, up: 4 };
@@ -64,6 +57,7 @@
     mp_potion: { name: TXT('CONSUMABLES.mp_potion.name'), icon: 'it_mp', mana: 0.5, stack: 20 },
     scroll: { name: TXT('CONSUMABLES.scroll.name'), icon: 'it_scroll', stack: 20 },
   };
+  TXT.bind('hud.tooltip.10', CONSUMABLES.hp_potion); TXT.bind('hud.tooltip.11', CONSUMABLES.mp_potion);
   const RARITY = [
     { id: 'common', name: TXT('RARITY.common.name'), col: [0.78, 0.76, 0.72], affixes: 0 },
     { id: 'uncommon', name: TXT('RARITY.uncommon.name'), col: [0.42, 0.86, 0.32], affixes: 1 },
@@ -211,5 +205,5 @@
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
-  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, floorUnique, reqLvl, SHOP, itemPrice, sellPrice });
+  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, floorUnique, reqLvl, SHOP, itemPrice, sellPrice });
 })(typeof window !== 'undefined' ? window : globalThis);

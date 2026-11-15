@@ -1,14 +1,8 @@
 // node tools/hazwalk.cjs N K [nogate|gate] [out.json]: magma floors 1–3 of seeds 1–N, the walk to the stairs with no monsters, K blind walks at random
 // phases; the sum of the hero's hurt per walk (all sources: rocks, vents, gates, surges, lava, burns), floors with gates and without
 // apart. nogate: HAZ.vent.gate switched off before the floors are built, the base the gates are held to (TASKS 1689)
-const ROOT = require('path').join(__dirname, '..');
-const SIM = require(ROOT + '/live/sim.js'), D = require(ROOT + '/live/data.js'), DG = require(ROOT + '/live/dungeon.js');
+const { SIM, D, DG, mk } = require('./measure/game/lib.cjs');
 const T = 32, N4 = (W) => [1, -1, W, -W];
-
-const mk = (sd, f) => {
-  const S = SIM.create(); S.demo = 0; S.meta = S.meta || {}; S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; if (f > 1) SIM.enterFloor(S, S.run, f);
-  S.run.en = []; return S;
-};
 const cellOf = (m, x, y) => Math.floor(y / T) * m.W + Math.floor(x / T);
 const bfs = (m, s, e, ok, ban) => {
   const W = m.W, blk = new Set(m.block || []), from = new Int32Array(W * m.H).fill(-2), q = [s]; from[s] = -1;

@@ -1,6 +1,7 @@
 // proof that a pure move of code (R-38: 501–503, 1142, 1141) changed nothing (ARCHITECTURE.md §6)
 //   node tools/samecheck.mjs --save [--only sim,gen,frames]   take the reference on the branch before the move (tests/golden/samecheck.json, in git)
 //   node tools/samecheck.mjs [--only ...]                      compare with it; exit 2 on any difference
+//   --serial: the sim's runs one after another and tune's checks in one process, for a quiet machine at night
 //   --query k=v[&k=v]: added to the page's URL (a render switch, e.g. batch=0 for the picture before the draw batches, TASKS 2031–2032)
 // sim: the bot's runs in every mode, the whole state hashed on each floor it reaches and at the end, plus tune.cjs's output;
 // gen: genFloor over modes × run seeds × floors, genTown; frames: every SCENE.QA() state rendered, pixels hashed.
@@ -14,7 +15,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const save = args.includes('--save'), query = opt('query', ''), only = opt('only', 'sim,gen,frames').split(','), file = opt('file', 'tests/golden/samecheck.json');
+const save = args.includes('--save'), query = opt('query', ''), serial = args.includes('--serial'), only = opt('only', 'sim,gen,frames').split(','), file = opt('file', 'tests/golden/samecheck.json');
 const sha = (b) => crypto.createHash('sha1').update(b).digest('hex').slice(0, 16);
 // v8.serialize writes one number differently as V8's own storage of it changes, so equal states hashed apart between runs (TASKS 1143)
 const stateJson = (S) => JSON.stringify(S, (k, v) => (v instanceof Set ? [...v] : v instanceof Map ? [...v.entries()] : ArrayBuffer.isView(v) ? [...v] : v));
@@ -30,8 +31,10 @@ if (process.argv[2] === '--run') {
 
 if (only.includes('sim')) {
   const RUNS = [['town', 1], ['town', 2], ['campaign', 3], ['cave', 4], ['magma', 5], ['endless', 6]];
-  const one = (cmd, a) => new Promise((res, rej) => execFile('node', a, { encoding: 'utf8', maxBuffer: 1 << 26 }, (e, out) => (e ? rej(e) : res(out))));
-  const outs = await Promise.all([...RUNS.map(([mode, seed]) => one('node', [process.argv[1], '--run', mode, String(seed)])), one('node', ['live/tune.cjs'])]);
+  const env = serial ? { ...process.env, TUNE_SERIAL: '1' } : process.env;
+  const one = (cmd, a) => new Promise((res, rej) => execFile('node', a, { encoding: 'utf8', maxBuffer: 1 << 26, env }, (e, out) => (e ? rej(e) : res(out))));
+  const jobs = [...RUNS.map(([mode, seed]) => () => one('node', [process.argv[1], '--run', mode, String(seed)])), () => one('node', ['live/tune.cjs'])];
+  const outs = []; if (serial) for (const job of jobs) outs.push(await job()); else outs.push(...await Promise.all(jobs.map((job) => job())));
   RUNS.forEach(([mode, seed], i) => { got[`sim ${mode} ${seed}`] = outs[i].trim(); });
   got['sim tune'] = sha(outs[RUNS.length]);
 }

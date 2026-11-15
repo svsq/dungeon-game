@@ -71,6 +71,8 @@
   // the cursor within `far` px and holds the monster's blow as well as its feet; the leap carries him `spd` × the dash's time; the fan leaves `loose` s after the key
   const VOLLEY = { n: 5, arc: 50, min: 4, w: 36, k: 0.7, loose: 0.13 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
+  const AB_NUMS = { shield: { dur: SHIELD_T }, volley: VOLLEY, trap: TRAP };
+  TXT.bake(ABILITIES.filter((A) => A.id in AB_NUMS), 'desc', (A) => `ABILITIES.${A.id}.desc`, (A) => AB_NUMS[A.id]);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
   // right click's ability, `shoots`: the weapons it fires from instead of swinging, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
   // the class screen of 1103 lists only those; `sat`: the paint's saturation under the light, the warrior's 0.8 kept his steel off the
@@ -166,6 +168,11 @@
   // a number written into the text as well as in v drifted from it: the HUD had to find it there to sum the altars' gifts, and kept its dot (TASKS 1900)
   const giftDesc = (G, n = 1) => TXT('GIFTS.' + G.id + '.desc', { v: G.v * n });
   for (const G of GIFTS) G.desc = giftDesc(G);
+  const BLESS = GIFTS.find((G) => G.id === 'bless');
+  TXT.bind('sim_hero.sanctum.msg', BLESS); TXT.bind('EVENTS.fountain.bless', BLESS);
+  // the altar of souls takes `gold` for `shards` shard(s), `max` times a run
+  const DONATE = { max: 10, gold: 1000, shards: 1 };
+  for (const k of ['sim_town.donate.s', 'hud.altar.7', 'UI.altar.r.donate.label', 'sim_town.donate']) TXT.bind(k, DONATE);
   // an altar stands on every second floor, so it is paid from two floors' takings: a bot reaches the floor-2 altar with ~12 shards,
   // so the middle gift is within reach at every altar (TASKS 183), the dear one takes three floors or more
   const giftCost = (tier, f) => Math.round([0, 4, 9, 16, 40][tier] * (1 + 0.15 * (f - 1)));
@@ -180,5 +187,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, giftCost, rerollCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, giftCost, rerollCost, xpNeed, DONATE });
 })(typeof window !== 'undefined' ? window : globalThis);

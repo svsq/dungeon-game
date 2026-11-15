@@ -1,11 +1,11 @@
 // node tools/measure/game/roster.cjs [N] — town run (campaign seed sd*7, town: true), seeds 1..N, floors 13–16 as generated:
 // enemy roster by floor, packs near the arrival, special halls, chests (on bends, dry rounds, secrets), hazards, gate sets, bends.
 // Rebuilt for r15 (the r14 roster.cjs was lost on 12.11.2026, MAGMA_LIMITS): numbers are a new base, compare r14 by trend only.
-const { SIM, D, T, cellOf } = require('./lib.cjs'); const N = +(process.argv[2] || 30);
+const { SIM, D, T, cellOf, fresh } = require('./lib.cjs'); const N = +(process.argv[2] || 30);
 const MAGMA = new Set(['imp', 'salamander', 'skel_ember', 'golem', 'fire_priest', 'cultist', 'brute', 'boss_colossus', 'bomber', 'caller']);
 const SHOOT = new Set(['imp', 'skel_archer', 'cultist', 'fire_priest']);
 const F = {}; const add = (o, k, n = 1) => (o[k] = (o[k] || 0) + n);
-for (let sd = 1; sd <= N; sd++) { const S = SIM.create(); S.demo = 0; S.meta = S.meta || {}; S.run = SIM.newRun(S, 'campaign', sd * 7, { town: true }); S.screen = 'play';
+for (let sd = 1; sd <= N; sd++) { const S = fresh(); S.run = SIM.newRun(S, 'campaign', sd * 7, { town: true }); S.screen = 'play';
   for (let g = 1; g <= 16; g++) { SIM.enterFloor(S, S.run, g); if (g < 13) continue; const R = S.run, m = R.map, h = R.hero, W = m.W; if (m.biome !== 'magma') continue;
     const A = (F[g] = F[g] || { floors: 0, types: {}, en: 0, near6: 0, near10: 0, halls: {}, hallsN: 0, chests: 0, chestBend: 0, chestRound: 0, secrets: 0, gateSets: 0, vents: 0, falls: 0, surges: 0, rocks: 0, bends: 0, bendFloors: 0, ftypes: {}, shoot: 0 });
     A.floors++; add(A.ftypes, m.ftype + (m.ftype2 ? '+' + m.ftype2 : ''));

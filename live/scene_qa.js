@@ -252,7 +252,7 @@
           if (sc > 0 && (!best || sc > best[2])) best = [x, y, sc]; }
         const pool = best ? shape.map(([k, j]) => [best[0] + k, best[1] + j]) : [];
         const on = (o) => pool.some(([x, y]) => Math.abs(Math.floor(o.x / TILE) - x) <= 1 && Math.floor(o.y / TILE) - y >= -1 && Math.floor(o.y / TILE) - y <= 2);
-        for (const [x, y] of pool) m.cells[y * m.W + x] = 3; m.lava = (m.lava || 0) + pool.length;
+        SIM.mapw.fillCells(m, pool, 3); m.lava = (m.lava || 0) + pool.length;
         m.decor = m.decor.filter((d) => !on(d)); R.pots = R.pots.filter((p) => !on(p)); R.chests = R.chests.filter((c) => !on(c)); m.torches = m.torches.filter((t2) => !on(t2)); m.traps = m.traps.filter((t2) => !on(t2)); }
       R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
       const types = ['skeleton', 'skeleton', 'goblin', 'brute', 'skeleton', 'spider', 'cultist'], ang = [0, 0.9, 1.8, 2.3, 3.3, 5.0, 4.4];   // the 5th stands clear of the gold chest: its bar and number stay off it; the demon in front of it, its face clear
@@ -528,7 +528,7 @@
         if (!best) throw new Error('no bare hall for the magma kinds');
         const h = R.hero, hx = (best[0] + 0.5) * TILE, hy = (best[1] + 0.5) * TILE, inBox = (p) => p.x > hx - 15 * TILE && p.x < hx + 11 * TILE && p.y > hy - 5 * TILE && p.y < hy + 6 * TILE;
         for (const k of ['decor', 'torches', 'traps', 'hazards', 'webs', 'rugs']) if (m[k]) m[k] = m[k].filter((p) => !inBox(p));
-        m.block = m.block.filter((k) => !inBox({ x: (k % W + 0.5) * TILE, y: (Math.floor(k / W) + 0.5) * TILE }));
+        SIM.mapw.put(m, 'block', m.block.filter((k) => !inBox({ x: (k % W + 0.5) * TILE, y: (Math.floor(k / W) + 0.5) * TILE })));
         for (const k of ['pots', 'chests', 'shrines', 'drops']) if (R[k]) R[k] = R[k].filter((p) => !inBox(p));
         R.en = []; R.proj = []; R.fires = []; S.ev = []; h.x = hx; h.y = hy; h.vx = h.vy = 0; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [hx - SCX.VW / 2, hy - SCX.VH / 2]; mgS = S; }
       const S = structuredClone(mgS); if (fn) fn(S); return S; };
@@ -541,7 +541,7 @@
       // (TASKS 1682) the hero off the plinth, on the side the stone leaves, and no locked door's word over the statue
       if (q.slide) { h.x = q.x - q.slide.s * 96; h.y = q.y + 100; if (SIM.Q.doorNear(R, 64)) continue; }
       if (P && P.k === 'plate') { h.x = P.x + 40; h.y = P.y + 10; R.cam = [(q.x + P.x) / 2 - SCX.VW / 2, (q.y + P.y) / 2 - SCX.VH / 2 - 20]; }
-      if (P && P.k === 'sconce') { const t2 = m.torches[P.t]; h.x = t2.x + 80; h.y = t2.y + 70; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 120); R.cam = [(q.x + t2.x) / 2 - SCX.VW / 2, (q.y + t2.y) / 2 - SCX.VH / 2]; }
+      if (P && P.k === 'sconce') { const t2 = DUNGEON.byId(m.torches, P.t); h.x = t2.x + 80; h.y = t2.y + 70; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 120); R.cam = [(q.x + t2.x) / 2 - SCX.VW / 2, (q.y + t2.y) / 2 - SCX.VH / 2]; }
       if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; const cv = m.decor.find((o) => o.secret === m.secrets.indexOf(q) && o.brokeT !== undefined); if (cv) cv.brokeT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret' || e.k === 'break'); for (const e of S.ev) e.t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
       if (stage === 4) { const r = m.rooms[q.room]; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE + 10; R.cam = [h.x - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; }
       return S; } };
@@ -552,7 +552,7 @@
       const h = R.hero, dx = dir === 'l' ? -1 : dir === 'r' ? 1 : 0, dy = dir === 'u' ? -1 : dir === 'd' ? 1 : 0, k = out ? 1 : -1;
       h.x = d.x + k * dx * (out ? 52 : 80) + (dy && !out ? 40 : 0); h.y = d.y + k * dy * (out ? (dy > 0 ? 100 : 56) : 90) + (dx && !out ? 40 : 0) + (dy < 0 && !out ? 20 : 0); h.aim = Math.atan2(-k * dy, -k * dx); R.en = R.en.filter((e) => e.room === d.room && out); R.msg = null;
       R.seen.fill(0); R.rseen.fill(0); R.drops = []; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 70);
-      if (stage >= 1) { S.ev = []; if (lk === 'lever') { const L0 = m.locks[d.lock]; L0.open = 1; L0.openT = S.t - 3; } if (lk === 'key') R.keys = 1; SIM.openDoor(S, R, d, stage === 1 && age < 0.1); d.openT = S.t - (stage === 1 ? age : 3); for (const e of S.ev) e.t = d.openT; R.msg = null; R.trauma = 0; }
+      if (stage >= 1) { S.ev = []; if (lk === 'lever') { SIM.mapw.unlatch(m, m.locks[d.lock], S.t - 3); } if (lk === 'key') R.keys = 1; SIM.openDoor(S, R, d, stage === 1 && age < 0.1); d.openT = S.t - (stage === 1 ? age : 3); for (const e of S.ev) e.t = d.openT; R.msg = null; R.trauma = 0; }
       // (a locked room is a fight's room now, no hoard: its monsters' alert would pop over the door's prompt)
       SIM.step(S, { keys: [], px: 960, py: 540 }); S.ev = S.ev.filter((e) => e.k !== 'alert'); R.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2 - 30]; R.msg = null; return S; } };
     for (const [n, dir, stage, age, lk, out] of [['door_u', 'u', 0], ['door_u_out', 'u', 0, 0, '', 1], ['door_u_swing', 'u', 1, 0.12], ['door_u_open', 'u', 2], ['door_u_open_out', 'u', 2, 0, '', 1],
@@ -593,8 +593,8 @@
         S.ev = []; SIM.hitProps(S, R, d.x, d.y + 30, 40); for (const e of S.ev) e.t = S.t - 0.06; R.msg = null; R.trauma = 0; if (q.hits === 1) states.push(['secret_shelf_hit', S]); } }
     { const S = secretS((o) => o.kind === 'shelf', 3); if (S) { S.run = JSON.parse(JSON.stringify(S.run)); SIM.migrateSecrets(S.run); states.push(['secret_shelf_loaded', S]); } }
     for (const [n, slid] of [['secret_shelf_loaded_hinge', 0], ['secret_shelf_loaded_slid', 1]]) { const S = secretS((o) => o.kind === 'shelf', 0); if (!S) continue; const R = S.run, m = R.map, i = m.secrets.findIndex((o) => o.kind === 'shelf'), q = m.secrets[i], d = m.decor.find((o) => o.secret === i), k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE);
-      q.open = 1; q.openT = S.t - 30; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1; m.block = m.block.filter((b) => b !== k0);
-      if (slid) { q.slide = { s: 1, n: 3 }; d.x = q.x + 3 * TILE; d.solid = 1; m.block.push(k0 + 3); } else { q.hinge = 1; d.solid = 0; d.broken = 1; }
+      q.open = 1; q.openT = S.t - 30; SIM.mapw.fillCells(m, q.wall, 1); SIM.mapw.blockDrop(m, k0);
+      if (slid) { q.slide = { s: 1, n: 3 }; d.x = q.x + 3 * TILE; d.solid = 1; SIM.mapw.blockPush(m, k0 + 3); } else { q.hinge = 1; d.solid = 0; d.broken = 1; }
       S.run = JSON.parse(JSON.stringify(R)); SIM.migrateSecrets(S.run); states.push([n, S]); }
     // puzzles (TASKS 1692): three levers with their tallies, then one pulled; three unlit candles with theirs, then two lit
     for (const [n, k, on] of [['secret_puzzle_levers', 'levers', 0], ['secret_puzzle_levers_on', 'levers', 1], ['secret_puzzle_candles', 'candles', 0], ['secret_puzzle_candles_lit', 'candles', 2]]) { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find((o) => o.pz && o.pz.k === k); if (!q) continue;
@@ -640,11 +640,11 @@
       const m = R.map, rm = m.rooms.find((r) => r.type === 'combat' && r.w >= 9 && r.h >= 7) || m.rooms[m.start];
       h.x = (rm.cx - 1) * TILE; h.y = rm.cy * TILE; R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
       const x = h.x + (kind === 'water' || kind === 'douse' ? 0 : 60), y = h.y; m.seed += 1000000 + ['bone', 'snuff', 'water', 'douse'].indexOf(kind) * 1000;
-      R.en = []; R.pots = []; R.chests = []; R.shrines = []; R.drops = []; m.decor = []; m.torches = [{ x: h.x - 100, y: h.y - 90, kind: 'brazier' }]; m.traps = []; m.webs = []; m.block = []; S.ev = [];
+      R.en = []; R.pots = []; R.chests = []; R.shrines = []; R.drops = []; m.decor = []; m.torches = [{ x: h.x - 100, y: h.y - 90, kind: 'brazier' }]; m.traps = []; m.webs = []; SIM.mapw.put(m, 'block', []); S.ev = [];
       if (kind === 'bone') { m.decor.push({ n: 'bones', x, y }); S.ev.push({ k: 'prop', mat: 'bone', n: 'bones', i: 'd0', s: 1, x, y, t: S.t - age }); }
       if (kind === 'snuff') { m.decor.push({ n: 'candles', x, y, outUntil: age >= 0 ? S.t - age + 3 : 0 }); if (age >= 0) S.ev.push({ k: kind, x, y, t: S.t - age }); }
-      if (kind === 'water' || kind === 'douse') { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); m.water = [];
-        for (let cy = ty - 1; cy <= ty + 1; cy++) for (let cx = tx - 2; cx <= tx + 2; cx++) { const k = cy * m.W + cx; m.cells[k] = 1; m.water.push(k); }
+      if (kind === 'water' || kind === 'douse') { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); SIM.mapw.put(m, 'water', []);
+        for (let cy = ty - 1; cy <= ty + 1; cy++) for (let cx = tx - 2; cx <= tx + 2; cx++) { const k = cy * m.W + cx; SIM.mapw.setCell(m, k, 1); SIM.mapw.addWater(m, [k]); }
         S.ev.push({ k: kind === 'water' ? 'step' : kind, wet: true, x, y, t: S.t - age }); }
     });
     for (const kind of ['bone', 'snuff', 'water', 'douse']) for (const age of [0.08, 0.24, 0.5]) states.push(['reaction_' + kind + '_' + Math.round(age * 100), reactionS(kind, age)]);
@@ -1232,9 +1232,9 @@
       R.en = [{ id: 990, type: ty, x: h.x + 34 + E.r, y: h.y, tx: h.x, ty: h.y, vx: 0, vy: 0, hp: E.hp * (phase ? 0.4 : 1), max: E.hp, dmg: 1, elite, room: mg ? DUNGEON.roomAt(R.map, h.x, h.y) : r.id, st: D.BOSSES[ty] ? 'bwind' : 'wind', mv: move, phase, bossVersion: 1, t0: S.t,
         face: -1, aimA: Math.PI, targetD: 34 + E.r, travel: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; if (ty === 'boss_colossus' && move === 'charge') {
         const e = R.en[0], m = R.map, cx = Math.floor(e.x / TILE), cy = Math.floor(e.y / TILE);
-        for (let y = cy - 4; y <= cy + 4; y++) for (let x = cx - 12; x <= cx + 3; x++) if (x > 0 && y > 0 && x < m.W - 1 && y < m.H - 1) m.cells[y * m.W + x] = 1;
+        for (let y = cy - 4; y <= cy + 4; y++) for (let x = cx - 12; x <= cx + 3; x++) if (x > 0 && y > 0 && x < m.W - 1 && y < m.H - 1) SIM.mapw.setCell(m, y * m.W + x, 1);
         const clear = (p) => p.x > e.x - 13 * TILE && p.x < e.x + 4 * TILE && Math.abs(p.y - e.y) < 5 * TILE;
-        m.decor = m.decor.filter((p) => !clear(p)); m.torches = m.torches.filter((p) => !clear(p)); m.block = m.block.filter((k) => !clear({ x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE }));
+        m.decor = m.decor.filter((p) => !clear(p)); m.torches = m.torches.filter((p) => !clear(p)); SIM.mapw.put(m, 'block', m.block.filter((k) => !clear({ x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE })));
         R.chests = []; R.pots = []; R.shrines = []; m.doors = [];
         h.x = e.x - 340; e.targetD = 340;
       }
@@ -1903,7 +1903,7 @@
       const on = [], off = [];
       for (let i = 0; i < 24; i++) {
         const S = structuredClone(base); S.t += i / 60; on.push(S);
-        const clean = structuredClone(S); clean.run.map.seed += 211000; clean.run.map.water = []; clean.run.map.waterFeatures = []; off.push(clean);
+        const clean = structuredClone(S); clean.run.map.seed += 211000; SIM.mapw.put(clean.run.map, 'water', []); clean.run.map.waterFeatures = []; off.push(clean);
       }
       anim['water_' + kind] = { on, off, box: [400, 200, 1120, 680], min: 0.003 };
     }
@@ -1913,7 +1913,7 @@
       const on = [], off = [];
       for (let i = 0; i < 24; i++) { const S = structuredClone(base); S.t += i / 60; S.ev = []; on.push(S);
         const clean = structuredClone(S), m = clean.run.map; m.seed += 304000; m.waterFeatures = [];
-        if (name === 'cave_water') { m.water = []; m.waterBridges = []; m.crossings = []; m.cells = m.cells.map((c) => (c === 6 ? 1 : c)); } off.push(clean); }
+        if (name === 'cave_water') { SIM.mapw.put(m, 'water', []); m.waterBridges = []; m.crossings = []; SIM.mapw.put(m, 'cells', m.cells.map((c) => (c === 6 ? 1 : c))); } off.push(clean); }
       anim[name] = { on, off, box: name === 'cave_water' ? [400, 200, 1120, 680] : [880, 420, 160, 180], min: 0.003 };
     }
     // the low and middle graphics (TASKS 1372) where they differ: the lava's light and embers, the cave's moss, an elite's aura
@@ -1925,7 +1925,7 @@
       const on = [], off = [];
       for (let i = 0; i < 24; i++) { const S = structuredClone(base); S.t += i / 60; S.ev = []; on.push(S);
         const clean = structuredClone(S), m = clean.run.map; m.seed += 403000; m.lavaFeatures = [];
-        if (name === 'magma_lava') { m.cells = m.cells.map((c) => (c === 3 ? 0 : c)); m.lava = 0; m.crust = []; m.lavaUnder = []; m.crossings = []; } off.push(clean); }
+        if (name === 'magma_lava') { SIM.mapw.put(m, 'cells', m.cells.map((c) => (c === 3 ? 0 : c))); m.lava = 0; m.crust = []; m.lavaUnder = []; m.crossings = []; } off.push(clean); }
       anim[name] = { on, off, box: name === 'magma_lava' ? [400, 200, 1120, 680] : [870, 330, 180, 220], min: 0.003 };
     }
     // the cave's mushrooms breathe and shed spores, its roof drips: with them gone the frame must be calmer
@@ -1948,7 +1948,7 @@
     // the cave's water plants, lilies and moss stir, and the water rings round a bridge's posts (TASKS 306): measured on a frame
     // stilled round them (the water, the glowing mushrooms and the drips taken out, the bake rekeyed), with them and without them
     for (const name of ['cave_bridge']) { const base = states.find(([n]) => n === name)?.[1]; if (!base) continue; const on = [], off = [];
-      const still = (S) => { const m = S.run.map; m.seed += 306000; m.water = []; m.waterFeatures = []; m.drips = []; m.deep = 0; m.cells = m.cells.map((c) => (c === 6 ? 1 : c)); m.decor = m.decor.filter((d) => !GLOW[d.n]); return S; };
+      const still = (S) => { const m = S.run.map; m.seed += 306000; SIM.mapw.put(m, 'water', []); m.waterFeatures = []; m.drips = []; m.deep = 0; SIM.mapw.put(m, 'cells', m.cells.map((c) => (c === 6 ? 1 : c))); m.decor = m.decor.filter((d) => !GLOW[d.n]); return S; };
       for (let i = 0; i < 24; i++) { const S = still(structuredClone(base)); S.t += i / 60; S.ev = []; on.push(S); const clean = structuredClone(S), m = clean.run.map;
         m.flora = []; for (const c of m.crossings) c.posts = []; off.push(clean); }
       anim[name + '_life'] = { on, off, box: [720, 380, 480, 320], min: 0.002 }; }

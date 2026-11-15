@@ -89,7 +89,7 @@
       else embers(tc.x, tc.y - (big ? 44 + 40 : 32 + 26), big ? 5 : 3, big ? 70 : 46, col, i * 13 + 2); });
     for (const d of m.decor) if (d.n === 'torch_stand' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) embers(d.x, d.y + 4 - STAND.torch_stand[0][1] - 20, 3, 40, torchCol(m, d), d.x + d.y);
     // (TASKS 1923: over a lake's columns these specks sat on the tops as a white dot on nearly each; the leaping sparks below stay)
-    const lk = (m.lava || 0) + ':' + (m.geometry || 0); let LC = LAKE.get(m); if (!LC || LC.k !== lk) LAKE.set(m, LC = { k: lk, at: new Map() });
+    const lk = SIM.Q.rev(m); let LC = LAKE.get(m); if (!LC || LC.k !== lk) LAKE.set(m, LC = { k: lk, at: new Map() });
     const inLake = (x, y) => { const c = y * m.W + x; let v = LC.at.get(c); if (v === undefined) { v = true; for (let j = -1; j <= 1 && v; j++) for (let i = -1; i <= 1; i++) if (SIM.Q.cell(m, x + i, y + j) !== 3) { v = false; break; } LC.at.set(c, v); } return v; };
     for (const [x, y] of lavaCells) if (rnd(x, y) < 0.6 && known(x * TILE, y * TILE) && !(m.cliff && inLake(x, y))) embers((x + rnd(y, x)) * TILE, (y + 0.5) * TILE, 1, 30, [1, 0.62, 0.15], x * 31 + y);
     for (const [id, f] of Object.entries(RIM.embers)) { embers(f[1][0] + cx, f[1][1] + cy, 4, 64, [1, 0.6, 0.2], +id * 13 + 5); embers(f[0][0] + cx, f[0][1] + cy, 2, 44, [1, 0.7, 0.3], +id * 13 + 6); }

@@ -18,7 +18,7 @@
     if (q.kind !== 'lever' && q.trig) out.push('has a mechanism it should not');
     if (q.kind === 'lever') { const P = q.trig; if (!P) out.push('has no mechanism');
       else if (P.k === 'plate') { if (!reachC(P.cx, P.cy) || m.traps.some((t) => Math.abs(t.x / TILE - P.cx - 0.5) < 1.5 && Math.abs(t.y / TILE - P.cy - 0.5) < 1.5)) out.push('its flagstone is out of reach or on spikes'); }
-      else if (P.k === 'sconce') { const t = m.torches[P.t]; if (!t || t.kind !== 'wall' || t.side || t.lever !== i || t.sec !== undefined) out.push('its sconce is missing or hidden'); }
+      else if (P.k === 'sconce') { const t = DG.byId(m.torches, P.t); if (!t || t.kind !== 'wall' || t.side || t.lever !== i || t.sec !== undefined) out.push('its sconce is missing or hidden'); }
       else if (P.k === 'lever') { const x = Math.floor(P.x / TILE), y = Math.floor((P.y + 48) / TILE); if (!reachC(x, y)) out.push('its lever is out of reach'); }
       else out.push('has an unknown mechanism'); }
     if (q.kind === 'puzzle') { const Z = q.pz, ns = (Z && Z.items || []).map((it) => it.n).sort(); if (!Z || ns.join() !== '1,2,3') out.push('has a broken puzzle');
@@ -737,7 +737,7 @@
   }
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
-  const GEN_PRINT = { 34: 'b7a355cecbaeeced' };
+  const GEN_PRINT = { 34: 'b7a355cecbaeeced', 35: 'edd1cbff1ee0d267' };
   function genPrintCheck() { const h = require('crypto').createHash('sha1');
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);

@@ -2,7 +2,7 @@
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data, no state; data.js checks the set.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
-  Object.assign(D.POWERS, {
+  const FORK_POWERS = {
     f_whirl_3a: { id: 'f_whirl_3a', ab: 'whirl', name: TXT('POWERS.f_whirl_3a.name'), desc: TXT('POWERS.f_whirl_3a.desc'), trig: 'cast:whirl', fx: 'nova', k: 0.3, r: 130, kb: 0 },
     f_whirl_3b: { id: 'f_whirl_3b', ab: 'whirl', name: TXT('POWERS.f_whirl_3b.name'), desc: TXT('POWERS.f_whirl_3b.desc'), trig: 'cast:whirl', fx: 'heal', v: 0.03 },
     f_whirl_6a: { id: 'f_whirl_6a', ab: 'whirl', name: TXT('POWERS.f_whirl_6a.name'), desc: TXT('POWERS.f_whirl_6a.desc'), trig: 'cast:whirl', fx: 'stun', r: 125, t: 0.4, boss: 0.1 },
@@ -41,7 +41,8 @@
     f_leap_6b: { id: 'f_leap_6b', ab: 'leap', name: TXT('POWERS.f_leap_6b.name'), desc: TXT('POWERS.f_leap_6b.desc'), trig: 'cast:leap', fx: 'nova', k: 0.5, r: 90, kb: 1 },
     th_warrior: { id: 'th_warrior', trig: 'hit', if: 'str25', fx: 'stun', t: 0.4, boss: 0.1, icd: 1.5 },
     th_mage: { id: 'th_mage', trig: 'cast:fireball', if: 'int25', ...D.SHARDS },
-  });
+  };
+  Object.assign(D.POWERS, FORK_POWERS); D.bakePowerDescs(FORK_POWERS);
   const FORKS = {
     whirl: { 3: ['f_whirl_3a', 'f_whirl_3b'], 6: ['f_whirl_6a', 'f_whirl_6b'] },
     charge: { 3: ['f_charge_3a', 'f_charge_3b'], 6: ['f_charge_6a', 'f_charge_6b'] },

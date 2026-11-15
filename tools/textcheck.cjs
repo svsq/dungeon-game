@@ -4,7 +4,7 @@
 // sim_checks*.js is the sim's self-check code (its messages are for the developer) and is not scanned.
 const fs = require('fs'), path = require('path');
 const LIVE = path.join(__dirname, '..', 'live'), SKIP = new Set(['text.js', 'assets.js', 'rigs.js', 'sizes.js', 'data_changes.js']);
-require(path.join(LIVE, 'text.js')); for (const f of require(path.join(LIVE, 'modules.js')).text) require(path.join(LIVE, f));
+const TXT = require(path.join(LIVE, 'text.js')); for (const f of require(path.join(LIVE, 'modules.js')).text) require(path.join(LIVE, f));
 const RU = globalThis.TEXT.ru, DOM = globalThis.TEXT.domains.ru, at = (k) => `text_ru_${DOM[k] || '?'}.js`;
 const CY = /[А-Яа-яЁё]/, fails = [], used = new Map(), { code } = require('./jsscan.cjs');
 for (const f of fs.readdirSync(LIVE).filter((f) => f.endsWith('.js') && !SKIP.has(f) && !/^text_\w+\.js$/.test(f) && !/^sim_checks/.test(f))) {
@@ -26,6 +26,11 @@ for (const [k, v] of Object.entries(RU)) for (const m of JSON.stringify(v).match
   const n = 'NAME.' + m[1];
   if (RU[n] === undefined) fails.push(`${at(k)}: ${k} refers to ${n}, which the table lacks`); else used.set(n, 1);
 }
+// a {name:KEY} placeholder writes a number with the plural form of the word KEY holds (TASKS 2072): the key is used by it and has three forms
+for (const [k, v] of Object.entries(RU)) for (const m of JSON.stringify(v).matchAll(/\{\w+:([\w.]+)\}/g)) {
+  if (TXT.how.includes(m[1])) continue;
+  if (!Array.isArray(RU[m[1]]) || RU[m[1]].length !== 3) fails.push(`${at(k)}: ${k} counts with ${m[1]}, which is not [one, few, many]`); else used.set(m[1], 1);
+}
 // a «key@pad» text is the gamepad's twin of «key» (hud.js shows it while the pad speaks): used with its key, and its key must be there
 for (const k of Object.keys(RU)) if (k.endsWith('@pad')) { const base = k.slice(0, -4); if (RU[base] === undefined) fails.push(`${at(k)}: ${k} twins ${base}, which the table lacks`); else if (used.has(base)) used.set(k, 1); }
 for (const k of Object.keys(RU)) if (!DOM[k]) fails.push(`${k} is in no domain file`);
@@ -41,6 +46,12 @@ for (const role of Object.keys(D.QUEST_SAY)) for (const key of role === 'keeper'
   const L = (D.QUEST_SAY[role].turnin || {})[D.QUESTS[key].type];
   if (!L || L.length < 3 || L.length > 5) { fails.push(`turn-in: the ${role} has ${L ? L.length : 'no'} lines for ${D.QUESTS[key].type}, not 3 to 5`); continue; }
   for (const s of L) { const t = D.turnFill(s, sample(key)); if (/[{}]/.test(t) || /undefined|null/.test(t)) fails.push(`turn-in: ${role}/${key} leaves a word unfilled: ${t.slice(0, 80)}`); } }
+// TASKS 2072: a description and a text bound to its data (TXT.bind) take their numbers from {name} params, never from digits written in; the exception is a
+// number the data does not hold, named here with its reason, and an exception whose text has no digit any more fails
+const DIGITS_OK = { 'GIFTS.execute.desc': 'the 25 % of health is a literal in sim_hero.js, no field of the gift holds it' };
+const noParams = (t) => t.replace(/\{[^}]*\}/g, ''), numbered = (k) => /\.desc$/.test(k) || k.replace(/@pad$/, '') in TXT.bound;
+for (const [k, v] of Object.entries(RU)) if (typeof v === 'string' && numbered(k) && /\d/.test(noParams(v)) && !(k in DIGITS_OK)) fails.push(`${at(k)}: ${k} writes a number into the text: ${v.slice(0, 80)}`);
+for (const k of Object.keys(DIGITS_OK)) if (!/\d/.test(noParams(String(RU[k])))) fails.push(`DIGITS_OK holds ${k}, which has no digit left: drop it`);
 for (const f of fails) console.log('FAIL', f);
 console.log(`textcheck: ${Object.keys(RU).length} texts, ${fails.length ? fails.length + ' failure(s)' : 'ok'}`);
 process.exitCode = fails.length ? 2 : 0;
