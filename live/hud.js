@@ -45,7 +45,7 @@
   const portraitOf = (h) => { const r = D.clsOf(h).look.rig; return r !== 'hero' && window.ASSETS['portrait_' + r] ? 'portrait_' + r : 'portrait'; };
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
-  let MMB = null, TRK = null;
+  let MMB = null, TRK = null, VW = null;
   // an elite's label slot (TASKS 2032, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
   // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
   const ELS = new Map(), elSlot = (id) => { let s = ELS.get(id);
@@ -80,7 +80,7 @@
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
     const one = lw('msg_m', R.msg.s, { size: 30 }) <= 1000, size = one ? 30 : 24, ls = one ? [R.msg.s] : wrapWords(R.msg.s, 660, size), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
     return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
-  const keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - 54, kw, 42]; };
+  const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
   // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
   // label is free to sit where they would be
   const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, BF.y + Math.max(1, BFR) * BF.dy + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
@@ -127,7 +127,7 @@
       x = up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); MMB = null; TRK = null; TRK_FOLD = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
+    G.bind(null); G.blend(); VW = V || null; MMB = null; TRK = null; TRK_FOLD = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
@@ -623,7 +623,15 @@
   function trkBox(S, R) { const Q = trkRows(S, R), nd = trkDone(R); if (!(Q.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R);
     const head = lw('qt_t', TXT('hud.tracker'), { size: 20 }) + (nd ? 24 + lw('qt_fold', trkFoldLab(S, R), { size: 18 }) + 20 : 0);
     const w = Math.max(280, head, ...Q.map((q, i) => TRK_IN + Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.Q.questLine(q, R), { size: 20 })))) + 32;
-    return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50 + (trkMore(S, R) ? 26 : 0) - (Q.length ? 0 : 8)]; }
+    const h = 38 + Q.length * 50 + (trkMore(S, R) ? 26 : 0) - (Q.length ? 0 : 8), [x, y] = trkClearOfAdit(S, R, W - 14 - w, mb[1] + mb[3] + 14, w, h);
+    return [x, y, w, h]; }
+  // in the town the tracker keeps off the adit's painting (TASKS 2100): under it when that fits above the key hints, else left of it
+  const TRK_ADIT = { pad: 16, gap: 14, floor: 12 };
+  function trkClearOfAdit(S, R, x, y, w, h) { const d = R.town && VW && R.map.decor.find((o) => o.role === 'adit'); if (!d) return [x, y];
+    const [sw, sh] = SZ(d.n), k = VW.k, P = TRK_ADIT.pad, s = d.s || 1, bw = sw * s * k + 2 * P, bh = sh * s * k + 2 * P, bx = VW.sx(d.x) - sw * s * k / 2 - P, by = VW.sy(d.y) + 4 * k - sh * s * k - P;
+    if (!(x < bx + bw && x + w > bx && y < by + bh && y + h > by)) return [x, y];
+    const low = by + bh + TRK_ADIT.gap, left = bx - TRK_ADIT.gap - w;
+    return low + h <= bpGeo(S, R).y - KEYS_LIFT - TRK_ADIT.floor ? [x, low] : left >= 0 ? [left, y] : [x, y]; }
   // the fold button's box in view px, from the last frame drawn: the page asks it on a click and turns the click into the fold's key
   let TRK_FOLD = null;
   HUD.trkFoldAt = (x, y) => !!TRK_FOLD && x >= TRK_FOLD[0] && x <= TRK_FOLD[0] + TRK_FOLD[2] && y >= TRK_FOLD[1] && y <= TRK_FOLD[1] + TRK_FOLD[3];
