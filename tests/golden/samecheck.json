@@ -1,11 +1,4 @@
 {
- "sim town 1": "f1:f949e08ed9a0e009 f2:b5fde2e9518c253f f3:0f4d942166b0e2c5 f4:d040ce42b50512f2 end:d040ce42b50512f2 res:a9b1878b60e23f03",
- "sim town 2": "f1:eda1b6196081d6ef f2:a29ac4ee46a71989 f3:f2c7643157a7eab1 f4:d77b7daaa348784d end:d77b7daaa348784d res:60758edaa093c27d",
- "sim campaign 3": "f1:baaa1a3f70310ed1 f2:bd30de4c535eaa18 f3:ae2f98f945d95567 f4:3058e1d440709f2f end:3058e1d440709f2f res:d4efd3c9d9cc197c",
- "sim cave 4": "f1:22dab8e066bf79fa f2:d8564285b8f1ccc7 f3:570a0e9a88aa34ea f4:e2152e3aa24354fe end:e2152e3aa24354fe res:0b73af4cc49733c4",
- "sim magma 5": "f1:cbde7ded4906da45 f2:d12f38280654b295 f3:83a925af9338e28d f4:2c85b4c8854ec28d end:2c85b4c8854ec28d res:232d61997a5f8f9b",
- "sim endless 6": "f1:a7cfc095e7ce4725 f2:a9b91b92987ef006 f3:9b4460d8f14479f9 f4:be14ec450b6b939d end:be14ec450b6b939d res:df673758eb69b49c",
- "sim tune": "c75edb9d9207506d",
  "frame menu": "546aa78017f2ee85",
  "frame title": "706e05ec1a3edc18",
  "frame uikit": "b51c8c98f6b2a63e",
@@ -950,5 +943,12 @@
  "gen wide endless 6": "51278231483a2949",
  "gen wide endless 7": "1c2267995d82f18c",
  "gen wide endless 8": "fec56f3dd228969d",
- "gen town": "50b49548cd2fa04e cc3f7308af24bdc8 3a37f036f8655996"
+ "gen town": "50b49548cd2fa04e cc3f7308af24bdc8 3a37f036f8655996",
+ "sim town 1": "f1:27dfb0dc54920772 f2:38bf8d34e0a4b9fd f3:0c2dcee4f4ae0ae5 f4:747f329f1c3428a9 end:747f329f1c3428a9 res:a9b1878b60e23f03",
+ "sim town 2": "f1:51d55c48834c31cb f2:8f0e5a53be98e095 f3:1d8e7e86fc7a70d9 f4:a0d9ebd961689f8c end:a0d9ebd961689f8c res:60758edaa093c27d",
+ "sim campaign 3": "f1:954f530155ffa0e0 f2:7385a8519aac85c7 f3:439c92339994da80 f4:d3ef00d9c0a6dd4d end:d3ef00d9c0a6dd4d res:d4efd3c9d9cc197c",
+ "sim cave 4": "f1:22dab8e066bf79fa f2:d8564285b8f1ccc7 f3:570a0e9a88aa34ea f4:e2152e3aa24354fe end:e2152e3aa24354fe res:0b73af4cc49733c4",
+ "sim magma 5": "f1:4d32b3cacb0eaa15 f2:ed93052572f5d7b7 f3:00f934930f3c93af f4:a8346909378d8dc0 end:a8346909378d8dc0 res:232d61997a5f8f9b",
+ "sim endless 6": "f1:a7cfc095e7ce4725 f2:a9b91b92987ef006 f3:9b4460d8f14479f9 f4:be14ec450b6b939d end:be14ec450b6b939d res:df673758eb69b49c",
+ "sim tune": "c75edb9d9207506d"
 }
