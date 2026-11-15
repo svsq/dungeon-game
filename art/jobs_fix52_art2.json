@@ -1,0 +1,132 @@
+[
+ {
+  "name": "plank_a",
+  "prompt": "art/prompts/plank_a.txt",
+  "ref": [
+   "live/assets/crate.png=this game's wooden crate: its wood colour and tone steps",
+   "art/raw/refcrop_cave_bridge.png=cave concept crop: deck board design only, do not copy its light"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "plank_b",
+  "prompt": "art/prompts/plank_b.txt",
+  "ref": [
+   "live/assets/crate.png=this game's wooden crate: its wood colour and tone steps",
+   "art/raw/refcrop_cave_bridge.png=cave concept crop: deck board design only, do not copy its light"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "wreck_cv_broken",
+  "prompt": "art/prompts/wreck_cv_broken.txt",
+  "ref": [
+   "live/assets/wreck_cv.png=this game's boat wreck before it is smashed"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "hero_body_back",
+  "prompt": "art/prompts/hero_body_back.txt",
+  "ref": [
+   "art/gen/hero__body.png=the approved torso part, front 3/4 view",
+   "art/raw/hero_back.png=the approved full back view of the same hero"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto"
+ },
+ {
+  "name": "rail_tw_h",
+  "prompt": "art/prompts/rail_tw_h.txt",
+  "ref": [
+   "study/refcrops/town_rails_cart.png=the approved town concept's rails crop"
+  ],
+  "size": "1536x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw",
+  "prompt": "art/prompts/cart_tw.txt",
+  "ref": [
+   "live/assets/cart_tw.png=this game's mine cart from its side",
+   "live/assets/cart_tw_f.png=the same mine cart from its front end"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "rail_tw_v",
+  "prompt": "art/prompts/rail_tw_v.txt",
+  "ref": [
+   "art/gen/rail_tw_h.png=this game's straight track piece from directly above"
+  ],
+  "size": "1024x1536",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "hero_body_back_cl",
+  "prompt": "art/prompts/hero_body_back_cl.txt",
+  "ref": [
+   "art/gen/hero_body_back.png=the approved back part of the hero",
+   "art/old/backgear/ref_back_cl.png=an older back part in the outfit to copy"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto"
+ },
+ {
+  "name": "hero_body_back_le",
+  "prompt": "art/prompts/hero_body_back_le.txt",
+  "ref": [
+   "art/gen/hero_body_back.png=the approved back part of the hero",
+   "art/old/backgear/ref_back_le.png=an older back part in the outfit to copy"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto"
+ },
+ {
+  "name": "hero_body_back_pw",
+  "prompt": "art/prompts/hero_body_back_pw.txt",
+  "ref": [
+   "art/gen/hero_body_back.png=the approved back part of the hero",
+   "art/old/backgear/ref_back_pw.png=an older back part in the outfit to copy"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto"
+ },
+ {
+  "name": "hero_body_back_hd",
+  "prompt": "art/prompts/hero_body_back_hd.txt",
+  "ref": [
+   "art/gen/hero_body_back.png=the approved back part of the hero",
+   "art/old/backgear/ref_back_hd.png=an older back part in the outfit to copy"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_half",
+  "prompt": "art/prompts/cart_tw_half.txt",
+  "ref": [
+   "art/gen/cart_tw.png=this game's mine cart"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_empty",
+  "prompt": "art/prompts/cart_tw_empty.txt",
+  "ref": [
+   "art/gen/cart_tw.png=this game's mine cart"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ }
+]

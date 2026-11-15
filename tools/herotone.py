@@ -9,7 +9,9 @@ M2 = np.array([[0.2104542553, 0.7936177850, -0.0040720468], [1.9779984951, -2.42
 def oklab(c): c = c / 255; return np.cbrt(np.where(c > 0.04045, ((c + 0.055) / 1.055) ** 2.4, c / 12.92) @ M1.T) @ M2.T
 def srgb(lab): c = np.clip((lab @ np.linalg.inv(M2).T) ** 3 @ np.linalg.inv(M1).T, 0, 1); return 255 * np.where(c > 0.0031308, 1.055 * c ** (1 / 2.4) - 0.055, 12.92 * c)
 # the *_w files are the soft-bone weight maps of the same parts, not art: they keep their values
-NAMES = [n[:-4] for n in os.listdir(DST) if n.endswith('.png') and not n.endswith('_w.png') and (n.startswith('hero__body') or n.startswith('hero__cape'))] + ['hero__head_kn']
+# the back (TASKS 2011) is painted at its final tones, chestnut lights in the hair kept apart from the collar: this tone would flatten
+# them back into one brown, so it and its outfits (tools/backgear.py) stay out
+NAMES = [n[:-4] for n in os.listdir(DST) if n.endswith('.png') and not n.endswith('_w.png') and (n.startswith('hero__body') or n.startswith('hero__cape')) and not n.startswith('hero__body_back')] + ['hero__head_kn']
 # the face on the world's art grid (TASKS 197): the hero is 42 art px tall, so one cell of the 360-px rig is 360 / 42 px and draws
 # as one world pixel (scene.js keeps the cells on it). Painted 1-2 px eyes melted into the skin there; here each cell of the face
 # is one flat skin tone (lit, or the shade on the ear side) and the two eyes are a whole dark cell each, either side of the nose

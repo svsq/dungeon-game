@@ -91,15 +91,19 @@
   // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1606)
   const railPts = (m) => { const TILE = D.TILE; let p = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
     for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
-  // TASKS 1781: the cart has two paintings, the 3/4 view (its wheel line 23 degrees up to the right) and the front one (travel
+  // TASKS 1781: the cart has two paintings, the 3/4 view (its wheel line `side` degrees up to the right) and the front one (travel
   // plumb into the screen), and no view between. A sprite turned in the screen's plane tips over, so the 3/4 one turns no more than
-  // `roll` and narrows to the front one's width (`squash`, its long side foreshortening as it turns away) to keep its wheels on the
+  // `roll` (TASKS 2012: repainted from 23 to 39 degrees to sit on the town's 45-degree diagonal with barely a turn, it turns 39 on
+  // the level stretch at the bin, so the bound follows the painting) and narrows to the front one's width (`squash`, its long side foreshortening as it turns away) to keep its wheels on the
   // bend; the front one never turns: its uprights stay plumb and only its axle tilts (a shear) to lie square to the rails on the
   // floor squashed to the view's depth (`floor`, as the floor discs). One painting at a time: a cross-fade showed both carts at once
   // `seat`: the 3/4 painting's point that rides the rails' middle, off its bottom centre in parts of its size (TASKS 2012: at the
   // bottom centre its near wheels ran on the rails' middle and the box hung out over the far rail and past it); it eases back to
   // the bottom centre through the turn, where the front painting takes over from there
-  const CART = { side: 23, front: 58, straight: 45, roll: 30, squash: 0.8, floor: 0.68, reach: 14, seat: [-0.2, -0.14] };
+  // `hubs`: the near side's two wheel hubs in each 3/4 painting, in parts of its size, and `wheel` their radius in parts of its width:
+  // the sprites' own wheels cannot turn, so studs circle them by the distance rolled (town_motion_r6 5)
+  const CART = { side: 39, front: 58, straight: 45, roll: 40, squash: 0.8, floor: 0.68, reach: 14, seat: [-0.27, -0.145], wheel: 0.055,
+    hubs: { cart_tw: [[0.391, 0.842], [0.604, 0.679]], cart_tw_half: [[0.392, 0.834], [0.605, 0.661]], cart_tw_empty: [[0.391, 0.832], [0.604, 0.657]] } };
   const cartView = (pts, s) => {
     const tot = pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0),
       at = (d) => { d = Math.max(0, Math.min(tot, d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } },

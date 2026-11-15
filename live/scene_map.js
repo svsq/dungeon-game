@@ -19,10 +19,13 @@
     runes: { r: 150, col: [0.46, 0.58, 0.85], amt: 1.2, dy: 20, core: 28, glow: [0, 8, 26, 0.3] }, altar: { r: 150, col: [0.36, 0.54, 0.95], amt: 1.3, dy: 34, core: 36, glow: [0, -14, 34, 0.5] }, portal: { r: 110, col: [1, 0.58, 0.24], amt: 0.7, dy: 0, core: 30, glow: [0, 0, 30, 0.2] },
     stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 13, 1] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
   const PAVE_K = 1, PAVE_TS = 160;
-  // rail_tw_h in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77; one sleeper's box, one rail's band and the
-  // gauge between the rails' middles (live/assets size). `reach`: the sleepers drawn longer than painted, out past the rails, and
-  // `h`: the world height of the painted piece's 131 px
-  const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72, sleeper: [23, 4, 61, 124], band: [20, 46], gauge: 64, reach: 1.3, H: 38 };
+  // the track's two paintings in their own pixels (live/assets size; TASKS 2012): `per` one sleeper and the ballast after it, `at` the
+  // middle of the first gap between two sleepers (where a period is cut, so it repeats without its ends), `gauge` between the rails'
+  // middles. `h` is seen from straight above and laid in floor space, `v` runs up the screen as the 3/4 camera sees it, for a stretch
+  // within `steep` degrees of plumb (the adit's); `gauge` (view px) sizes both, as the cart's wheels were set on; `lift` brings each
+  // painting's sleepers to one brown (the plumb one came out a quarter lighter)
+  const RAIL = { gauge: 18.6, steep: 20, h: { tex: 'rail_tw_h', w: 1516, h: 355, at: 198, per: 160, gauge: 123.5, lift: 1.35 },
+    v: { tex: 'rail_tw_v', w: 489, h: 1526, at: 190, per: 137, gauge: 161, lift: 1.08 } };
   // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
   const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', mason: 'bin', sweeper: 'fire' };
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
@@ -31,16 +34,21 @@
 
   const railPts = D.railPts;
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
-  // the rails lie on the floor (TASKS 2012): each stretch is laid in floor space and squashed to the view's depth with the town's
-  // other flat things, so the adit's plumb stretch recedes (close sleepers) instead of standing up the screen as a ladder, and the
-  // sleepers, cut from the piece one by one, reach out past the rails, which run over them unbroken as two bands of the same piece
+  // the rails lie on the floor (TASKS 2012): a stretch across the screen is laid in floor space and squashed to the view's depth with
+  // the town's other flat things; the adit's plumb stretch takes the painting that already recedes, its sleepers drawn closer
+  // as the floor goes away. Either way one period of the painting (a sleeper, its ballast and the rails over them) after another
   function track(pts) {
-    const k = RAIL.H / RAIL.h, K = D.CART.floor, [s0, t0, s1, t1] = RAIL.sleeper, [b0, b1] = RAIL.band, per = RAIL.per * k, U = { grade: [1, 1.35, 0, 1] };
-    const sw = (s1 - s0) * k, sl = (t1 - t0) * k * RAIL.reach, bh = (b1 - b0) * k, g = RAIL.gauge * k;
-    const lay = (fn) => { let carry = 0; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, (by - ay) / K), a = Math.atan2((by - ay) / K, bx - ax);
-      let d = carry; for (; d < len; d += per) fn(M.of(M.t(ax + (bx - ax) * d / len, ay + (by - ay) * d / len), M.s(1, K), M.r(a))); carry = d - len; } };
-    lay((m) => L.sprite('rail_tw_h', 0, 0, { m, w: sw, h: sl, pivot: [sw / 2, sl / 2], src: [s0 / RAIL.w, t0 / RAIL.h, s1 / RAIL.w, t1 / RAIL.h], u: U }));
-    for (const side of [-1, 1]) lay((m) => L.sprite('rail_tw_h', 0, 0, { m, w: per + 0.5, h: bh, pivot: [per / 2, bh / 2 - side * g / 2], src: [RAIL.u0, b0 / RAIL.h, RAIL.u0 + RAIL.per / RAIL.w, b1 / RAIL.h], u: U }));
+    const K = D.CART.floor, cut = (P) => [P.at / P.w, P.at / P.h];
+    const lay = (P, along, size, src, place) => { const k = RAIL.gauge / P.gauge, per = P.per * k; let carry = 0;
+      for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], plumb = Math.atan2(Math.abs(bx - ax), Math.abs(by - ay)) * 180 / Math.PI < RAIL.steep;
+        if (plumb !== (P === RAIL.v)) { carry = 0; continue; }
+        const len = along(bx - ax, by - ay);
+        let d = carry; for (; d < len; d += per) { const [w, h] = size(P, k, per); L.sprite(P.tex, 0, 0, { m: place(ax + (bx - ax) * d / len, ay + (by - ay) * d / len, bx - ax, by - ay), w, h, pivot: [w / 2, h / 2], src: src(P), u: { grade: [1, P.lift, 0, 1] } }); }
+        carry = d - len; } };
+    lay(RAIL.h, (dx, dy) => Math.hypot(dx, dy / K), (P, k, per) => [per + 0.5, P.h * k], (P) => [cut(P)[0], 0, cut(P)[0] + P.per / P.w, 1],
+      (x, y, dx, dy) => M.of(M.t(x, y), M.s(1, K), M.r(Math.atan2(dy / K, dx))));
+    lay(RAIL.v, (dx, dy) => Math.hypot(dx, dy), (P, k, per) => [P.w * k, per + 0.5], (P) => [0, cut(P)[1], 1, cut(P)[1] + P.per / P.h],
+      (x, y, dx, dy) => { const up = dy > 0 ? 1 : -1; return M.of(M.t(x, y), M.r(Math.atan2(-dx * up, dy * up))); });
   }
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 8;
