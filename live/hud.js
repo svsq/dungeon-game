@@ -15,7 +15,7 @@
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const dotHalves = (str, size) => { const p = str.split(' · '), w = (q) => L.labelW(0, q.join(' · '), { size }); let k = 1, b = Infinity; for (let i = 1; i < p.length; i++) { const m = Math.max(w(p.slice(0, i)), w(p.slice(i))); if (m < b) { b = m; k = i; } } return [p.slice(0, k).join(' · '), p.slice(k).join(' · ')].filter(Boolean); };
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
-  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map(), MARKS = new WeakMap(), MARK_HOLD = 1.2;
+  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map();
   // a line of text broken into lines of at most `width` px. **…** in it is a key word (TASKS 1995: a name, a quest's title, its
   // reward), drawn bold and in the key colour; such a line is laid out as runs of one style each, measured run by run. Below 26 the
   // plain face is the smaller one and a bold run would stand taller than its line, so there the key word takes the colour alone
@@ -235,30 +235,6 @@
       }
       return null;
     };
-    // a quest mark steps off whatever it meets to any side, not only up as a line does: a giver under the top bar or the minimap
-    // has room only below or beside them. The HUD's parts stand in its way as the bodies and the labels put before it do, and a spot
-    // is tried by its box against each of them, not point by point, so the search stays a few dozen spots (review of PR 63)
-    const clip = (z) => { const x0 = Math.max(z[0], -8), y0 = Math.max(z[1], -8); return { x: x0, y: y0, w: Math.min(z[2], W + 8) - x0, h: Math.min(z[3], H + 8) - y0 }; };
-    const placeNear = (x, y, w, hh, extra, rx, ry) => {
-      const obst = occupied.concat(extra, ZN.map(clip)), x0 = Math.round(Math.max(4, Math.min(W - w - 4, x - w / 2))), y0 = Math.round(Math.max(4, Math.min(H - hh - 4, y)));
-      const open = [[x0, y0]], tried = new Set([x0 + ',' + y0]), far = (c) => Math.hypot(c[0] - x0, c[1] - y0);
-      for (let n = 0; n < 64 && open.length; n++) {
-        let i = 0; for (let j = 1; j < open.length; j++) if (far(open[j]) < far(open[i])) i = j;
-        const [bx, by] = open.splice(i, 1)[0], b = { x: bx, y: by, w, h: hh }, o = obst.find((q) => overlaps(b, q));
-        if (!o) return b;
-        for (const c of [[bx, o.y - hh - 4], [bx, o.y + o.h + 4], [o.x - w - 4, by], [o.x + o.w + 4, by]]) { const key = c[0] + ',' + c[1];
-          if (tried.has(key) || Math.abs(c[0] - x0) > rx || Math.abs(c[1] - y0) > ry || c[0] < 4 || c[0] + w > W - 4 || c[1] < 4 || c[1] + hh > H - 4) continue;
-          tried.add(key); open.push(c); } }
-      return null; };
-    // a body passing over the giver's head sent the mark to a new spot every frame (TASKS 1903): the spot is kept until bodies have
-    // pushed it elsewhere for MARK_HOLD s, while the HUD, labels and other marks still move it at once. A stale record or a giver
-    // jumped on screen places afresh
-    const holdMark = (f, ax, ay, fresh, t) => {
-      const r = MARKS.get(f), dt = r ? t - r.t : -1, held = r && dt >= 0 && dt < 0.5 && Math.hypot(ax - r.ax, ay - r.ay) < 24 && { x: Math.round(ax + r.dx), y: Math.round(ay + r.dy), w: 40, h: 56 };
-      const free = held && held.x >= 4 && held.x + 40 <= W - 4 && held.y >= 4 && held.y + 56 <= H - 4 && !occupied.concat(ZN.map(clip)).some((q) => overlaps(held, q));
-      const same = free && fresh && Math.abs(fresh.x - held.x) <= 2 && Math.abs(fresh.y - held.y) <= 2, busy = free && !same ? r.busy + dt : 0;
-      const at = free && busy < MARK_HOLD ? held : fresh;
-      MARKS.set(f, at ? { ax, ay, dx: at.x - ax, dy: at.y - ay, t, busy: at === held ? busy : 0 } : { ax, ay, dx: 0, dy: 0, t: -9, busy: 0 }); return at; };
     const float = (id, s, x, y, o) => {
       const w = lw(id, s, o) + 8, hh = Math.max(20, o.size) * 1.24 + 8, b = place(x, y - hh / 2, w, hh, nameZones.concat(actorZones));
       if (b) lab(id, s, b.x + w / 2, b.y + hh / 2, { ...o, al: 0.5 });
@@ -271,20 +247,16 @@
     // a townsman's quest business over his head (TASKS 1018): ! a quest to take, ? one to turn in; his lines keep above it
     // the one the hero stands by shows his prompt in its place (TASKS 1026: the prompt, pushed off his own mark, landed by the Keeper's)
     const talkTo = S.screen === 'play' ? SIM.Q.folkNear(R) : null;
-    // with no free spot near its giver the mark is not drawn: the minimap shows it (review of PR 63). Its box holds its bob's 4 px,
-    // so the bob does not tip it onto a panel
-    const folkZones = m.town && R.folk ? R.folk.map((f) => window.SIZES[f.role === 'hen' ? 'town_hen_white' : 'town_' + f.role] && { f, sz: window.SIZES[f.role === 'hen' ? 'town_hen_white' : 'town_' + f.role] }).filter(Boolean)
-      .map(({ f, sz: [w, hh] }) => ({ x: V.sx(f.x) - w * k / 2, y: V.sy(f.y) - hh * k, w: w * k, h: hh * k })) : [];
+    // the mark is bound to its giver alone and stands over his head, however much else is there (TASKS 2105, over the review of PR 63);
+    // a giver off the screen has a small one at its edge, the map shows his mark either way
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
-      // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
-      if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
-      const ax = V.sx(f.x), ay = V.sy(f.y) - SZ('town_' + f.role)[1] * k - 58, fresh = placeNear(ax, ay, 40, 56, actorZones.concat(folkZones), 324, 240), at = holdMark(f, ax, ay, fresh, GT); if (!at) continue;
-      occupied.push(at);
-      MKB.push(Object.assign({ i: f.i }, at)); const x = at.x + 20, y = at.y + 28 + 4 * Math.sin(GT * 3 + f.i), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
-      G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
-      L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
-      lab('qmk' + f.i, mk, x, y + 1, { size: 34, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });
-      actorZones.push({ x: x - 20, y: y - 24, w: 40, h: 48 }); nameZones.push({ x: x - 22, y: y - 26, w: 44, h: 52 }); }
+      const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ('town_' + f.role)[1], k, W, H), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
+      const x = at.x, y = at.y + bob, col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18], bw = Q.box[0] * sc, bh = Q.box[1] * sc;
+      const box = { i: f.i, x: x - bw / 2, y: at.y - bh / 2, w: bw, h: bh }; MKB.push(box); occupied.push(box);
+      G.blend('add'); L.glow(x, y, Q.glow * sc, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
+      L.rrect(x - Q.w * sc / 2, y - Q.h * sc / 2, Q.w * sc, Q.h * sc, 12 * sc, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
+      lab('qmk' + f.i, mk, x, y + sc, { size: Q.label * sc, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });
+      actorZones.push({ x: x - bw / 2, y: y - bh / 2, w: bw, h: bh }); nameZones.push({ x: x - bw / 2 - 2, y: y - bh / 2 - 2, w: bw + 4, h: bh + 4 }); }
     // the townsfolk's lines (TASKS 1015): a pair, the first line then the second, over the speaker's head; the merchant's call
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
       if (b) { plate(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)

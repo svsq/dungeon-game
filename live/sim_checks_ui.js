@@ -652,6 +652,17 @@
     }
     return out;
   }
+  // TASKS 2105: a giver's mark is centred on him and over his head within the gap while the head is on screen; off it, it is small and kept inside the screen
+  function checkQuestMark(out) {
+    const W = 1920, H = 1080, k = 1, sh = 200, Q = D.QMARK, at = (x, y) => D.questMarkAt(x, y, sh, k, W, H, Q.margin);
+    const inside = (a) => a.x - Q.w * Q.small / 2 >= Q.margin && a.x + Q.w * Q.small / 2 <= W - Q.margin && a.y - Q.h * Q.small / 2 >= Q.margin && a.y + Q.h * Q.small / 2 <= H - Q.margin;
+    for (const [x, y] of [[960, 700], [300, 500], [1600, 900], [100, 400], [1800, 1000]]) { const a = at(x, y), head = y - sh * k;
+      if (a.small || a.x !== x) out.push(`quest mark: giver at ${x},${y} has his mark at x ${a.x}, small ${a.small}`);
+      else if (Math.abs((head - (a.y + Q.h / 2)) - Q.gap) > 0.5) out.push(`quest mark: giver at ${x},${y} has the plate's foot ${Math.round(head - a.y - Q.h / 2)} px over his head, not ${Q.gap}`); }
+    for (const [n, x, y] of [['left', -50, 600], ['right', W + 50, 600], ['above', 960, -40], ['below', 960, H + 60], ['head over the top', 960, 120], ['corner', -80, H + 80]]) { const a = at(x, y);
+      if (!a.small) out.push(`quest mark: giver ${n} has a full-size mark`);
+      else if (!inside(a)) out.push(`quest mark: giver ${n} has his mark at ${Math.round(a.x)},${Math.round(a.y)}, off the screen's margin`);
+      else if (!a.edge[0] && !a.edge[1]) out.push(`quest mark: giver ${n} has no edge direction`); } }
   SIMX.checks.add('menuCheck', menuCheck);
   SIMX.checks.add('uiCheck', checkReview57);
   SIMX.checks.add('splitCheck', checkSplit);
@@ -664,4 +675,5 @@
   SIMX.checks.add('strCheck', checkStrUse);
   SIMX.checks.add('keyWordCheck', checkKeyWords);
   SIMX.checks.add('hudHeroCheck', checkHudHero);
+  SIMX.checks.add('questMarkCheck', checkQuestMark);
 })(typeof window !== 'undefined' ? window : globalThis);
