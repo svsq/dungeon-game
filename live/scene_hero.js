@@ -66,8 +66,8 @@
   // seen from behind (TASKS 2011): the resting blade is held up and away, so it stands steeper and foreshortened behind the body
   // instead of the front view's flat cut-out poking out of the cape; the arms hang in the cape's shade (the shirt's white cuffs were
   // the brightest thing on him); the feet point away, heels to the camera, so they narrow about the ankle; the cape's broad red
-  // takes the shade too, or it reads as one flat slab
-  const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1 };
+  // loses its saturation, not its light (TASKS 2092): the pauldrons and the belt stay readable; the head behind is not shaded, it is lifted
+  const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1, headLift: 1.15 };
   // the slash crescent's half-span about the aim, and where its brightness centroid sits along it (the ARC shader's taper and tail fade)
   const ARC_HALF = 1.35, ARC_MID = 0.52;
   // the whirl's turn (0..1) over WHIRL_T s: speeds up and slows down over 0.1 s, so the blade neither starts nor stops dead
@@ -369,7 +369,7 @@
       if (backK < 1) L.sprite(GR.body, 0, 0, Object.assign({ u: Object.assign({}, U, { snap: 2 * L.SNAP }, soft(pn + 'body', GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK < 1 && GR.helm) L.sprite(pn + 'head_' + GR.helm, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
       if (backK > 0 && window.ASSETS[pn + 'body_back']) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, shade(U, BACK_VIEW.bodySat, BACK_VIEW.bodyLift), { alpha: alpha * backK, snap: 2 * L.SNAP }, soft(pn + 'body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
-      if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, tinted(U, GR.helmTint), { alpha: alpha * backK }) }, bodyAt));
+      if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, shade(tinted(U, GR.helmTint), 1, BACK_VIEW.headLift), { alpha: alpha * backK }) }, bodyAt));
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); shield(backK > 0.5 ? Ufar : U); if (readE > 0.3) scroll(); }
       if (!behind) { drawArm('R', U); weapon(); }
     };
