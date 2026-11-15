@@ -405,10 +405,10 @@
         for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
       if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
     { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
-  // the scene has no node entry, so the hero's drawing runs in a sandbox (tools/scenebox.cjs) with its sprites' placements recorded
+  // the scene has no node entry, so the hero's drawing runs in a sandbox (live/sandbox.cjs) with its sprites' placements recorded
   // (TASKS 1896): on the world's grid the face snap holds the body still through a sub-pixel step, under L.pre (the menu's arch,
   // the victory screen) it must move with him, or a scaled hero jerks by whole world pixels
-  function checkHudHero(out) { const { drawHero, L, calls } = require('../tools/scenebox.cjs').heroBox(D, root.SIM);
+  function checkHudHero(out) { const { drawHero, L, calls } = require('./sandbox.cjs').heroBox(D, root.SIM);
     const S = spawn(0, {}), R = newRun(S, 'campaign', 5, {}); S.run = R;
     const h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: 1, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = SIMX.heroSt(S);
     const draw = (x, pre) => { calls.length = 0; L.pre = pre; try { drawHero(h, x, 300, 10, st, {}); } finally { L.pre = null; } return calls.slice(); };

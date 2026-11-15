@@ -3,11 +3,7 @@
 // of its own), when two plates differ in height, icon, parchment, ink or font, when one group's plates differ in width, or when a
 // number sits off its plate's middle.
 //   node tools/pursecheck.mjs [--states a,b] [--view 1920x1080]
-import http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { createRequire } from 'node:module';
+import { openGame } from './gamepage.mjs';
 
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 // the screens with a currency on them and what each must show
@@ -20,22 +16,9 @@ const MARK = { gold: 73519, shards: 64287 };
 // the ink's centre may stand this far off the plate's middle (the font's whole-pixel grid)
 const CENTRE_TOL = 2;
 const only = opt('states', '').split(',').filter(Boolean), names = only.length ? only : Object.keys(SCREENS);
-const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
-const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
-const server = http.createServer((q, r) => {
-  const file = path.join(process.cwd(), decodeURIComponent(q.url.split('?')[0]));
-  fs.readFile(file, (err, bytes) => { if (err) { r.writeHead(404); r.end(); return; }
-    r.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.png') ? 'image/png' : 'text/html'); r.end(bytes); });
-});
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist'] });
-const [VW, VH] = opt('view', '1920x1080').split('x').map(Number), page = await browser.newPage({ viewport: { width: VW, height: VH } });
-const errors = [], fails = [], looks = [];
-page.on('pageerror', (e) => errors.push(e.message));
+const [VW, VH] = opt('view', '1920x1080').split('x').map(Number), G = await openGame({ width: VW, height: VH }), { page, errors } = G, fails = [], looks = [];
 const style = (p, t) => JSON.stringify({ h: p.h, icon: p.icon.slice(1), plate: p.plate, col: p.col, font: t && Math.round(t.h) });
 try {
-  await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
-  await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
   await page.evaluate(() => { window.__Q = SCENE.QA(); });
   for (const name of names) {
     const want = SCREENS[name] || [];
@@ -64,7 +47,7 @@ try {
   }
   const kinds = new Map(); for (const [at, s] of looks) kinds.set(s, (kinds.get(s) || []).concat(at));
   if (kinds.size > 1) fails.push('the purses have ' + kinds.size + ' looks: ' + [...kinds].map(([s, at]) => `${s} at ${at.slice(0, 3).join(', ')}${at.length > 3 ? '…' : ''}`).join(' | '));
-} finally { await browser.close(); server.close(); }
+} finally { await G.close(); }
 if (errors.length) fails.push('page errors: ' + errors.slice(0, 3).join(' | '));
 for (const f of fails) console.log('FAIL', f);
 console.log(fails.length ? `pursecheck: ${fails.length} failures` : 'pursecheck: ok');

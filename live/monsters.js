@@ -20,6 +20,8 @@
 
   // ---------------- the biped ----------------
   // o: { id, n, x, y, face, H, dist, vx, vy, lean, crouch, arm(side, base) → [r1, r2], item, shield, wSide, U, Ufar, fallR, lift }
+  // the depth of a foot's step in the rig's pixels (TASKS 2080): the table's (DATA.stepDz), eased for a lengthened stride; the colossus's check reads it from here
+  const legDz = (MON.legDz = (off, A, diry, strideK) => DATA.stepDz(off, A, diry) / Math.pow(Math.max(1, strideK || 1), 0.75));
   const bipedSL = (RG, s, k) => 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s * (k || 1);
   function biped(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.footL[1], fallR = o.fallR || 0, lean = o.lean || 0;
@@ -47,7 +49,7 @@
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch); a stride lengthened by
       // strideK tilts it less in depth (TASKS 1802: the goblin's legs stretched 32 % walking down)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
-      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: DATA.stepDz(off, A, diry) / Math.pow(Math.max(1, o.strideK || 1), 0.75) };
+      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: legDz(off, A, diry, o.strideK) };
       if (o.amb) { const B = o.amb, fw = SS(side === 'L' ? 0 : 0.45, side === 'L' ? 0.55 : 1, B.w), dx = B.x0 + (B.x1 - B.x0) * fw - B.x, dy = B.y0 + (B.y1 - B.y0) * fw - B.y;
         const lf = fw > 0 && fw < 1 ? Math.pow(Math.sin(Math.PI * fw), 0.6) * RG.h * (o.lift || 0.038) * 0.8 : 0;
         Object.assign(tg[side], { off: Math.hypot(dx, dy) / s, tx: tg[side].tx + dx * face / s, ty: tg[side].ty - lf, lift: tg[side].lift + lf, dz: tg[side].dz + dy / s }); }
