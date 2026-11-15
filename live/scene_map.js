@@ -18,7 +18,11 @@
   const TOWN_LIGHT = { forge: { r: 120, col: [1, 0.56, 0.22], amt: 1.4, dy: 10, core: 48, glow: [-6, -12, 20, 0.85] },
     runes: { r: 150, col: [0.32, 0.5, 1.0], amt: 1.5, dy: 20, core: 40, glow: [0, 8, 26, 0.3] }, altar: { r: 150, col: [0.36, 0.54, 0.95], amt: 1.3, dy: 34, core: 36, glow: [0, -14, 34, 0.5] }, portal: { r: 110, col: [1, 0.58, 0.24], amt: 0.7, dy: 0, core: 30, glow: [0, 0, 30, 0.2] },
     stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 13, 1] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
-  const PAVE_K = 1, PAVE_TS = 160;
+  const PAVE_K = 1, PAVE_TS = 160, PAVE_SALT = { row: 41, col: 43 };
+  // the cobbles' texture repeats every PAVE_TS px and its courses lie on the cells, so its seams ran in straight lines (TASKS 2094): each row
+  // of repeats is moved sideways, each column up, by whole cells from the seeded hash, so the courses still meet and the joints stagger
+  const paveShift = (n, salt) => TILE * Math.floor(rnd(n, salt) * PAVE_TS / TILE);
+  const paveAt = (X, Y) => [((X + paveShift(Math.floor(Y / PAVE_TS), PAVE_SALT.row)) % PAVE_TS) / PAVE_TS, ((Y + paveShift(Math.floor(X / PAVE_TS), PAVE_SALT.col)) % PAVE_TS) / PAVE_TS];
   // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
   const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', mason: 'bin', sweeper: 'fire' };
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
@@ -43,7 +47,7 @@
       for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) { const px = x + (i + 0.5) / 8, py = y + (j + 0.5) / 8; let d = 9;
         for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if (P.has((y + v) * m.W + x + u)) d = Math.min(d, Math.hypot(Math.max(x + u - px, 0, px - x - u - 1), Math.max(y + v - py, 0, py - y - v - 1)));
         if (d + 0.45 * rnd(x * 4 + i, y * 4 + j) > 0.55) continue;
-        const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
+        const X = x * TILE + i * q, Y = y * TILE + j * q, [u0, v0] = paveAt(X, Y);
         L.sprite(B.pave, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [1, PAVE_K, 0, 1] } }); } }
     const T = m.town;
     track(railPts(m));
@@ -75,7 +79,7 @@
     const GALLERY_FLOOR = D.BIOMES[m.biome === 'arcane' ? 'dungeon' : 'arcane'];
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
-    const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
+    const tile = (tex, x, y, u, ts = TS, at = (X, Y) => [(X % ts) / ts, (Y % ts) / ts]) => { const [u0, v0] = at(x * TILE, y * TILE); L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
     const dark = (x, y, w, h, a) => L.solid(x, y, w, h, [0.01, 0.01, 0.015], 0, 0, 0, a);
     if (m.cliff) G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 0 }), G.xf(0, 0, MW, MH));
     else if (B.cave) G.draw(L.P.cave, { u_open: openTex(m), u_water: waterTex(m), u_wet: m.water.length || m.deep ? 1 : 0, u_lift: TOP_LIFT, u_map: [MW, MH],
@@ -101,7 +105,7 @@
         // an accent zone keeps its own stone, near grey and dark (as dark as the tint it lost made it): the colour proper is its hearths'
         // light and the fill, which fades out past the doorway
         // the town's earth repeats every 7 cells: its art pixel ≈2 px like the hero's (TASKS 1030; the old texture's was 4.5)
-        if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224); }
+        if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224, pv ? paveAt : undefined); }
         else if (v === 1 && GALLERY.has(y * m.W + x)) tile(GALLERY_FLOOR.floor, x, y, { grade: [1, 1.02, 0, 1], tint: [...GALLERY_FLOOR.tint, 1] }, 192);   // on the wall bricks' scale: at the floor's own 288 the slabs read 1.5 times too big (TASKS 1680)
         else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
         else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(m.town && wallRun(x, y) ? B.wall + '_b' : B.wall, x, y, { grade: m.town ? [0.9, B.wallG[1] * (0.78 + 0.42 * rnd(x * 5 + 1, y * 9 + 4)), 0, 1.05] : [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);

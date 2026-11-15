@@ -388,7 +388,10 @@
       ['crate', 49, 11], ['barrel', 12, 30], ['wheel_tw', 47, 27], ['beam_tw', 35, 25], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
       ['crate', 50, 12], ['barrel', 50, 16]],
     // what a niche keeps: its stores, and a small fire at the back
-    store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
+    store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'],
+    // the north niches (TASKS 2094): their groups of candles and a barrel stood at an equal step, a stamp. `dress` gives a niche (by its index in
+    // `niches`) hay and a basket in place of the group, `mirror` turns a niche's group about its middle, so neighbours do not face one way
+    northNiches: { dress: { 1: ['hay_tw', 'basket_tw'], 5: ['basket_tw', 'hay_tw'] }, mirror: [2, 4, 7] } };
   // a portal's ring of stones (TASKS 1037): the town's and a chapter boss's are one ring, eight stones round 240° with the gap
   // facing the angle open (radians), where the way in comes from
   const portalRing = (x, y, open) => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => { const a = open + (60 + i * 240 / 7) * Math.PI / 180;
@@ -440,7 +443,9 @@
         const fire = Math.floor(R() * spots.length);
         spots.forEach(([x, y], i) => { if (i === fire) out.push({ x: wx(x), y: wy(y) + 4, n: 'candles', role: 'niche_fire', solid: 1 });
           else if (R() < 0.85) out.push({ x: wx(x) + Math.round((R() - 0.5) * 8), y: wy(y) + Math.round((R() - 0.5) * 4), n: T.store[Math.floor(R() * T.store.length)], solid: 1 }); });
-        return out; })];
+        const dress = T.northNiches.dress[k];
+        if (dress) return dress.map((n, i) => { const [x, y] = spots[i * (spots.length - 1)]; return { x: wx(x), y: wy(y) + 4, n, solid: 1 }; });
+        return T.northNiches.mirror.includes(k) ? out.map((d) => ({ ...d, x: (2 * x0 + w) * TILE - d.x, mir: 1 })) : out; })];
     const rails = T.rails.map(([x, y]) => y * W + x);
     // the square: an ellipse round the fire; each path leaves its edge and winds (a half-wave and a smaller full one, the seed's
     // phase and side) to where its service is used, two or three cells wide
