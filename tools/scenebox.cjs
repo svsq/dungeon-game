@@ -13,4 +13,6 @@ function heroBox(D, SIM) {
   box.window = box; box.SCX = { D, L, M, SC: {}, SS: L.SS }; vm.createContext(box); vm.runInContext(src('rigs.js'), box); vm.runInContext(src('scene_hero.js'), box);
   return { drawHero: box.SCX.drawHero, L, calls };
 }
-module.exports = { heroBox };
+// rigs() → window.RIGS as the page has it once live/rigs.js has run: the file is run, not parsed, so all it assigns counts
+function rigs() { const page = {}; page.window = page; vm.createContext(page); vm.runInContext(src('rigs.js'), page); return page.RIGS; }
+module.exports = { heroBox, rigs };
