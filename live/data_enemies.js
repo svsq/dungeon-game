@@ -6,9 +6,11 @@
   // centre line, `ankle` and `foot` the x of each leg's ankle and foot, `midAnkle` between the ankles, `step` one step's length in view px (a leg's
   // thigh and shin at 0.4 of their sum, drawn at `scale` = its drawn height over `rigH`), the rest is how the sim's contact is placed from them:
   // `lead` of a step ahead along the motion, `pull` of the ankle's distance to midAnkle taken in, `depth` the way a step in depth projects
-  // (monsters.js plants the drawn foot with the same 0.6 and 0.3). A redrawn rig changes its numbers: sim_checks_colossus.js compares the table with it
+  // (every biped's rig plants its drawn foot by the same STEP_DEPTH, through stepDz). A redrawn rig changes its numbers: sim_checks_colossus.js compares the table with it
+  const STEP_DEPTH = { ahead: 0.6, back: 0.3 };
+  const stepDz = (off, A, diry) => STEP_DEPTH.ahead * off * diry - STEP_DEPTH.back * A * Math.abs(diry);
   const COLOSSUS_GEO = { rigH: 320, gap: 118.5, midAnkle: 123.5, ankle: { L: 74.5, R: 172.5 }, foot: { L: 70.64176829268293, R: 175.18155197657393 }, step: 29.80632555187274,
-    lead: 0.64, pull: 0.15, depth: { ahead: 0.6, back: 0.3 } };
+    lead: 0.64, pull: 0.15, depth: STEP_DEPTH };
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
     boss_serpent: { hp: 2200, dmg: 60, scale: 1, phases: [
@@ -296,5 +298,5 @@
   // (TASKS 1938) one number for the sim's step about a post and the rig's footfalls over it: apart, the feet slid while the body moved
   const AMB_T = 0.6;
 
-  Object.assign(D, { COLOSSUS_GEO, ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt, AMB_T });
+  Object.assign(D, { COLOSSUS_GEO, stepDz, ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt, AMB_T });
 })(typeof window !== 'undefined' ? window : globalThis);

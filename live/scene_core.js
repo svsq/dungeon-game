@@ -512,13 +512,15 @@ vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx
   else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
   return col; }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
-  // the columns: the edge's only near a plateau (the floor mask over the few cells above), else a lake's
+  // the columns: the edge's near a plateau (the floor mask over the few cells above), and a lake's wherever no edge column stands (TASKS 1964:
+  // a lake's columns were looked for only away from a plateau, and one standing in lava under its cells lost its cap and the top of its face
+  // on the mask's straight lines, a dark rectangle in the lava)
   float nearP = 0.0; for (int k = 0; k <= 6; k++) nearP = max(nearP, textureLod(u_plat, (w - vec2(0.0, float(k) * 16.0)) / u_map, 0.0).r);
   vec4 c = vec4(0.0); vec2 f = vec2(0.0); float on = 0.0, hw = CW * 0.5, foot = 0.0, tl = 0.0;
   if (nearP > 0.02) { c = column(w); float ci = floor(c.x / CW); hw = colHW(ci); tl = colTilt(ci) * 0.5; on = colAt(w, c, f, hw, tl);
     if (on < 0.5) { vec4 n = northTop(w); hw = CW * 0.5; if (colAt(w, n, f, hw, 0.0) > 0.5) { c = n; on = 1.0; tl = 0.0; } else hw = colHW(ci); }
     if (on < 0.5 && c.y > 0.0 && c.z > 0.0 && c.w > 0.5 && c.w < 1.5 && abs(w.x - c.x) <= hw && w.y >= c.y + c.z) foot = clamp(1.0 - (w.y - c.y - c.z) / 12.0, 0.0, 1.0); }
-  else { float hi; on = island(w, c, f, foot, hi); if (on > 0.5) hw = hi; }
+  if (on < 0.5) { vec4 ic; vec2 iff; float ifoot, hi, io = island(w, ic, iff, ifoot, hi); foot = max(foot, ifoot); if (io > 0.5) { on = io; c = ic; f = iff; hw = hi; tl = 0.0; } }
   if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, on > 1.5 ? 0.9 * (1.0 - smoothstep(0.55, 0.95, f.y)) : on > 0.5 ? 1.0 : 0.0, 1.0); return; }
   float op = openAt(w), la = lavaAt(w), far = textureLod(u_far, w / u_map, 0.0).r; vec3 col; vec4 sc; vec2 sf; float sdim;
   if (op > 0.47 && la <= 0.5) {

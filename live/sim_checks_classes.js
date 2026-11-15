@@ -531,6 +531,20 @@
       if (foes[need - 1]) { foes[need - 1].hp = 0; killEnemy(S, R, foes[need - 1]); } if (!R.seen[at]) out.push(`${tag}: not shown with half the foes slain`); }
     return out;
   }
+  // a number moved in its table moves what it sets (TASKS 2080): before, the blessing's 1.2 and the thresholds' 25 were copies of the data
+  function dataLinkCheck(out) {
+    const with_ = (obj, field, v, f) => { const was = obj[field]; obj[field] = v; try { return f(); } finally { obj[field] = was; } };
+    // the blow is rounded to a whole point, so at 1000 attack its share is off by under a thousandth
+    { const c = stage('warrior'), st = { atk: 1000, crit: 0, critK: 1 }, B = D.GIFTS.find((g) => g.id === 'bless'), rs = c.R.rs, ROUND = 1e-3; c.h.bless = 1;
+      const roll = () => { c.R.rs = rs; return SIMX.heroRoll(c.R, c.h, st)[0]; }, base = with_(c.h, 'bless', 0, roll), now = roll(), more = with_(B, 'v', B.v * 2, roll);
+      if (Math.abs(now / base - (1 + B.v / 100)) > 2 * ROUND || Math.abs(more / base - (1 + 2 * B.v / 100)) > 2 * ROUND) out.push(`bless: a blessed blow is ${now}, at twice GIFTS.bless.v ${more}, unblessed ${base}`); }
+    { const T = D.THRESHOLD.warrior, fires = (v) => with_(T, 'v', v, () => { const c = stage('warrior'), e = foe(c.R, c.h); c.h.powers = { th_warrior: 1 }; c.S.ev = []; SIMX.firePowers(c.S, c.R, 'hit', { e, x: e.x, y: e.y }); return hits(c.S, 'th_warrior'); });
+      const str = SIMX.heroSt(stage('warrior').S).str;
+      if (!fires(str) || fires(str + 1)) out.push(`threshold: th_warrior does not follow THRESHOLD.warrior.v (fires at ${str}: ${fires(str)}, at ${str + 1}: ${fires(str + 1)})`);
+      const tip = (v) => with_(T, 'v', v, () => { const c = stage('warrior'); c.h.thTip = 0; c.R.msg = null; SIMX.thresholdTip(c.S, c.R); return c.R.msg && c.R.msg.s; });
+      if (tip(str + 1) || !String(tip(str)).includes(String(str))) out.push(`threshold: the tip does not follow THRESHOLD.warrior.v («${tip(str)}» at ${str}, «${tip(str + 1)}» above it)`); }
+  }
   SIMX.checks.add('classCheck', classCheck);
   SIMX.checks.add('powerCheck', checkPowers);
+  SIMX.checks.add('dataLinkCheck', dataLinkCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

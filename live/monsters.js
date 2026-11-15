@@ -47,7 +47,7 @@
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch); a stride lengthened by
       // strideK tilts it less in depth (TASKS 1802: the goblin's legs stretched 32 % walking down)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
-      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: (0.6 * off * diry - 0.3 * A * Math.abs(diry)) / Math.pow(Math.max(1, o.strideK || 1), 0.75) };
+      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: DATA.stepDz(off, A, diry) / Math.pow(Math.max(1, o.strideK || 1), 0.75) };
       if (o.amb) { const B = o.amb, fw = SS(side === 'L' ? 0 : 0.45, side === 'L' ? 0.55 : 1, B.w), dx = B.x0 + (B.x1 - B.x0) * fw - B.x, dy = B.y0 + (B.y1 - B.y0) * fw - B.y;
         const lf = fw > 0 && fw < 1 ? Math.pow(Math.sin(Math.PI * fw), 0.6) * RG.h * (o.lift || 0.038) * 0.8 : 0;
         Object.assign(tg[side], { off: Math.hypot(dx, dy) / s, tx: tg[side].tx + dx * face / s, ty: tg[side].ty - lf, lift: tg[side].lift + lf, dz: tg[side].dz + dy / s }); }
@@ -90,21 +90,24 @@
       let r = o.arm ? o.arm(side, base) : [base, lagged + rs[1] - rs[0] + (lagged - rs[0]) * -0.4];
       if (o.flinch) r = [r[0] + (side === 'L' ? 0.65 : 0.5) * o.flinch, r[1] + 0.8 * o.flinch];   // flung wide by a blow (TASKS 1804)
       if (o.limp) r = limpArm(r, RG['hand' + side], S0, face, fallR + lean, o.limp);
+      let drop = 0;
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
         const rest = R2U(Hd[0], Hd[1] + hipDy), T = o.handTarget(side, rest);
         if (T) {
           const origin = R2U(0, hipDy), ax = R2U(1, hipDy), ay = R2U(0, hipDy + 1), dx = T[0] - origin[0], dy = T[1] - origin[1];
           const a = ax[0] - origin[0], b = ax[1] - origin[1], c = ay[0] - origin[0], d = ay[1] - origin[1], det = a * d - b * c;
-          const ik = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], (o.bend && o.bend[side]) || (side === 'L' ? 1 : -1));
+          const Tl = [(d * dx - c * dy) / det, (a * dy - b * dx) / det];
+          drop = shoulderDrop(RG, side, Tl, (o.shDrop || {})[side] || 0);
+          const ik = reach(RG, side, [Tl[0], Tl[1] - drop], (o.bend && o.bend[side]) || (side === 'L' ? 1 : -1));
           // a third value blends the joints' angles to the reach by it, not the hand's target: the reach may bend the elbow the other
           // way than the pose it takes over from, and a target slid in from that pose flipped the elbow in a frame (the golem's slam)
           const wrap = (v) => v - TAU * Math.round(v / TAU);
           r = T.length > 2 ? [r[0] + wrap(ik[0] - r[0]) * T[2], r[1] + wrap(ik[1] - r[1]) * T[2]] : ik;
         }
       }
-      const E0 = RG['elbow' + side], Sp = [S0[0], S0[1] + hipDy];
-      const E = rotP([E0[0], E0[1] + hipDy], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + hipDy], Sp, r[0]), E, r[1] - r[0]);
+      const E0 = RG['elbow' + side], armDy = hipDy + drop, Sp = [S0[0], S0[1] + armDy];
+      const E = rotP([E0[0], E0[1] + armDy], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + armDy], Sp, r[0]), E, r[1] - r[0]);
       arms[side] = { S0, E0, Sp, E, Hd, r1: r[0], r2: r[1] }; }
     // a crumbling body lets every piece go (o.crumble: { t: seconds since death, kind, dir: the killing blow's screen angle }):
     //   pile   — each piece drops on its own under gravity from where it was, slowed just before the floor, bounces once and lies
@@ -204,10 +207,15 @@
   // an item's point at (fx, fy) of its texture, on screen
   const itemAt = (it, fx, fy) => { const p = M.ap(it.m, [(fx - 0.5) * it.tw, (fy - it.gr) * it.th]); return L.pre ? M.ap(L.pre, p) : p; };
   // two-bone IK for a drawn arm in rig px: the [upper, fore] turns that bring its hand to T, the elbow bent to the side of sg
+  const ARM_REACH = 0.985, armLen = (RG, side) => d2(RG['sh' + side], RG['elbow' + side]) + d2(RG['elbow' + side], RG['hand' + side]);
   function reach(RG, side, T, sg) { const S0 = RG['sh' + side], E0 = RG['elbow' + side], H0 = RG['hand' + side], l1 = d2(S0, E0), l2 = d2(E0, H0);
-    const d = Math.max(Math.abs(l1 - l2) + 1, Math.min(d2(S0, T), (l1 + l2) * 0.985)), th = ang(S0, T), a1 = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
+    const d = Math.max(Math.abs(l1 - l2) + 1, Math.min(d2(S0, T), (l1 + l2) * ARM_REACH)), th = ang(S0, T), a1 = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
     const E = [S0[0] + Math.cos(th + sg * a1) * l1, S0[1] + Math.sin(th + sg * a1) * l1], Tc = [S0[0] + Math.cos(th) * d, S0[1] + Math.sin(th) * d];
     return [ang(S0, E) - ang(S0, E0), ang(E, Tc) - ang(E0, H0)]; }
+  // a far arm too short for its target lets its shoulder down toward it, by no more than max rig px: the colossus's far fist on the floor
+  // (TASKS 2082) the body twisting to it, where its hip may not sink any lower without folding a knee under its ankle
+  function shoulderDrop(RG, side, T, max) { if (max <= 0) return 0; const S0 = RG['sh' + side], L0 = armLen(RG, side) * ARM_REACH, dx = T[0] - S0[0];
+    return Math.abs(dx) >= L0 ? max : Math.max(0, Math.min(max, T[1] - S0[1] - Math.sqrt(L0 * L0 - dx * dx))); }
   // one stride (two steps) in view px for a rig drawn H tall: what the sim's distance must cover per gait cycle
   // (TASKS 1802) the small walkers stepped 11–15 times a second, their feet a blur: a longer stride by type brings them under 9 a second
   // and every biped's step to at least 0.15 of its height (the skeletons' was 0.12); the golem and the colossus plod by their weight
@@ -621,6 +629,8 @@
   // front of it, rests on them a beat; dead, it comes apart where it stands, stone by stone into its pool
   const GOLEM_SLAM = { raise: -2.6, chopT: 0.28, recover: 0.42, over: 0.15, hold: 0.24, top: 0.16, bendUp: 0.9, bendHit: 0.15, bend0: 0.18, dur: 0.55 };
   const COL_CALL = ['shatter', 'erupt', 'rain', 'imps'];
+  // how far (× its height) the colossus's far shoulder may come down to put its fist on the floor (TASKS 2082: it hung 27 px short)
+  const COL_FAR_DROP = 0.15;
   function colossusPose(e, E, GT, face, H, base) {
     if (e.deadT >= 0) return null;
     const u = GT - e.t0, M = DATA.bossMove(e), w = M.wind;
@@ -643,7 +653,8 @@
       // (TASKS 1965: held at the stomp's 0.14 through the stuck fists, the left knee folded 12 px under its ankle; a hip floor of 0.2
       // kept it over the ankle but left the left fist 41 px short of the floor, so the back foot steps in under the hip instead)
       if (fists) { const RH = RIGS.colossus.h;
-        base.foot = (side, t) => { if (side !== 'L') return; const lf = 0.04 * RH * Math.sin(Math.PI * k); t.tx += 0.1 * RH * k; t.ty -= lf; t.lift += lf; }; }
+        base.foot = (side, t) => { if (side !== 'L') return; const lf = 0.04 * RH * Math.sin(Math.PI * k); t.tx += 0.1 * RH * k; t.ty -= lf; t.lift += lf; };
+        base.shDrop = { L: COL_FAR_DROP * RH * k }; }
       base.lean = face * lerp(-0.16 * raise, 0.6 - 0.1 * tug, hit) * (1 - back);
       base.handTarget = (side, rest) => {
         if (!fists && side === 'L') return target(side, [-0.2, -0.35], rest, k);

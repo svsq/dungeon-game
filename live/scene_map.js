@@ -248,8 +248,15 @@
   }
   // a river's crust drifts its way (dungeon.js lavaFlow: 0 right, 1 down, 2 left, 3 up); a pool, or the staged field, lies still
   const FLOW = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-  // the magma caves' lava runs on under its slabs and bridges, not under a stone arch (TASKS 401)
-  const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m); if (!u) { const arch = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => c.cells)); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !arch.has(k)))); } return u; };
+  // a stone arch (TASKS 480, 1925): its crown `crown` of its height up from `gap` px under the walk's near edge; the walk's cells whose far
+  // edge lies above `deck` of its height under the crown carry basalt slabs, the rest lie under its span
+  const ARCH = { crown: 0.35, deck: 0.12, gap: 2 };
+  const archNear = (m, c) => (Math.max(...c.cells.map((k) => Math.floor(k / m.W))) + 1) * TILE;
+  const archWalk = (m, c) => { const ht = SZ('arch_mg')[1], y1 = archNear(m, c); return c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + ARCH.gap - ARCH.crown * ht + ARCH.deck * ht); };
+  // the magma caves' lava runs on under its slabs and bridges and under an arch's span, not under the arch's walk (TASKS 401); under the span
+  // it was left out too while the arch was a solid deck, and the open arch of 1925 showed a dark patch with straight edges there (TASKS 1962)
+  const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m);
+    if (!u) { const walk = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => archWalk(m, c))); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !walk.has(k)))); } return u; };
   const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.Q.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x), (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
   // its glow (the emissive pass, drawn over everything) leaves out what lies under a crossing, or it shines through the slabs and planks
   const surgeTex = (m, z) => { const lv = new Map(z.cells.map((k, i) => [k, z.lv[i]])), F = fallsOf(m), f = F.length ? F.reduce((a, b) => (Math.hypot(b.x - z.x, b.y - z.y) < Math.hypot(a.x - z.x, a.y - z.y) ? b : a)) : z;
@@ -386,6 +393,6 @@
   }
 
   Object.assign(SCX, {
-    TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, railPts, bake, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, swimTex, fallU, cliffTex, lavaNearTex,
+    ARCH, archNear, archWalk, TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, railPts, bake, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, swimTex, fallU, cliffTex, lavaNearTex,
     crustTex, topTex, veinTex, waterTex, deepTex, SRC_KIND, SRC_DIR, openTex, voidTex, seenTex, spellFloor });
 })(typeof window !== 'undefined' ? window : globalThis);
