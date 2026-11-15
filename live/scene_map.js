@@ -27,13 +27,12 @@
 
   const railPts = D.railPts;
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
-  // the rails lie on the floor (TASKS 2012): a stretch across the screen is laid in floor space and squashed to the view's depth with
-  // the town's other flat things; the adit's plumb stretch takes the painting that already recedes, its sleepers drawn closer
-  // as the floor goes away. Either way one period of the painting (a sleeper, its ballast and the rails over them) after another
+  // the rails lie on the floor (TASKS 2012): every stretch, the adit's plumb one too, is laid in floor space and squashed to the view's
+  // depth with the town's other flat things, one period of the painting (a sleeper, its ballast and the rails over them) after another
   function track(pts) {
     const K = D.CART.floor;
     for (const r of D.railLay(pts, SZ)) {
-      const m = r.kind === 'h' ? M.of(M.t(r.x, r.y), M.s(1, K), M.r(Math.atan2(r.dy / K, r.dx))) : (() => { const up = r.dy > 0 ? 1 : -1; return M.of(M.t(r.x, r.y), M.r(Math.atan2(-r.dx * up, r.dy * up))); })();
+      const m = M.of(M.t(r.x, r.y), M.s(1, K), M.r(Math.atan2(r.dy / K, r.dx)));
       L.sprite(r.tex, 0, 0, { m, w: r.w, h: r.h, pivot: [r.w / 2, r.h / 2], src: r.src, u: { grade: [1, r.lift, 0, 1] } }); }
   }
   function townFloor(m, B, c) {

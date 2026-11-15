@@ -112,22 +112,19 @@
     lug: { rx: 0.055, ry: 0.08, roll: 0.09, w: 2, h: 1, col: [0.72, 0.62, 0.5], step: 1.5 },
     rope: { winch: 60, hook: { side: { cart_tw: [0.92, 0.31], cart_tw_half: [0.92, 0.24], cart_tw_empty: [0.92, 0.24] }, front: [0.5, 0] },
       sag: 7, taut: 0.5, far: 200, near: 40, bow: 5, ramp: 10, ends: 6, gap: 3, col: [0.22, 0.15, 0.09] } };
-  // the track's two paintings (TASKS 2012, 2085): `per` one sleeper and the ballast after it and `at` the middle of the first gap between two
+  // the track's painting (TASKS 2012, 2085, 2091): `per` one sleeper and the ballast after it and `at` the middle of the first gap between two
   // sleepers (where a period is cut, so it repeats without its ends), both in the painting's own pixels, `gauge` between the rails'
-  // middles in them; the painting's size is not here, `railLay` takes it from the assets. `h` is seen from straight above and laid in
-  // floor space, `v` runs up the screen as the 3/4 camera sees it, for a stretch within `steep` degrees of plumb (the adit's); the
-  // table's `gauge` (view px) sizes both, as the cart's wheels were set on; `lift` brings each painting's sleepers to one brown
-  const RAIL = { gauge: 18.6, steep: 20, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 }, v: { tex: 'rail_tw_v', at: 190, per: 137, gauge: 161, lift: 1.08 } };
-  // the sprites that lay a track along `pts`, one period of a painting after another: where each stands, the way the stretch runs
-  // (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
-  const railLay = (pts, size) => { const K = CART.floor, out = [];
-    for (const kind of ['h', 'v']) { const P = RAIL[kind], [tw, th] = size(P.tex), k = RAIL.gauge / P.gauge, per = P.per * k, cut = kind === 'h' ? P.at / tw : P.at / th; let carry = 0;
-      for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], plumb = Math.atan2(Math.abs(bx - ax), Math.abs(by - ay)) * 180 / Math.PI < RAIL.steep;
-        if (plumb !== (kind === 'v')) { carry = 0; continue; }
-        const len = kind === 'h' ? Math.hypot(bx - ax, (by - ay) / K) : Math.hypot(bx - ax, by - ay);
-        let d = carry; for (; d < len; d += per) out.push({ kind, tex: P.tex, x: ax + (bx - ax) * d / len, y: ay + (by - ay) * d / len, dx: bx - ax, dy: by - ay, lift: P.lift,
-          w: kind === 'h' ? per + 0.5 : tw * k, h: kind === 'h' ? th * k : per + 0.5, src: kind === 'h' ? [cut, 0, cut + P.per / tw, 1] : [0, cut, 1, cut + P.per / th] });
-        carry = d - len; } }
+  // middles in it; the painting's size is not here, `railLay` takes it from the assets. It is seen from straight above and laid in floor
+  // space for every stretch, the adit's plumb one too, so the sleepers keep one size and tone round the bend; the table's `gauge` (view px)
+  // sizes it, as the cart's wheels were set on; `lift` brings its sleepers to a brown
+  const RAIL = { gauge: 18.6, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
+  // the sprites that lay a track along `pts`, one period of the painting after another, the count carried round each bend: where each stands,
+  // the way the stretch runs (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
+  const railLay = (pts, size) => { const K = CART.floor, out = [], P = RAIL.h, [tw, th] = size(P.tex), k = RAIL.gauge / P.gauge, per = P.per * k, cut = P.at / tw; let carry = 0;
+    for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, (by - ay) / K);
+      let d = carry; for (; d < len; d += per) out.push({ tex: P.tex, x: ax + (bx - ax) * d / len, y: ay + (by - ay) * d / len, dx: bx - ax, dy: by - ay, lift: P.lift,
+        w: per + 0.5, h: th * k, src: [cut, 0, cut + P.per / tw, 1] });
+      carry = d - len; }
     return out; };
   const railTot = (pts) => pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0);
   const railAt = (pts, d) => { d = Math.max(0, Math.min(railTot(pts), d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } };

@@ -26,15 +26,22 @@
         if (!m.town.yardSolid.some((p) => Math.floor(p.y / TILE) === Math.floor(e / m.W) && Math.floor(p.x / TILE) === e % m.W - 1)) out.push(`town ${sd}: the rails end short of the mason's yard`); }
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
-    // TASKS 2085: the track's table holds no painting sizes, they come from the assets: a painting twice as large lays sprites twice as
-    // large (the level one twice as deep, the plumb one twice as wide, a period cut from half the painting's share), as many of them
-    { const R = D.RAIL, pts = D.railPts(DG.genTown(977)), at = (k) => (n) => (n === 'rail_tw_h' || n === 'rail_tw_v' ? [100 * k, 40 * k] : [1, 1]);
-      if (['h', 'v'].some((n) => 'w' in R[n] || 'h' in R[n] || 'width' in R[n] || 'height' in R[n])) out.push('rails: the table names a painting\'s size');
+    // TASKS 2085, 2091: the track's table holds no painting sizes, they come from the assets: a painting twice as large lays sprites twice as
+    // deep, as many of them, each a period cut from half the painting's share; the whole track is one painting, one sleeper size and tone, and
+    // the sleepers go one period apart along the rails' length in floor space, round each bend too, so a bend leaves no gap or overlap
+    { const R = D.RAIL, pts = D.railPts(DG.genTown(977)), at = (k) => (n) => (n === 'rail_tw_h' ? [100 * k, 40 * k] : [1, 1]), K = D.CART.floor;
+      if (Object.keys(R).some((n) => n !== 'gauge' && ('w' in R[n] || 'h' in R[n] || 'width' in R[n] || 'height' in R[n]))) out.push('rails: the table names a painting\'s size');
+      if (Object.keys(R).filter((n) => n !== 'gauge').join() !== 'h') out.push('rails: the table holds more than one painting');
       const a = D.railLay(pts, at(1)), b = D.railLay(pts, at(2));
       if (!a.length || a.length !== b.length) out.push('rails: a painting of another size lays another number of sprites');
-      const h = (L) => L.filter((r) => r.kind === 'h'), v = (L) => L.filter((r) => r.kind === 'v');
-      if (!h(a).length || !v(a).length) out.push('rails: the town\'s track lacks a level or a plumb stretch');
-      else if (Math.abs(h(b)[0].h - 2 * h(a)[0].h) > 1e-6 || Math.abs(v(b)[0].w - 2 * v(a)[0].w) > 1e-6 || Math.abs(h(b)[0].src[2] - h(b)[0].src[0] - (h(a)[0].src[2] - h(a)[0].src[0]) / 2) > 1e-6) out.push('rails: a painting\'s size does not reach the laid sprites'); }
+      else if (Math.abs(b[0].h - 2 * a[0].h) > 1e-6 || Math.abs(b[0].src[2] - b[0].src[0] - (a[0].src[2] - a[0].src[0]) / 2) > 1e-6) out.push('rails: a painting\'s size does not reach the laid sprites');
+      const seg = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], (q[1] - pts[i][1]) / K));
+      const arc = (r) => { let acc = 0; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], ex = bx - ax, ey = (by - ay) / K, t = ((r.x - ax) * ex + (r.y - ay) / K * ey) / (seg[i - 1] ** 2);
+        if (t > -1e-6 && t < 1 + 1e-6 && Math.hypot(r.x - ax - t * (bx - ax), (r.y - ay - t * (by - ay)) / K) < 1e-3) return acc + t * seg[i - 1]; acc += seg[i - 1]; } return -1; };
+      const per = R.h.per * R.gauge / R.h.gauge, s = a.map(arc);
+      if (a.some((r) => r.tex !== R.h.tex || r.lift !== R.h.lift || Math.abs(r.w - per - 0.5) > 1e-6 || Math.abs(r.h - a[0].h) > 1e-6)) out.push('rails: the track is not one painting at one size and tone');
+      else if (s.some((v) => v < 0)) out.push('rails: a sleeper stands off the rails\' line');
+      else if (s.some((v, i) => i && Math.abs(v - s[i - 1] - per) > 1)) out.push('rails: the sleepers leave a gap or an overlap of over 1 px along the track'); }
     // TASKS 1149: the town's gate out asks first (E and Esc stay), then gives the run up; past the colossus it ends it won
     { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
       const ask = () => { Q.hero.x = g.x; Q.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); return G.screen === 'leave'; };
