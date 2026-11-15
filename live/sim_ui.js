@@ -49,10 +49,9 @@
   // stays empty meanwhile, so no run is held twice. A save from before the slots comes as the lone run and lands in the first slot
   const slotRun = (S, i) => (i === S.slot && (S.run || S.saved)) || S.saves[i] || null;
   const isFull = (S) => S.saves.every((r, i) => r || (i === S.slot && (S.run || S.saved)));
-  const migrateKept = (R) => { try { SIMX.migrateSecrets(R); } catch (err) { console.error('loadSaves: a kept run keeps a secret it cannot link', err); } };
   function loadSaves(S, P) { const n = D.SAVE_SLOTS, list = Array.isArray(P.saves) ? P.saves.slice(0, n) : [];
     S.saves = Array.from({ length: n }, (_, i) => (list[i] && list[i].map ? list[i] : null));
-    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); migrateKept(R); SIMX.mendArches(R); SIMX.regate(R); }
+    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateKept(R, 'loadSaves'); SIMX.mendArches(R); SIMX.regate(R); }
     S.slot = Number.isInteger(P.slot) && P.slot >= 0 && P.slot < n ? P.slot : 0;
     if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; }
     pickLatest(S); }

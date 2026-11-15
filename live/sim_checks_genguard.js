@@ -1,6 +1,7 @@
 // live/sim_checks_genguard.js — selfCheck's parts for what the floor generator takes for granted (TASKS 2069): rock on the rim after every stage, each stage reading only what an earlier one laid, the fields of ST, a map that shares no object with the data. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, { D, DG } = SIMX, DGX = root.DGX, fs = require('fs'), path = require('path');
+  // REROLL_MAX is what the stages did over the samecheck floors when it was set; a stage that needs more is a change to look at, and the number is raised only by a decision
   const MODES = ['campaign', 'cave', 'magma', 'endless'], WALKED = [1, 5], MAX_FAILS = 20, REROLL_MAX = { rooms: 19, links: 0, terrain: 28, fill: 4 };
   // the floors tools/samecheck.mjs takes for `gen`: its seeds, so a floor the reference holds is a floor checked here
   function* samecheckFloors() {

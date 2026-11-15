@@ -142,7 +142,7 @@
       catch (err) { console.error('restoreFloor', f, 'diff does not fit, floor built anew', err); const seen = M.seen, rseen = M.rseen; BASE.delete(M); migrateFloor(R, f, M);
         if (same) { M.seen = seen; M.rseen = rseen; } old = true; } }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
-    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); mapw.touch(R.map); return old; }
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateKept(R, 'restoreFloor'); mapw.touch(R.map); return old; }
   function seatFoe(R, e, sol = SIMX.solids(R), room) { const m = R.map, E = ENEMIES[e.type], r = E.r, x0 = e.x, y0 = e.y, fits = (x, y) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r),
       clear = (x, y) => (room === undefined || DG.inRm(m.rooms[room], Math.floor(x / D.TILE), Math.floor(y / D.TILE))) && fits(x, y);
     if (E.ghost || E.deep || E.lake) return; if (E.kind === 'salamander') { e.hx = e.x; e.hy = e.y; return; } shove(m, e, r, true, sol);
@@ -366,7 +366,8 @@
   // carries the secret's own number, as the generator laid it
   const relinkSconce = (m, q, i) => { if (!q.trig || q.trig.k !== 'sconce') return; const t = m.torches.find((o) => o.lever === i); if (!t) throw new Error(`secret ${i} holds a sconce that no torch carries`); q.trig.t = DG.linkId(m.torches, t); };
   const relinkSconces = (m) => (m.secrets || []).forEach((q, i) => relinkSconce(m, q, i));
-  function migrateSecrets(R) { const m = R && R.map; if (!m) return; relinkSconces(m); for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } relinkSconces(m); }
+  const migrateKept = (R, where) => { try { migrateSecrets(R); } catch (err) { console.error(`${where}: a run keeps a secret it cannot link`, err); } };
   function secretMask(m) { const key = rev(m);
     if (MASK.rev === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];
@@ -393,5 +394,5 @@
 
   Object.assign(SIMX, {
     release: false, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, mendCounts, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, migrateKept, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);

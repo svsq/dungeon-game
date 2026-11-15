@@ -175,6 +175,8 @@
       const T = spawn(1, P); if (!T.saved || !loadSlot(T, T.slot)) { out.push(`old save: the run saved without ${name} is not loaded`); continue; }
       const R = T.run, count = (() => { try { return fstat(R); } catch (err) { return null; } })(); if (!count || typeof count.foes !== 'number') out.push(`old save: no floor count after loading a run saved without ${name}`);
       if (!SIMX.offersOf(R).length) out.push(`old save: no board of offers after loading a run saved without ${name}`); }
+    { const P = JSON.parse(JSON.stringify(persist(base()))), err = console.error; P.run.map.secrets.push({ kind: 'lever', trig: { k: 'sconce', t: 99 } }); console.error = () => {};
+      try { spawn(1, P); } catch (e) { out.push('old save: a saved run holding a sconce that no torch carries stops the game from starting'); } finally { console.error = err; } }
     return out;
   }
   SIMX.checks.add('oldSaveCheck', oldSaveCheck);
