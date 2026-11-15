@@ -1554,7 +1554,7 @@
   function board(S, R, t) {
     const L0 = S.bdRows || SIM.Q.boardRows(R), took = S.bdTook || [], U = D.UI.board(L0.length), P = U.P;
     dim(0.6); parch('board', P);
-    lab('bd_t', TXT('hud.board'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
+    lab('bd_t', TXT('hud.board'), P.x + 64, P.y + 50, { size: 40, col: INK.r });
     KIT.button('bd_close', U.r.find((q) => q.id === 'close'), stN(S, 'close'));
     hintC('bd_keys', L0.length ? TXT('hud.board.2') : TXT('hud.board.2e'), P.y + P.h + 66);
     if (!L0.length) { wrapLab('bd_none', TXT('hud.board.3'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
@@ -1574,7 +1574,7 @@
   function journal(S, R, t) {
     const L0 = SIM.Q.journalOf(R), sel = L0.find((q) => q.id === S.jsel) || L0[0], U = D.UI.journal(L0.length, sel && sel.st === 'taken', D.UI.journalTop(L0.length, Math.max(0, L0.indexOf(sel)), S.jtop)), P = U.P, M = U.more;
     dim(0.6); parch('journal', P);
-    lab('jr_t', TXT('hud.journal'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
+    lab('jr_t', TXT('hud.journal'), P.x + 64, P.y + 50, { size: 40, col: INK.r });
     KIT.button('jr_close', U.r.find((q) => q.id === 'close'), stN(S, 'close'));
     const nb = U.r.find((q) => q.id === 'notes'); button('jr_notes', Object.assign({}, nb, { label: TXT('hud.journal.notes', { n: (S.meta.notes || []).length }) }), S.hover);
     hintC('jr_keys', M ? TXT('hud.journal.2wheel') : TXT('hud.journal.2'), P.y + P.h + 66);
