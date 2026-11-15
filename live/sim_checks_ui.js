@@ -331,12 +331,24 @@
     const runs = [townRun().run].concat([3, 8].map((f) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 91 + f); SIMX.enterFloor(S, R, f); return R; }));
     for (const R of runs) { const m = R.map, ok = m.town ? DG.townWalk(m) : m.cells.map((c) => c === 1), h = R.hero;
       for (const vh of D.VIEW_H) { SIMX.setView(vh); for (const z of D.ZOOMS) { R.zoom = z; const w = SIMX.WIN(R);
-        for (const [x, y] of lowest(m, ok)) { h.x = (x + 0.5) * TILE; h.y = (y + 0.9) * TILE; R.camLook = [0, w.H / 2 * 0.12]; SIMX.snapCam(R);
+        for (const [x, y] of lowest(m, ok)) { h.x = (x + 0.5) * TILE; h.y = (y + 0.9) * TILE; R.camLook = [0, w.H / 2 * SIMX.CAM_LOOK]; SIMX.snapCam(R);
           const py = (h.y + SIMX.CAM_FEET - R.cam[1]) * z; if (py > vh - top + 0.5) { out.push(`hud foot: ${m.town ? 'the town' : 'floor ' + R.floor}'s cell ${x},${y} at ×${z}, view ${vh}: the hero's feet at ${py.toFixed(0)} px are under the bottom panel's top ${vh - top}`); return SIMX.setView(h0); } } } } }
     // TASKS 1951 а: away from the map's edges the hero's middle stands halfway between the frame's top and the panel's (bend_s84_f14)
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 84, { town: true }); SIMX.enterFloor(S, R, 14); const h = R.hero, m = R.map; R.zoom = 1; h.x = m.W * TILE / 2; h.y = m.H * TILE / 2; R.camLook = [0, 0]; SIMX.snapCam(R);
       const up = h.y - 30 - R.cam[1], down = SIMX.VIEW.H - top - up; if (Math.abs(up - down) > 20) out.push(`camera: over the hero ${up.toFixed(0)} px of the view, under him to the panel ${down.toFixed(0)}, not even within 20`); }
     SIMX.setView(h0); }
+  // TASKS 1732: on the open cells of the town and of a few floors nearest each side and corner, at every zoom and view height, the look
+  // still and pulling him toward that edge, the camera stands where it aims, so the hero is where he is away from the edges: never under
+  // the HUD's corners (tools/camsafe.mjs measures that by the HUD's own zones in the page), never off in the void
+  function checkCamAim(out) { const h0 = SIMX.VIEW.H;
+    const runs = [townRun().run].concat([1, 3, 8, 14].map((f) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 60 + f); SIMX.enterFloor(S, R, f); return R; }));
+    try { for (const R of runs) { const m = R.map, h = R.hero, edges = SIMX.camEdges(m, m.town ? DG.townWalk(m) : m.cells.map((c) => c === 1));
+      for (const vh of D.VIEW_H) { SIMX.setView(vh); for (const z of D.ZOOMS) { R.zoom = z; const w = SIMX.WIN(R);
+        for (const e of edges) for (const lk of [[0, 0], [-e.dx * w.W / 2 * SIMX.CAM_LOOK, -e.dy * w.H / 2 * SIMX.CAM_LOOK]]) {
+          h.x = (e.x + 0.5) * TILE; h.y = (e.y + 0.5) * TILE; R.camLook = lk; SIMX.snapCam(R);
+          const off = Math.hypot(R.cam[0] - (h.x - w.W / 2 + lk[0]), R.cam[1] - (SIMX.camAimY(R, h) + lk[1]));
+          if (off > 0.5) { out.push(`camera aim: ${m.town ? 'the town' : 'floor ' + R.floor}'s cell ${e.x},${e.y} (edge ${e.dx},${e.dy}) at ×${z}, view ${vh}: the camera stops ${off.toFixed(0)} px short of its aim on the hero`); return; } } } } } }
+    finally { SIMX.setView(h0); } }
   // the tracker's fold (TASKS 1992): its key flips the player's fold in play and on the pause
   function checkTrkFold(out) { const { S } = playing('warrior'), f0 = S.meta.trkFold ? 1 : 0;
     step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) === f0) out.push('tracker: the fold key does not fold the done quests in play');
@@ -412,8 +424,8 @@
         if (SIMX.uiDy('menu') !== 120 || SIMX.uiDy('settings') !== 60 || SIMX.uiDy('play') !== 0) out.push(`view 16:10: the frame's shift is ${SIMX.uiDy('menu')} / ${SIMX.uiDy('settings')}, not 120 / 60`);
         step(T, at('menu', UI.menu(false, T.meta.diff, 0), 'settings')); if (T.screen !== 'settings') out.push('view 16:10: a click on «Настройки» misses');
         step(T, at('settings', UI.settings().r, 'back')); if (T.screen !== 'menu') out.push('view 16:10: a click on the settings\' «Назад» misses');
-        const R = SIMX.newRun(T, 'campaign', 5); T.run = R; T.screen = 'play'; R.cam = [0, 1e6]; SIMX.clampCam(R, R.cam);
-        if (R.cam[1] + 1200 / SIMX.zoomOf(R) > R.map.H * D.TILE + 300 + 1) out.push('view 16:10: the camera\'s clamp keeps the 1080 window');
+        const R = SIMX.newRun(T, 'campaign', 5); T.run = R; T.screen = 'play'; R.cam = [0, -1e6]; SIMX.clampCam(R, R.cam);
+        if (Math.abs(R.cam[1] + 1200 / SIMX.zoomOf(R)) > 1) out.push('view 16:10: the camera\'s clamp keeps the 1080 window');
       } finally { SIMX.setView(h0); } }
     { const T = spawn(0, { meta: { up: {} } }), at = (rs, id) => { const b = rs.find((q) => q.id === id); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; };
       if (UI.menu(false).some((q) => q.id === 'diff')) out.push('start: the menu still has its difficulty item');
@@ -604,6 +616,7 @@
   SIMX.checks.add('splitCheck', checkSplit);
   SIMX.checks.add('stackCheck', checkStacks);
   SIMX.checks.add('hudFootCheck', checkHudFoot);
+  SIMX.checks.add('camAimCheck', checkCamAim);
   SIMX.checks.add('trkFoldCheck', checkTrkFold);
   SIMX.checks.add('testEndCheck', checkTestEnd);
   SIMX.checks.add('strCheck', checkStrUse);

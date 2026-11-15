@@ -18,7 +18,8 @@
   const HINT = TXT('HINT');
   // STEP: a step's length at a run (TASKS 1802: 20 px stepped 8.7 times a second at a quarter of his height; 26 broke his gait's bob and his knees walking down)
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 22 };
-  const DEMO_SEED = 4247, CAM_FEET = 18;
+  // CAM_LOOK: how far toward the cursor the camera leans, as a share of the cursor's offset from the window's middle
+  const DEMO_SEED = 4247, CAM_FEET = 18, CAM_LOOK = 0.12;
   const EEL_MOUTH = [44, 56];   // where the eel's mouth is when it is up: ahead of it and over the water (view px; the scene draws it there)
 
   // ---------------- rng (state lives in the run: deterministic replay) ----------------
@@ -271,15 +272,17 @@
       for (const [x, y] of d.cells) { R.seen[y * W + x] = 1; for (const k of up) if (inMap(x, y - k)) R.seen[(y - k) * W + x] = 1; } }
     return ri2;
   }
-  // the camera may leave the map by more than the HUD's width, so a room at the edge never sits under the minimap or the bars
-  function clampCam(R, c) { const m = R.map, w = WIN(R);
-    const fit = (v, a, b, s) => (b - a <= s ? (a + b - s) / 2 : clamp(v, a, b - s));
-    // the window's foot may drop below its bound as far as it takes to keep the hero's feet over the bottom panel (TASKS 1911)
-    const foot = (b) => Math.max(b, R.hero ? R.hero.y + CAM_FEET + (UI.bp.h + UI.bp.foot) / zoomOf(R) : b);
-    // the town is one fixed courtyard: past its ruins there is only void, so the view stays on it (TASKS 1612)
-    if (m.town) { c[0] = fit(c[0], 2 * TILE, 54 * TILE, w.W); c[1] = fit(c[1], 2 * TILE, foot(35 * TILE), w.H); return; }
-    // at ×0,5 the window can be wider than a small floor and its margins: the floor then sits in its middle (TASKS 1302)
-    c[0] = fit(c[0], -620, m.W * TILE + 620, w.W); c[1] = fit(c[1], -380, foot(m.H * TILE + 300), w.H); }
+  // the window keeps some of the map in it and otherwise follows the hero anywhere, so on every cell of every map at every zoom he
+  // stands at the camera's aim (TASKS 1732, the player's choice): the HUD's parts keep to the view's edges and corners, the aim is clear
+  // of them. Bounds held near the map put him there at its edges: the floors' 620/380 px once the zoom-out widened the window (the
+  // hero at the left third of the view, three quarters of it fog), the town's courtyard (TASKS 1612) under the minimap and the effects
+  function clampCam(R, c) { const m = R.map, w = WIN(R); c[0] = clamp(c[0], -w.W, m.W * TILE); c[1] = clamp(c[1], -w.H, m.H * TILE); }
+  // the cells the checks of the camera stand the hero on: the open one farthest toward each side and corner of a map (ok marks where he
+  // may stand), with the way [dx, dy] it lies
+  const CAM_EDGES = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+  const camEdges = (m, ok) => CAM_EDGES.map(([dx, dy]) => { let best = null, bs = -Infinity;
+    for (let k = 0; k < ok.length; k++) { if (!ok[k]) continue; const x = k % m.W, y = Math.floor(k / m.W), s = dx * x + dy * y; if (s > bs) { bs = s; best = { x, y, dx, dy }; } }
+    return best; }).filter(Boolean);
   // the hero stands in the middle of the field over the bottom panel, not of the whole window (TASKS 1951 а): under him the view
   // was a quarter shorter than over him
   const camAimY = (R, h) => h.y - 30 - WIN(R).H / 2 + (UI.bp.h + UI.bp.foot) / 2 / zoomOf(R);
@@ -290,5 +293,5 @@
     zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, overLava, doorLock, flow, homeFlow, reveal, clampCam, snapCam, camAimY, CAM_FEET });
+    losClear, overLava, doorLock, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
 })(typeof window !== 'undefined' ? window : globalThis);

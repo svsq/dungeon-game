@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BAL, BASES, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
+    BAL, BASES, CAM_LOOK, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
     armored, atBrink, camAimY, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
     inWater, isCons, lastFloor, logFloor, losClear, move, onLava, onPlate, potion, pushable, reveal, ri, rise, rnd, rollItem, shove,
     soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
@@ -400,7 +400,7 @@
     }
     stepDrops(S, R, true);
     // ---- camera: follow + look toward the cursor, spring, clamped to the map ----
-    camera(R, h, (inp.px / Z - WIN(R).W / 2) * 0.12, (inp.py / Z - WIN(R).H / 2) * 0.12);
+    camera(R, h, (inp.px / Z - WIN(R).W / 2) * CAM_LOOK, (inp.py / Z - WIN(R).H / 2) * CAM_LOOK);
     R.trauma = Math.max(0, R.trauma - 1.6 * DT);
     if (t - R.saveT > 30) { R.saveT = t; S.saveN++; }
   }
