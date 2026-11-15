@@ -1817,7 +1817,7 @@
     // the mason's round from the real sim, not a staged pose: the turn with the stone, the walk, the drop (TASKS 1616)
     { let i = 0, S = folkS((S, R) => { const f = folkAt(R, 'mason'); i = f.i; atStop(R, f, 1); f.t0 = S.t - 3; f.face = 1; camOn(R, f); R.cam = [43 * TILE - SCX.VW / 2, 29 * TILE - SCX.VH / 2]; }); const fr = [];
       for (let k = 0; k < 360; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions.folk_mason_round = fr; folkSubj.folk_mason_round = 'npc' + i; }
-    // what clampCam gives the town at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
+    // a fixed view of the courtyard's middle at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [-64, 52]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [-64, 52]; })]);
     // TASKS 2006: the hero pressed against the gate from the yard, square on and from the side, is behind it, never on its masonry
