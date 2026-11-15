@@ -274,11 +274,12 @@
   // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
   // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
   // a batch more after each boss slain, as the merchant's shelf is stocked anew (TASKS 1026: 2–3 a run were all taken in the first
-  // minute); a batch's givers are those with no offer still waiting
+  // minute); a batch's givers are those with no offer still waiting, free and not the Keeper (his offers are the story chain's: a deal
+  // to him or to a caged smith would show nothing on the first board)
   // dealing is a step of its own, made on arrival in the town (enterFloor); the render and the talks only read (TASKS 2064)
   function dealOffers(R) { const G = D.QUEST_GIVE; R.offers = R.offers || []; if (R.offerB === undefined) R.offerB = R.offers.length ? 1 : 0;
     while (R.offerB < 1 + (R.bossN || 0)) { const b = R.offerB++; let a = D.mix32((R.seed >>> 0) + 0x51ed27 + b * 7919);
-      const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
+      const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => w !== 'keeper' && !(capOf(R, w) && !isFree(R, w)) && !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
       for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); } }
   }
   const offersOf = (R) => R.offers || [];

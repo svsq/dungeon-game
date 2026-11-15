@@ -1,8 +1,9 @@
 // live/sim_checks_quests.js — selfCheck's parts for quests: offers, taking and turning in. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    boxHit, completionHints, counted, D, DG, ENEMIES, enterFloor, folkOf, journalOf, killEnemy, lootAudit, newQuest, newRun, offerOf, offersOf,
+    boardOffers, boxHit, completionHints, counted, D, DG, ENEMIES, enterFloor, folkOf, journalOf, killEnemy, lootAudit, newQuest, newRun, offerOf, offersOf,
     openChest, openSecret, persist, questFloor, questMark, questMarks, spawn, STAGE, step, takeQuest, TILE, turnIn, UI, who } = SIMX;
+  const OFFER_SEEDS = Array.from({ length: 24 }, (_, i) => i + 1);
   const scrolls = (h) => h.bag.reduce((n, it) => n + (it && it.b === 'scroll' ? it.n : 0), 0);
   // TASKS 1018–1022: a run's offers are 2–3, each from its own townsman, the same for the same seed; ! over the giver, his talk ends
   // on the quest's page and E takes it; the named foe (on its floor, never a boss's; an elite with its name; marked on the map; kept
@@ -176,6 +177,10 @@
       for (let i = 0; i < 8 && S.screen === 'talk' && q.st !== 'turned'; i++) { if (said()) { out.push('quest turn-in: the ' + role + ' says it before the button'); break; } step(S, { keys: ['KeyE'] }); }
       if (q.st !== 'turned' || S.screen !== 'talk' || !said()) out.push('quest turn-in: the ' + role + ' does not say it once pressed');
       else if (!S.talk.pages.some((p) => p.includes(root.SIMX.rwLine(q.rw)))) out.push('quest turn-in: the ' + role + ' gives no reward once pressed' + (news ? ' (with news)' : '')); step(S, { keys: ['Escape'] }); }
+    // TASKS 2103: the first board of a run with the smith still caged holds no offer of his or the Keeper's and shows an optional quest
+    for (const sd of OFFER_SEEDS) { const R3 = newRun(S, 'campaign', sd, { town: 1 }), L3 = offersOf(R3), shown = boardOffers(R3).filter((o) => !o.of.q.story);
+      if (L3.some((o) => o.from === 'keeper' || (R3.captives || {})[o.from])) out.push('quest give: seed ' + sd + ' deals an offer to a caged giver or the Keeper');
+      if (!shown.length) out.push('quest give: seed ' + sd + ' shows no optional quest on the first board'); }
     // TASKS 1026: a boss slain deals a batch of offers more, to townsmen with none waiting; T reads the scroll on a floor
     R = run(93); const o0 = offersOf(R).length; R.bossN = 1; if (offersOf(R).length !== o0) out.push('quest give: a read of the offers deals a batch'); SIMX.dealOffers(R); const o1 = offersOf(R); if (o1.length <= o0 || o1.slice(o0).some((o) => o1.slice(0, o0).some((p) => p.from === o.from && !p.q))) out.push('quest give: no fresh batch of offers after a boss');
     enterFloor(S, R, 1); S.screen = 'play'; R.en = []; step(S, { keys: [] }); step(S, { keys: ['KeyT'] }); if (!R.hero.read) out.push('scroll: T does not read the scroll of return');
