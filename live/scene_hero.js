@@ -67,7 +67,7 @@
   // instead of the front view's flat cut-out poking out of the cape; the arms hang in the cape's shade (the shirt's white cuffs were
   // the brightest thing on him); the feet point away, heels to the camera, so they narrow about the ankle; the cape's broad red
   // takes the shade too, or it reads as one flat slab
-  const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 0.85 };
+  const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1 };
   // the slash crescent's half-span about the aim, and where its brightness centroid sits along it (the ARC shader's taper and tail fade)
   const ARC_HALF = 1.35, ARC_MID = 0.52;
   // the whirl's turn (0..1) over WHIRL_T s: speeds up and slows down over 0.1 s, so the blade neither starts nor stops dead
