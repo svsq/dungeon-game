@@ -349,6 +349,29 @@
           const off = Math.hypot(R.cam[0] - (h.x - w.W / 2 + lk[0]), R.cam[1] - (SIMX.camAimY(R, h) + lk[1]));
           if (off > 0.5) { out.push(`camera aim: ${m.town ? 'the town' : 'floor ' + R.floor}'s cell ${e.x},${e.y} (edge ${e.dx},${e.dy}) at ×${z}, view ${vh}: the camera stops ${off.toFixed(0)} px short of its aim on the hero`); return; } } } } } }
     finally { SIMX.setView(h0); } }
+  // every count of a currency in one look (TASKS 2084): one record of DATA.UI.purse with no per-currency style, and its layout gives a
+  // group's plates one size, each icon one place by its plate, each number its plate's middle, whatever the values and alignment
+  function checkPurse(out) {
+    const P = UI.purse, K = UI.kit; if (!P || !K.purseLay || !K.purseBox) { out.push('purse: no shared layout for the counts of gold and shards (DATA.UI.purse, UI.kit.purseLay)'); return; }
+    for (const k of ['gold', 'shards', 'key']) if (!P.icons[k]) out.push(`purse: no icon for ${k}`);
+    const per = Object.keys(P).filter((k) => k !== 'icons' && P[k] && typeof P[k] === 'object' && !Array.isArray(P[k]));
+    if (per.length) out.push(`purse: DATA.UI.purse holds a style by currency (${per.join(', ')}); the look is one for all`);
+    const measure = (s, size) => String(s).length * size * 0.6, row = (...q) => q.map(([k, s]) => ({ k, s }));
+    const cases = [[row(['gold', '56']), row(['shards', '81'])], [row(['gold', '999999']), row(['shards', '7'], ['key', '1'])], [row(['gold', '0'], ['shards', '99999'])], [row(['shards', '81'])]];
+    for (const rows of cases) for (const al of [0, 0.5, 1]) {
+      const at = K.purseLay(rows, 500, 100, measure, al), B = K.purseBox(rows, measure), tag = rows.map((r) => r.map((q) => q.k + ' ' + q.s).join(' + ')).join(' / ') + ' at ' + al;
+      const one = (f) => new Set(at.map(f)).size === 1;
+      if (!one((q) => q.plate.w + 'x' + q.plate.h)) out.push(`purse: the plates of ${tag} differ in size`);
+      if (!one((q) => [q.icon.x - q.plate.x, q.icon.y - q.plate.y, q.icon.s].join())) out.push(`purse: the icons of ${tag} stand apart from their plates differently`);
+      for (const q of at) {
+        if (q.ic !== P.icons[q.k]) out.push(`purse: ${q.k} in ${tag} has the icon ${q.ic}, not ${P.icons[q.k]}`);
+        if (measure(q.s, P.size) > q.plate.w - 2 * P.padX) out.push(`purse: ${q.k} ${q.s} in ${tag} runs past its plate's margins`);
+        if (Math.abs(q.c[0] - (q.plate.x + q.plate.w / 2)) > 0.5 || Math.abs(q.c[1] - P.ty - (q.plate.y + q.plate.h / 2)) > 0.5) out.push(`purse: ${q.k} in ${tag} is not on its plate's middle`); }
+      const box = (q) => [q.icon.x, q.plate.y, q.plate.x + q.plate.w, q.plate.y + q.plate.h];
+      for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) { const a = box(at[i]), b = box(at[j]);
+        if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) out.push(`purse: ${at[i].k} and ${at[j].k} in ${tag} overlap`); }
+      const x0 = Math.min(...at.map((q) => box(q)[0])), x1 = Math.max(...at.map((q) => box(q)[2]));
+      if (Math.abs(x0 - Math.round(500 - B.w * al)) > 0.5 || Math.abs(x1 - x0 - B.w) > 0.5) out.push(`purse: ${tag} spans ${x0}..${x1}, not the ${B.w} px its box gives`); } }
   // the tracker's fold (TASKS 1992): its key flips the player's fold in play and on the pause
   function checkTrkFold(out) { const { S } = playing('warrior'), f0 = S.meta.trkFold ? 1 : 0;
     step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) === f0) out.push('tracker: the fold key does not fold the done quests in play');
@@ -617,6 +640,7 @@
   SIMX.checks.add('stackCheck', checkStacks);
   SIMX.checks.add('hudFootCheck', checkHudFoot);
   SIMX.checks.add('camAimCheck', checkCamAim);
+  SIMX.checks.add('purseCheck', checkPurse);
   SIMX.checks.add('trkFoldCheck', checkTrkFold);
   SIMX.checks.add('testEndCheck', checkTestEnd);
   SIMX.checks.add('strCheck', checkStrUse);
