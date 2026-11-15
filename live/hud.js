@@ -775,6 +775,8 @@
   // the leather darkened under small light text, so the dim lines keep their contrast (TASKS 1332)
   const DARK = [1, 0.62, 0, 1.05];
   const plate = (id, x, y, w, h, o = {}) => { KIT.nine('leather', x, y, w, h, { k: o.k || 0.3, u: { grade: o.grade || DARK, alpha: o.a ?? 1 } }); L.uiBox(id, x, y, w, h, o.pad ?? 4); };
+  // a key hint under a window that stands on the world: on a plate like the hint over the panel's end, or the fire behind it cuts its words (TASKS 2097)
+  const worldHint = (id, s, y) => { const w = lw(id, s, { size: 26 }) + 24; plate(id + '_b', W / 2 - w / 2, y - 21, w, 42, { a: 0.85 }); lab(id, s, W / 2, y, { size: 26, al: 0.5, col: '#8a7d6c' }); };
   const BRASS = [0.66, 0.5, 0.28];
   // the bag's tabs over its grid (TASKS 1687), the open one raised with its seal; while a piece is held the tab under it is lit
   // each tab carries a badge with its free cells (TASKS 1786), red at none, so a full pouch shows before a drop on it is refused;
@@ -1545,8 +1547,8 @@
     U.r.filter((q) => q.id.startsWith('topic:')).forEach((q) => hot(q));
     const low = (s) => s.charAt(0).toLowerCase() + s.slice(1), fl = low(lb[lit] || (at(lit) || {}).label || lb.next),
       eDoes = act && T.act.k === 'turn' ? TXT('hud.talk.eTurn') : act && T.act.k === 'take' ? (T.act.first ? TXT('hud.talk.eTake') : '') : at('craft') && last && !T.inTopic ? TXT('hud.talk.eCraft') : TXT('hud.talk.eNext');
-    lab('tk_keys', T.menu ? TXT('hud.talk.menu') : act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : walk.length < 2 ? (T.inTopic ? TXT('hud.talk.topic') : !act && T.pages.length > 2 && !last ? TXT('hud.talk.skip') : TXT('hud.talk.4'))
-      : eDoes === fl ? TXT('hud.talk.walkBoth', { p1: fl }) : eDoes ? TXT('hud.talk.walkE', { p1: fl, p2: eDoes }) : TXT('hud.talk.walk', { p1: fl }), W / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#8a7d6c' });
+    worldHint('tk_keys', T.menu ? TXT('hud.talk.menu') : act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : walk.length < 2 ? (T.inTopic ? TXT('hud.talk.topic') : !act && T.pages.length > 2 && !last ? TXT('hud.talk.skip') : TXT('hud.talk.4'))
+      : eDoes === fl ? TXT('hud.talk.walkBoth', { p1: fl }) : eDoes ? TXT('hud.talk.walkE', { p1: fl, p2: eDoes }) : TXT('hud.talk.walk', { p1: fl }), P.y + P.h + 30);
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
   function board(S, R, t) {
@@ -1632,7 +1634,7 @@
     else refusal(S, X + 310, P.y + P.h - 60);
     KIT.button('cr_talk', at('talk'), KIT.st(S, 'talk'));
     closeBtn('cr_x', U, S);
-    lab('cr_keys', TXT('hud.craft.10'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#8a7d6c' });
+    worldHint('cr_keys', TXT('hud.craft.10'), P.y + P.h + 34);
     const hb = U.r.find((q) => q.id === S.hover), hi = hb && (hb.id.startsWith('eq:') ? h.eq[hb.slot] : hb.id.startsWith('bag:') ? h.bag[hb.i] : null);
     if (hi) tooltip(S, hi, hb, h, [TXT('hud.craft.11'), C.gold]);
   }
