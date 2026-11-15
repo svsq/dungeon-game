@@ -44,4 +44,20 @@ function compareTree(files, folder, keep = []) {
   return problems;
 }
 
-module.exports = { jsonText, writeTree, compareTree };
+const EXIT_DIFFERS = 2, SHOWN_PROBLEMS = 40;
+
+function writeOrCheck(tool, targets, check) {
+  if (check) {
+    const problems = targets.flatMap(({ files, folder, keep }) => compareTree(files, folder, keep));
+    if (problems.length) {
+      console.error(`${tool}: the output differs:\n  ` + problems.slice(0, SHOWN_PROBLEMS).join('\n  '));
+      process.exit(EXIT_DIFFERS);
+    }
+  } else {
+    for (const { files, folder, keep } of targets) writeTree(files, folder, keep);
+  }
+  const counts = targets.map(({ files, folder }) => `${files.size} files ${check ? 'match' : 'written'} in ${folder}`);
+  console.log(`${tool}: ${counts.join('; ')}`);
+}
+
+module.exports = { jsonText, writeTree, compareTree, writeOrCheck };

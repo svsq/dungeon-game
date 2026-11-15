@@ -12,4 +12,15 @@ function optionsOf(args, required, switches = []) {
   return options;
 }
 
-module.exports = { optionsOf };
+const EXIT_FAILED = 1;
+
+function runTool(tool, main) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`${tool}: ${error.message}`);
+    process.exit(EXIT_FAILED);
+  }
+}
+
+module.exports = { optionsOf, runTool };

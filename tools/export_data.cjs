@@ -7,33 +7,17 @@
 const path = require('path');
 const { loadGameData } = require('./port_export/game_data.cjs');
 const { DataExport } = require('./port_export/data_export.cjs');
-const { writeTree, compareTree } = require('./port_export/file_tree.cjs');
-const { optionsOf } = require('./port_export/options.cjs');
+const { writeOrCheck } = require('./port_export/file_tree.cjs');
+const { optionsOf, runTool } = require('./port_export/options.cjs');
 
+const TOOL = 'export_data';
 const PORT_OWNED = ['version.json'];
-const EXIT_FAILED = 1, EXIT_DIFFERS = 2;
 
-function main() {
+runTool(TOOL, () => {
   const options = optionsOf(process.argv.slice(2), ['out', 'report'], ['check']);
-  const outFolder = path.resolve(options.out), reportFolder = path.resolve(options.report);
   const { dataFiles, reportFiles } = new DataExport(loadGameData()).build();
-  if (options.check) {
-    const problems = [...compareTree(dataFiles, outFolder, PORT_OWNED), ...compareTree(reportFiles, reportFolder)];
-    if (problems.length) {
-      console.error('export_data: the export differs:\n  ' + problems.slice(0, 40).join('\n  '));
-      process.exit(EXIT_DIFFERS);
-    }
-    console.log(`export_data: ${dataFiles.size} data files and ${reportFiles.size} report files match`);
-    return;
-  }
-  writeTree(dataFiles, outFolder, PORT_OWNED);
-  writeTree(reportFiles, reportFolder);
-  console.log(`export_data: ${dataFiles.size} data files in ${outFolder}, ${reportFiles.size} report files in ${reportFolder}`);
-}
-
-try {
-  main();
-} catch (error) {
-  console.error('export_data: ' + error.message);
-  process.exit(EXIT_FAILED);
-}
+  writeOrCheck(TOOL, [
+    { files: dataFiles, folder: path.resolve(options.out), keep: PORT_OWNED },
+    { files: reportFiles, folder: path.resolve(options.report) },
+  ], options.check);
+});
