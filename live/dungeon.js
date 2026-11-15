@@ -154,6 +154,8 @@
   // hands a stage the shared values to read, after(stage, GF, map) looks at what it left and reroll(stage) counts a stage's null, and with it null a floor is laid as it was
   const STAGES = ['rooms', 'links', 'terrain'];
   DGX.audit = null;
+  // the named passes of a stage a check leaves out to see the floor without them (tools/cavelightcheck.mjs: caveDensity); empty in play
+  DGX.leaveOut = new Set();
   function tryGen(seed, runFloor, opts, strict, lastTry, altTry) {
     const GF = {};
     const R = mul32(seed), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pick = (arr) => arr[Math.floor(R() * arr.length)];
@@ -170,9 +172,9 @@
     // spacing, its links (long narrow ridges with dead-end ledges) and what lies off the floor (lava, the chasm, a wall at the top only)
     const arch = ST.arch || N.arch, AR = D.ARCH[arch], plat = arch === 'plateau', cave = arch === 'cave' || plat;
     const [W, H] = ST.size || (cave ? N.size[floor - 1] : [72, 54]), cells = new Array(W * H).fill(0), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : cells[y * W + x]);
-    // (moat: a fortress's rock between its ring and its court, TASKS 380, no corridor is dug through once the gates are)
+    // (moat: the cells of a fortress's rock between its ring and its court, TASKS 380, no corridor is dug through once the gates are)
     GF.moat = null;
-    const set = (x, y, v) => { if (!onRim(x, y, W, H) && !(GF.moat && v === 1 && GF.moat(x, y))) cells[y * W + x] = v; };
+    const set = (x, y, v) => { if (!onRim(x, y, W, H) && !(GF.moat && v === 1 && GF.moat.has(y * W + x))) cells[y * W + x] = v; };
     Object.assign(GF, {
       AR, FM, H, R, ST, W, altTry, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, opts, pick, plat, ri,
       runFloor, seed, set, strict });
