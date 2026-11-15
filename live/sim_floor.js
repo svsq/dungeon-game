@@ -138,11 +138,11 @@
     else { const B = freshFloor(R, f, M), mp = mapPrint(B.map), same = !M.mp || M.mp === mp; if (!M.mp) M.mp = mp;
       // a diff that no longer fits the floor built now (TASKS 1917): the floor is built anew as an old generator's is, so the way on is
       // never shut; the explored map stays only on the same layout
-      try { if (!same) throw new Error('the floor is built otherwise than it was kept'); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
+      try { if (!same) throw new Error('the floor is built otherwise than it was kept'); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); relinkSconces(B.map); for (const k of FLOOR_KEYS) R[k] = B[k]; }
       catch (err) { console.error('restoreFloor', f, 'diff does not fit, floor built anew', err); const seen = M.seen, rseen = M.rseen; BASE.delete(M); migrateFloor(R, f, M);
         if (same) { M.seen = seen; M.rseen = rseen; } old = true; } }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
-    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); mapw.touch(R.map); return old; }
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateKept(R, 'restoreFloor'); mapw.touch(R.map); return old; }
   function seatFoe(R, e, sol = SIMX.solids(R), room) { const m = R.map, E = ENEMIES[e.type], r = E.r, x0 = e.x, y0 = e.y, fits = (x, y) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r),
       clear = (x, y) => (room === undefined || DG.inRm(m.rooms[room], Math.floor(x / D.TILE), Math.floor(y / D.TILE))) && fits(x, y);
     if (E.ghost || E.deep || E.lake) return; if (E.kind === 'salamander') { e.hx = e.x; e.hy = e.y; return; } shove(m, e, r, true, sol);
@@ -251,6 +251,7 @@
   const fstat = (R) => R.stats[R.floor];
   // a run saved before its floor's count was kept gets it here, in a step, never in a read
   const fillStats = (R) => { R.stats = R.stats || {}; return R.stats[R.floor] || (R.stats[R.floor] = floorStat(R)); };
+  const mendCounts = (R) => { if (!R.map) return; fillStats(R); if (R.floor === 0) SIMX.dealOffers(R); };
   // totals over the given floors' stats; a category with nothing in it is left out of the average, never counted as 0%
   function completion(list) {
     const T = { floors: list.length, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0 };
@@ -363,8 +364,10 @@
   function mendArches(R) { const m = R && R.map; if (!m || !m.crossings || !m.cells) return; for (const c of m.crossings) if (c.kind === 'arch' && c.lava && !DG.archLegs(m, c)) c.kind = 'slabs'; }
   // (TASKS 2063) a floor in play saved before its torches had ids holds its sconce by place in the list, which a cut had moved: the sconce is the torch that
   // carries the secret's own number, as the generator laid it
-  const relinkSconce = (m, q, i) => { const t = q.trig && q.trig.k === 'sconce' && m.torches.find((o) => o.lever === i); if (t) q.trig.t = DG.linkId(m.torches, t); };
-  function migrateSecrets(R) { const m = R && R.map; if (!m) return; (m.secrets || []).forEach((q, i) => relinkSconce(m, q, i)); for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
+  const relinkSconce = (m, q, i) => { if (!q.trig || q.trig.k !== 'sconce') return; const t = m.torches.find((o) => o.lever === i); if (!t) throw new Error(`secret ${i} holds a sconce that no torch carries`); q.trig.t = DG.linkId(m.torches, t); };
+  const relinkSconces = (m) => (m.secrets || []).forEach((q, i) => relinkSconce(m, q, i));
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } relinkSconces(m); }
+  const migrateKept = (R, where) => { try { migrateSecrets(R); } catch (err) { console.error(`${where}: a run keeps a secret it cannot link`, err); } };
   function secretMask(m) { const key = rev(m);
     if (MASK.rev === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];
@@ -390,6 +393,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    release: false, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, mendArches });
+    release: false, migrateTown, newRun, genApart, standNear, seatFoe, enterFloor, mendRun, rebuildArrival, counted, floorStat, fstat, fillStats, mendCounts, completion, runCompletion, completionHints, stepHazards,
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets, migrateKept, mendArches });
 })(typeof window !== 'undefined' ? window : globalThis);
