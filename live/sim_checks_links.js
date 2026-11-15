@@ -44,6 +44,8 @@
       SIMX.migrateSecrets({ map: old }); const got = DG.byId(old.torches, old.secrets[i].trig.t);
       if (got !== t) out.push(`links: ${label}: a saved floor's sconce of secret ${i} is not found again by its lever number`);
       SIMX.migrateSecrets({ map: old }); if (DG.byId(old.torches, old.secrets[i].trig.t) !== got) out.push(`links: ${label}: loading a floor twice moves its sconce`);
+      delete t.lever; let thrown = null; try { SIMX.migrateSecrets({ map: old }); } catch (err) { thrown = err; }
+      if (!thrown) out.push(`links: ${label}: a sconce no torch carries is loaded without an error`);
       return; }
     out.push('links: no floor with a sconce secret to load as an old save');
   }

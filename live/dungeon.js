@@ -151,7 +151,7 @@
   const linkId = (list, o) => { if (o.id === undefined) o.id = list.reduce((n, p) => Math.max(n, p.id === undefined ? 0 : p.id), 0) + 1; return o.id; };
   const byId = (list, id) => list.find((o) => o.id === id);
   // the stages tryGen runs before the contents, in this order; DGX.audit is set by a check only (sim_checks_genguard.js): view(stage, GF)
-  // hands a stage the shared values to read and after(stage, GF, map) looks at what it left, and with it null a floor is laid as it was
+  // hands a stage the shared values to read, after(stage, GF, map) looks at what it left and reroll(stage) counts a stage's null, and with it null a floor is laid as it was
   const STAGES = ['rooms', 'links', 'terrain'];
   DGX.audit = null;
   function tryGen(seed, runFloor, opts, strict, lastTry, altTry) {
@@ -177,8 +177,9 @@
       AR, FM, H, R, ST, W, altTry, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, opts, pick, plat, ri,
       runFloor, seed, set, strict });
     const view = (stage) => (DGX.audit ? DGX.audit.view(stage, GF) : GF), seen = (stage, out) => { if (DGX.audit) DGX.audit.after(stage, GF, out); };
-    for (const stage of STAGES) { if (DGX[stage](view(stage)) === null) return null; seen(stage); }
-    const m = DGX.fill(view('fill')); seen('fill', m);
+    const rerolled = (stage) => { if (DGX.audit) DGX.audit.reroll(stage); return null; };
+    for (const stage of STAGES) { if (DGX[stage](view(stage)) === null) return rerolled(stage); seen(stage); }
+    const m = DGX.fill(view('fill')); seen('fill', m); if (!m) return rerolled('fill');
     // a modifier only raises a cap or a chance, so a floor may have no room for it; the banner must never name one the floor lacks
     if (m && m.mod && MOD_HELD[m.mod] && !MOD_HELD[m.mod](m)) { if (strict) return null; m.mod = null; }
     if (m) markEvents(m, ST, opts, seed);
