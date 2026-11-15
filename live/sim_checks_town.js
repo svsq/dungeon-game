@@ -327,14 +327,14 @@
     Q.hero.hp = 5; for (let i = 0; i < 30; i++) step(T, { keys: [] }); const tip = Q.msg && Q.msg.tip === 'scroll';
     Q.msg = null; for (let i = 0; i < 30; i++) step(T, { keys: [] }); if (!tip || !T.meta.tipScroll || (Q.msg && Q.msg.tip === 'scroll')) out.push('scroll: the hint at low health does not come once');
     return out; }
-  // TASKS 1781: along the whole rail the cart shows one painting, kept upright: the 3/4 one turned no more than CART.roll with its
-  // wheel line on the rails, the front one never turned and its axle tilted no more than 18 degrees; one change of view at the bend
+  // TASKS 1781: along the whole rail the cart shows one painting, kept upright: the 3/4 one turned no more than CART.roll (8°) and sheared to have its
+  // wheel line on the rails, uprights plumb (TASKS 2090), the front one never turned and its axle tilted no more than 18 degrees; one change of view at the bend
   function cartCheck() {
     const out = [], C = D.CART, R2D = 180 / Math.PI, m = DG.genTown(31), pts = D.railPts(m);
     let prev = null, swaps = 0;
     for (let s = 0; s <= 400; s++) { const v = D.cartView(pts, s);
-      if (v.side) { const line = Math.atan(Math.tan(C.side / R2D) / v.sx) * R2D - v.rot;
-        if (Math.abs(v.rot) > C.roll + 0.5 || v.sx < C.squash - 1e-6 || v.sx > 1) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}° or narrowed to ${v.sx.toFixed(2)}`);
+      if (v.side) { const line = Math.atan(Math.tan((Math.atan(Math.tan(C.side / R2D) / v.sx) * R2D - v.rot) / R2D) - Math.tan(v.tilt / R2D)) * R2D;
+        if (Math.abs(v.rot) > C.roll + 0.5 || v.sx < C.squash - 1e-6 || v.sx > 1 || Math.abs(v.tilt) > C.side + 1) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}°, sheared ${v.tilt.toFixed(0)}° or narrowed to ${v.sx.toFixed(2)}`);
         if (Math.abs(line - v.th) > 1) out.push(`cart: the 3/4 view's wheel line at ${s} px runs ${line.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`); }
       else if (v.rot || v.sx !== 1 || Math.abs(v.tilt) > 18 || v.th < 55) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}° or its axle tilts ${v.tilt.toFixed(0)}°`);
       if (prev && prev.side !== v.side) swaps++;
