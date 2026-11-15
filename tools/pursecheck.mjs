@@ -9,7 +9,7 @@ const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--
 // the screens with a currency on them and what each must show
 const SCREENS = {
   purse_hud: ['gold', 'shards', 'key'], play_worst: ['gold', 'shards'], town_services: ['gold', 'shards'], inv: ['gold', 'shards'],
-  shop_screen: ['gold'], town_forge: ['gold'], town_enchant: ['gold', 'shards'], altar_screen: ['gold', 'shards'],
+  shop_screen: ['gold'], town_forge: ['gold'], town_enchant: ['gold', 'shards'], altar_screen: ['gold', 'shards'], town_meta: ['gold', 'shards'],
 };
 // values no other text on these screens holds, so a count drawn outside the purse shows up by its digits
 const MARK = { gold: 73519, shards: 64287 };

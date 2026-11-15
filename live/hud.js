@@ -1443,7 +1443,10 @@
   function meta(S, t) { const I = KIT.INK;
     desk(t); page('mt_page', 130, 70, 1660, 940);
     KIT.heading('mt_t', TXT('hud.meta'), W / 2, 140, { size: 60, wing: 100 });
-    { const s = TXT('hud.meta.2', { shards: S.meta.shards }); KIT.ink('mt_s', s, W / 2, S.metaRun ? 206 : 226, { size: 26, fit: 1560, al: 0.5, col: I.d }); }
+    KIT.ink('mt_s', TXT('hud.meta.2'), W / 2, S.metaRun ? 206 : 226, { size: 26, fit: 1560, al: 0.5, col: I.d });
+    // the count of shards (and the gold at the altar mid-run) is the shared purse, by the buttons, its foot on theirs (TASKS 2098)
+    { const R = S.metaRun ? S.run : null, rows = R ? [['gold'], ['shards']] : [['shards']], bk = D.UI.meta(S.meta.cls, S.metaTab).find((q) => q.id === 'back'), bh = D.UI.kit.purseBox(purseRows(S, R, rows), purseW).h;
+      purse('meta', S, R, rows, 190, bk.y + bk.h - bh + D.UI.purse.h / 2); }
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) halves(TXT('hud.meta.3')).forEach((q, i) => KIT.ink('mt_run' + i, q, W / 2, 237 + i * 24, { size: 20, al: 0.5, col: I.d }));
     // a row lights under the pointer whether or not it can be bought; one the shards do not reach is dimmed (TASKS 1858)
