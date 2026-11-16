@@ -25,7 +25,7 @@
         const last = E.wave === N - 1, n = SIMX.summonPack(S, R, E.room, D.EVENTS.trialWave(E.wave, N, SIMX.dep(R)), 'trial', 1, last ? P.elites : 0);
         // a room with no free spot for it (the hero's foot, a crowd) gets another try; past the cap the wave is let go, so it never hangs
         if (!n && (E.tries = (E.tries || 0) + 1) < P.tries) { E.waveT = S.t + P.retry; return; }
-        E.waveT = 0; E.tries = 0; if (n) R.msg = { s: TXT(last ? 'EVENTS.trial.last' : 'EVENTS.trial.wave', { n: E.wave + 1, of: N }), t: S.t, d: 2 }; S.saveN++; return; }
+        E.waveT = 0; E.tries = 0; if (n) R.msg = { s: (last ? TXT('EVENTS.trial.last', { n: E.wave + 1, of: N }) : TXT('EVENTS.trial.wave', { n: E.wave + 1, of: N })), t: S.t, d: 2 }; S.saveN++; return; }
       if (trialFoes(R, E).length) return;
       if (++E.wave >= N) eventDone(S, R, E); else E.waveT = S.t + P.gap; },
     reward(S, R, E) { const Y = trialPay(E); grates(R, E, 0);
