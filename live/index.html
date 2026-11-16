@@ -27,10 +27,15 @@ const V = Date.now(), STATIC = !!window.__STATIC__;          // STATIC: packed b
 // the start's screen and log (TASKS 2004): a title and a bar from the first paint, so the window is never a black one while the
 // scripts, the textures and the shaders load; every stage's time goes to the console and, in the desktop build, to boot.log
 const BOOT = { el: document.getElementById('boot'), done: 0, all: 1, t: performance.now() };
-const bootStep = (n = 1) => { BOOT.done += n; const f = Math.min(1, BOOT.done / BOOT.all); if (!BOOT.el) return; BOOT.el.querySelector('i').style.width = (f * 100).toFixed(1) + '%'; BOOT.el.querySelector('.n').textContent = `Загрузка… ${Math.round(f * 100)} %`; };
+const barTo = (el, f) => { el.querySelector('i').style.width = (f * 100).toFixed(1) + '%'; el.querySelector('.n').textContent = `Загрузка… ${Math.round(f * 100)} %`; };
+const bootStep = (n = 1) => { BOOT.done += n; if (BOOT.el) barTo(BOOT.el, Math.min(1, BOOT.done / BOOT.all)); };
 const bootLog = (s) => { console.info('[boot] ' + s); try { if (window.desktop && desktop.bootLog) desktop.bootLog(s); } catch (e) {} };
 const mark = (k, more = '') => { const now = performance.now(); bootLog(`${k.padEnd(9)} ${(now - BOOT.t).toFixed(0).padStart(6)} ms  (at ${now.toFixed(0)} ms)${more ? '  ' + more : ''}`); BOOT.t = now; };
-const bootEnd = () => { if (BOOT.el) { BOOT.el.remove(); BOOT.el = null; } };
+// the start's screen stays for a floor whose programs are still compiling (TASKS 2106): shown again with their share on its bar
+const LOADING = BOOT.el;
+const bootEnd = () => { if (BOOT.el) { BOOT.el.style.display = 'none'; BOOT.el = null; } };
+const loadingShow = (f) => { if (BOOT.el) return; LOADING.style.display = ''; barTo(LOADING, f); };
+const loadingHide = () => { if (!BOOT.el && LOADING.style.display !== 'none') LOADING.style.display = 'none'; };
 // the scripts download side by side and still run in the list's order (async = false); one after another, each waited for its own
 // round trip into the desktop build's archive
 const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V; s.async = false; s.onload = () => { bootStep(); res(); }; s.onerror = () => rej(new Error('failed ' + src)); document.head.appendChild(s); });
@@ -57,7 +62,11 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const px = Object.values(ASSETS).reduce((a, o) => a + o.w * o.h, 0);
   await Promise.all(Object.keys(ASSETS).map((n) => G.load(n, 'assets/' + n + '.png?v=' + V, { repeat: rep.has(n), nearest: near(n) }).then((r) => { bootStep(); return r; })));
   mark('textures', `${Object.keys(ASSETS).length} png, ${(px * 4 / 1048576).toFixed(0)} MB as RGBA, uploads ${G.upMs.toFixed(0)} ms of it`);
-  G.defer = true; SCENE.programs(); mark('programs'); const nSh = await G.settle(); bootStep(40); mark('shaders', `${nSh} programs`);
+  // each program's line as it gets done, in that order, ms from its own compile's start (TASKS 2106)
+  G.onReady = (name, ms, how) => bootLog(`shader   ${name.padEnd(10)} ${ms.toFixed(0).padStart(6)} ms  ${how}`);
+  // a tool's render (?render=1) draws any floor at once: it gets every program before its first frame
+  G.defer = true; SCENE.programs(); if (render) G.want(Object.keys(LIB.P)); mark('programs');
+  const nSh = await G.settle(); bootStep(40); mark('shaders', `${nSh} programs, ${G.pending()} left for the background`);
   window.__duration = SIM.L;
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
   if (render) { bootEnd(); window.__ready = true; return; }
@@ -163,9 +172,24 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   let devOn = q.has('dev') || /dev/.test(location.hash), padCursor = false;
   const pad = window.PADIN ? PADIN.create({ keys, ptr, pend, VW, VH, play: () => play, start: () => { if (!play) startPlay(); }, dev: () => { devOn = !devOn; } }) : null;
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
+  // the frames' times over the first minute, one line to boot.log (TASKS 2106: a weak PC's own frame was never measured); cap: room
+  // for a minute at 240 Hz, filled in place
+  const FRAMES = { s: 60, cap: 16384, slow: 50, q: [0.5, 0.95] }, ft = new Float32Array(FRAMES.cap);
+  let ftN = 0, ftT0 = -1;
+  const frameStat = (now, ms) => { if (ftT0 === -2) return; if (ftT0 < 0) { ftT0 = now; return; } if (ftN < FRAMES.cap) ft[ftN++] = ms;
+    if (now - ftT0 < FRAMES.s * 1000) return; ftT0 = -2; const a = ft.subarray(0, ftN).sort(), at = (q) => a[Math.min(ftN - 1, Math.floor(q * ftN))].toFixed(1);
+    let slow = 0; for (let i = 0; i < ftN; i++) if (a[i] > FRAMES.slow) slow++;
+    bootLog(`frames   ${FRAMES.s} s: ${ftN} frames, ${FRAMES.q.map((q) => `p${q * 100} ${at(q)} ms`).join(', ')}, ${slow} over ${FRAMES.slow} ms`); };
+  // a floor drawn only once its programs are ready (TASKS 2106): till then the run stands under the loading screen, the attract
+  // demo leaves the title alone on the dark; held: when the wait began, what it was for
+  let held = null, frameN = 0;
+  const holdEnd = (now) => { if (!held) return; bootLog(`wait     ${held.what}: ${(now - held.t).toFixed(0)} ms for its programs`); held = null; };
   const loop = () => {
-    const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
+    const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); frameStat(now, now - last); last = now;
     fpsAcc += wall; fpsN++; if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
+    // (the first frame starts no compile of its own: it is the start's last step)
+    const warm = frameN++ > 0; if (warm) G.pump();
+    let wait = play ? SCENE.ready(play.run) : 1;
     if (pad) pad.poll(wall);                           // in real time, not scaled by the dev speed
     if (pad && !!pad.state.active !== padCursor) { padCursor = !!pad.state.active; cv.style.cursor = padCursor ? 'none' : 'crosshair'; }   // the HUD draws the pad's pointer
     const dt = paused ? (stepOnce ? 1 / 60 : 0) : wall * speed; stepOnce = false;
@@ -175,6 +199,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
         jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, shift: !!(keys.ShiftLeft || keys.ShiftRight), slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
         now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away, upd };
+      if (wait < 1) { acc = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; ptr.click = ptr.rclick = 0; pend.slot = pend.wheel = 0; }
       while (acc >= SIM.DT) { if (pad) pad.stepBegin(); SIM.step(play, inp); if (pad) pad.stepEnd(); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
@@ -185,9 +210,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
-      SCENE.state = play;
-    } else SCENE.state = null;
-    try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
+      SCENE.state = play; wait = SCENE.ready(play.run);
+      if (wait < 1 && !held) held = { t: now, what: 'floor ' + play.run.floor + ' ' + play.run.map.biome };
+      if (wait < 1) loadingShow(wait); else { loadingHide(); holdEnd(now); }
+    } else { const d = SIM.Q.at(simT), dw = warm ? SCENE.ready(d.run) : 0; SCENE.state = dw < 1 ? Object.assign({}, d, { run: null }) : null; loadingHide();
+      if (dw < 1 && !held) held = { t: now, what: 'the demo ' + d.run.map.biome }; if (dw >= 1) holdEnd(now); }
+    if (wait >= 1) try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
     const devShown = !STATIC && (paused || speed !== 1 || devOn);
     if (!STATIC) dev.style.display = devShown ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev

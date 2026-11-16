@@ -247,11 +247,19 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
   // in W×H view px) that finish upscales with nearest: crisp pixel art (pair with SCENE.NEAREST, positions snapped to k px)
-  L.init = (w, h, extra = {}, { pixel = 1, view = [w, h] } = {}) => {
+  // eager: the names compiled now (all when not given); the rest wait in G.define's queue and an L.P.<name> asked first starts its own
+  // order: the queue's order, names left out of it after it
+  L.init = (w, h, extra = {}, { pixel = 1, view = [w, h], eager = null, order = [] } = {}) => {
     W = L.W = w; H = L.H = h; P = L.P = {}; L.PIXEL = Math.max(1, pixel);
-    for (const k in SH) if (k !== 'SOLIDN') P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
-    P.spriten = G.program('spriten', SPRITE, 'off'); P.solidn = G.program('solidn', SOLIDN, 'rect');   // the batched (TASKS 2031, 2032)
-    for (const k in extra) P[k] = G.program(k, extra[k]);
+    const src = {};
+    for (const k in SH) if (k !== 'SOLIDN') src[k.toLowerCase()] = [SH[k], 'one'];
+    src.spriten = [SPRITE, 'off']; src.solidn = [SOLIDN, 'rect'];   // the batched (TASKS 2031, 2032)
+    for (const k in extra) src[k] = [extra[k], 'one'];
+    for (const k of [...new Set([...order.filter((n) => n in src), ...Object.keys(src)])]) {
+      G.define(k, src[k][0], src[k][1]);
+      if (!eager || eager.has(k)) { P[k] = G.make(k); continue; }
+      Object.defineProperty(P, k, { configurable: true, enumerable: true, get: () => { const p = G.make(k); Object.defineProperty(P, k, { value: p, enumerable: true }); return p; } });
+    }
     const px = L.PIXEL, lo = { view, nearest: px > 1 };
     for (const k in T) G.free(T[k]);
     T.bg = G.target(Math.round(w / px), Math.round(h / px), true, lo); T.comp = G.target(Math.round(w / px), Math.round(h / px), true, lo);
