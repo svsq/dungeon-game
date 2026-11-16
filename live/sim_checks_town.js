@@ -23,7 +23,9 @@
       { const [rx, ry] = [m.town.rails[0] % m.W, Math.floor(m.town.rails[0] / m.W)], e = m.town.rails[m.town.rails.length - 1], g = DG.TOWN.exitGate[0];
         if (rx !== DG.TOWN.adit[0] || ry !== DG.TOWN.adit[1]) out.push(`town ${sd}: the rails do not start under the adit`);
         if (m.town.rails.some((k) => Math.abs(k % m.W - g) < 8)) out.push(`town ${sd}: the rails run by the gate`);
-        if (!m.town.yardSolid.some((p) => Math.floor(p.y / TILE) === Math.floor(e / m.W) && Math.floor(p.x / TILE) === e % m.W - 1)) out.push(`town ${sd}: the rails end short of the mason's yard`); }
+        // TASKS 2090 cut the rails' flat last cell, so the yard's stone stands one free cell past the diagonal's end
+        const YARD_GAP = 2;
+        if (!m.town.yardSolid.some((p) => Math.floor(p.y / TILE) === Math.floor(e / m.W) && e % m.W - Math.floor(p.x / TILE) === YARD_GAP)) out.push(`town ${sd}: the rails end short of the mason's yard`); }
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
     // TASKS 2100: the sweeper's round (its legs too) keeps clear of the hero's straight lines from the spawn to each service and from the stairs to the gate
@@ -351,7 +353,7 @@
       if (prev && prev.side !== v.side) swaps++;
       prev = v; if (out.length > 4) break; }
     if (swaps !== 1) out.push(`cart: the view changes ${swaps} times along the rails, not once at the bend`);
-    const end = D.cartView(pts, 1e4), th0 = end.th; if (th0 < C.diag - C.trim - 1 || th0 > C.diag + C.trim + 1) out.push(`cart: at the rails' end the slope is ${th0.toFixed(0)}°, not the 3/4 painting's`);
+    const end = D.cartView(pts, D.cartAt(pts, 1e4).ds), th0 = end.th; if (th0 < C.diag - C.trim - 1 || th0 > C.diag + C.trim + 1) out.push(`cart: at the rails' end the slope is ${th0.toFixed(0)}°, not the 3/4 painting's`);
     // TASKS 2090: the wheels' lug moves no more than CART.lug.step px a frame at the top speed, and the rope on the plumb run keeps CART.rope.gap px
     // off the rails' axis (the winch's plumb line down to the cart) but at its two ends; the sizes are the paintings' pixels at the sprites' height
     const sizes = fs.readFileSync(path.join(__dirname, 'sizes.js'), 'utf8'), size = (n) => { const b = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), hh = +new RegExp('\\b' + n + ': (\\d+)').exec(sizes)[1];
