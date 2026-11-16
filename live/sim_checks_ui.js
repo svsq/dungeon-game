@@ -436,6 +436,8 @@
     // the normal death's toast (TASKS 2126): each of its two lines whole on one line of the toast, the widest number in it
     { const T = D.TOAST, xp = String(Math.round(D.xpNeed(99) * D.BAL.deathXpLoss));
       for (const s of [TXT('sim_ui.fell.msg', { xp }), TXT('sim_ui.fell.msg.none'), TXT('sim_ui.fell.way.first'), TXT('sim_ui.fell.way.portal', { f: C.floors }), TXT('sim_ui.fell.way.boss', { f: C.floors })]) fits('death toast', s, T.one, T.size2, T.size2); }
+    // the quantity window's count with its top (town_game_r10 2), the widest a stack or a purse gives, between its − and +
+    { const { fontW } = SIMX.checks.kit, N = D.UI.split().num, w = fontW('999', 40, true) + 10 + fontW(TXT('hud.split.of', { n: 999 }), 22); if (w > N.w) out.push(`quantity window: «999 ${TXT('hud.split.of', { n: 999 })}» is ${w.toFixed(0)} px, its room ${N.w}`); }
     for (const k of D.DEATH_ORDER) fits('statistics', TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: '999', d: '99 999', b: C.floors }), U.modeW, 22, 20); }
   // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
   function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
@@ -733,7 +735,8 @@
     const cells = []; for (let c = 0; c < walk.length; c++) if (walk[c]) cells.push([(c % m.W + 0.5) * TILE, (Math.floor(c / m.W) + 0.5) * TILE]);
     const touch = (b, hud) => hud.find((z) => b[0] < z[2] && b[2] > z[0] && b[1] < z[3] && b[3] > z[1]), quest = (i, st) => ({ id: 900 + i, key: 'cull', f: 2 + i, need: 14, n: 0, st, from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) });
     S.screen = 'play'; R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }]; R.legAuto = 0; R.msg = null; S.t = R.enteredT ?? S.t; R.zoom = 1;
-    let marks = 0, under = 0, first = null;
+    let marks = 0, under = 0, first = null, heads = 0, headSmall = 0;
+    const roomNear = (x, y, hud, w, hh) => { for (let dy = 0; dy <= Q.nudge[1]; dy += 8) for (let dx = -Q.nudge[0]; dx <= Q.nudge[0]; dx += 8) { const b = D.questMarkBox(x + dx, y + dy, false), p = Q.hudPad; if (b[0] >= 0 && b[2] <= w && b[1] >= 0 && b[3] <= hh && !touch([b[0] - p, b[1] - p, b[2] + p, b[3] + p], hud)) return true; } return false; };
     try { for (const [ww, wh] of [[2576, 1456], [1920, 1080], [1366, 768]]) { const vh = SIMX.setView(SIMX.viewFor(ww, wh)), VWd = SIMX.VIEW.W;
       for (const leg of [0, 1]) for (const nq of [1, 4]) { R.mapLeg = leg; R.quests = Array.from({ length: nq }, (_, i) => quest(i, i ? 'taken' : 'done'));
         for (let c = 0; c < cells.length; c += 3) { [h.x, h.y] = cells[c]; R.camLook = [0, 0]; SIMX.snapCam(R); const z = R.zoom, cx = R.cam[0], cy = R.cam[1];
@@ -742,11 +745,38 @@
             const tag = `${ww}×${wh}, legend ${leg ? 'open' : 'shut'}, ${nq} quests, hero at ${Math.floor(h.x / TILE)},${Math.floor(h.y / TILE)}, a ${sh} px giver at ${Math.floor(fx / TILE)},${Math.floor(fy / TILE)}`;
             if (hit) { under++; first = first || `quest mark: ${tag}: its ${a.small ? 'small ' : ''}mark at ${Math.round(a.x)},${Math.round(a.y)} lies under the HUD's ${hit[4]}`; continue; }
             const head = gy - sh * z, full = D.questMarkBox(gx, head - Q.gap - Q.h / 2, false);
-            if (a.small && gx >= 0 && gx <= VWd && gy >= 0 && gy <= vh && full[1] >= 0 && !touch(full, hud)) first = first || `quest mark: ${tag}: his head is on the screen and clear of the HUD, but the mark is small`;
-            else if (!a.small && (a.x !== gx || Math.abs(head - a.y - Q.h / 2 - Q.gap) > 0.5)) first = first || `quest mark: ${tag}: the full mark at ${Math.round(a.x)},${Math.round(a.y)} is not over his head`;
+            const hy = head - Q.gap - Q.h / 2, onScr = gx >= 0 && gx <= VWd && gy >= 0 && gy <= vh && full[1] >= 0;
+            if (onScr) { heads++; if (a.small) headSmall++; }
+            if (a.small && onScr && !touch(full, hud)) first = first || `quest mark: ${tag}: his head is on the screen and clear of the HUD, but the mark is small`;
+            // town_game_r10 4: a full mark nudged within Q.nudge of the head and clear of the HUD was there to take before a small one
+            else if (a.small && onScr && ww === 1920 && roomNear(gx, hy, hud, VWd, vh)) first = first || `quest mark: ${tag}: a full mark fits within ${Q.nudge} px of his head, but the mark is small`;
+            else if (!a.small && (Math.abs(a.x - gx) > Q.nudge[0] + 0.5 || a.y < hy - 0.5 || a.y - hy > Q.nudge[1] + 0.5)) first = first || `quest mark: ${tag}: the full mark at ${Math.round(a.x)},${Math.round(a.y)} is not by his head`;
             else if (a.small && !inside(a, VWd, vh)) first = first || `quest mark: ${tag}: the small mark at ${Math.round(a.x)},${Math.round(a.y)} is off the screen's margin`; } } } } } }
     finally { SIMX.setView(h0); }
-    if (first) out.push(first + (under ? ` (${under} of ${marks} marks under the HUD)` : '')); }
+    if (first) out.push(first + (under ? ` (${under} of ${marks} marks under the HUD)` : ''));
+    // the share the r10 critic counted: of the givers whose head is on the screen, how many show the small mark (34 % before the nudge)
+    if (headSmall > heads * Q.headSmall) out.push(`quest mark: ${headSmall} of ${heads} givers with the head on the screen show a small mark, over ${Q.headSmall * 100} %`); }
+  // town_game_r10 2, 3: the quantity window's «−» at 1 and «+» at the top are dim and inert, a step past an end answers with the
+  // refusal's sound and a shake of the count, the top is written «из N»; its keys and the ring's lie on their own plates
+  function checkSplitEnds(out) {
+    const page = require('./sandbox.cjs').hudBox(D, root.SIM, SIMX.checks.kit.fontW), K = page.KIT, btn = K.button, ink = K.ink, seen = {};
+    K.button = (id, b, st, kind) => { seen[id] = st; return btn(id, b, st, kind); }; K.ink = (id, s2, ...a) => { seen[id] = s2; return ink(id, s2, ...a); };
+    const draw = (S) => { for (const k in seen) delete seen[k]; page.HUD.draw(S, S.t); };
+    try {
+      const { S, R, h } = playing('warrior'); S.screen = 'inv'; h.bag.fill(null); h.bag[0] = Object.assign(SIMX.potion('hp_potion', 3), { id: R.nextId++ });
+      const cell = UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab).r.find((q) => q.id === 'bag:0'), p = mid(S, cell); step(S, Object.assign({ keys: [], click: 1, press: 1, shift: 1 }, p)); step(S, Object.assign({ keys: [] }, p));
+      const A = S.split; if (!A || A.hi !== 2) { out.push(`split ends: Shift+click on a stack of 3 asks ${JSON.stringify(A)}`); return; }
+      const U = UI.split(), tap = (id) => press(S, U.r.find((q) => q.id === id)), nopes = () => S.ev.filter((e) => e.k === 'nope').length;
+      A.n = A.hi; draw(S); if (!seen.sp_spPlus || !seen.sp_spPlus.off || seen.sp_spMinus.off) out.push(`split ends: at ${A.n} of ${A.hi} the «+» is ${seen.sp_spPlus && seen.sp_spPlus.off ? 'dim' : 'lit'}, the «−» ${seen.sp_spMinus && seen.sp_spMinus.off ? 'dim' : 'lit'}`);
+      if (seen.sp_of !== TXT('hud.split.of', { n: A.hi })) out.push(`split ends: the top reads «${seen.sp_of}», not «${TXT('hud.split.of', { n: A.hi })}»`);
+      let n0 = nopes(); tap('spPlus'); if (A.n !== A.hi || nopes() !== n0 + 1 || !A.bump || A.bump.d !== 1) out.push(`split ends: «+» at the top leaves ${A.n} with ${nopes() - n0} refusals, bump ${JSON.stringify(A.bump)}`);
+      tap('spMinus'); tap('spMinus'); draw(S); if (A.n !== 1 || !seen.sp_spMinus.off || seen.sp_spPlus.off) out.push(`split ends: at 1 the «−» is not the dim one (n ${A.n})`);
+      n0 = nopes(); step(S, { keys: ['ArrowLeft'] }); step(S, { keys: [] }); if (A.n !== 1 || nopes() !== n0 + 1 || A.bump.d !== -1) out.push('split ends: ← at 1 does not answer');
+      if (D.feedOf(S.ev, S.t).some((e) => e.k === 'nope' && !e.s)) out.push('split ends: the wordless refusal takes a plate of the feed');
+      const KP = page.HUD.keyPlates(), sp = KP.sp_keys; if (!sp || sp[2] < SIMX.checks.kit.fontW(TXT('hud.split.keys'), 26) + 16) out.push(`split ends: the quantity window's keys have no plate their width (${JSON.stringify(sp)})`);
+      const T = townRun(), TR = T.run; TR.portal = { f: 3, x: 0, y: 0, from: 'scroll' }; T.meta.portals = [2]; T.screen = 'gate'; draw(T); const G = page.HUD.keyPlates().gt_help, P = UI.gate(SIMX.gateWays(TR, T).length).P;
+      if (!G || G[2] < SIMX.checks.kit.fontW(TXT('hud.gate.6'), 26) + 16 || G[1] < P.y + P.h) out.push(`split ends: the ring's keys have no plate their width under the window (${JSON.stringify(G)}, window to ${P.y + P.h})`);
+    } finally { K.button = btn; K.ink = ink; } }
   // TASKS 2114: a button's «+» and «−» are bars whose middle is the button's middle to 0 px and whose edges fall on whole px, on odd
   // and even button sizes and at odd and even corners; the split window's ± buttons are drawn by them
   function checkSign(out) { const K = UI.kit; if (!K.signRects || !K.SIGN_OF) { out.push('sign: no shared «+»/«−» layout (UI.kit.signRects)'); return; }
@@ -763,6 +793,7 @@
   SIMX.checks.add('menuCheck', menuCheck);
   SIMX.checks.add('uiCheck', checkReview57);
   SIMX.checks.add('splitCheck', checkSplit);
+  SIMX.checks.add('splitEndsCheck', checkSplitEnds);
   SIMX.checks.add('stackCheck', checkStacks);
   SIMX.checks.add('hudFootCheck', checkHudFoot);
   SIMX.checks.add('camAimCheck', checkCamAim);

@@ -3,6 +3,8 @@
   root.TEXT.add('ru', 'play_hud', {
     'hud.crit': 'Крит!',
     'hud.world.shut': 'Лавка закрыта',
+    'hud.world.shut.smith': 'Кузня закрыта',
+    'hud.world.shut.enchanter': 'Стол чар закрыт',
     'hud.world.captive': 'E: открыть клетку',
     'hud.world.note': 'E: прочитать',
     'hud.world.gate': 'E: ворота города',

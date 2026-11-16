@@ -198,7 +198,7 @@
     // stacked into a dark ghost of it, 44 % at an alpha of 0.07)
     const views = [[FD.F, nmF, Math.min(1, 2 - 2 * FD.a), 1 - FD.a], [FD.S, nmS, Math.min(1, 2 * FD.a), FD.a]].filter((q) => q[2] > 0).map(([V, nm, a, k2]) => { const [w, h] = SZ(nm), Mc = M.of(M.t(Xc, Yc), M.r(V.rot * L.D2R + wob)),
       seat = V.side ? D.cartSeat(nm, w, h, V) : D.cartSeatF(nm, w, h), rotAt = (dx, dy) => M.ap(Mc, [dx - seat[0], dy - seat[1]]);
-      return { V, nm, a, k2, w, h, Mc, seat, rotAt, lugs: V.side ? D.CART.hubs[nm].map((_, q) => rotAt(...D.cartLug(nm, q, w, h, run, V.run))) : [], u: { tint, alpha: a, grade: D.CART.grade[nm] || [1, 1, 0, 1] } }; });
+      return { V, nm, a, k2, w, h, Mc, seat, rotAt, lugs: V.side ? D.CART.hubs[nm].map((_, q) => rotAt(...D.cartLug(nm, q, w, h, run, V.run))) : [], u: { tint, alpha: a } }; });
     const mix = (f) => views.reduce((o, q) => { const p = f(q); return [o[0] + p[0] * q.k2, o[1] + p[1] * q.k2]; }, [0, 0]);
     const LG = D.CART.lug, RP = D.CART.rope, wn = D.cartWinch(pts), wide = views.reduce((o, q) => o + q.w * q.k2, 0),
       rope = D.cartRope([sx(wn[0]), sy(wn[1])], mix((q) => q.rotAt(...D.cartHook(q.V.side, nmS, q.w, q.h))), Math.sign(pts[pts.length - 1][0] - pts[0][0]) || 1);
@@ -208,7 +208,7 @@
       L.inked(() => { for (const q of views) L.sprite(q.nm, 0, 0, { m: q.Mc, pivot: [q.w / 2 + q.seat[0], q.h + q.seat[1]], w: q.w, h: q.h, u: L.sp ? Object.assign({}, q.u, { alpha: 1 - (1 - q.a) ** (1 / INK) }) : q.u }); }, { r: 2, n: INK, col: [0.09, 0.04, 0.04], dy: 0 });
       for (const q of views) { if (q.V.side) q.lugs.forEach((p, i) => L.joint('cart', 'stud' + i, p));
         for (const [lx, ly] of q.lugs) L.solid(Math.round(lx - LG.w / 2), Math.round(ly - LG.h / 2), LG.w, LG.h, LG.col.map((c) => c * k), 0, 0, 0, q.a);
-        if (shown === 1) { const [sx1, sy1] = q.rotAt(0.04 * q.w, -0.71 * q.h); L.sprite('town_tool_stone', sx1 - 7, sy1 - 7, { w: 14, h: 14, u: { tint, alpha: q.a } }); } } }]);
+        if (shown === 1) { const [sx1, sy1] = q.rotAt(0.04 * q.w, -0.71 * q.h); L.sprite('town_tool_stone', sx1 - 7, sy1 - 7, { w: 14, h: 14, u: { tint: q.V.side ? tint : tint.map((c, i) => c * (D.CART.lumpF[i] ?? 1)), alpha: q.a } }); } } }]);
   }
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;

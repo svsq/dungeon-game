@@ -33,9 +33,9 @@
   // sheet and the talk stand on the view's bottom edge, the rest in its middle, on the 2 px grid
   const VIEW_H = [1080, 1248], uiDy = (scr, vh) => (!scr || scr === 'play' ? 0 : scr === 'menu' || scr === 'talk' ? vh - VIEW_H[0] : Math.round((vh - VIEW_H[0]) / 4) * 2);
   // the play feed's plates, newest last: a refusal said again while its plate still shows takes that plate's place, fresh, instead of
-  // stacking a copy (TASKS 1815). Kept here and not in the bus (review of PR 57): S.ev stays append-only for everyone who reads it
+  // stacking a copy (TASKS 1815); a wordless refusal (a count's end, town_game_r10 2) is a sound alone. Kept here and not in the bus (review of PR 57): S.ev stays append-only for everyone who reads it
   const FEED_K = new Set(['pickup', 'nope', 'lvl', 'unlock', 'trade']);
-  const feedOf = (ev, t, n = 5) => { const f = ev.filter((e) => FEED_K.has(e.k) && t - e.t < 3);
+  const feedOf = (ev, t, n = 5) => { const f = ev.filter((e) => FEED_K.has(e.k) && (e.k !== 'nope' || e.s) && t - e.t < 3);
     return f.filter((e, i) => !(e.k === 'nope' && e.s && f.some((q, j) => j > i && q.k === 'nope' && q.s === e.s))).slice(-n); };
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   // a currency's count, wherever a screen shows one (TASKS 2084): the icon, then the number on its own parchment plate. Each screen

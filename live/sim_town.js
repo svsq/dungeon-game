@@ -372,6 +372,11 @@
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
+  // a talk card holds about four lines of sixty letters (tools/measure/game/talk_stats.cjs)
+  const TALK_PAGE = 260;
+  // the rewards of several quests as one line: the counts summed, the items got by name
+  const rwSum = (L) => { const W = {}; for (const q of L) for (const k of ['scroll', 'gold', 'xp', 'shards']) if (q.rw[k]) W[k] = (W[k] || 0) + q.rw[k];
+    const got = L.filter((q) => q.rw.item).map((q) => q.rw.got); if (got.length) { W.item = got.length; if (got.every(Boolean)) W.got = got.join('», «'); } return rwLine(W); };
   // the count of this giver's turned quests of the kind steps the pick, so the same words never come twice in a row (TASKS 1985)
   function turnSay(R, role, q) { const ty = D.QUESTS[q.key].type, L = D.QUEST_SAY[role].turnin[ty], n = (R.quests || []).filter((o) => o.st === 'turned' && o.from === role && D.QUESTS[o.key].type === ty).length;
     return D.turnFill(L[(D.mix32((R.seed >>> 0) + [...role + ty].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + n) % L.length], q); }
@@ -380,7 +385,8 @@
   const keyNames = (s) => s.replace(NAMES_RX, '**$1**');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
     // a quest to turn in waits behind its giver's words on what was done: the thanks and reward come with the press (TASKS 1850, 1985)
-    const dn = questDone(R, role); if (dn) return { pages: [turnSay(R, role, dn)], act: { k: 'turn', id: dn.id, rw: dn.rw } };
+    // every quest ready for this giver goes in with the one press (town_game_r10 1: a batch cost two pages and a press a quest)
+    const dl = (R.quests || []).filter((q) => q.st === 'done' && q.from === role); if (dl.length) return { pages: [turnSay(R, role, dl[0])], act: { k: 'turn', id: dl[0].id, ids: dl.map((q) => q.id), rw: rwSum(dl) } };
     const of = offerOf(R, role); if (!of) return null;
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
@@ -398,8 +404,14 @@
   function talkAct(S, R, T) { const a = T.act; if (!a) return;
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
-    const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.questTalk.pages', { name: D.QUESTS[q.key].name, done: D.QUEST_SAY[T.role].done[(q.id || 0) % D.QUEST_SAY[T.role].done.length] }), TXT('sim_town.talkAct.pages', { thanks: q.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[q.key].thanks ? D.QUESTS[q.key].thanks : D.QUEST_SAY[T.role].thanks[(q.id || 0) % D.QUEST_SAY[T.role].thanks.length], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const L = (a.ids || [a.id]).map((id) => (R.quests || []).find((o) => o.id === id)).filter((q) => turnIn(S, R, q)); if (!L.length) return;
+    const nx = talkOf(R, T.role); T.pages = turnPages(T.role, L).concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+  // the turn-in told once pressed: the thanks, the quests by name and what they paid together, on one page while it fits the window;
+  // a quest's own thanks (the story's) goes before the plain ones, and a long one keeps a page of its own
+  function turnPages(role, L) { const SAY = D.QUEST_SAY[role], own = L.find((q) => q.key === 'rescue' || D.QUESTS[q.key].thanks), q0 = own || L[0];
+    const thanks = own ? (own.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[own.key].thanks) : SAY.thanks[(q0.id || 0) % SAY.thanks.length];
+    const sum = TXT('sim_town.turnAll', { names: L.map((q) => '«' + D.QUESTS[q.key].name + '»').join(', '), p2: rwSum(L) }), one = thanks + ' ' + sum;
+    return one.length <= TALK_PAGE ? [one] : [thanks, sum]; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -464,16 +476,19 @@
   const giverFirst = (S, R) => { if (!R.town || !R.map.town) return null; const f = folkNear(R); if (!f || !questMark(R, f.role) || wayNear(R)) return null;
     const p = svcAt(S, R); if (!p) return null; const h = R.hero, df = Math.hypot(f.x - h.x, f.y - h.y), ds = Math.hypot(p.x - h.x, p.y - h.y);
     return df <= ds || Math.max(df, ds) < D.FOLK_FIRST.both ? f : null; };
-  // the Keeper's pages: the end of the last hero (a first death, a death, a win), a chapter's boss slain, a legendary found, a long
-  // time below; each told once; nothing new, his idle pair
-  function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = [];
+  // the Keeper's pages: the end of the last hero (a first death, a death, a win), a chapter's boss slain, a legendary found, the run's
+  // first fall, a long time below; each told once; nothing new, his idle pair
+  function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = []; let hush = 0;
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
     if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     // the campaign's last boss is told by the end of the run, whose words his generic «someone must go down again» would contradict
-    if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) out.push(...K.boss(ENEMIES[R.lastBoss].name)); }
+    if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) { hush = 1; out.push(...K.boss(ENEMIES[R.lastBoss].name)); } }
     if (R.legend && T.legend !== R.legend) { T.legend = R.legend; out.push(...K.rare(R.legend)); }
-    if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; out.push(...K.away); }
+    // the first fall of a run in the normal mode is told once (town_game_r10 5: he greeted the hero woken by his fire as long away)
+    if (R.fellN && !T.fell) { T.fell = 1; hush = 1; out.push(...TXT.talk('keeper').events.fell); }
+    // a long time below greets a hero back with nothing else to tell: after a boss's or a fall's words it only cost two presses more
+    if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; if (!hush) out.push(...K.away); }
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; a master's talk keeps a button
   // into his workshop; past the campaign's end a townsman with words for it says them once a run; the topics wait for an idle talk

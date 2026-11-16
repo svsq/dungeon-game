@@ -35,7 +35,7 @@
     SIMX.callOff(S, R);
     const lost = Math.min(h.xp, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss)), st = heroSt(S);
     h.xp -= lost; h.deadT = -1; h.deadRun = null; h.hp = st.maxHp; h.mp = D.clsOf(h).res === 'rage' ? 0 : st.maxMp; h.poison = 0; h.burn = 0; h.sunk = null; h.stag = null;
-    if (!R.test) S.meta.deaths = (S.meta.deaths || 0) + 1; tally(S, R, 'deaths'); if (R.log) R.log.falls = (R.log.falls || 0) + 1;
+    if (!R.test) S.meta.deaths = (S.meta.deaths || 0) + 1; tally(S, R, 'deaths'); if (R.log) R.log.falls = (R.log.falls || 0) + 1; R.fellN = (R.fellN || 0) + 1;
     if (enterFloor(S, R, 0, undefined, 'portal')) R.msg = { s: (lost ? TXT('sim_ui.fell.msg', { xp: lost }) : TXT('sim_ui.fell.msg.none')) + '\n' + fellWay(S, R), t: S.t, d: 5 }; }
   // the toast's second line names the deepest way the ring opens, or the mine from the first floor (town_game_r9 2: it named only
   // the experience, while the real price may be four floors walked again)
@@ -429,7 +429,8 @@
     if (!it || it.id !== A.key) { S.split = null; S.focus = ''; return true; }
     const U = UI.split(), b = D.hitUI(U.r, x, y), P = U.A; S.hover = b ? b.id : '';
     const d = (b && click && b.id === 'spPlus' ? 1 : 0) - (b && click && b.id === 'spMinus' ? 1 : 0) - (inp.wheel || 0) + (keys.ArrowRight || keys.ArrowUp ? 1 : 0) - (keys.ArrowLeft || keys.ArrowDown ? 1 : 0);
-    if (d) { const n = Math.max(1, Math.min(A.hi, A.n + d)); if (n !== A.n) { A.n = n; ev(S, { k: 'ui', x, y }); } }
+    // a step past an end answers (town_game_r10 2: it was silent): the refusal's sound, and the count shakes (A.bump, the time and the side)
+    if (d) { const n = Math.max(1, Math.min(A.hi, A.n + d)); if (n !== A.n) { A.n = n; ev(S, { k: 'ui', x, y }); } else { A.bump = { t: S.t, d: Math.sign(d) }; ev(S, { k: 'nope', x, y }); } }
     const out = click && !(x >= P.x && x < P.x + P.w && y >= P.y && y < P.y + P.h);
     if (keys.Escape || out || (click && b && b.id === 'spNo')) { S.split = null; S.focus = ''; ev(S, { k: 'ui', x, y }); return true; }
     if (keys.Enter || (click && b && b.id === 'spOk')) { S.split = null; S.focus = '';

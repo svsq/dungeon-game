@@ -1,5 +1,5 @@
-// the mine cart along its rails: one zoomed crop round the cart per rope length s, from the town_cart_rolling QA state
-//   node tools/measure/fidelity/cartstrip.mjs frames/critic_r8_fidelity/cart [s0,s1,...] [box] [zoom]
+// the mine cart along its rails (r10: the view is read where the game stands the cart, cartAt's ds, not at the raw s): one zoomed crop round the cart per rope length s, from the town_cart_rolling QA state
+//   node tools/measure/fidelity/cartstrip.mjs frames/critic_r10_fidelity/cart [s0,s1,...] [box] [zoom]
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,7 +30,7 @@ try {
     const r = await page.evaluate(([s, BOX, Z]) => {
       const st = __Q.states.find((q) => q[0] === 'town_cart_rolling')[1]; SCENE.state = st; const R = st.run; R.cart.s = s; R.cart.st = 'down';
       LIB.TRACE = {}; SCENE.render(st.t + 0.01); const j = LIB.TRACE.cart; if (!j) return null;
-      const V = DATA.cartView(DATA.railPts(R.map), s), c = j.ground, cv = document.createElement('canvas'); cv.width = cv.height = BOX * Z;
+      const pts = DATA.railPts(R.map), at = DATA.cartAt(pts, s), V = { ...DATA.cartView(pts, at.ds), ds: at.ds, fade: DATA.cartFade(pts, at.ds).a }, c = j.ground, cv = document.createElement('canvas'); cv.width = cv.height = BOX * Z;
       const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(document.getElementById('c'), c[0] - BOX / 2, c[1] - BOX * 0.7, BOX, BOX, 0, 0, BOX * Z, BOX * Z);
       return { url: cv.toDataURL('image/png'), V, ground: c };
     }, [s, BOX, Z]);

@@ -1607,6 +1607,9 @@
     states.push(['fork_sel', fx((S, R, h) => { R.hero.cls = 'mage'; R.hero.ab = { fireball: 3, shield: 1, frost: 0 }; S.screen = 'fork'; S.forkSel = 0; S.hover = 'fork:1'; })]);
     states.push(['fork_whirl', fx((S, R, h) => { R.hero.ab = { whirl: 3, charge: 3, cry: 1 }; R.hero.forks = { 'charge:3': 0 }; S.screen = 'fork'; S.forkSel = 1; S.hover = 'fork:1'; })]);
     const tipOn = (S, id) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab).r.find((b) => b.id === id); S.hover = id; S.ptr = [q.x + q.w / 2, q.y + q.h / 2 + D.uiDy('inv', SIM.VIEW.H)]; S.uiPtr = [q.x + q.w / 2, q.y + q.h / 2]; };
+    // town_game_r10 2: the quantity window at its top a moment after «+» was pressed again: «+» dim, the count shaken, «из 8» red
+    states.push(['inv_split_top', play((S) => { const h = S.run.hero; h.bag[0] = { id: 2000, b: 'hp_potion', n: 9, rar: 0, lvl: 1, mods: {} }; S.screen = 'inv';
+      S.split = { id: 'bag:0', key: 2000, act: 'take', hi: 8, n: 8, bump: { t: S.t - 0.04, d: 1 } }; S.hover = 'spPlus'; })]);
     states.push(['inv_tip_stat', play((S) => { const h = S.run.hero; h.pts = 3; S.screen = 'inv'; tipOn(S, 'stat:agi'); })]);
     // TASKS 1887 д: the free cells' badge on the bag's tab, with its note
     states.push(['inv_tip_free', play((S) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, 0).r.find((b) => b.id === 'btab:0'); S.screen = 'inv'; S.hover = 'btab:0';
@@ -1674,6 +1677,8 @@
     const craftS = (kind, fn) => climbS(0, (S, R, m, h) => { const P = m.town.svc[kind === 'forge' ? 'anvil' : 'lectern']; h.x = P.x; h.y = P.y + 30; h.gold = 23456; S.meta.shards = 77;
       const it = Object.assign(SIM.rollItem(R, 7, 3, 'ring'), { id: 950, rar: 3 }); h.bag[4] = it; S.screen = 'craft'; S.craft = { kind, sel: 'bag:4' }; fn(S, R, h, it); });
     states.push(['town_forge_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.anvil.x; h.y = m.town.svc.anvil.y + 30; })]);
+    // town_game_r10 5: the closed table says so where it stands, as the closed forge and shop do
+    states.push(['town_lectern_shut', climbS(0, (S, R, m, h) => { h.x = m.town.svc.lectern.x; h.y = m.town.svc.lectern.y + 30; })]);
     // the mage's look (TASKS 1114): in a crypt room facing the camera and turned away, in each of his armours and his circlet, and
     // in the town beside the enchanter he must not be mistaken for
     const mageS = (fn) => play((S) => { const R = S.run, h = R.hero, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ });
@@ -1794,6 +1799,11 @@
     // TASKS 1850: the same turn-in once «Сдать задание» is pressed: its words first, then the thanks and the reward
     states.push(['town_quest_turned', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); })]);
+    // town_game_r10 1: three quests of one giver go in with the one press, told on one page with what they paid together
+    states.push(['town_quest_turned_all', keeperS((S, R) => { R.offers = []; R.quests = ['elites', 'cull', 'named'].map((key, i) => ({ id: 900 + i, key, f: 6 + i, need: 5, n: 5, st: 'done', from: 'guard', title: TXT('QA.P'), rw: D.questReward(['scroll', 'gold', 'xp'], 6 + i) }));
+      const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); })]);
+    // town_game_r10 5: the Keeper on the run's first fall in the normal mode
+    states.push(['town_keeper_fell', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: TXT.talk('keeper').events.fell.slice(), p: 0, act: null }; S.screen = 'talk'; S.hover = 'next'; })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });
       S.talk = { role: 'keeper', i: 0, pages: [TXT('QA.talk.pages', { thanks: D.QUEST_SAY.keeper.thanks[0], p2: SIM.rwLine(rw) })], p: 0, act: null }; S.screen = 'talk'; })]);
     // the quest journal (TASKS 1023): every quest a run can hold (three side, the Keeper's six steps) with the longest words, a turned-in

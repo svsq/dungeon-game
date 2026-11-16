@@ -66,8 +66,9 @@
   // seen from behind (TASKS 2011): the resting blade is held up and away, so it stands steeper and foreshortened behind the body
   // instead of the front view's flat cut-out poking out of the cape; the arms hang in the cape's shade (the shirt's white cuffs were
   // the brightest thing on him); the feet point away, heels to the camera, so they narrow about the ankle; the cape's broad red
-  // loses its saturation, not its light (TASKS 2092): the pauldrons and the belt stay readable; the head behind is not shaded, it is lifted
-  const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1, headLift: 1.15 };
+  // loses its saturation, not its light (TASKS 2092): the pauldrons and the belt stay readable; the head behind is not shaded and not lifted:
+  // its repainted hair (TASKS 2134) lifted read as a bald peach dome
+  const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1, headLift: 1 };
   // the slash crescent's half-span about the aim, and where its brightness centroid sits along it (the ARC shader's taper and tail fade)
   const ARC_HALF = 1.35, ARC_MID = 0.52;
   // the whirl's turn (0..1) over WHIRL_T s: speeds up and slows down over 0.1 s, so the blade neither starts nor stops dead

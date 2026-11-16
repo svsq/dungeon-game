@@ -128,15 +128,16 @@
   // sizes.js sets the heights so the slabs stand on the rails (RAIL.gauge) and `cartSeatF` puts their feet on the rails' line. `rim`: the near box from the wheels'
   // bottom up to its near rim, in parts of each painting's height, the one size both views share: cartCheck wants it no less than
   // `shrink` short of what the cart shows `ahead` px further along. `dusk`: the run (px) over which the cart comes out of the adit's dark.
-  // `grade` (TASKS 2122): the sprite shader's grade (saturation, brightness, haze, contrast) that brings each front painting, lifted by
-  // tools/fix_cart_art_2109.py, to its 3/4 one's L* p10/p50/p90 (tools/measure/assets/cartgrade.py: 28/45/83 -> 19/35/62 against 19/35/63),
-  // so the cross-fade does not darken the box by 10 L*. `front` 54 and `span` 12: the front painting's slabs stand within a pixel of the
+  // The front paintings' box carries the grade TASKS 2122 fitted to the 3/4 ones' L* (tools/measure/assets/cartgrade.py), baked in by
+  // tools/fix_cart_ore_2133.py with the ore recoloured apart, one slate in all paintings: graded whole, the heap went flat and pale
+  // (town_assets_r10 1). `lumpF`: load 1's one lump in the front view, set colder and darker as that view's ore for the adit's lamp it is
+  // only seen in (tools/fix_cart_ore_2133.py FRONT). `front` 54 and `span` 12: the front painting's slabs stand within a pixel of the
   // rails down to 54° of their slope and the 3/4 one's near wheels from 54° (the chord of the near rail under them, `span` px of path
   // either side, sets its turn), so the change of view comes there and not at 67°, where the 3/4 wheels stood 4.9 px off the rail
   // (tools/measure/motion/cartrails.cjs); `fade` px of rails the cross-fade takes, 0.19 s at the top speed
   const CART = { diag: 43, front: 54, trim: 7, stop: 22, floor: 0.68, reach: 14, span: 12, fade: 9, dusk: [0, 20], shrink: 0.15, ahead: 6,
     wheelsF: { cart_tw_f: { x: [0.1293, 0.8707], foot: 0.9960 }, cart_tw_f_half: { x: [0.1294, 0.8717], foot: 0.9956 }, cart_tw_f_empty: { x: [0.1294, 0.8723], foot: 0.9954 } },
-    grade: { cart_tw_f: [1, 0.83, 0, 0.71], cart_tw_f_half: [1, 0.79, 0, 1.1], cart_tw_f_empty: [1, 0.81, 0, 0.88] },
+    lumpF: [0.7, 0.74, 0.95],
     rim: { cart_tw: 0.445, cart_tw_half: 0.49, cart_tw_empty: 0.49, cart_tw_f: 0.51, cart_tw_f_half: 0.6, cart_tw_f_empty: 0.6 },
     foot: { cart_tw: [0.9956, 0.6777], cart_tw_half: [0.9951, 0.6456], cart_tw_empty: [0.9951, 0.6419] },
     hubs: { cart_tw: [[0.595, 0.868], [0.946, 0.592]], cart_tw_half: [[0.596, 0.854], [0.948, 0.549]], cart_tw_empty: [[0.595, 0.851], [0.946, 0.547]] },
@@ -227,15 +228,29 @@
   Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
-  const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34, hudPad: 2, depth: 4 };
+  // `nudge` (town_game_r10 4): how far a full mark may slide across and down from over the head to clear the HUD before it goes small;
+  // `headSmall`: the most of the givers with the head on the screen questMarkCheck lets show a small mark (19.5 % before the nudge)
+  const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34, hudPad: 2, depth: 4, nudge: [40, 16], headSmall: 0.18 };
   // the mark's hit box at (x, y), full or small, as [x0, y0, x1, y1]
   const questMarkBox = (x, y, small) => { const s = small ? QMARK.small : 1, bw = QMARK.box[0] * s / 2, bh = QMARK.box[1] * s / 2; return [x - bw, y - bh, x + bw, y + bh]; };
   // the world draws the marks under the HUD (TASKS 2125): `hud` is its parts as [x0, y0, x1, y1] (HUD.markZones), and no mark box
-  // may touch one. A full mark over a clear head stays there; one that would lie under a part becomes small, and a small one slides
+  // may touch one. A full mark over a clear head stays there; one that would lie under a part and finds no room by it becomes small, and a small one slides
   // out of the parts to the free spot nearest where it would stand, so it keeps by its giver or along the edge toward him
+  // A full mark that would touch a part first slides beside it or a little lower, within `nudge`, on the screen (town_game_r10 4: a
+  // third of the marks went small for a mere touch of the tracker's corner): the free spot nearest over the head, or null
+  const nudgeFull = (gx, cy, W, H, hits) => { const [nx, ny] = QMARK.nudge, b0 = questMarkBox(0, 0, false), pad = QMARK.hudPad, seen = new Set();
+    const fit = (x, y) => [Math.max(-b0[0], Math.min(W - b0[2], x)), Math.max(-b0[1], Math.min(H - b0[3], y))], near = (p) => Math.abs(p[0] - gx) <= nx && p[1] >= cy && p[1] - cy <= ny;
+    let best = null, bestD = Infinity, front = [fit(gx, cy)];
+    for (let d = 0; d <= QMARK.depth && front.length; d++) { const next = [];
+      for (const p of front) { const key = Math.round(p[0]) + ',' + Math.round(p[1]); if (seen.has(key) || !near(p)) continue; seen.add(key);
+        const dist = Math.hypot(p[0] - gx, p[1] - cy); if (dist >= bestD) continue;
+        const on = hits(questMarkBox(p[0], p[1], false)); if (!on.length) { best = p; bestD = dist; continue; }
+        for (const z of on) next.push(fit(z[0] + b0[0] - pad, p[1]), fit(z[2] + b0[2] + pad, p[1]), fit(p[0], z[3] + b0[3] + pad)); }
+      front = next; }
+    return best; };
   const questMarkAt = (gx, gy, spriteH, k, W, H, hud = [], margin = QMARK.margin) => {
     const cy = gy - spriteH * k - QMARK.gap - QMARK.h / 2, hits = (b) => hud.filter((z) => b[0] < z[2] && b[2] > z[0] && b[1] < z[3] && b[3] > z[1]);
-    if (gx >= 0 && gx <= W && gy >= 0 && gy <= H && cy - QMARK.h / 2 >= 0 && !hits(questMarkBox(gx, cy, false)).length) return { x: gx, y: cy, small: false, edge: [0, 0] };
+    if (gx >= 0 && gx <= W && gy >= 0 && gy <= H && cy - QMARK.h / 2 >= 0) { const f = nudgeFull(gx, cy, W, H, hits); if (f) return { x: f[0], y: f[1], small: false, edge: [0, 0] }; }
     const ex = QMARK.w * QMARK.small / 2 + margin, ey = QMARK.h * QMARK.small / 2 + margin, clamp = (x, y) => [Math.max(ex, Math.min(W - ex, x)), Math.max(ey, Math.min(H - ey, y))];
     const p0 = clamp(gx, cy), b0 = questMarkBox(0, 0, true), pad = QMARK.hudPad, seen = new Set();
     let best = null, bestD = Infinity, front = [p0];

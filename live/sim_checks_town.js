@@ -254,9 +254,11 @@
     talkTo(R, 'keeper'); const p2 = read(); if (!D.FOLK.keeper.lines.some((l) => l[0] === p2[0])) out.push('talk: with nothing new the Keeper does not fall back on his idle lines');
     endRun(S, 'dead'); R = run(32); talkTo(R, 'keeper'); const p3 = read(); if (p3[0] !== K.death1[0]) out.push('talk: the first death is not spoken of');
     R.bossN = 1; R.lastBoss = 'boss_spider'; R.legend = 'Кольцо Бездны'; R.deepest = 6; enterFloor(S, R, 0, undefined, 'up'); talkTo(R, 'keeper'); const p4 = read();
-    if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0]) || !p4.includes(K.away[0])) out.push('talk: a boss, a legendary or a long time below is not spoken of');
+    if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: a boss or a legendary is not spoken of');
+    if (p4.includes(K.away[0])) out.push('talk: the long time below is told beside the boss slain, who already greets the hero back');
     talkTo(R, 'keeper'); const p5 = read(); if (p5.includes(K.away[0]) || p5.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: the Keeper tells the same news twice');
     endRun(S, 'dead'); R = run(33); talkTo(R, 'keeper'); const p6 = read(); if (p6[0] !== K.death[0]) out.push('talk: a later death is told as the first');
+    R = run(34); R.away = 5; R.townDeep = 3; talkTo(R, 'keeper'); if (read()[0] !== K.away[0]) out.push('talk: a long time below is not spoken of');
     for (const f of folkOf(R)) if (f.role !== 'guard') f.x += 2000; talkTo(R, 'guard'); const p7 = read(); for (const f of folkOf(R)) if (f.role !== 'guard') f.x -= 2000; if (!D.FOLK.guard.lines.some((l) => l[0] === p7[0])) out.push('talk: the guard does not speak his lines');
     // TASKS 1148: past the colossus the Keeper asks whether the run ends: «Завершить поход» (a click only, TASKS 1854) wins it with its reward, «Продолжить»
     // (Enter, E, Esc) leaves it going; after the descent past it the win is not counted again
@@ -496,7 +498,11 @@
       if (h.lvl !== LVL || h.xp !== XP - lost) out.push(`death mode: a normal death leaves level ${h.lvl} and ${h.xp} xp, not ${LVL} and ${XP - lost}`);
       if (h.gold !== gold || !h.eq.weapon || h.eq.weapon.id !== wpn) out.push('death mode: a normal death takes the gold or the gear');
       if (!R.memo || !R.memo[1]) out.push('death mode: a normal death drops the floor it happened on');
-      const M = S.meta.stats.mode || {}; if (!(M.normal && M.normal.deaths === 1) || (M.hard && M.hard.deaths)) out.push(`death mode: a normal death is counted ${JSON.stringify(M)}`); }
+      const M = S.meta.stats.mode || {}; if (!(M.normal && M.normal.deaths === 1) || (M.hard && M.hard.deaths)) out.push(`death mode: a normal death is counted ${JSON.stringify(M)}`);
+      // town_game_r10 5: the Keeper speaks of the run's first fall once, in place of the long time below; a second fall is not told again
+      S.meta.keeperMet = 1; S.meta.endTold = 1; R.away = 6; R.townDeep = 5; const F = TXT.talk('keeper').events.fell, p1 = SIMX.keeperPages(S, R), p2 = SIMX.keeperPages(S, R);
+      if (p1[0] !== F[0] || p1.includes(D.KEEPER.away[0]) || p2.includes(F[0])) out.push(`death mode: after a normal death the Keeper says ${JSON.stringify(p1.map((q) => q.slice(0, 30)))}, then ${JSON.stringify(p2.map((q) => q.slice(0, 30)))}`);
+      enterFloor(S, R, 1); die(S, R); if (SIMX.keeperPages(S, R).includes(F[0])) out.push('death mode: the Keeper tells the second fall of a run as the first'); }
     if (!SIMX.hardcore({ viaTown: 1 })) out.push('death mode: a run saved before the modes is not hardcore');
     // TASKS 2108: the start screen's checkbox turns hardcore on and off by a click and by Space, and the run started takes its choice
     { const S = spawn(0, {}); S.screen = 'classes'; S.pendingMode = 'campaign'; const b = D.UI.classes(S.meta).find((q) => q.id === 'hard');
