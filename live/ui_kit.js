@@ -54,15 +54,20 @@
   // the screen (the author's 2110, again after 1992). Hidden, it is a small chip with the count
   // one layout gives the box's height and every line's place, so the drawn rows and the «и ещё N» line can never outgrow the box. The font
   // has no step under 20 px (lib.js), so the tracker is made smaller by its spacing and its width ceiling, not by a smaller size
-  const TRACKER = { rows: 4, right: 14, gap: 14, head: 30, row: 46, nameDy: 11, lineDy: 33, more: 26, bot: 6, textH: 24, out: 4, clear: 12, minW: 240, maxW: 460,
+  const TRACKER = { rows: 4, right: 14, gap: 14, head: 30, nameDy: 11, more: 26, bot: 6, textH: 24, out: 4, clear: 12, minW: 240, maxW: 460,
     share: 0.24, chip: 32, pad: 12, box: 16, inset: 24, size: { title: 20, name: 19, line: 20, btn: 18 }, btnH: 24, btnPad: 16, btnGap: 8, headGap: 12 };
+  // a row's two lines and the next row stand a text height apart, so the spacing follows textH and no line can lie on another (TASKS 2117)
+  TRACKER.lineDy = TRACKER.nameDy + TRACKER.textH; TRACKER.row = 2 * TRACKER.textH;
   const trkMaxW = (W) => Math.min(TRACKER.maxW, Math.round(W * TRACKER.share));
   const trkH = (n, more) => { const T = TRACKER; return T.head + n * T.row + (more ? T.more : 0) + T.bot; };
   const trkLay = (W, mmBot, want, total, adit, hidden) => { const T = TRACKER, w = hidden ? Math.min(want, trkMaxW(W)) : Math.max(T.minW, Math.min(want, trkMaxW(W))),
     x = W - T.right - w, y = mmBot + T.gap, e = T.out + T.clear;
     if (hidden) return { x, y, w, h: T.chip, n: 0, more: 0, rows: [], titleY: y + T.chip / 2 };
     let n = Math.min(T.rows, total);
-    if (adit && x - e < adit[0] + adit[2] && x + w + e > adit[0] && y - e < adit[1] + adit[3]) while (n > 1 && y + trkH(n, total > n) + e > adit[1]) n--;
+    const near = adit && x - e < adit[0] + adit[2] && x + w + e > adit[0] && y - e < adit[1] + adit[3], over = (k) => near && y + trkH(k, total > k) + e > adit[1];
+    while (n > 1 && over(n)) n--;
+    // even one row on the adit: the tracker folds to its chip (TASKS 2117), the HUD sizes the chip by its count
+    if (n && over(n)) return { x, y, w, h: T.chip, n: 0, more: total, rows: [], titleY: y + T.chip / 2, fold: true };
     const rows = Array.from({ length: n }, (_, i) => { const top = y + T.head + i * T.row; return { nameY: top + T.nameDy, lineY: top + T.lineDy }; });
     return { x, y, w, h: trkH(n, total > n), n, more: total - n, rows, titleY: y + T.head / 2, moreY: y + T.head + n * T.row + T.more / 2,
       textX: x + T.pad + T.inset, textW: w - 2 * T.pad - T.inset }; };
@@ -79,11 +84,20 @@
     const bar = (lx, ly) => { const w = signLen(lx, odd[0], SIGN.min), h = signLen(ly, odd[1], SIGN.min); return { x: c[0] - w / 2, y: c[1] - h / 2, w, h }; };
     const a = size * SIGN.span, t = size * SIGN.stroke, r = [bar(a, t)]; if (plus) r.push(bar(t, a)); return r; };
   const SIGN_OF = { '+': true, '−': false };
+  // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
+  // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
+  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1861):
+  // one-pixel stems blur away when the 1920×1080 canvas is shown at 1280×720
+  const FONT = { faces: [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], trebuchetW: 0.547, units: [2, 12] }, FACE = new Map();
+  const face = (size, bold = false) => { const n = Math.round(size), k = bold ? 'b' + n : n; let r = FACE.get(k); if (r) return r; let best = Infinity;
+    for (const [name, em, adv] of bold ? FONT.faces.slice(1) : FONT.faces) for (let unit = FONT.units[0]; unit <= FONT.units[1]; unit++) {
+      const d = Math.abs(adv * em * unit - FONT.trebuchetW * n); if (d < best) { best = d; r = { name, font: `${em * unit}px ${name}`, px: em * unit, unit }; } }
+    FACE.set(k, r); return r; };
   UI.add('kit', {
     // the bottom panel's height and its gap to the view's foot: the HUD lays it out by them and the camera keeps the hero above it (TASKS 1911)
     bp: { h: 122, foot: 6, purseY: 10 },
     purse: PURSE,
   });
-  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, SIGN, SIGN_OF, signRects };
+  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, FONT, face, SIGN, SIGN_OF, signRects };
   UI.share('kit', { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf });
 })(typeof window !== 'undefined' ? window : globalThis);

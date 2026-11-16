@@ -628,10 +628,11 @@
   const btnW = (id, s) => lw(id, s, { size: TF.btn }) + TK.btnPad, measure = (s, size) => L.labelW(0, s, { size });
   // the width is the first rows' a cap leaves out too, so the box does not shift sideways as the camera moves the adit under it
   function trkGeo(S, R) { const all = trkAll(S, R), nd = trkDone(R); if (!(all.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R), K = D.UI.kit;
-    if (trkHidden(S)) { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, null, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true }); }
+    const chip = (fold) => { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, null, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true, fold }); };
+    if (trkHidden(S)) return chip(false);
     const head = lw('qt_t', TXT('hud.tracker'), { size: TF.title }) + 2 * TK.pad + TK.headGap + btnW('qt_hide', TXT('hud.tracker.hide')) + (nd ? TK.btnGap + btnW('qt_fold', trkFoldLab(S, R)) : 0);
     const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.QUESTS[q.key].name, TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
-    const Y = K.trkLay(W, mb[1] + mb[3], w, all.length, aditBox(R));
+    const Y = K.trkLay(W, mb[1] + mb[3], w, all.length, aditBox(R)); if (Y.fold) return chip(true);
     return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.QUESTS[q.key].name, Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
   const trkBox = (S, R) => { const g = trkGeo(S, R); return g && g.box; };
   // the heading's buttons in view px, from the last frame drawn: the page asks them on a click and turns the click into the sim's key,
@@ -895,7 +896,8 @@
     const mx = P.x + 140, my = P.y + P.h - 40, mn = sh.wander ? 'wanderer' : 'merchant', [mw, mh] = SZ(mn), k = 2.1;
     L.sprite(mn, mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
     const LN = sh.wander ? D.SHOP.wander.lines : D.SHOP.lines, line = '«' + LN[sh.line % LN.length] + '»', ql = lw('sh_line_m', line, { size: 22 }) > 520 ? halves(line) : [line], bw = Math.max(...ql.map((q) => lw('sh_line_m', q, { size: 22 }))) + 48;
-    const bh = 24 + 28 * ql.length, ty = my - mh * k - 38 - bh; plate('sh_bubble', P.x + 60, ty, bw, bh); ql.forEach((q, i) => lab('sh_line' + i, q, P.x + 84, ty + 26 + i * 28, { size: 22, col: '#fff2c8' }));
+    // the quantity window's keys take the bubble's place under it (TASKS 2117), so the merchant holds his line while it is open
+    const bh = 24 + 28 * ql.length, ty = my - mh * k - 38 - bh; if (!S.split) { plate('sh_bubble', P.x + 60, ty, bw, bh); ql.forEach((q, i) => lab('sh_line' + i, q, P.x + 84, ty + 26 + i * 28, { size: 22, col: '#fff2c8' })); }
     refusal(S, P.x + 380, P.y + P.h - 114);
     if (!sh.wander) { const b = U.r.find((q) => q.id === 'talk'); KIT.button('sh_orig', b, KIT.st(S, b.id)); }
     lab('sh_help', TXT('hud.shop.9'), P.x + P.w / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#b8a48a' });
@@ -915,13 +917,14 @@
   function splitAsk(S, R) {
     const A0 = S.split, h = R.hero, [p, k] = A0.id.split(':'), g = p === 'buy' ? R.shop.goods[+k] : null, it = g ? g.it : p === 'stash' ? SIM.Q.stashOf(S).items[+k] : h.bag[+k]; if (!it) return;
     const U = D.UI.split(), A = U.A, N = U.num, keys = TXT('hud.split.keys'), ky = A.y + A.h + 40, kw = lw('sp_keys_w', keys, { size: 26 }), act = A0.act;
-    dim(0.45); L.uiCover('sp_cover', Math.min(A.x, W / 2 - kw / 2 - 12), A.y, W - 2 * Math.min(A.x, W / 2 - kw / 2 - 12), ky + 20 - A.y);
+    dim(0.45); L.uiCover('sp_cover', Math.min(A.x, W / 2 - kw / 2 - 16), A.y, W - 2 * Math.min(A.x, W / 2 - kw / 2 - 16), ky + 22 - A.y);
     KIT.panel('sp_ask', A.x, A.y, A.w, A.h, 'torn'); slot(S, U.cell, Object.assign({}, it, { n: 1 }));
     KIT.ink('sp_q', (act === 'sell' ? TXT('hud.split.sell') : act === 'buy' ? TXT('hud.split.buy') : TXT('hud.split.take')), A.x + A.w / 2, A.y + 128, { size: 24, al: 0.5, col: KIT.INK.t, bold: true });
     KIT.ink('sp_n', String(A0.n), N.x + N.w / 2, N.y + N.h / 2 + 6, { size: 40, al: 0.5, col: KIT.INK.t, bold: true });
     if (act !== 'take') { const pr = (g ? g.price : D.sellPrice(it, SIM.Q.tradeDepth(R))) * A0.n; KIT.ink('sp_pr', TXT('hud.split.price', { n: pr }), A.x + A.w / 2, N.y + N.h + 20, { size: 22, al: 0.5, col: KIT.INK.d }); }
     for (const b of U.r) KIT.button('sp_' + b.id, b.id === 'spOk' ? Object.assign({}, b, { label: (act === 'sell' ? TXT('hud.split.ok.sell') : act === 'buy' ? TXT('hud.split.ok.buy') : TXT('hud.split.ok.take')) }) : b, askSt(S, U, b.id));
-    L.uiBox('sp_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    // its own plate (TASKS 2117): bare, the hint lay on the merchant's quote under the window
+    plate('sp_keys_b', W / 2 - kw / 2 - 16, ky - 22, kw + 32, 44, { k: 0.35, pad: 0 });
     KIT.light('sp_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // a question on parchment, not a refusal (TASKS 1978): no red, the piece in its own gold-framed cell, drawn last over the whole shop
@@ -1232,7 +1235,7 @@
     icon('dc_shards', B.R.x + B.R.w / 2 - shw / 2, sy - 22, 44); KIT.ink('sa_hand', sh, B.R.x + B.R.w / 2 - shw / 2 + 56, sy, { size: 28 });
     if (S.meta.bestEndless) KIT.ink('sa_end', TXT('hud.stats.endless', { n: S.meta.bestEndless }), B.R.x + B.R.w / 2, sy + 44, { size: 22, al: 0.5, col: KIT.INK.d });
     // the modes' own counters and records (TASKS 2104), each under the other
-    D.DEATH_ORDER.forEach((k, i) => { const M = (T.mode || {})[k] || {}; KIT.ink('sa_md' + k, TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: grp(M.wins || 0), d: grp(M.deaths || 0), b: M.best || 0 }), B.R.x + B.R.w / 2, sy + (S.meta.bestEndless ? 76 : 44) + i * 28, { size: 22, al: 0.5, fit: B.R.w - 40, col: KIT.INK.d }); });
+    D.DEATH_ORDER.forEach((k, i) => { const M = (T.mode || {})[k] || {}; KIT.ink('sa_md' + k, TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: grp(M.wins || 0), d: grp(M.deaths || 0), b: M.best || 0 }), B.R.x + B.R.w / 2, sy + (S.meta.bestEndless ? 76 : 44) + i * 28, { size: 22, al: 0.5, fit: U.modeW, col: KIT.INK.d }); });
     const back = U.r.find((o) => o.id === 'back'); KIT.button('sa_back', back, KIT.st(S, 'back'));
     const ky = U.B.y + U.B.h + 36, kw = lw('sa_keys_w', TXT('hud.stats.keys'), { size: 26 }); L.uiBox('sa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('sa_keys', TXT('hud.stats.keys'), W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
@@ -1690,7 +1693,7 @@
     KIT.panel('gate', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('gt_t', W / 2, P.y + 16, 460, TXT('hud.gate'), { h: 76, size: 36 });
     KIT.light('gt_s', TXT('hud.gate.2'), W / 2, P.y + 118, { size: 22, al: 0.5, col: '#cdb89a' });
-    o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), x = b.x + 108, iw = b.w - 108 - 40, is = Math.min(48, b.h - 12);
+    o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), x = b.tx, iw = b.tw, is = Math.min(48, b.h - 12);
       const nm = q.k === 'boss' ? TXT('hud.gate.boss', { name: (D.ENEMIES[D.stageOf('campaign', q.f).boss] || { name: '' }).name, f: q.f }) : TXT('hud.gate.3', { f: q.f });
       const ds = q.k === 'boss' ? TXT('hud.gate.boss.2') : q.from === 'gate' ? TXT('hud.gate.hall') : TXT('hud.gate.5');
       KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox('gt_r' + i, b.x + 30, b.y, b.w - 60, b.h, 2);

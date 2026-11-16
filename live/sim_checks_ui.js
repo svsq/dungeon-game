@@ -397,12 +397,13 @@
     const test = (tag, vh, mmBot, w, n, adit) => { const L = K.trkLay(W, mmBot, w, n, adit), F = K.trkLay(W, mmBot, w, n, null), bot = L.y + L.h;
       if (L.x !== F.x || L.y !== F.y || L.w !== F.w) return `tracker: ${tag} moves it to ${L.x},${L.y} from its place ${F.x},${F.y} under the minimap`;
       if (L.w > cap || L.w < Math.min(w, T.minW)) return `tracker: ${tag} is ${L.w} px wide, over its ceiling ${cap}`;
-      if (L.n + L.more !== n || L.n > T.rows || L.n < Math.min(1, n) || L.rows.length !== L.n) return `tracker: ${tag} shows ${L.n} rows and ${L.more} more of ${n} quests`;
+      if (L.fold && (!n || L.h !== T.chip || L.n)) return `tracker: ${tag} folds to a ${L.w}×${L.h} box with ${L.n} rows, not to its chip`;
+      if (L.n + L.more !== n || L.n > T.rows || (L.n < Math.min(1, n) && !L.fold) || L.rows.length !== L.n) return `tracker: ${tag} shows ${L.n} rows and ${L.more} more of ${n} quests`;
       let top = L.titleY + half; for (const r of L.rows) { if (r.nameY - half < top - 0.5 || r.lineY - r.nameY < T.textH - 0.5) return `tracker: ${tag} draws a row over the line above it`; top = r.lineY + half; }
       if (L.more && L.moreY - half < top - 0.5) return `tracker: ${tag} draws «и ещё ${L.more}» over its last row`;
       if ((L.more ? L.moreY + half : top) > bot + 0.5) return `tracker: ${tag} draws its last line ${((L.more ? L.moreY + half : top) - bot).toFixed(0)} px under the box's foot`;
       if (bot > vh) return `tracker: ${tag} runs ${bot - vh} px off the view's bottom`;
-      if (L.n > 1 && hit(plate(L), adit)) return `tracker: ${tag} covers the adit with ${L.n} rows`;
+      if (L.n && hit(plate(L), adit)) return `tracker: ${tag} covers the adit with ${L.n} rows`;
       const C = K.trkLay(W, mmBot, 160, n, adit, true); if (C.h > T.chip || C.w > cap || (L.n && C.h * 2 > L.h) || C.x !== W - T.right - C.w || C.y !== L.y) return `tracker: ${tag} hidden is a ${C.w}×${C.h} chip at ${C.x},${C.y}, not a small one in its place`;
       return null; };
     const town = townRun().run, m = town.map, d = m.decor.find((o) => o.role === 'adit'), walk = DG.townWalk(m), sc = d && (d.s || 1);
@@ -416,6 +417,17 @@
       for (const mmBot of [240, 360, 480, 620]) for (const w of [200, 420, 860, 2000]) for (let n = 0; n <= 7; n++) for (const [at, adit] of boxes) {
         const e = test(`${ww}×${wh}, minimap foot ${mmBot}, width ${w}, ${n} quests, ${at}`, vh, mmBot, w, n, adit); if (e) { out.push(e); return; } } } }
     finally { SIMX.setView(h0); } }
+  // TASKS 2117: every way in the ring of stones keeps its name and its line inside its row, and the death modes' lines on the
+  // statistics page inside it, measured by the font the page draws them in (UI.kit.face and the TTF's advances), not by letters
+  function checkLabelFit(out) { const { fitW } = SIMX.checks.kit, C = D.RUNS.campaign, bosses = [];
+    for (let f = 1; f <= C.floors; f++) { const b = D.ENEMIES[D.stageOf('campaign', f).boss]; if (b) bosses.push([b.name, f]); }
+    const fits = (what, s, w, size, floor) => { const r = fitW(s, w, size); if (r.cut || r.size < floor) out.push(`${what}: «${s}» is ${r.w.toFixed(0)} px at ${r.size} px, its room ${w}`); };
+    for (let n = 1; n <= bosses.length + 2; n++) for (const b of D.UI.gate(n).r.filter((q) => q.full)) { const iw = b.tw;
+      for (const k of ['hud.gate.5', 'hud.gate.hall', 'hud.gate.boss.2']) fits('ring of stones', TXT(k), iw, 18, 18);
+      fits('ring of stones', TXT('hud.gate.3', { f: C.floors }), iw, 26, 20);
+      for (const [name, f] of bosses) fits('ring of stones', TXT('hud.gate.boss', { name, f }), iw, 26, 20); }
+    const U = D.UI.stats();
+    for (const k of D.DEATH_ORDER) fits('statistics', TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: '999', d: '99 999', b: C.floors }), U.modeW, 22, 20); }
   // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
   function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
     const ab = UI.pause(S.meta.zoom, false, true).find((b) => b.id === 'abandon');
@@ -725,6 +737,7 @@
   SIMX.checks.add('purseCheck', checkPurse);
   SIMX.checks.add('trkFoldCheck', checkTrkFold);
   SIMX.checks.add('trkAditCheck', checkTrkAdit);
+  SIMX.checks.add('labelFitCheck', checkLabelFit);
   SIMX.checks.add('testEndCheck', checkTestEnd);
   SIMX.checks.add('strCheck', checkStrUse);
   SIMX.checks.add('keyWordCheck', checkKeyWords);

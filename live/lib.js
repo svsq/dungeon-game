@@ -417,14 +417,9 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // label(slot, str, x, y, { size, col, out, al, a }) draws at 1:1 with a one-grid-pixel ink outline and a hard drop shadow;
   // the texture is re-rendered only when the string or style changes. Returns the text width.
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
-  // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
-  // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
-  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1861):
-  // one-pixel stems blur away when the 1920×1080 canvas is shown at 1280×720
-  const FACES = [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], TREBUCHET_W = 0.547, FIT = new Map();
-  const fit = (size, bold) => { const n = Math.round(size), k = bold ? 'b' + n : n; let r = FIT.get(k); if (r) return r; let best = Infinity;
-    for (const [font, em, adv] of bold ? FACES.slice(1) : FACES) for (let unit = 2; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
-    FIT.set(k, r); return r; };
+  // a requested size is a width target, not a pixel size: UI.kit.face picks the face and its grid step (ui_kit.js), so the Node checks
+  // measure a label with the same face the page draws it in
+  const fit = (size, bold) => window.DATA.UI.kit.face(size, bold);
   const AROUND = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
   const LBL = {};
   // bold (window titles, TASKS 1752): the font has no Cyrillic bold, so every glyph is stamped twice one grid pixel apart and
