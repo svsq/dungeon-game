@@ -126,7 +126,6 @@
     'hud.world.8@pad': 'A: отпереть ключом',
     'hud.world.11@pad': 'A: потянуть рычаг',
     'hud.world.banner@pad': 'A: сорвать знамя',
-    'hud.world.shelf@pad': 'A: отодвинуть шкаф',
     'hud.world.statue@pad': 'A: сдвинуть статую',
     'hud.world.sconce@pad': 'A: потянуть светильник',
     'hud.world.candle@pad': 'A: зажечь свечу',
