@@ -420,6 +420,9 @@
             turn = (p[0] - c[0]) * (p2[1] - p[1]) - (p[1] - c[1]) * (p2[0] - p[0]);
           if (Math.sign(turn) !== Math.sign(u.x - v.x)) wrong = [s, q]; } }
       if (wrong) out.push(`cart: the wheel ${wrong[1]} of ${n} turns against the travel at ${wrong[0]} px`); }
+    { const tot = D.railTot(pts);
+      for (const n of Object.keys(C.hubs)) { const [w, h] = size(n), lug = (s) => D.cartLug(n, 0, w, h, D.cartAt(pts, s).s, 1), a = lug(tot);
+        for (const s of [tot + 3, tot + 36, 1e9]) { const b = lug(s); if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 1e-6) { out.push(`cart: the lug on ${n} turns ${(s - tot).toFixed(0)} px past the rails' end, the cart standing`); break; } } } }
     const LOADS = [['cart_tw', 'cart_tw_f'], ['cart_tw_half', 'cart_tw_f_half'], ['cart_tw_empty', 'cart_tw_f_empty']];
     const spans = [];
     for (const [nmS, nmF] of LOADS) { const show = (s) => { const nm = D.cartView(pts, D.cartAt(pts, s).ds).side ? nmS : nmF; return C.rim[nm] * size(nm)[1]; };

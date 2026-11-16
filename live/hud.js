@@ -510,6 +510,8 @@
         L.solid(x - 1, by + 8, 2, 5, [1, 0.9, 0.7]); L.solid(x - 1, by + bh - 13, 2, 5, [1, 0.9, 0.7]);
       }
     }
+    else { const tw = SIM.Q.trialWaveOf(R), WV = D.UI.kit.WAVE;
+      if (tw) { plate('trialw_box', W / 2 - WV.w / 2, WV.y, WV.w, WV.h); lab('trialw', TXT('EVENTS.trial.count', tw), W / 2, WV.y + WV.h / 2 + 1, { size: WV.size, al: 0.5, col: C.gold, fit: WV.w - 2 * WV.pad }); } }
     // floor banner
     // a boss's arrival plate gives way to its ribbon, or its name stood on the screen two and three times over (TASKS 1794)
     const named = boss && R.msg && R.msg.chapter === D.ENEMIES[boss.type].name;
@@ -1700,7 +1702,7 @@
     const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], U = D.UI.event(), P = U.P;
     dim(0.6); KIT.panel('event', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('ev_t', W / 2, P.y + 16, 460, P0.name, { h: 76, size: 36 });
-    wrapLab('ev_s', E.stake !== undefined ? P0.say.replace('{n}', E.stake) : P0.say, P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
+    wrapLab('ev_s', SIM.Q.eventSay(E), P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
     KIT.button('ev_yes', Object.assign({}, U.r[0], { label: P0.yes }), askSt(S, U, 'evYes'));
     KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
     KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });

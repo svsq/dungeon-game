@@ -23,6 +23,7 @@
 //   flip      — folk_*_turn (TASKS 2101): a walker turning round: no hand or tool joint steps over FLIP of the height in one frame
 //   thin      — folk_*_turn (TASKS 2123): on every frame of the turn the walker keeps at least THIN of the pixels it has before it
 //   stopgo    — folk_*_stop, folk_*_go (TASKS 2124): a walker stopping or setting off: no joint steps over FLIP of the height in one frame
+//   henturn   — folk_hen_enter_* (TASKS 2130): a hen's width (head to tail) steps at most HEN_JUMP of it in one frame from the town's start
 //   turn      — folk_talk, town_talk: talking, the smith's front hand is toward the hero, on either side of him
 //   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
 //               golem's ground point (the far one swung on past the body and lay behind it)
@@ -344,6 +345,14 @@ if (meta.tr.includes('imp_claw')) {
     const step = (k) => Math.max(...fr.slice(1).map((j, i) => Math.hypot(j[k][0] - fr[i][k][0], j[k][1] - fr[i][k][1])));
     const worst = keys.map((k) => [k, step(k)]).sort((a, b) => b[1] - a[1])[0]; if (!worst) { report('flip', nm, false, 'no hand or tool joint'); continue; }
     report('flip', nm, worst[1] <= FLIP * H, `the ${worst[0]} steps ${worst[1].toFixed(1)} px of the ${H.toFixed(0)} px height in one frame (≤ ${(FLIP * H).toFixed(1)})`); } }
+// henturn (TASKS 2130): a hen from the town's first frame (folk_hen_enter_*, the real sim at 1/60 s): its width (head to tail) never
+// changes by more than HEN_JUMP of its whole width in one frame; the first step set its side with no turn, a 28 px flip
+{ const HEN_JUMP = 0.5;
+  for (const nm of meta.tr.filter((n) => /^folk_hen_enter_/.test(n))) {
+    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.head && j.tail); if (fr.length < 10) { report('henturn', nm, false, 'no trace'); continue; }
+    const w = fr.map((j) => j.head[0] - j.tail[0]), W = Math.max(...w.map(Math.abs)), turns = w.slice(1).filter((x, i) => Math.sign(x) !== Math.sign(w[i])).length;
+    const worst = w.slice(1).reduce((b, x, i) => (Math.abs(x - w[i]) > b[0] ? [Math.abs(x - w[i]), i + 1] : b), [0, 0]);
+    report('henturn', nm, worst[0] <= HEN_JUMP * W, `the width steps ${worst[0].toFixed(1)} px of ${W.toFixed(1)} on frame ${worst[1]} (≤ ${(HEN_JUMP * W).toFixed(1)}), ${turns} turn(s)`); } }
 // stopgo (TASKS 2124): a walker stops at a stop and sets off from one (folk_*_stop, folk_*_go, the real sim at 1/60 s, the camera held):
 // no joint of it steps more than FLIP of the height between two frames (the child's throwing hand switched on and off in a frame, 18 px)
 { const FLIP = 0.08;

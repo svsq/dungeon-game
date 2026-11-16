@@ -89,8 +89,11 @@
 
   // a walker starts standing at a stop of its round (the one it is placed on, give or take the seed's nudge, else the round's last): a first leg from off the round
   // ran into the forge's corner, and the porter skipped his pick-up and walked to the merchant empty-handed (TASKS 1031)
-  const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1;
-    return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
+  // a hen starts facing the way it is drawn at rest (to the nearest child, as TOWN_FACE), so its first step turns it over FOLK_TURN-like
+  // easing: from face 0 the sim set the side with no turn and the drawing flipped in a frame (town_motion_r9 7)
+  const henFace = (npcs, n) => { const c = npcs.filter((q) => q.role === 'child').sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return !c || c.x >= n.x ? 1 : -1; };
+  const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1, hen = n.role === 'hen';
+    return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: hen ? henFace(npcs, n) : 0, walked: hen ? 1 : 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
 
   const NOTE_LIST = (globalThis.TEXT || {}).notes || [];
   // a series by its era and name, its parts' ids in order
@@ -177,8 +180,9 @@
     return out; };
   const railTot = (pts) => pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0);
   const railAt = (pts, d) => { d = Math.max(0, Math.min(railTot(pts), d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } };
-  // where the cart stands for the sim's distance `s` run: its distance `ds` along the rails (it stops `stop` px short of their end) and the point
-  const cartAt = (pts, s) => { const tot = railTot(pts), ds = Math.min(s, tot) * (tot - CART.stop) / tot, [x, y] = railAt(pts, ds); return { x, y, ds }; };
+  // where the cart stands for the sim's distance `s` run: its distance `ds` along the rails (it stops `stop` px short of their end), the point,
+  // and `s` held to the rails' length, which the wheels' lug turns by, so a cart standing at the end has still wheels (town_motion_r9 6)
+  const cartAt = (pts, s) => { const tot = railTot(pts), sr = Math.max(0, Math.min(s, tot)), ds = sr * (tot - CART.stop) / tot, [x, y] = railAt(pts, ds); return { x, y, ds, s: sr }; };
   const viewOf = (pts, s, side) => {
     const q0 = railAt(pts, s - CART.reach), q1 = railAt(pts, s + CART.reach), th = Math.atan2(Math.abs(q1[1] - q0[1]), Math.abs(q1[0] - q0[0])) * 180 / Math.PI;
     const run = Math.sign(q1[0] - q0[0]) || 1;
@@ -220,7 +224,7 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFeet, railAxes, cartAt, railAt, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34, hudPad: 2, depth: 4 };

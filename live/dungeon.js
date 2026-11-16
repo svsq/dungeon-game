@@ -12,8 +12,8 @@
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
-  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch; 36: the town's rails end on the diagonal, TASKS 2090, the sweeper's round and the niches, 2094, 2100); selfCheck holds the generator's print to its version
-  const GEN_VERSION = 36;
+  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch; 36: the town's rails end on the diagonal, TASKS 2090, the sweeper's round and the niches, 2094, 2100; 37: the skull door's waves on its record and its room big enough for its last wave, TASKS 2132); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 37;
   // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
   const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
@@ -189,13 +189,13 @@
   }
 
   // the event rooms (TASKS 361, data.js EVENTS): marked once the floor is laid and checked, so they never move a wall or a way.
-  // EVENT_PLACE[id](m, r, rnd) → [x, y, more?] (world px; more joins the event's record) or null puts an event's own things in its room; with none, its spot is the open
+  // EVENT_PLACE[id](m, r, rnd, seed) → [x, y, more?] (world px; more joins the event's record) or null puts an event's own things in its room; with none, its spot is the open
   // cell nearest the room's middle
   const EVENT_PLACE = {
     // the skull door's grates (TASKS 362): one in each run of open cells just past the room's box, the way the boss's arena takes its
     // doors, so they shut every way in whatever its width (a cave's mouths are seldom two cells). Not a room a secret opens into,
     // nor one whose ways in are another room's floor or a door's
-    trial: (m, r) => { if (r.wings) return null;
+    trial: (m, r, rnd, seed) => { if (r.wings) return null;
       const W = m.W, inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, mouth = new Map();
       if ((m.secrets || []).some((q) => q.host === r.id || q.wall.concat(q.front || []).some(([x, y]) => inRm(r, x, y, 1)))) return null;
       const doorC = new Set((m.doors || []).flatMap((d) => d.cells.map(([x, y]) => y * W + x)));
@@ -208,7 +208,10 @@
         for (; mouth.has(k) && mouth.get(k).dir === p.dir && !took.has(k); k += st) { took.add(k); run.push([k % W, Math.floor(k / W)]); }
         const a = run[0], n = run.length, ex = p.dir === 'l' ? r.x : p.dir === 'r' ? r.x + r.w : 0, ey = p.dir === 'u' ? r.y : p.dir === 'd' ? r.y + r.h : 0;
         gates.push({ dir: p.dir, cells: run, x: side ? ex * TILE : (a[0] + n / 2) * TILE, y: side ? (a[1] + n / 2) * TILE : ey * TILE }); }
-      const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; },
+      // (TASKS 2132) its number of waves on a stream of its own, so the other events' draws and rooms stay as they were
+      const at = gates.length && eventSpot(m, r); if (!at) return null;
+      const [lo, hi] = D.EVENTS.pool.trial.waves, waves = lo + Math.floor(mul32((seed ^ 0x2132 ^ (r.id << 16)) >>> 0)() * (hi - lo + 1));
+      return [at[0], at[1], { gates, waves }]; },
     // the dark room (TASKS 365): a room with a pack to fight in the dark. Its wall torches and loose candles are put out (`dark`: the
     // render neither draws nor lights them; the lists keep their order, as a prop's knock key is its place in its list); a room with a fire
     // on its floor (a brazier, a crystal, a forge), a secret's sconce or candles, or a zone's own light is not one
@@ -274,14 +277,15 @@
       let roll = Er() * left.reduce((a, [, E]) => a + E.w, 0), pk = left[0][0]; for (const [id, E] of left) if ((roll -= E.w) < 0) { pk = id; break; } ids.push(pk); }
     const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx);
     const rooms = m.rooms.filter((r) => r.type === 'combat' && !r.hall && !r.locked && !r.pocket && !r.isle && !r.event && r.w * r.h >= EV.area && !way.has(r.id));
-    const big = (r, E) => r.w * r.h >= (E.area || EV.area);
+    // (TASKS 2132) the skull door's room holds its biggest wave uncrowded at the floor's depth
+    const big = (r, E) => r.w * r.h >= (E === pool.trial ? EV.trialArea(ST.depth) : E.area || EV.area);
     shuffleBy(rooms, Er);
     const out = [];
     for (const id of ids) { const E = pool[id];
       for (const r of rooms) { if (r.event || !big(r, E)) continue;
         // (an elite is a room's reward, TASKS 433: a dead end off the way would be left with none, and a lair floor short of its own)
         if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit || e.elite))) continue;
-        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er) : eventSpot(m, r); if (!at) continue;
+        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er, seed) : eventSpot(m, r); if (!at) continue;
         r.event = id; if (E.room === 'treasure') { m.enemies = m.enemies.filter((e) => e.room !== r.id); if (m.webs) m.webs = m.webs.filter((w) => roomAt(m, w.x, w.y) !== r.id); }
         out.push(Object.assign({ id, room: r.id, x: at[0], y: at[1] }, at[2])); break; } }
     if (out.length) m.events = out;

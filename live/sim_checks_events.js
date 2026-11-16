@@ -109,9 +109,10 @@
         if (up.some((e) => e.room !== E.room || e.x < r.x * TILE || e.y < r.y * TILE || e.x >= (r.x + r.w) * TILE || e.y >= (r.y + r.h) * TILE)) out.push(`${tag}: a wave rises out of its room`);
         if (!waves.length || waves[waves.length - 1] !== E.wave) waves.push(E.wave); for (const e of up) { e.hp = 0; SIMX.killEnemy(S, R, e); } }
       const q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room), ch = R.chests.filter((c) => c.trial);
-      if (E.st !== 'done' || waves.join() !== '0,1,2' || q.length !== 1) out.push(`${tag}: it ends ${E.st} after waves ${waves} with ${q.length} qevent`);
-      if (!shut(1) || R.map.arenaBox) out.push(`${tag}: the grates stay down after the third wave`);
-      if (ch.length !== 1 || ch[0].tier !== P.chest || ch[0].open) out.push(`${tag}: ${ch.length} reward chests of tier ${ch.map((c) => c.tier)}`);
+      const all = Array.from({ length: SIMX.trialN(E) }, (_, i) => i).join(), Y = SIMX.trialPay(E);
+      if (E.st !== 'done' || waves.join() !== all || q.length !== 1) out.push(`${tag}: it ends ${E.st} after waves ${waves} of ${SIMX.trialN(E)} with ${q.length} qevent`);
+      if (!shut(1) || R.map.arenaBox) out.push(`${tag}: the grates stay down after the last wave`);
+      if (ch.length !== 1 || ch[0].tier !== Y.chest || ch[0].up !== (Y.up || 0) || ch[0].open) out.push(`${tag}: ${ch.length} reward chests of tier ${ch.map((c) => c.tier)}`);
       if (SIMX.lootAudit(R).off) out.push(`${tag}: the reward chest is left out of the floor's loot (audit off ${SIMX.lootAudit(R).off})`); }
     // a hero out of the room ends it with the grates up and its wave gone; a dead one calls no wave
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
@@ -132,13 +133,45 @@
       if (R.en.length !== n) out.push('trial play: a wave rises for a dead hero'); }
     // a wave with no room to rise in is tried again, never counted or called out empty; one that never finds room is let go
     for (const fail of [2, 1e9]) { const { S, R, E } = evRun('campaign', {}, 'trial'), h = R && R.hero; if (!E) { out.push('trial play: no skull door for the empty wave'); break; }
-      const real = SIMX.summonPack, said = P.waves.map((_, i) => TXT('EVENTS.trial.wave', { n: i + 1, of: P.waves.length })), risen = [];
+      const N = SIMX.trialN(E), real = SIMX.summonPack, said = Array.from({ length: N }, (_, i) => TXT(i === N - 1 ? 'EVENTS.trial.last' : 'EVENTS.trial.wave', { n: i + 1, of: N })), risen = [];
       let left = fail; SIMX.summonPack = (...a) => (left-- > 0 ? 0 : real(...a));
       try { SIMX.eventStart(S, R, E); for (let i = 0; i < 120 * 60 && E.st === 'on'; i++) { R.msg = null; step(S, { keys: [] }); h.hp = 1e6; h.x = E.x; h.y = E.y + 10;
         if (R.msg && said.includes(R.msg.s) && !R.en.some((e) => e.summ === 'trial' && e.deadT < 0)) out.push(`trial play: «${R.msg.s}» called out with no wave up`);
         for (const e of R.en) if (e.summ === 'trial' && e.deadT < 0) { if (risen[risen.length - 1] !== E.wave) risen.push(E.wave); e.hp = 0; SIMX.killEnemy(S, R, e); } } } finally { SIMX.summonPack = real; }
       if (E.st !== 'done') out.push(`trial play: summons failing ${fail} times leave it ${E.st}`);
-      if (fail < P.tries && risen.join() !== '0,1,2') out.push(`trial play: after ${fail} failed summons the waves risen are ${risen}`); }
+      if (fail < P.tries && risen.join() !== said.map((_, i) => i).join()) out.push(`trial play: after ${fail} failed summons the waves risen are ${risen}`); }
+  }
+  // the skull door's waves (TASKS 2132): on every floor of each run that lays it, drawn or asked for, waves[0]..waves[1] of them, the
+  // same on the same seed, in a room that holds its biggest wave at PACK_AREA cells a monster; every count comes up; the chest never
+  // shrinks as the count grows; in play each wave is its size, only the last holds an elite, and
+  // the HUD's counter names the wave and keeps its line at full size
+  function checkTrialWaves(out) { const P = D.EVENTS.pool.trial, EV = D.EVENTS, [lo, hi] = P.waves, seen = new Set(); let laid = 0;
+    for (const [mode, o] of MODES) for (let sd = 1; sd <= (mode === 'campaign' ? 6 : 4); sd++) for (let f = 1; f <= Math.min(mode === 'campaign' ? 16 : 4, D.RUNS[mode].floors); f++) {
+      const seed = (sd * 31 + f * 1013) >>> 0, tag = `trial waves ${mode}${o.town ? ' (town)' : ''} ${sd}/${f}`, depth = D.stageOf(mode, f, sd, 1).depth;
+      for (const ask of [0, 1]) { const op = Object.assign({ mode, runSeed: sd }, o, ask ? { events: ['trial'] } : {}), m = DG.genFloor(seed, f, op), E = (m.events || []).find((q) => q.id === 'trial'); if (!E) continue; laid++;
+        const r = m.rooms[E.room]; seen.add(E.waves);
+        if (!Number.isInteger(E.waves) || E.waves < lo || E.waves > hi) out.push(`${tag}: ${E.waves} waves`);
+        if (r.w * r.h < EV.trialArea(depth)) out.push(`${tag}: its room of ${r.w * r.h} cells is under ${EV.trialArea(depth)} at depth ${depth}`);
+        if (ask && sd <= 2) { const B = (DG.genFloor(seed, f, op).events || []).find((q) => q.id === 'trial'); if (!B || B.waves !== E.waves || B.room !== E.room) out.push(`${tag}: the same seed lays it otherwise`); } } }
+    if (!laid) out.push('trial waves: no floor lays the skull door');
+    for (let n = lo; n <= hi; n++) if (!seen.has(n)) out.push(`trial waves: no floor rolls ${n} waves`);
+    const L = SIMX.LOOT.chest, worth = (n) => { const Y = P.pay[n]; return Y && L[Y.chest] ? [Y.chest, L[Y.chest].n, L[Y.chest].q, Y.up || 0] : null; };
+    for (let n = lo; n <= hi; n++) { const a = worth(n), b = n > lo && worth(n - 1); if (!a) { out.push(`trial waves: no chest for ${n} waves`); continue; }
+      if (b && (a.slice(0, 3).some((v, i) => v < b[i]) || (a[0] === b[0] && a[3] < b[3]))) out.push(`trial waves: ${n} waves pay less than ${n - 1} (${a} after ${b})`); }
+    { const { fitW } = SIMX.checks.kit, WV = D.UI.kit.WAVE;
+      for (let n = 1; n <= hi; n++) { const t = TXT('EVENTS.trial.count', { n, of: hi }), fit = fitW(t, WV.w - 2 * WV.pad, WV.size); if (fit.cut || fit.size < WV.size) out.push(`trial waves: «${t}» is ${fit.w.toFixed(0)} px at ${fit.size} px, its room ${WV.w - 2 * WV.pad}`); } }
+    for (const n of [lo, hi]) { const { S, R, E } = evRun('campaign', {}, 'trial'), h = R && R.hero; if (!E) { out.push('trial waves: no skull door to fight'); return; }
+      E.waves = n; if (!SIMX.eventSay(E).includes(String(n))) out.push(`trial waves: its question does not name its ${n} waves`);
+      const got = []; SIMX.eventStart(S, R, E);
+      for (let i = 0; i < 120 * 90 && E.st === 'on'; i++) { step(S, { keys: [] }); h.hp = 1e6; h.x = E.x; h.y = E.y + 10;
+        const tw = SIMX.trialWaveOf(R); if (E.st === 'on' && (!tw || tw.of !== n || tw.n !== E.wave + 1)) { out.push(`trial waves: the HUD's counter reads ${JSON.stringify(tw)} at wave ${E.wave + 1} of ${n}`); break; }
+        const up = R.en.filter((e) => e.summ === 'trial' && e.deadT < 0); if (!up.length) continue;
+        got.push({ i: E.wave, n: up.length, el: up.filter((e) => e.elite && e.mods && e.mods.length).length }); for (const e of up) { e.hp = 0; SIMX.killEnemy(S, R, e); } }
+      const dp = SIMX.dep(R), want = Array.from({ length: n }, (_, i) => EV.trialWave(i, n, dp));
+      if (E.st !== 'done' || got.length !== n) { out.push(`trial waves: ${n} waves end ${E.st} after ${got.length} risen`); continue; }
+      if (got.some((g, i) => g.i !== i || g.n !== want[i])) out.push(`trial waves: ${n} waves rise ${got.map((g) => g.n)}, not ${want}`);
+      if (got.some((g, i) => g.el !== (i === n - 1 ? P.elites : 0))) out.push(`trial waves: elites by wave ${got.map((g) => g.el)}, the last one's ${P.elites} only`);
+      if (SIMX.trialWaveOf(R)) out.push('trial waves: the counter stays after the last wave'); }
   }
   // an event of the pool asked for on floors 1–4 of a run, the hero by it, its enemies gone; ask(S) answers its question «yes»
   function evRun(mode, o, id) { const S = spawn(0, {}); S.run = newRun(S, mode, 77, Object.assign({ allFree: 1 }, o)); S.screen = 'play'; const R = S.run; let E = null;
@@ -343,6 +376,7 @@
   SIMX.checks.add('eventGenCheck', checkEventGen);
   SIMX.checks.add('eventPlayCheck', checkEventPlay);
   SIMX.checks.add('trialPlayCheck', checkTrialPlay);
+  SIMX.checks.add('trialWaveCheck', checkTrialWaves);
   SIMX.checks.add('bloodPlayCheck', checkBloodPlay);
   SIMX.checks.add('hexPlayCheck', checkHexPlay);
   SIMX.checks.add('fountainPlayCheck', checkFountainPlay);

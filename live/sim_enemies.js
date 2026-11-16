@@ -10,6 +10,10 @@
   const MOD = Object.fromEntries(ELITE_MODS.map((m) => [m.id, m])), has = (e, id) => !!(e.mods && e.mods.includes(id));
   function rollMods(R, f, e) { const [a, b] = D.eliteMods(f), n = a + (b > a && rnd(R) < 0.5 ? 1 : 0), pool = D.modPool(R.mode, R.floor, ENEMIES[e.type].kind), out = [];
     while (out.length < n) out.push(pool.splice(Math.floor(rnd(R) * pool.length), 1)[0]); return out; }
+  // a plain monster of the floor made an elite where it stands (a named one of the town's quest, TASKS 1998; a skull door's last wave,
+  // TASKS 2132): its powers, an elite's health times hpK and an elite's blow in place of a plain one's stage share
+  function makeElite(R, e, hpK = 1) { const mob = STAGE(R).mob || 1; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * hpK); e.dmg = e.dmg / mob * eliteK(e, 'dmg');
+    if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); }
   // what an elite's powers add to a blow of its that landed on the hero
   function struck(S, R, e) {
     const h = R.hero; if (!e || h.hurtT !== S.t) return;
@@ -612,6 +616,6 @@
   }
 
   Object.assign(SIMX, {
-    MOD, has, rollMods, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, chill, addFire, stepFires, flightReach,
+    MOD, has, rollMods, makeElite, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, chill, addFire, stepFires, flightReach,
     stepProjectiles, stepMonsters, ARROW_Y, steer, idle });
 })(typeof window !== 'undefined' ? window : globalThis);

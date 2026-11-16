@@ -98,6 +98,9 @@
     bp: { h: 122, foot: 6, purseY: 10 },
     purse: PURSE,
   });
-  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, FONT, face, SIGN, SIGN_OF, signRects };
+  // the skull door's wave counter (TASKS 2132): a plate at the top of the screen's middle, where a boss's ribbon stands in its fight;
+  // its line keeps to w less pad each side at its size (trialWaveCheck)
+  const WAVE = { y: 10, w: 260, h: 48, size: 28, pad: 22 };
+  UI.kit = { WAVE, wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, FONT, face, SIGN, SIGN_OF, signRects };
   UI.share('kit', { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf });
 })(typeof window !== 'undefined' ? window : globalThis);

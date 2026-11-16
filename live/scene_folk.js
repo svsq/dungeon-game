@@ -187,7 +187,7 @@
       if (n || used < 0.5) Y.push([T.svc.bin.y + 1, () => { for (let q = 0; q < n; q++) L.sprite('town_tool_stone', bx - 15 + q * 11 - cw / 2, by - 34 - (q % 2) * 4, { w: cw, h: cw }); if (used < 0.5) L.puff(bx - 4, by - 36, 12, [0.8, 0.74, 0.62], 0.6 * (1 - used / 0.5), 3); }]); }
     if (C.st === 'in') return;
     // the cart's ground is the rails' middle itself (it stood 8 px below it, on the grass), and its painting's `seat` is what rides there
-    const { x, y, ds } = D.cartAt(pts, C.s);
+    const { x, y, ds, s: run } = D.cartAt(pts, C.s);
     const justTook = ms && !ms.go && ms.lift === 'take' && GT - ms.t0 < 0.45, shown = C.load + (justTook ? 1 : 0), li = shown >= 3 ? 0 : shown === 2 ? 1 : 2, nmS = ["cart_tw", "cart_tw_half", "cart_tw_empty"][li], nmF = ["cart_tw_f", "cart_tw_f_half", "cart_tw_f_empty"][li],
       FD = D.cartFade(pts, ds), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(...D.CART.dusk, C.s), X = sx(x), Yg = sy(y);
     const pulse = (a, dur) => (a >= 0 && a < dur ? Math.sin(Math.PI * a / dur) * (1 - a / dur) : 0), sag = pulse(GT - (C.takeT ?? -9) - 0.45, 0.4), stopK = C.st === 'at' ? pulse(GT - (C.atT ?? -9), 0.4) : 0, end = pts[pts.length - 1], pre = pts[pts.length - 2], back = end[0] >= pre[0] ? -1 : 1;
@@ -198,7 +198,7 @@
     // stacked into a dark ghost of it, 44 % at an alpha of 0.07)
     const views = [[FD.F, nmF, Math.min(1, 2 - 2 * FD.a), 1 - FD.a], [FD.S, nmS, Math.min(1, 2 * FD.a), FD.a]].filter((q) => q[2] > 0).map(([V, nm, a, k2]) => { const [w, h] = SZ(nm), Mc = M.of(M.t(Xc, Yc), M.r(V.rot * L.D2R + wob)),
       seat = V.side ? D.cartSeat(nm, w, h, V) : D.cartSeatF(nm, w, h), rotAt = (dx, dy) => M.ap(Mc, [dx - seat[0], dy - seat[1]]);
-      return { V, nm, a, k2, w, h, Mc, seat, rotAt, lugs: V.side ? D.CART.hubs[nm].map((_, q) => rotAt(...D.cartLug(nm, q, w, h, C.s, V.run))) : [], u: { tint, alpha: a, grade: D.CART.grade[nm] || [1, 1, 0, 1] } }; });
+      return { V, nm, a, k2, w, h, Mc, seat, rotAt, lugs: V.side ? D.CART.hubs[nm].map((_, q) => rotAt(...D.cartLug(nm, q, w, h, run, V.run))) : [], u: { tint, alpha: a, grade: D.CART.grade[nm] || [1, 1, 0, 1] } }; });
     const mix = (f) => views.reduce((o, q) => { const p = f(q); return [o[0] + p[0] * q.k2, o[1] + p[1] * q.k2]; }, [0, 0]);
     const LG = D.CART.lug, RP = D.CART.rope, wn = D.cartWinch(pts), wide = views.reduce((o, q) => o + q.w * q.k2, 0),
       rope = D.cartRope([sx(wn[0]), sy(wn[1])], mix((q) => q.rotAt(...D.cartHook(q.V.side, nmS, q.w, q.h))), Math.sign(pts[pts.length - 1][0] - pts[0][0]) || 1);

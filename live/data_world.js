@@ -236,9 +236,14 @@
     pool: {
       probe: { w: 0, minF: 1, room: 'treasure', ask: 1, name: TXT('EVENTS.probe.name'), say: TXT('EVENTS.probe.say'), yes: TXT('EVENTS.probe.yes'), no: TXT('EVENTS.probe.no'), prompt: TXT('EVENTS.probe.prompt'), done: TXT('EVENTS.probe.done') },
       // the skull door (TASKS 362): a skull over each way in and the bones on its floor tell of it from the doorway; «yes» drops a
-      // grate in every way in, and three waves of the floor's own roster rise one after another, wave i n[i] + depth / perF strong,
-      // gap s apart; the last one down lifts the grates and leaves a chest of a cache's tier (`chest`) on its spot
-      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, retry: 0.25, tries: 12, chest: 4,
+      // grate in every way in, and its waves of the floor's own roster rise one after another, gap s apart; the last one down lifts the
+      // grates and leaves the chest of `pay` on its spot. TASKS 2132: waves[0]..waves[1] of them, rolled as the floor is laid; the first
+      // size[0] + depth / perF strong, the last size[1] + depth / perF (EVENTS.trialWave), `elites` of the last one elites. Its room
+      // holds the last wave at PACK_AREA cells a monster, and never less than `area` (EVENTS.trialArea).
+      // pay: the chest by the number of waves, its tier and `up` (finds rolled that many floors deeper, as the cursed chest's): five or
+      // six waves pay the cache's tier the three waves paid before 2132, fewer less, more more
+      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [3, 8], size: [2, 4], perF: 3, elites: 1, gap: 1.6, retry: 0.25, tries: 12,
+        pay: { 3: { chest: 3 }, 4: { chest: 3, up: 1 }, 5: { chest: 4 }, 6: { chest: 4 }, 7: { chest: 4, up: 1 }, 8: { chest: 5 } },
         name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') },
       // the blood altar (TASKS 363): `cost` of the health the hero has now (never the last point) for one find of `item`, an epic or
       // better made for his class, on the altar. Its own reward, not a power: the altar of gifts (a room of its own) gives those.
@@ -280,6 +285,10 @@
         name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
   // the cursed chest's text names the curse's own number, which EVENTS holds only once its table is built
   TXT.bind('EVENTS.hex.say', EVENTS); EVENTS.pool.hex.say = TXT('EVENTS.hex.say');
+  // a pack's room per monster, in cells: a room's own pack (dungeon_fill.js) and a skull door's wave (TASKS 2132) never crowd it more
+  const PACK_AREA = 9;
+  EVENTS.trialWave = (i, n, depth) => { const P = EVENTS.pool.trial, [a, b] = P.size; return a + Math.round((b - a) * i / Math.max(1, n - 1)) + Math.floor(depth / P.perF); };
+  EVENTS.trialArea = (depth) => Math.max(EVENTS.pool.trial.area, PACK_AREA * EVENTS.trialWave(1, 2, depth));
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
@@ -374,5 +383,5 @@
   // `rest`: the painting of what is left lying there, its keel and half its ribs (TASKS 1736: only splinters marked where it had stood)
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2, rest: 'wreck_cv_broken' };
-  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  Object.assign(D, { PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

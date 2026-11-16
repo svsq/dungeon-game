@@ -1551,11 +1551,15 @@
         transitions['folk_' + role + '_go'] = run((S, R, f, rt) => { atStop(R, f, 0); const b = rt[0], c = rt[1]; Object.assign(f, { face: c.x >= b.x ? 1 : -1, turnT: undefined, walked: 1, load: carry, lift: carry ? 'take' : 0 }); const c0 = D.folkClock(role, f.i, S.t + 0.4); S.t -= ((c0.u - 0.45 + 1) % 1) * c0.per; f.t0 = S.t - SIMX.folkPause(f, b) + 0.4; }, 90);
         folkSubj['folk_' + role + '_go'] = 'npc' + i; }
       folkCycT['folk_' + role + '_right'] = st / v; folkSubj['folk_' + role + '_right'] = 'npc' + i; folkSpr['folk_' + role + '_right'] = Object.keys(ASSETS).filter((a) => a.startsWith(nm + '__')); }
+    // each hen from the town's first frame on, the real sim at 1/60 s, the camera held on it: its first step turns it (town_motion_r9 7)
+    for (const hn of folkS().run.folk.filter((q) => q.role === 'hen')) { let S = folkS((S, R) => camOn(R, R.folk.find((q) => q.i === hn.i))); const cam = S.run.cam.slice(), fr = [], nm = 'folk_hen_enter_' + hn.i;
+      for (let k = 0; k < 72; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
+      transitions[nm] = fr; folkSubj[nm] = 'npc' + hn.i; }
     { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'hen'); i = f.i; camOn(R, f); }); folkSubj.folk_hen_peck = 'npc' + i; loops.folk_hen_peck = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.t += k / 12; return S; }); }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 120 }); const p = SCX.railPts(R.map)[4]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_roll = 'cart'; loops.folk_cart_roll = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 6; return S; }); }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 40 }); const p = SCX.railPts(R.map)[2]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_turn = 'cart'; loops.folk_cart_turn = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 3; return S; }); }
     // the end of the rails, where the cart waits at the bin most of its round (TASKS 2090): its last stretch, then at rest
-    { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 290 }); const p = SCX.railPts(R.map), q = p[p.length - 1]; R.cam = [q[0] - SCX.VW / 2, q[1] - SCX.VH / 2]; }); folkSubj.folk_cart_end = 'cart'; loops.folk_cart_end = Array.from({ length: 26 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 3; return S; }); }
+    { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 290 }); const p = SCX.railPts(R.map), q = p[p.length - 1]; R.cam = [q[0] - SCX.VW / 2, q[1] - SCX.VH / 2]; }); folkSubj.folk_cart_end = 'cart'; loops.folk_cart_end = Array.from({ length: 26 }, (_, k) => { const S = structuredClone(base), C = S.run.cart, L = D.railTot(SCX.railPts(S.run.map)); C.s = Math.min(L, C.s + k * 3); if (C.s >= L) C.st = 'at'; return S; }); }
     { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'porter'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.lift = 'take'; f.face = 1; camOn(R, f); });
       transitions.folk_porter_take = Array.from({ length: 110 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_porter_take = 'npc' + i; }
     { let i = 0; const base = folkS((S, R, m, h) => { const f = folkAt(R, 'smith'); i = f.i; const c = D.folkClock('smith', i, S.t); S.t += ((0.72 - c.u + 1) % 1) * c.per; h.x = f.x + 46; h.y = f.y + 16; f.near = 1; f.sayT = S.t + 0.1; f.sayN = 0; f.face = 1; camOn(R, f); });
@@ -1874,6 +1878,13 @@
     for (const [nm, mode, st] of [['trial_door', 'campaign', -1], ['trial_room', 'campaign', 0], ['trial_fight', 'campaign', 1], ['trial_won', 'campaign', 2], ['trial_fight_cave', 'cave', 1], ['trial_fight_magma', 'magma', 1]]) { const S = trialS(mode, st); if (S.run && (S.run.events || []).some((q) => q.id === 'trial')) states.push([nm, S]); }
     // (TASKS 2021) its mark on the map and the legend's line, the legend opened by the pointer over the map in the pause
     { const S = trialS('campaign', 0); if (S.run && (S.run.events || []).length) { S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; states.push(['trial_map', S]); } }
+    // (TASKS 2132) the last wave up, its elite among it, the HUD's counter at its last wave and the call of it over the fight
+    { const S = trialS('campaign', 1), R = S.run, E = R && (R.events || []).find((q) => q.id === 'trial');
+      if (E && E.st === 'on') { const h = R.hero, hp0 = h.hp, up = () => R.en.filter((e) => e.summ === 'trial' && e.deadT < 0);
+        for (let i = 0; i < 6000 && E.st === 'on'; i++) { const tw = SIM.Q.trialWaveOf(R); if (tw && tw.n === tw.of && up().some((e) => e.elite)) break;
+          R.enteredT = -9; SIM.step(S, { keys: [] }); h.hp = 1e6; h.x = E.x + 70; h.y = E.y + 30; const tw2 = SIM.Q.trialWaveOf(R); if (tw2 && tw2.n < tw2.of) for (const e of up()) { e.hp = 0; SIM.killEnemy(S, R, e); } }
+        R.en = R.en.filter((e) => e.deadT < 0); for (let i = 0; i < 30; i++) { SIM.step(S, { keys: [] }); h.hp = 1e6; } h.hp = hp0; R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2];
+        if (E.st === 'on' && up().some((e) => e.elite)) states.push(['trial_last', S]); } }
     // an event of the pool on its own (TASKS 363, 364): the room as it is come upon (its prop, the prompt), its question, and after «yes»
     // (pre(R, E) sets what the event needs first, a fountain's fate)
     const evS = (id, stage, pre) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
