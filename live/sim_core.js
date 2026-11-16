@@ -175,6 +175,9 @@
       if (pinch(m, cx, cy, nx, ny)) return false; cx = nx; cy = ny; if (i < n && wall(x, y - 8) && wall(x, y)) return false; } return true; };
   // doors (dungeon.js m.doors, m.locks): a door shut by a lock that is not open yet
   const doorLock = (m, d) => { const L = d.lock >= 0 && m.locks ? m.locks[d.lock] : null; return L && !L.open ? L : null; };
+  // (TASKS 2112) an arena door that shares its corridor with a room's own door: the generator only marked the twin of a locked
+  // room's door, and the map's JSON is hashed, so the twin is found here; while the arena stands open only the room's door shows
+  const doorTwin = (m, d) => !!d.arena && (!!d.twin || (m.doors || []).some((o) => !o.arena && o.cells.some(([x, y]) => d.cells.some(([ax, ay]) => Math.abs(ax - x) <= 2 && Math.abs(ay - y) <= 2))));
   // flow field from a target tile over open floor: derived data, cached by key, never in the state
   // a field per target, a few kept: the bot asks for its own fields between the monsters' each step, and one slot was rebuilt
   // every time (TASKS 467); each field is keyed by the map's revision (sim_map.js), which any write to the floor moves
@@ -298,5 +301,5 @@
     zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, overLava, doorLock, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
+    losClear, overLava, doorLock, doorTwin, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
 })(typeof window !== 'undefined' ? window : globalThis);

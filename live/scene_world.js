@@ -542,7 +542,7 @@
     // edge-on along the corridor's left side; a bottom wall's the same without the arch. A side wall's stands edge-on in the gap
     // (the wall's own flat top is its jambs) and opens face-on, in shadow, against the corridor's back wall. A top wall's leaf and a
     // side wall's turn on the hinge as one picture (TASKS 1683: two views cross-fading read as a dissolve); a bottom wall's cross-fades
-    for (const d of m.doors || []) { if (!vis(d.x, d.y) || (d.twin && d.open)) continue; const i = m.doors.indexOf(d), lock = SIM.Q.doorLock(m, d);
+    for (const d of m.doors || []) { if (!vis(d.x, d.y) || (d.open && SIM.Q.doorTwin(m, d))) continue; const i = m.doors.indexOf(d), lock = SIM.Q.doorLock(m, d);
       const a = d.open ? GT - (d.openT ?? -9) : -1, p = d.open ? 1 - Math.pow(1 - Math.min(1, a / (d.kick ? 0.16 : 0.32)), 3) : 0;
       const bump = ST.ev.find((e) => e.k === 'locked' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.3), jit = bump ? Math.sin((GT - bump.t) * 90) * 2 * (1 - (GT - bump.t) / 0.3) : 0;
       const side = d.dir === 'l' || d.dir === 'r', s = d.dir === 'r' ? 1 : -1, X = sx(d.x) + jit, un = ST.ev.find((e) => e.k === 'unlatch' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.7);

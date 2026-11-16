@@ -368,7 +368,8 @@
       if (near < C.rope.gap) out.push(`cart: the rope of ${f} comes ${near.toFixed(1)} px to the rails' axis at ${at} px, under ${C.rope.gap}`); }
     // TASKS 2109: the lug turns round its hub so the wheel's top goes the way the cart goes on the screen; the near box (CART.rim) never
     // shows more than CART.shrink smaller than CART.ahead px further on (the front view came out of the adit at half the 3/4 one's size);
-    // the front view's hubs stand on the rails
+    // TASKS 2113: the front view's edge-on wheel slabs stand on the two rails, their feet on the rails' line, within a pixel at every s of
+    // the plumb run, all three loads on one gauge; nothing on them turns (no lug: CART.hubs names only 3/4 paintings)
     for (const n of Object.keys(C.hubs)) { const [w, h] = size(n); let wrong = null;
       for (let s = 1; s <= 400 && !wrong; s += 3) { const v = D.cartAt(pts, s), u = D.cartAt(pts, s + 1), V = D.cartView(pts, v.ds); if (!V.side || u.x === v.x) continue;
         for (const q of [0, 1]) { const [hu, hv] = C.hubs[n][q], c = [(hu - 0.5) * w, (hv - 1) * h], p = D.cartLug(n, q, w, h, s, V.run), p2 = D.cartLug(n, q, w, h, s + 1, V.run),
@@ -376,11 +377,22 @@
           if (Math.sign(turn) !== Math.sign(u.x - v.x)) wrong = [s, q]; } }
       if (wrong) out.push(`cart: the wheel ${wrong[1]} of ${n} turns against the travel at ${wrong[0]} px`); }
     const LOADS = [['cart_tw', 'cart_tw_f'], ['cart_tw_half', 'cart_tw_f_half'], ['cart_tw_empty', 'cart_tw_f_empty']];
+    const spans = [];
     for (const [nmS, nmF] of LOADS) { const show = (s) => { const nm = D.cartView(pts, D.cartAt(pts, s).ds).side ? nmS : nmF; return C.rim[nm] * size(nm)[1]; };
-      const span = (C.gaugeF[nmF][1] - C.gaugeF[nmF][0]) * size(nmF)[0];
-      if (Math.abs(span - D.RAIL.gauge) > C.fit * D.RAIL.gauge) out.push(`cart: the hubs of ${nmF} stand ${span.toFixed(1)} px apart on rails ${D.RAIL.gauge} px apart`);
+      const [w, h] = size(nmF), F = C.wheelsF[nmF], st = D.cartSeatF(nmF, w, h), piv = [w / 2 + st[0], h + st[1]], g = D.RAIL.gauge / 2;
+      if (C.hubs[nmF]) out.push(`cart: ${nmF} has wheel hubs, the front view's wheels are edge-on and must not turn`);
+      spans.push((F.x[1] - F.x[0]) * w);
+      let off = null, plumb = 0;
+      for (let s = 0; s <= 400 && !off; s++) { const v = D.cartAt(pts, s), a = D.railAt(pts, v.ds - 1), b = D.railAt(pts, v.ds + 1);
+        if (D.cartView(pts, v.ds).side || Math.abs(b[0] - a[0]) > 1e-6) continue; plumb++;
+        const rails = [[v.x - g, v.y], [v.x + g, v.y]];
+        for (const q of [0, 1]) { const at = [v.x + F.x[q] * w - piv[0], v.y + F.foot * h - piv[1]], d = Math.hypot(at[0] - rails[q][0], at[1] - rails[q][1]);
+          if (d > 1) off = [s, q, d]; } }
+      if (!plumb) out.push(`cart: ${nmF} is never shown on a plumb run of the rails`);
+      if (off) out.push(`cart: the wheel ${off[1]} of ${nmF} stands ${off[2].toFixed(2)} px off its rail at ${off[0]} px`);
       let bad = null; for (let s = 0; s + C.ahead <= 400 && !bad; s += 3) { const a = show(s), b = show(s + C.ahead); if (a < (1 - C.shrink) * b) bad = [s, a, b]; }
       if (bad) out.push(`cart: ${nmS} shows its near box ${bad[1].toFixed(1)} px high at ${bad[0]} px and ${bad[2].toFixed(1)} px ${C.ahead} px on`); }
+    if (Math.max(...spans) - Math.min(...spans) > 1) out.push(`cart: the front paintings' wheels stand ${spans.map((x) => x.toFixed(1)).join(', ')} px apart, not on one gauge`);
     return out;
   }
   // TASKS 2104: hardcore's death ends the run; the normal mode's wakes the hero in the town with a share of his level's experience

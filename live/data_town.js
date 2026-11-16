@@ -106,12 +106,13 @@
   // end's rim in the 3/4 one, the top centre in the front one). It hangs `sag` px at the middle, less as it comes taut (`taut` of it at `far`
   // px of length) and none when short (under `near`); a plumb run bows `bow` px aside, towards where the rails turn, over `ramp` px from each
   // end, so it never lies on the rails' axis: cartCheck wants `gap` px from it, but for `ends` px at each end (town_motion_r8 6)
-  // `gaugeF`: the front paintings' two wheel hubs across, in parts of their width; sizes.js sets their heights so the hubs stand on the
-  // rails (RAIL.gauge), at 31 px high the cart came out of the adit half its 3/4 size (TASKS 2109). `rim`: the near box from the wheels'
+  // `wheelsF`: the front paintings' two edge-on wheel slabs (TASKS 2113: the round discs faced the viewer across the rails), measured from
+  // the alpha by tools/measure/cart_f_wheels.py: `x` their centres across in parts of the width, `foot` their bottom in parts of the height;
+  // sizes.js sets the heights so the slabs stand on the rails (RAIL.gauge) and `cartSeatF` puts their feet on the rails' line. `rim`: the near box from the wheels'
   // bottom up to its near rim, in parts of each painting's height, the one size both views share: cartCheck wants it no less than
-  // `shrink` short of what the cart shows `ahead` px further along, and the front hubs `fit` (part of the gauge) off the rails. `dusk`: the run (px) over which the cart comes out of the adit's dark
-  const CART = { diag: 39, front: 67, trim: 7, stop: 22, floor: 0.68, reach: 14, dusk: [0, 20], shrink: 0.15, ahead: 6, fit: 0.06,
-    gaugeF: { cart_tw_f: [0.180, 0.816], cart_tw_f_half: [0.183, 0.818], cart_tw_f_empty: [0.184, 0.819] },
+  // `shrink` short of what the cart shows `ahead` px further along. `dusk`: the run (px) over which the cart comes out of the adit's dark
+  const CART = { diag: 39, front: 67, trim: 7, stop: 22, floor: 0.68, reach: 14, dusk: [0, 20], shrink: 0.15, ahead: 6,
+    wheelsF: { cart_tw_f: { x: [0.1293, 0.8707], foot: 0.9960 }, cart_tw_f_half: { x: [0.1294, 0.8717], foot: 0.9956 }, cart_tw_f_empty: { x: [0.1294, 0.8723], foot: 0.9954 } },
     rim: { cart_tw: 0.445, cart_tw_half: 0.49, cart_tw_empty: 0.49, cart_tw_f: 0.51, cart_tw_f_half: 0.6, cart_tw_f_empty: 0.6 },
     seat: { cart_tw: [0.130, -0.210], cart_tw_half: [0.131, -0.231], cart_tw_empty: [0.130, -0.234] },
     hubs: { cart_tw: [[0.595, 0.868], [0.946, 0.592]], cart_tw_half: [[0.596, 0.854], [0.948, 0.549]], cart_tw_empty: [[0.595, 0.851], [0.946, 0.547]] },
@@ -147,6 +148,8 @@
   // the screen side (+1 right) the cart goes to as `s` grows, so the wheel's top turns that way (TASKS 2109: it turned against the travel)
   const cartLug = (name, q, w, h, s, run) => { const G = CART.lug, [hu, hv] = CART.hubs[name][q], a = run * s / (G.roll * w);
     return [(hu - 0.5) * w + Math.cos(a) * G.rx * w, (hv - 1) * h + Math.sin(a) * G.ry * h]; };
+  // the front painting's point that rides the rails' middle, from its bottom centre (w x h px): midway between the slabs, at their feet
+  const cartSeatF = (name, w, h) => { const F = CART.wheelsF[name]; return [((F.x[0] + F.x[1]) / 2 - 0.5) * w, (F.foot - 1) * h]; };
   const cartHook = (side, name, w, h) => { const [hu, hv] = side ? CART.rope.hook.side[name] : CART.rope.hook.front; return [(hu - 0.5) * w, (hv - 1) * h]; };
   const cartWinch = (pts) => [pts[0][0], pts[0][1] - CART.rope.winch];
   // the rope from the winch `W` to the hook `H` as points a pixel apart or less; `dir` (+1 or -1) is the side a plumb run bows to
@@ -155,7 +158,7 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartAt, cartLug, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartAt, railAt, cartLug, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34 };
