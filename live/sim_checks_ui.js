@@ -435,7 +435,7 @@
     const U = D.UI.stats();
     // the normal death's toast (TASKS 2126): each of its two lines whole on one line of the toast, the widest number in it
     { const T = D.TOAST, xp = String(Math.round(D.xpNeed(99) * D.BAL.deathXpLoss));
-      for (const s of [TXT('sim_ui.fell.msg', { xp }), TXT('sim_ui.fell.way.first'), TXT('sim_ui.fell.way.portal', { f: C.floors }), TXT('sim_ui.fell.way.boss', { f: C.floors })]) fits('death toast', s, T.one, T.size2, T.size2); }
+      for (const s of [TXT('sim_ui.fell.msg', { xp }), TXT('sim_ui.fell.msg.none'), TXT('sim_ui.fell.way.first'), TXT('sim_ui.fell.way.portal', { f: C.floors }), TXT('sim_ui.fell.way.boss', { f: C.floors })]) fits('death toast', s, T.one, T.size2, T.size2); }
     for (const k of D.DEATH_ORDER) fits('statistics', TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: '999', d: '99 999', b: C.floors }), U.modeW, 22, 20); }
   // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
   function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
