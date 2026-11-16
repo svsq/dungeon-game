@@ -48,11 +48,33 @@
   const purseLay = (rows, x, y, measure, al = 0) => { const P = PURSE, B = purseBox(rows, measure), x0 = Math.round(x - B.w * al);
     return rows.flatMap((row, j) => row.map((q, i) => { const ux = x0 + i * (B.uw + P.step[0]), uy = y + j * (P.h + P.step[1]), px = ux + P.icon + P.gap;
       return Object.assign({}, q, { ic: P.icons[q.k], icon: { x: ux, y: uy + (P.h - P.icon) / 2, s: P.icon }, plate: { x: px, y: uy, w: B.cw, h: P.h }, c: [px + B.cw / 2, uy + P.h / 2 + P.ty] }); })); };
+  // the quest tracker stands still under the minimap (TASKS 2110: in 2100 it dodged the town's adit and jumped across the screen as the
+  // camera moved); over the adit it shows only the rows that end above the adit's top, the rest go to its «и ещё N» line, one row at least.
+  // Its width has a ceiling, a quarter of the view at most, and a longer line ends in «…»: one long quest name stretched it over half
+  // the screen (the author's 2110, again after 1992). Hidden, it is a small chip with the count
+  // one layout gives the box's height and every line's place, so the drawn rows and the «и ещё N» line can never outgrow the box. The font
+  // has no step under 20 px (lib.js), so the tracker is made smaller by its spacing and its width ceiling, not by a smaller size
+  const TRACKER = { rows: 4, right: 14, gap: 14, head: 30, row: 46, nameDy: 11, lineDy: 33, more: 26, bot: 6, textH: 24, out: 4, clear: 12, minW: 240, maxW: 460,
+    share: 0.24, chip: 32, pad: 12, box: 16, inset: 24, size: { title: 20, name: 19, line: 20, btn: 18 }, btnH: 24, btnPad: 16, btnGap: 8, headGap: 12 };
+  const trkMaxW = (W) => Math.min(TRACKER.maxW, Math.round(W * TRACKER.share));
+  const trkH = (n, more) => { const T = TRACKER; return T.head + n * T.row + (more ? T.more : 0) + T.bot; };
+  const trkLay = (W, mmBot, want, total, adit, hidden) => { const T = TRACKER, w = hidden ? Math.min(want, trkMaxW(W)) : Math.max(T.minW, Math.min(want, trkMaxW(W))),
+    x = W - T.right - w, y = mmBot + T.gap, e = T.out + T.clear;
+    if (hidden) return { x, y, w, h: T.chip, n: 0, more: 0, rows: [], titleY: y + T.chip / 2 };
+    let n = Math.min(T.rows, total);
+    if (adit && x - e < adit[0] + adit[2] && x + w + e > adit[0] && y - e < adit[1] + adit[3]) while (n > 1 && y + trkH(n, total > n) + e > adit[1]) n--;
+    const rows = Array.from({ length: n }, (_, i) => { const top = y + T.head + i * T.row; return { nameY: top + T.nameDy, lineY: top + T.lineDy }; });
+    return { x, y, w, h: trkH(n, total > n), n, more: total - n, rows, titleY: y + T.head / 2, moreY: y + T.head + n * T.row + T.more / 2,
+      textX: x + T.pad + T.inset, textW: w - 2 * T.pad - T.inset }; };
+  // a line too long for the tracker loses its tail to «…»; measure(s, size) is the page's font or a check's stand-in
+  const trkFit = (s, maxW, size, measure) => { s = String(s); if (measure(s, size) <= maxW) return s; let lo = 0, hi = s.length;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (measure(s.slice(0, m).trimEnd() + '…', size) <= maxW) lo = m; else hi = m - 1; }
+    return s.slice(0, lo).trimEnd() + '…'; };
   UI.add('kit', {
     // the bottom panel's height and its gap to the view's foot: the HUD lays it out by them and the camera keeps the hero above it (TASKS 1911)
     bp: { h: 122, foot: 6, purseY: 10 },
     purse: PURSE,
   });
-  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay };
+  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit };
   UI.share('kit', { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf });
 })(typeof window !== 'undefined' ? window : globalThis);

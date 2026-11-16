@@ -61,6 +61,8 @@
     if (keys.KeyM && !S.demo && !SIMX.typing(S)) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
     // the tracker's fold button (TASKS 1992): the page turns a click on it into this key, so the click swings at nothing
     if (keys.TrkFold && S.run && !S.demo && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkFold = S.meta.trkFold ? 0 : 1; S.saveN++; }
+    // and its hide button and chip (TASKS 2110): the whole window folds to a chip with the count, the player's choice kept in the meta
+    if (keys.TrkHide && S.run && !S.demo && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkHide = S.meta.trkHide ? 0 : 1; S.saveN++; }
     if (S.screen === 'play' && S.run) {
       // never a window's key (uiKey gives 'play:::'), so the first step of any window opened from play takes no pointer move
       S.uiWas = 'play'; S.uiKey = 'play'; SIMX.commitDraft(S);

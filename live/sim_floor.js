@@ -182,10 +182,10 @@
   // a save made in that half-made state (TASKS 1993): back to the town with its portal to the floor, and every kept floor whose diff
   // holds the town's map built anew, with its dead as an old generator's floor keeps them. The map in hand is already the town's, so
   // the portal is put back even if the town's own arrival fails; it has no spot on the floor, and the hero comes out by the stairs up
-  function mendRun(S, R) { if (!R || !R.viaTown || !(R.floor > 0) || !R.map || !R.map.town) return false; const f = R.floor;
+  function mendRun(S, R) { if (!R || !R.viaTown || !(R.floor > 0) || !R.map || !R.map.town) return false; const f = R.floor, from = R.portal && R.portal.from;
     for (const M of Object.values(R.memo || {})) { const p = M.d && M.d.p && M.d.p.map && M.d.p.map.p; if (!p || !p.town) continue; M.gv = -1; M.d = { p: { en: { p: {}, n: 0 } } }; M.drops = []; M.seen = null; M.rseen = null; }
     R.floor = 0; R.town = 1; R.portal = null;
-    const ok = enterFloor(S, R, 0, undefined, 'portal'); R.portal = { f };
+    const ok = enterFloor(S, R, 0, undefined, 'portal'); R.portal = from ? { f, from } : { f };
     if (ok) R.msg = { s: TXT('sim_floor.mended', { floor: f }), t: S.t, d: 5 }; return ok; }
   function goFloor(S, R, f, gen, how) {
     if (R.map && R.events) SIMX.eventsLeave(S, R);

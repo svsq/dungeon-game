@@ -357,7 +357,7 @@
     const sizes = fs.readFileSync(path.join(__dirname, 'sizes.js'), 'utf8'), size = (n) => { const b = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), hh = +new RegExp('\\b' + n + ': (\\d+)').exec(sizes)[1];
       return [Math.round(hh * b.readUInt32BE(16) / b.readUInt32BE(20)), hh]; };
     for (const n of Object.keys(C.hubs)) { const [w, h] = size(n); let worst = 0;
-      for (let s = 0; s <= 400; s++) for (const q of [0, 1]) { const a = D.cartLug(n, q, w, h, s), b = D.cartLug(n, q, w, h, s + CART_V / 60); worst = Math.max(worst, Math.hypot(b[0] - a[0], b[1] - a[1])); }
+      for (let s = 0; s <= 400; s++) for (const q of [0, 1]) { const a = D.cartLug(n, q, w, h, s, 1), b = D.cartLug(n, q, w, h, s + CART_V / 60, 1); worst = Math.max(worst, Math.hypot(b[0] - a[0], b[1] - a[1])); }
       if (worst > C.lug.step) out.push(`cart: the lug on ${n} moves ${worst.toFixed(2)} px a frame at the top speed, over ${C.lug.step}`); }
     const axis = [D.cartWinch(pts), ...pts], dir = Math.sign(pts[pts.length - 1][0] - pts[0][0]) || 1, away = (p) => Math.min(...axis.slice(1).map((b, i) => { const a = axis[i], l2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2,
       t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])); }));
@@ -366,6 +366,21 @@
         let run = 0; for (let i = 1; i < rope.length; i++) { run += Math.hypot(rope[i][0] - rope[i - 1][0], rope[i][1] - rope[i - 1][1]); rope[i].run = run; }
         for (const p of rope) { if (p.run === undefined || (run - p.run) < C.rope.ends || p.run < C.rope.ends) continue; const g = away(p); if (g < near) { near = g; at = s; } } }
       if (near < C.rope.gap) out.push(`cart: the rope of ${f} comes ${near.toFixed(1)} px to the rails' axis at ${at} px, under ${C.rope.gap}`); }
+    // TASKS 2109: the lug turns round its hub so the wheel's top goes the way the cart goes on the screen; the near box (CART.rim) never
+    // shows more than CART.shrink smaller than CART.ahead px further on (the front view came out of the adit at half the 3/4 one's size);
+    // the front view's hubs stand on the rails
+    for (const n of Object.keys(C.hubs)) { const [w, h] = size(n); let wrong = null;
+      for (let s = 1; s <= 400 && !wrong; s += 3) { const v = D.cartAt(pts, s), u = D.cartAt(pts, s + 1), V = D.cartView(pts, v.ds); if (!V.side || u.x === v.x) continue;
+        for (const q of [0, 1]) { const [hu, hv] = C.hubs[n][q], c = [(hu - 0.5) * w, (hv - 1) * h], p = D.cartLug(n, q, w, h, s, V.run), p2 = D.cartLug(n, q, w, h, s + 1, V.run),
+            turn = (p[0] - c[0]) * (p2[1] - p[1]) - (p[1] - c[1]) * (p2[0] - p[0]);
+          if (Math.sign(turn) !== Math.sign(u.x - v.x)) wrong = [s, q]; } }
+      if (wrong) out.push(`cart: the wheel ${wrong[1]} of ${n} turns against the travel at ${wrong[0]} px`); }
+    const LOADS = [['cart_tw', 'cart_tw_f'], ['cart_tw_half', 'cart_tw_f_half'], ['cart_tw_empty', 'cart_tw_f_empty']];
+    for (const [nmS, nmF] of LOADS) { const show = (s) => { const nm = D.cartView(pts, D.cartAt(pts, s).ds).side ? nmS : nmF; return C.rim[nm] * size(nm)[1]; };
+      const span = (C.gaugeF[nmF][1] - C.gaugeF[nmF][0]) * size(nmF)[0];
+      if (Math.abs(span - D.RAIL.gauge) > C.fit * D.RAIL.gauge) out.push(`cart: the hubs of ${nmF} stand ${span.toFixed(1)} px apart on rails ${D.RAIL.gauge} px apart`);
+      let bad = null; for (let s = 0; s + C.ahead <= 400 && !bad; s += 3) { const a = show(s), b = show(s + C.ahead); if (a < (1 - C.shrink) * b) bad = [s, a, b]; }
+      if (bad) out.push(`cart: ${nmS} shows its near box ${bad[1].toFixed(1)} px high at ${bad[0]} px and ${bad[2].toFixed(1)} px ${C.ahead} px on`); }
     return out;
   }
   // TASKS 2104: hardcore's death ends the run; the normal mode's wakes the hero in the town with a share of his level's experience
@@ -388,6 +403,15 @@
       if (!R.memo || !R.memo[1]) out.push('death mode: a normal death drops the floor it happened on');
       const M = S.meta.stats.mode || {}; if (!(M.normal && M.normal.deaths === 1) || (M.hard && M.hard.deaths)) out.push(`death mode: a normal death is counted ${JSON.stringify(M)}`); }
     if (!SIMX.hardcore({ viaTown: 1 })) out.push('death mode: a run saved before the modes is not hardcore');
+    // TASKS 2108: the start screen's checkbox turns hardcore on and off by a click and by Space, and the run started takes its choice
+    { const S = spawn(0, {}); S.screen = 'classes'; S.pendingMode = 'campaign'; const b = D.UI.classes(S.meta).find((q) => q.id === 'hard');
+      if (!b || D.deathPick(S.meta) !== 'normal') out.push(`death mode: the start screen has no hardcore checkbox, or it starts ticked (${D.deathPick(S.meta)})`);
+      else { step(S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); const on = D.deathPick(S.meta);
+        step(S, { keys: [] }); step(S, { keys: ['Space'] }); const off = D.deathPick(S.meta);
+        step(S, { keys: [] }); step(S, { keys: ['ArrowRight'] }); const ar = D.deathPick(S.meta); step(S, { keys: [] }); step(S, { keys: ['Enter'] });
+        if (on !== 'hard' || off !== 'normal' || ar !== 'hard' || D.deathPick(S.meta) !== 'normal' || S.focus !== 'hard') out.push(`death mode: the checkbox gives ${on} on a click, ${off} on Space, ${ar} on →, ${D.deathPick(S.meta)} on Enter, the focus on ${S.focus}`);
+        step(S, { keys: [] }); S.focus = 'go'; step(S, { keys: ['Enter'] });
+        if (!S.run || S.run.deathMode !== 'normal') out.push(`death mode: the run started after the checkbox plays ${S.run && S.run.deathMode}`); } }
     if (!bossF) { out.push('death mode: the campaign has no boss floor'); return out; }
     { const [S, R] = fresh('normal'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]);
       R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 1; die(S, R); enterFloor(S, R, bossF); const b2 = R.en.find((e) => D.BOSSES[e.type]);
@@ -397,8 +421,15 @@
     const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S))));
     if (!(S2.meta.portals || []).includes(bossF)) out.push('death mode: the opened hall does not outlive the save');
     const [, R2] = fresh('normal', S2), o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
-    if (!go || !o.some((q) => q.k === 'down' && q.f === 1)) out.push(`death mode: a new normal run's ring offers ${JSON.stringify(o)}`);
+    if (!go || o.some((q) => q.k !== 'boss')) out.push(`death mode: a new normal run's ring offers ${JSON.stringify(o)}`);
+    // TASKS 2111: a portal keeps its origin for its label (none in an old save = the scroll's); one left by an open hall's gate is
+    // that hall's way twice, so the ring hides it, and going by the hall closes it
+    { const way = (P) => { R2.portal = P; return SIMX.gateWays(R2, S2).find((q) => q.k === 'portal'); }, other = bossF + 1;
+      const old = way({ f: bossF, x: 0, y: 0 }), scroll = way({ f: bossF, x: 0, y: 0, from: 'scroll' }), shut = way({ f: bossF, x: 0, y: 0, from: 'gate' }), far = way({ f: other, x: 0, y: 0, from: 'gate' });
+      if (!old || old.from !== 'scroll' || !scroll || scroll.from !== 'scroll' || shut || !far || far.from !== 'gate') out.push(`death mode: the ring's portal by origin: old save ${JSON.stringify(old)}, scroll ${JSON.stringify(scroll)}, open hall's gate ${JSON.stringify(shut)}, a shut hall's gate ${JSON.stringify(far)}`);
+      R2.portal = { f: bossF, x: 0, y: 0, from: 'gate' }; }
     if (go) { SIMX.gateGo(S2, R2, go); const g = SIMX.hallGate(R2);
+      if (R2.portal) out.push(`death mode: going by the hall of floor ${bossF} leaves its gate's portal open ${JSON.stringify(R2.portal)}`);
       if (R2.floor !== bossF || !g || Math.hypot(R2.hero.x - g.x, R2.hero.y - g.y) > 2 * TILE) out.push(`death mode: the hall's portal leads to floor ${R2.floor}, ${g ? Math.round(Math.hypot(R2.hero.x - g.x, R2.hero.y - g.y)) : '?'} px from its portal`); }
     { const [S3, R3] = fresh('hard', S2); if (SIMX.gateWays(R3, S3).length) out.push(`death mode: a hardcore run's ring offers ${JSON.stringify(SIMX.gateWays(R3, S3))}`); }
     return out;

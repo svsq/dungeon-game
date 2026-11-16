@@ -181,11 +181,11 @@
     // the cart's ground is the rails' middle itself (it stood 8 px below it, on the grass), and its painting's `seat` is what rides there
     const { x, y, ds } = D.cartAt(pts, C.s);
     const justTook = ms && !ms.go && ms.lift === 'take' && GT - ms.t0 < 0.45, shown = C.load + (justTook ? 1 : 0), li = shown >= 3 ? 0 : shown === 2 ? 1 : 2, nmS = ["cart_tw", "cart_tw_half", "cart_tw_empty"][li], nmF = ["cart_tw_f", "cart_tw_f_half", "cart_tw_f_empty"][li],
-      V = D.cartView(pts, ds), nm = V.side ? nmS : nmF, [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(0, 44, C.s), X = sx(x), Yg = sy(y);
+      V = D.cartView(pts, ds), nm = V.side ? nmS : nmF, [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(...D.CART.dusk, C.s), X = sx(x), Yg = sy(y);
     const pulse = (a, dur) => (a >= 0 && a < dur ? Math.sin(Math.PI * a / dur) * (1 - a / dur) : 0), sag = pulse(GT - (C.takeT ?? -9) - 0.45, 0.4), stopK = C.st === 'at' ? pulse(GT - (C.atT ?? -9), 0.4) : 0, end = pts[pts.length - 1], pre = pts[pts.length - 2], back = end[0] >= pre[0] ? -1 : 1;
     const wob = 0.05 * sag, Xc = X + back * 3 * stopK, Yc = Yg + bob + 2.5 * sag + 1.2 * stopK;
     const Mc = M.of(M.t(Xc, Yc), M.r(V.rot * L.D2R + wob)), seat = V.side ? [D.CART.seat[nmS][0] * w, D.CART.seat[nmS][1] * h] : [0, 0], rotAt = (dx, dy) => M.ap(Mc, [dx - seat[0], dy - seat[1]]), tintU = { tint: [k * 0.82, k * 0.82, k * 0.82, 1] };
-    const LG = D.CART.lug, RP = D.CART.rope, lugs = V.side ? D.CART.hubs[nmS].map((_, q) => rotAt(...D.cartLug(nmS, q, w, h, C.s))) : [], wn = D.cartWinch(pts),
+    const LG = D.CART.lug, RP = D.CART.rope, lugs = V.side ? D.CART.hubs[nmS].map((_, q) => rotAt(...D.cartLug(nmS, q, w, h, C.s, V.run))) : [], wn = D.cartWinch(pts),
       rope = D.cartRope([sx(wn[0]), sy(wn[1])], rotAt(...D.cartHook(V.side, nmS, w, h)), Math.sign(pts[pts.length - 1][0] - pts[0][0]) || 1);
     Y.push([y - 40, () => { let px, py; for (const [qx, qy] of rope) { const ix = Math.round(qx), iy = Math.round(qy); if (ix !== px || iy !== py) L.solid(ix, iy, 1, 1, RP.col, 0, 0, 0, 1); px = ix; py = iy; } }]);
     Y.push([y + 8, () => { L.shadow(Xc, Yg, 0.42 * w, 5, 0.45); L.joint('cart', 'ground', [Xc, Yg]); L.joint('cart', 'top', rotAt(0, -h)); L.joint('cart', 'body', [Xc, Yc]); lugs.forEach((p, q) => L.joint('cart', 'stud' + q, p));

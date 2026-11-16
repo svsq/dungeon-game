@@ -1679,9 +1679,9 @@
     states.push(['classes_focus_tab', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'easy'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'dif:hard'; })]);
     states.push(['classes_dif_hard', mk((S) => { S.meta.cls = 'archer'; S.meta.diff = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'cls:archer'; S.hover = 'dif:normal'; })]);
     states.push(['classes_won', mk((S) => { S.meta.cls = 'mage'; S.meta.diff = 'normal'; S.meta.wins = 1; S.meta.open = Object.fromEntries(DATA.UNLOCKS.filter((u) => u.kind === 'kit').map((u) => [u.id, 1])); S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'cave'; S.focus = 'kit:mage'; })]);
-    // the death mode's tabs (TASKS 2104): hardcore chosen by the keyboard, and the normal mode lit by the pointer with its line
-    states.push(['classes_death_hard', mk((S) => { S.meta.cls = 'warrior'; S.meta.deathMode = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'death:hard'; })]);
-    states.push(['classes_death_hover', mk((S) => { S.meta.cls = 'mage'; S.meta.deathMode = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'death:normal'; })]);
+    // the hardcore checkbox under the name (TASKS 2108): ticked with the keyboard's focus on it, and unticked lit by the pointer
+    states.push(['classes_death_hard', mk((S) => { S.meta.cls = 'warrior'; S.meta.deathMode = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'hard'; })]);
+    states.push(['classes_death_hover', mk((S) => { S.meta.cls = 'mage'; S.meta.deathMode = 'normal'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'hard'; })]);
     states.push(['classes_go', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'go'; S.hover = 'go'; S.pressWas = true; })]);
     // the keyboard's focus on each row of the start screen (TASKS 1856): the chosen tab, the chosen card, «В путь», each told apart
     // from the plain choice
@@ -1909,12 +1909,15 @@
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // past the campaign (PR #21 review): the portal of the descent
     states.push(['town_gate_descent', climbS(0, (S, R, m, h) => { R.campaignWon = 1; R.memo = Object.assign({}, R.memo, { 14: { mode: 'endless' }, 15: { mode: 'endless' }, 16: { mode: 'endless' } }); R.portal = { f: 15, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; })]);
-    // the boss halls opened in earlier runs (TASKS 2104): beside the scroll's portal and the way down, a few; then every hall of the
-    // campaign, the rows thinned to fit; the prompt by the ring with more than one way
+    // the boss halls opened in earlier runs (TASKS 2104): beside the scroll's portal, a few; then every hall of the campaign, the rows
+    // thinned to fit; the prompt by the ring with more than one way. A portal left by a shut hall's gate has its own label; one left by
+    // an open hall's gate is not shown, as the hall's row leads there (TASKS 2111)
     { const halls = Array.from({ length: DATA.RUNS.campaign.floors }, (_, i) => i + 1).filter((f) => DATA.stageOf('campaign', f).boss);
       const ring = (S, R, m, h, P) => { R.deathMode = 'normal'; S.meta.portals = P; R.offers = []; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; };
-      states.push(['town_gate_halls', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 2)); R.portal = { f: 5, x: 0, y: 0 }; S.screen = 'gate'; S.hover = 'go:2'; })]);
-      states.push(['town_gate_halls_all', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls); R.portal = { f: 15, x: 0, y: 0 }; S.screen = 'gate'; S.hover = 'go:' + (halls.length + 1); })]);
+      states.push(['town_gate_halls', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 2)); R.portal = { f: 5, x: 0, y: 0, from: 'scroll' }; S.screen = 'gate'; S.hover = 'go:1'; })]);
+      states.push(['town_gate_halls_all', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls); R.portal = { f: 15, x: 0, y: 0, from: 'scroll' }; S.screen = 'gate'; S.hover = 'go:' + halls.length; })]);
+      states.push(['town_gate_halls_gate', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); R.portal = { f: halls[1], x: 0, y: 0, from: 'gate' }; S.screen = 'gate'; S.hover = 'go:0'; })]);
+      states.push(['town_gate_halls_dup', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 2)); R.portal = { f: halls[0], x: 0, y: 0, from: 'gate' }; S.screen = 'gate'; S.hover = 'go:0'; })]);
       states.push(['town_gate_halls_prompt', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); })]); }
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);

@@ -28,6 +28,8 @@
     'hud.tracker': 'Задания',
     'hud.tracker.fold': 'Свернуть',
     'hud.tracker.unfold': 'Готово: {n}',
+    'hud.tracker.hide': 'Скрыть',
+    'hud.tracker.chip': 'Задания: {n}',
     'hud.minimap.legend': 'Остатки до 100%',
     'hud.compass': 'С',
     'hud.compass.2': 'В',

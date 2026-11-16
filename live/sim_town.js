@@ -177,7 +177,7 @@
     const fresh = S.t - (R.enteredT ?? -9) < 0.3;
     if (dUp < 56 && !fresh && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s') }); return; }
       const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }; if (enterFloor(S, R, R.floor - 1, undefined, 'up')) ev(S, e); return; }
-    const gt = gateNear(R); if (gt) { const was = R.portal; R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; return; } ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
+    const gt = gateNear(R); if (gt) { const was = R.portal; R.portal = { f: R.floor, x: gt.x, y: gt.y + 40, from: 'gate' }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; return; } ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007), taken at once
     const cs = craftShut(R); if (cs) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.CAPTIVES[cs].shut }); return; }
     // the workshop's master answers first, his talk has the button into the workshop (PR 49 review: the enchanter could not be talked to at all)
@@ -504,18 +504,19 @@
   const roomFor = (h, b) => { const cap = D.CONSUMABLES[b].stack; return h.bag.reduce((a, q) => a + (!q ? cap : q.b === b ? Math.max(0, cap - q.n) : 0), 0); };
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
-  // the ring's ways (TASKS 2104): the scroll's portal, and with S given the boss halls the player has opened (S.meta.portals, kept
-  // across runs) and the way down from the first floor beside them; a hardcore run starts from the first floor, so it gets no hall
+  // the ring's ways (TASKS 2104): the portal in hand, and with S given the boss halls the player has opened (S.meta.portals, kept
+  // across runs); a hardcore run starts from the first floor, so it gets no hall. A portal left by a hall's gate leads where that
+  // hall's own way does, so it is shown only while the hall is not open (TASKS 2111)
   const atGate = (R, S) => !!(R.town && R.map.town && gateWays(R, S).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
   const hallsOf = (S, R) => (!S || SIMX.hardcore(R) || RUN(R) !== D.RUNS.campaign ? [] : (S.meta.portals || []).filter((f) => f >= 1 && f <= RUN(R).floors));
-  const gateWays = (R, S) => { const o = R.portal ? [{ k: 'portal', f: R.portal.f }] : [], H = hallsOf(S, R);
-    return H.length ? o.concat([{ k: 'down', f: 1 }], H.map((f) => ({ k: 'boss', f }))) : o; };
+  const gateWays = (R, S) => { const H = hallsOf(S, R), P = R.portal, from = P && P.from === 'gate' ? 'gate' : 'scroll';
+    return (P && !(from === 'gate' && H.includes(P.f)) ? [{ k: 'portal', f: P.f, from }] : []).concat(H.map((f) => ({ k: 'boss', f }))); };
   // a boss slain in a campaign through the town opens its hall's portal for good (TASKS 2104), in either mode, as rewards are the same
   function openHall(S, R) { const P = S.meta.portals || [];
     if (S.demo || R.test || !R.viaTown || RUN(R) !== D.RUNS.campaign || P.includes(R.floor)) return;
     S.meta.portals = P.concat(R.floor).sort((a, b) => a - b); S.saveN++; }
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
-    if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
+    if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal' || (R.portal && R.portal.from === 'gate' && R.portal.f === o.f)) R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
   // a line (TASKS 391): half the time the tier's offer continues the ability a power already taken belongs to

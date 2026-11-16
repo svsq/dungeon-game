@@ -375,7 +375,47 @@
   // the tracker's fold (TASKS 1992): its key flips the player's fold in play and on the pause
   function checkTrkFold(out) { const { S } = playing('warrior'), f0 = S.meta.trkFold ? 1 : 0;
     step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) === f0) out.push('tracker: the fold key does not fold the done quests in play');
-    S.screen = 'pause'; step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) !== f0) out.push('tracker: the fold key does not unfold them on the pause'); }
+    S.screen = 'pause'; step(S, { keys: ['TrkFold'] }); if ((S.meta.trkFold ? 1 : 0) !== f0) out.push('tracker: the fold key does not unfold them on the pause');
+    for (const [where, T] of [['a floor', playing('warrior').S], ['the town', townRun()]]) { const h0 = T.meta.trkHide ? 1 : 0; T.screen = 'play';
+      step(T, { keys: ['TrkHide'] }); if ((T.meta.trkHide ? 1 : 0) === h0) out.push(`tracker: the hide key does not hide it on ${where}`);
+      T.screen = 'pause'; step(T, { keys: ['TrkHide'] }); if ((T.meta.trkHide ? 1 : 0) !== h0) out.push(`tracker: the hide key does not show it again on the pause on ${where}`); } }
+  // TASKS 2110: the tracker stands still under the minimap wherever the hero walks; over the town's adit it only drops rows, and its
+  // plate keeps off the adit at any count of quests unless even one row cannot fit. Its width keeps under a quarter of the view however
+  // long a line, every drawn line (rows, «и ещё N») sits inside its box, a fitted line ends inside its right edge, and hidden it is a
+  // small chip. Windows from the author's 2576×1456 down to 800×600
+  function checkTrkAdit(out) { const K = UI.kit, T = K.TRACKER, h0 = SIMX.VIEW.H; if (!K.trkLay || !K.trkFit) { out.push('tracker: no shared layout (UI.kit.trkLay, trkFit)'); return; }
+    const fs = require('fs'), path = require('path'), src = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
+    const px = /"adit_tw": \{"w": (\d+), "h": (\d+)/.exec(src('assets.js')), ht = /\badit_tw: (\d+)/.exec(src('sizes.js'));
+    if (!px || !ht) { out.push('tracker: the adit\'s painting size is not found in assets.js / sizes.js'); return; }
+    const W = SIMX.VIEW.W, sh = +ht[1], sw = Math.round(sh * px[1] / px[2]), hit = (a, b) => a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1];
+    const plate = (L) => [L.x - T.out, L.y - T.out, L.w + 2 * T.out, L.h + 2 * T.out], wins = [[2576, 1456], [1920, 1080], [1600, 900], [1366, 768], [1280, 720], [1024, 768], [800, 600]];
+    const cap = K.trkMaxW(W), half = T.textH / 2, measure = (s, size) => String(s).length * size * 0.6;
+    if (cap > W / 4) out.push(`tracker: its width ceiling ${cap} px is over a quarter of the view's ${W}`);
+    const longest = Object.values(D.QUESTS).map((q) => q.name).concat(['«Ларец с накладными» · 3-й этаж · в тайной комнате', 'Нитежуй Гостеприимный · 3-й этаж · в тайной комнате за водопадом']);
+    for (const s of longest) for (const size of [T.size.name, T.size.line]) { const L = K.trkLay(W, 400, 4000, 6, null), f = K.trkFit(s, L.textW, size, measure);
+      if (measure(f, size) > L.textW || L.textX + L.textW > L.x + L.w) { out.push(`tracker: the line «${s}» runs past its right edge (${(L.textX + measure(f, size) - L.x - L.w).toFixed(0)} px)`); break; } }
+    const test = (tag, vh, mmBot, w, n, adit) => { const L = K.trkLay(W, mmBot, w, n, adit), F = K.trkLay(W, mmBot, w, n, null), bot = L.y + L.h;
+      if (L.x !== F.x || L.y !== F.y || L.w !== F.w) return `tracker: ${tag} moves it to ${L.x},${L.y} from its place ${F.x},${F.y} under the minimap`;
+      if (L.w > cap || L.w < Math.min(w, T.minW)) return `tracker: ${tag} is ${L.w} px wide, over its ceiling ${cap}`;
+      if (L.n + L.more !== n || L.n > T.rows || L.n < Math.min(1, n) || L.rows.length !== L.n) return `tracker: ${tag} shows ${L.n} rows and ${L.more} more of ${n} quests`;
+      let top = L.titleY + half; for (const r of L.rows) { if (r.nameY - half < top - 0.5 || r.lineY - r.nameY < T.textH - 0.5) return `tracker: ${tag} draws a row over the line above it`; top = r.lineY + half; }
+      if (L.more && L.moreY - half < top - 0.5) return `tracker: ${tag} draws «и ещё ${L.more}» over its last row`;
+      if ((L.more ? L.moreY + half : top) > bot + 0.5) return `tracker: ${tag} draws its last line ${((L.more ? L.moreY + half : top) - bot).toFixed(0)} px under the box's foot`;
+      if (bot > vh) return `tracker: ${tag} runs ${bot - vh} px off the view's bottom`;
+      if (L.n > 1 && hit(plate(L), adit)) return `tracker: ${tag} covers the adit with ${L.n} rows`;
+      const C = K.trkLay(W, mmBot, 160, n, adit, true); if (C.h > T.chip || C.w > cap || (L.n && C.h * 2 > L.h) || C.x !== W - T.right - C.w || C.y !== L.y) return `tracker: ${tag} hidden is a ${C.w}×${C.h} chip at ${C.x},${C.y}, not a small one in its place`;
+      return null; };
+    const town = townRun().run, m = town.map, d = m.decor.find((o) => o.role === 'adit'), walk = DG.townWalk(m), sc = d && (d.s || 1);
+    if (!d) { out.push('tracker: the town has no adit to keep off'); return; }
+    try { for (const [ww, wh] of wins) { const vh = SIMX.setView(SIMX.viewFor(ww, wh)), boxes = [];
+      for (const z of D.ZOOMS) { const aw = sw * sc * z, ah = sh * sc * z; for (let ax = -aw; ax < W; ax += 40) for (let ay = -ah; ay < vh; ay += 20) boxes.push([`adit at ${ax.toFixed(0)},${ay.toFixed(0)} ×${z}`, [ax, ay, aw, ah]]); }
+      for (const z of [1, D.ZOOMS[D.ZOOMS.length - 1]]) { town.zoom = z; const aw = sw * sc * z, ah = sh * sc * z;
+        for (let k = 0; k < walk.length; k += 5) { if (!walk[k]) continue; const cx = k % m.W, cy = Math.floor(k / m.W);
+          town.hero.x = (cx + 0.5) * TILE; town.hero.y = (cy + 0.5) * TILE; town.camLook = [0, 0]; SIMX.snapCam(town);
+          boxes.push([`the hero on the town's cell ${cx},${cy} ×${z}`, [(d.x - town.cam[0]) * z - aw / 2, (d.y - town.cam[1]) * z + 4 * z - ah, aw, ah]]); } }
+      for (const mmBot of [240, 360, 480, 620]) for (const w of [200, 420, 860, 2000]) for (let n = 0; n <= 7; n++) for (const [at, adit] of boxes) {
+        const e = test(`${ww}×${wh}, minimap foot ${mmBot}, width ${w}, ${n} quests, ${at}`, vh, mmBot, w, n, adit); if (e) { out.push(e); return; } } } }
+    finally { SIMX.setView(h0); } }
   // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
   function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
     const ab = UI.pause(S.meta.zoom, false, true).find((b) => b.id === 'abandon');
@@ -671,6 +711,7 @@
   SIMX.checks.add('camAimCheck', checkCamAim);
   SIMX.checks.add('purseCheck', checkPurse);
   SIMX.checks.add('trkFoldCheck', checkTrkFold);
+  SIMX.checks.add('trkAditCheck', checkTrkAdit);
   SIMX.checks.add('testEndCheck', checkTestEnd);
   SIMX.checks.add('strCheck', checkStrUse);
   SIMX.checks.add('keyWordCheck', checkKeyWords);

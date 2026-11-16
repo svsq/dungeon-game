@@ -127,7 +127,7 @@
       x = up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); VW = V || null; MMB = null; TRK = null; TRK_FOLD = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
+    G.bind(null); G.blend(); VW = V || null; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
@@ -618,34 +618,40 @@
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands. A done one is ticked in its
   // box, and a button on the heading folds the done ones away and back (TASKS 1992); the fold is the player's, kept in the meta
   const trkDone = (R) => SIM.Q.journalOf(R).filter((q) => q.st === 'done').length, trkFolded = (S, R) => !!S.meta.trkFold && trkDone(R) > 0;
-  const trkAll = (S, R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done')), trkRows = (S, R) => trkAll(S, R).slice(0, 4), trkMore = (S, R) => Math.max(0, trkAll(S, R).length - 4);
-  const TRK_BOX = 20, TRK_IN = TRK_BOX + 10, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
-  function trkBox(S, R) { const Q = trkRows(S, R), nd = trkDone(R); if (!(Q.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R);
-    const head = lw('qt_t', TXT('hud.tracker'), { size: 20 }) + (nd ? 24 + lw('qt_fold', trkFoldLab(S, R), { size: 18 }) + 20 : 0);
-    const w = Math.max(280, head, ...Q.map((q, i) => TRK_IN + Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.Q.questLine(q, R), { size: 20 })))) + 32;
-    const h = 38 + Q.length * 50 + (trkMore(S, R) ? 26 : 0) - (Q.length ? 0 : 8), [x, y] = trkClearOfAdit(S, R, W - 14 - w, mb[1] + mb[3] + 14, w, h);
-    return [x, y, w, h]; }
-  // in the town the tracker keeps off the adit's painting (TASKS 2100): under it when that fits above the key hints, else left of it
-  const TRK_ADIT = { pad: 16, gap: 14, floor: 12 };
-  function trkClearOfAdit(S, R, x, y, w, h) { const d = R.town && VW && R.map.decor.find((o) => o.role === 'adit'); if (!d) return [x, y];
-    const [sw, sh] = SZ(d.n), k = VW.k, P = TRK_ADIT.pad, s = d.s || 1, bw = sw * s * k + 2 * P, bh = sh * s * k + 2 * P, bx = VW.sx(d.x) - sw * s * k / 2 - P, by = VW.sy(d.y) + 4 * k - sh * s * k - P;
-    if (!(x < bx + bw && x + w > bx && y < by + bh && y + h > by)) return [x, y];
-    const low = by + bh + TRK_ADIT.gap, left = bx - TRK_ADIT.gap - w;
-    return low + h <= bpGeo(S, R).y - KEYS_LIFT - TRK_ADIT.floor ? [x, low] : left >= 0 ? [left, y] : [x, y]; }
-  // the fold button's box in view px, from the last frame drawn: the page asks it on a click and turns the click into the fold's key
-  let TRK_FOLD = null;
-  HUD.trkFoldAt = (x, y) => !!TRK_FOLD && x >= TRK_FOLD[0] && x <= TRK_FOLD[0] + TRK_FOLD[2] && y >= TRK_FOLD[1] && y <= TRK_FOLD[1] + TRK_FOLD[3];
+  const trkAll = (S, R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done'));
+  const TK = D.UI.kit.TRACKER, TF = TK.size, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
+  const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
+  const aditBox = (R) => { const d = R.town && VW && R.map.decor.find((o) => o.role === 'adit'); if (!d) return null;
+    const [sw, sh] = SZ(d.n), s = (d.s || 1) * VW.k; return [VW.sx(d.x) - sw * s / 2, VW.sy(d.y) + 4 * VW.k - sh * s, sw * s, sh * s]; };
+  const btnW = (id, s) => lw(id, s, { size: TF.btn }) + TK.btnPad, measure = (s, size) => L.labelW(0, s, { size });
+  // the width is the first rows' a cap leaves out too, so the box does not shift sideways as the camera moves the adit under it
+  function trkGeo(S, R) { const all = trkAll(S, R), nd = trkDone(R); if (!(all.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R), K = D.UI.kit;
+    if (trkHidden(S)) { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, null, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true }); }
+    const head = lw('qt_t', TXT('hud.tracker'), { size: TF.title }) + 2 * TK.pad + TK.headGap + btnW('qt_hide', TXT('hud.tracker.hide')) + (nd ? TK.btnGap + btnW('qt_fold', trkFoldLab(S, R)) : 0);
+    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.QUESTS[q.key].name, TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
+    const Y = K.trkLay(W, mb[1] + mb[3], w, all.length, aditBox(R));
+    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.QUESTS[q.key].name, Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
+  const trkBox = (S, R) => { const g = trkGeo(S, R); return g && g.box; };
+  // the heading's buttons in view px, from the last frame drawn: the page asks them on a click and turns the click into the sim's key,
+  // so it swings at nothing
+  let TRK_FOLD = null, TRK_HIDE = null;
+  const inBox = (b, x, y) => !!b && x >= b[0] && x <= b[0] + b[2] && y >= b[1] && y <= b[1] + b[3];
+  HUD.trkFoldAt = (x, y) => inBox(TRK_FOLD, x, y); HUD.trkHideAt = (x, y) => inBox(TRK_HIDE, x, y);
   function trkTick(x, y, s, col) { L.solid(x + s * 0.18, y + s * 0.5, s * 0.34, 3, col, 0.785, 0, 1.5); L.solid(x + s * 0.4, y + s * 0.74, s * 0.62, 3, col, -0.96, 0, 1.5); }
-  function tracker(S, R) { TRK_FOLD = null; const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B, nd = trkDone(R);
-    plate('qtrack', x0 - 4, y0 - 4, w + 8, h + 8, { k: 0.35, pad: 8 }); lab('qt_t', TXT('hud.tracker'), x0 + 14, y0 + 20, { size: 20, col: C.dim }); if (trkMore(S, R)) lab('qt_more', TXT('hud.tracker.more', { n: trkMore(S, R) }), x0 + 14, y0 + h - 16, { size: 20, col: C.dim });
-    if (nd) { const s = trkFoldLab(S, R), bw = lw('qt_fold', s, { size: 18 }) + 20, b = TRK_FOLD = [x0 + w - 10 - bw, y0 + 6, bw, 28], on = !!S.ptr && HUD.trkFoldAt(S.ptr[0], S.ptr[1]);
-      L.rrect(b[0], b[1], b[2], b[3], 8, on ? [0.30, 0.22, 0.14] : [0.17, 0.13, 0.10], on ? [0.24, 0.17, 0.11] : [0.12, 0.09, 0.07]);
-      lab('qt_fold', s, b[0] + bw / 2, b[1] + 14, { size: 18, al: 0.5, col: on ? C.gold : C.dim }); L.uiBox('qt_fold_b', b[0], b[1], b[2], b[3], 0); }
-    trkRows(S, R).forEach((q, i) => { const y = y0 + 48 + i * 50, done = q.st === 'done', Q = D.QUESTS[q.key], bx = x0 + 14, by = y - TRK_BOX / 2 + 1;
-      L.rrect(bx, by, TRK_BOX, TRK_BOX, 4, [0.07, 0.055, 0.05], [0.05, 0.04, 0.035]); for (const [a, b2, c, d] of [[0, 0, TRK_BOX, 2], [0, TRK_BOX - 2, TRK_BOX, 2], [0, 0, 2, TRK_BOX], [TRK_BOX - 2, 0, 2, TRK_BOX]]) L.solid(bx + a, by + b2, c, d, done ? [0.56, 0.85, 0.54] : [0.55, 0.5, 0.44]);
-      if (done) trkTick(bx, by, TRK_BOX, [0.56, 0.85, 0.54]);
-      lab('qt_n' + i, Q.name, x0 + 14 + TRK_IN, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
-      lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14 + TRK_IN, y + 22, { size: 20, col: done ? C.dim : C.text }); }); }
+  function trkBtn(id, s, b, on) { L.rrect(b[0], b[1], b[2], b[3], 8, on ? [0.30, 0.22, 0.14] : [0.17, 0.13, 0.10], on ? [0.24, 0.17, 0.11] : [0.12, 0.09, 0.07]);
+    lab(id, s, b[0] + b[2] / 2, b[1] + b[3] / 2, { size: TF.btn, al: 0.5, col: on ? C.gold : C.dim }); L.uiBox(id + '_b', b[0], b[1], b[2], b[3], 0); }
+  function tracker(S, R) { TRK_FOLD = TRK_HIDE = null; const T = trkGeo(S, R); if (!T) return; const { x, y, w, h } = T, P = TK.pad, hov = (b) => !!S.ptr && inBox(b, S.ptr[0], S.ptr[1]);
+    plate('qtrack', x - TK.out, y - TK.out, w + 2 * TK.out, h + 2 * TK.out, { k: 0.35, pad: 8 });
+    if (T.hidden) { const b = TRK_HIDE = [x, y, w, h]; lab('qt_chip', trkChip(R), x + w / 2, T.titleY, { size: TF.title, al: 0.5, col: hov(b) ? C.gold : C.dim }); L.uiBox('qt_chip_b', b[0], b[1], b[2], b[3], 0); return; }
+    lab('qt_t', TXT('hud.tracker'), x + P, T.titleY, { size: TF.title, col: C.dim });
+    if (T.more) lab('qt_more', TXT('hud.tracker.more', { n: T.more }), x + P, T.moreY, { size: TF.line, col: C.dim });
+    const by = T.titleY - TK.btnH / 2, hs = TXT('hud.tracker.hide'), hw = btnW('qt_hide', hs), hb = TRK_HIDE = [x + w - P - hw, by, hw, TK.btnH]; trkBtn('qt_hide', hs, hb, hov(hb));
+    if (trkDone(R)) { const s = trkFoldLab(S, R), bw = btnW('qt_fold', s), b = TRK_FOLD = [hb[0] - TK.btnGap - bw, by, bw, TK.btnH]; trkBtn('qt_fold', s, b, hov(b)); }
+    T.list.forEach(({ q, name, line }, i) => { const { nameY, lineY } = T.rows[i], done = q.st === 'done', Q = D.QUESTS[q.key], B = TK.box, bx = x + P, bb = nameY - B / 2;
+      L.rrect(bx, bb, B, B, 4, [0.07, 0.055, 0.05], [0.05, 0.04, 0.035]); for (const [a, b2, c, d] of [[0, 0, B, 2], [0, B - 2, B, 2], [0, 0, 2, B], [B - 2, 0, 2, B]]) L.solid(bx + a, bb + b2, c, d, done ? [0.56, 0.85, 0.54] : [0.55, 0.5, 0.44]);
+      if (done) trkTick(bx, bb, B, [0.56, 0.85, 0.54]);
+      lab('qt_n' + i, name, T.textX, nameY, { size: TF.name, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('qt_l' + i, line, T.textX, lineY, { size: TF.line, col: done ? C.dim : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
     // (a dark room, TASKS 365, is left off the map: its cells read as rock, its way in as a dead end)
@@ -1108,13 +1114,11 @@
     const U = D.UI.classes(S.meta), dif = S.meta.diff || 'normal', cur = D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior';
     const lit = litOf(S, U.map((q) => q.id)), sl = (id) => ({ hover: lit === id, press: S.hover === id && !!S.pressWas, focus: false, off: false });
     KIT.tabs('cl_d', U.filter((b) => b.dif), 'dif:' + dif, S, { fill: true, lit });
-    KIT.tabs('cl_m', U.filter((b) => b.death), 'death:' + D.deathPick(S.meta), S, { fill: true, lit });
     // the difficulty is the player's own choice (TASKS 1825), so the line tells the story instead of advising the easy one
     // what the lit or chosen difficulty changes, in the numbers the sim plays by (TASKS 1886)
     const dk = lit.startsWith('dif:') ? lit.slice(4) : dif, Dd = D.DIFF[dk] || D.DIFF.normal, pc = (v) => String(Math.round(Math.abs(v - 1) * 100));
     const dp = { dmg: pc(Dd.dmg), hp: pc(Dd.hp) };
-    const mk = lit.startsWith('death:') ? lit.slice(6) : null, ml = mk && TXT('UI.classes.death.' + mk, { xp: Math.round(D.BAL.deathXpLoss * 100) });
-    KIT.light('cl_dl', ml || (dk === 'easy' ? TXT('UI.classes.diff.easy', dp) : dk === 'hard' ? TXT('UI.classes.diff.hard', dp) : TXT('UI.classes.diff.normal', dp)), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
+    KIT.light('cl_dl', dk === 'easy' ? TXT('UI.classes.diff.easy', dp) : dk === 'hard' ? TXT('UI.classes.diff.hard', dp) : TXT('UI.classes.diff.normal', dp), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
     const tip = TXT('UI.classes.hint');
     KIT.light('cl_s', tip, W / 2, 158, { size: 20, fit: W - 200, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 144, W - 200, 30, 0);
     for (const b of U.filter((q) => q.cls)) {
@@ -1140,7 +1144,8 @@
     }
     for (const id of ['back', 'go']) { const b = U.find((q) => q.id === id); KIT.button('cl_' + id, b, sl(id), id === 'go' ? 'wax' : 'parch'); }
     nameField(S, U, t, lit, sl);
-    const keys = S.focus === 'name' ? TXT('hud.classes.keys.name') : TXT('hud.classes.keys'), ky = 1012, kw = lw('cl_keys_w', keys, { size: 26 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    const hb = hardBox(S, U, lit, sl);
+    const keys = S.focus === 'name' ? TXT('hud.classes.keys.name') : TXT('hud.classes.keys'), ky = hb.y + hb.h + 30, kw = lw('cl_keys_w', keys, { size: 26 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('cl_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // the hero's name (TASKS 1879): a parchment strip lit like a choice while it is lit or typed into, the name in ink with a blinking
@@ -1157,6 +1162,18 @@
     L.solid(cx - 19, cy2 - 19, 38, 38, ink, r, 19, 19); L.solid(cx - 16, cy2 - 16, 32, 32, [0.93, 0.87, 0.74], r, 16, 16);
     for (const [px, py] of [[-8, -8], [8, -8], [0, 0], [-8, 8], [8, 8]]) { const qx = cx + px * c - py * sn, qy = cy2 + px * sn + py * c; L.solid(qx - 3, qy - 3, 6, 6, ink, r, 3, 3); }
     L.uiBox('cl_dice_b', d.x, d.y, d.w, d.h, 0);
+  }
+  // the hardcore checkbox under the name (TASKS 2108): the settings' checkbox and its name, lit as they are there, and what the mode
+  // means always beside it, in two lines on the backdrop, so the choice is never made blind
+  const HARD_BOX = { s: 36, pad: 14, gap: 24, size: 26, note: 19, lead: 22 };
+  function hardBox(S, U, lit, sl) {
+    const b = U.find((q) => q.id === 'hard'), H = HARD_BOX, hot = lit === 'hard', cy = b.y + b.h / 2;
+    KIT.check('cl_hard_c', b.x, cy - H.s / 2, D.deathPick(S.meta) === 'hard', sl('hard'), H.s);
+    const nw = KIT.light('cl_hard_n', D.DEATH_MODES.hard.name, b.x + H.s + H.pad, cy, { size: H.size, col: hot ? '#ffe7a3' : '#e6d3ac' }), nx = b.x + H.s + H.pad + nw + H.gap;
+    const fit = U.find((q) => q.id === 'go'), nl = halves(TXT('UI.classes.hard.note')), fw = fit.x + fit.w - nx;
+    nl.forEach((q, i) => KIT.light('cl_hard_d' + i, q, nx, cy + (i - (nl.length - 1) / 2) * H.lead, { size: H.note, fit: fw, col: '#cdb894' }));
+    L.uiBox('cl_hard_b', b.x, b.y, nx + fw - b.x, b.h, 0);
+    return b;
   }
   // the settings (TASKS 1302), look B: a wide parchment sheet in a leather board (1876) over the menu's backdrop, or over the dimmed run when opened from the pause
   function settings(S, t) {
@@ -1672,8 +1689,8 @@
     KIT.banner('gt_t', W / 2, P.y + 16, 460, TXT('hud.gate'), { h: 76, size: 36 });
     KIT.light('gt_s', TXT('hud.gate.2'), W / 2, P.y + 118, { size: 22, al: 0.5, col: '#cdb89a' });
     o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), x = b.x + 108, iw = b.w - 108 - 40, is = Math.min(48, b.h - 12);
-      const nm = q.k === 'boss' ? TXT('hud.gate.boss', { name: (D.ENEMIES[D.stageOf('campaign', q.f).boss] || { name: '' }).name, f: q.f }) : q.k === 'down' ? TXT('hud.gate.down') : TXT('hud.gate.3', { f: q.f });
-      const ds = q.k === 'boss' ? TXT('hud.gate.boss.2') : q.k === 'down' ? TXT('hud.gate.down.2') : TXT('hud.gate.5');
+      const nm = q.k === 'boss' ? TXT('hud.gate.boss', { name: (D.ENEMIES[D.stageOf('campaign', q.f).boss] || { name: '' }).name, f: q.f }) : TXT('hud.gate.3', { f: q.f });
+      const ds = q.k === 'boss' ? TXT('hud.gate.boss.2') : q.from === 'gate' ? TXT('hud.gate.hall') : TXT('hud.gate.5');
       KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox('gt_r' + i, b.x + 30, b.y, b.w - 60, b.h, 2);
       icon('it_scroll', b.x + 44, b.y + (b.h - is) / 2, is);
       KIT.ink('gt_n' + i, nm, x, b.full ? b.y + 26 : b.y + b.h / 2 + 8, { size: 26, fit: iw, col: st.hover ? I.r : I.t });

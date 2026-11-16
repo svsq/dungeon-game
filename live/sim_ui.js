@@ -182,11 +182,13 @@
     if (click && b && b.on) { pressRun(S, b.id); ev(S, { k: 'ui', x, y }); }
     return;
   };
-  // the start screen (TASKS 1103, 1304): a tab picks the difficulty, a card the class, its kit button the kit (all kept in the meta
-  // for the next time); «В путь» or Enter start the run the menu asked for, «Назад» or Escape go back to the menu. The keyboard
-  // walks the rows with ↑↓ (difficulty, class, kit, buttons) and changes the focused row's choice with ←→
+  // the start screen (TASKS 1103, 1304): a tab picks the difficulty, a card the class, its kit button the kit, the checkbox under the
+  // name hardcore (TASKS 2108; all kept in the meta for the next time); «В путь» or Enter start the run the menu asked for, «Назад» or
+  // Escape go back to the menu. The keyboard walks the rows with ↑↓ (difficulty, class, kit, buttons, hardcore) and changes the
+  // focused row's choice with ←→; Enter or Space on the checkbox turn it over, as in the settings
   const setDiff = (S, d) => { if ((S.meta.diff || 'normal') !== d) { S.meta.diff = d; S.saveN++; } };
   const setDeath = (S, d) => { if (D.deathPick(S.meta) !== d) { S.meta.deathMode = d; S.saveN++; } };
+  const setHard = (S, on) => setDeath(S, on ? 'hard' : 'normal'), isHard = (S) => D.deathPick(S.meta) === 'hard';
   const setCls = (S, c) => { if (S.meta.cls !== c) { S.meta.cls = c; S.saveN++; } };
   const stepKit = (S, cls, k) => { const list = D.kitsOf(cls, S.meta), i = list.indexOf(D.kitOf(S.meta, cls)); S.meta.kit = S.meta.kit || {};
     S.meta.kit[cls] = list[(i + k + list.length) % list.length].id; S.saveN++; };
@@ -212,26 +214,26 @@
       // nothing lit Enter lights «В путь» before it starts anything
       if ((click && b && b.id === 'name') || (keys.Enter && !S.focus && S.hover === 'name')) { S.focus = 'name'; ev(S, { k: 'ui', x, y }); return; }
       if (keys.Enter && !S.focus && !click) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; }
+      if ((click && b && b.check) || ((keys.Enter || keys.Space) && S.focus === 'hard')) { setHard(S, !isHard(S)); S.focus = 'hard'; ev(S, { k: 'ui', x, y }); return; }
       if ((click && b && b.id === 'dice') || (keys.Enter && S.focus === 'dice')) { rollName(S); S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
       if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
       if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
-      if (click && b && b.death) { setDeath(S, b.death); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
       if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
       if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
     }
     const cls = clsNow(S), ids = D.classesReady(), dif = D.DIFF_ORDER, row = (S.focus || '').split(':')[0];
-    const rows = ['dif', 'death', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn']);
+    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn', 'hard']);
     // the focus taken off the field stays on its row
     const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : row === 'name' || row === 'dice' || !row ? 'nm' : 'cls';
     const wasd = !typing, arV = keys.ArrowDown || keys.ArrowUp, arH = keys.ArrowLeft || keys.ArrowRight;
     const mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
-    const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'death' ? 'death:' + D.deathPick(S.meta) : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r + ':' + cls);
+    const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'hard' ? 'hard' : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r + ':' + cls);
     // a sound for a key that changed nothing told the player it had done something (TASKS 1905)
     const was = () => JSON.stringify([S.focus, S.meta.diff, S.meta.deathMode, S.meta.cls, S.meta.kit]), w0 = was(), tick = () => { if (was() !== w0) ev(S, { k: 'ui', x, y }); };
     if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); tick(); return; }
     if (!st) return;
     if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
-    if (r0 === 'death') { const L = D.DEATH_ORDER, d = L[Math.max(0, Math.min(L.length - 1, L.indexOf(D.deathPick(S.meta)) + st))]; setDeath(S, d); S.focus = 'death:' + d; }
+    if (r0 === 'hard') setHard(S, st > 0);
     if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
     if (r0 === 'kit') stepKit(S, cls, st);
     if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';

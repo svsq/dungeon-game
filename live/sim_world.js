@@ -36,7 +36,7 @@
     if (S.t - q.t0 < READ_T) return;
     const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; const n0 = it.n, at = { x: h.x, y: h.y }; if (--it.n <= 0) h.bag[q.i] = null;
     // (a way home that does not open keeps the scroll and gives nothing of its reading, review of PR 69)
-    const was = R.portal; R.portal = { f: R.floor, x: h.x, y: h.y }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; R.hero.bag[q.i] = Object.assign(it, { n: n0 }); return; }
+    const was = R.portal; R.portal = { f: R.floor, x: h.x, y: h.y, from: 'scroll' }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; R.hero.bag[q.i] = Object.assign(it, { n: n0 }); return; }
     SIMX.firePowers(S, R, 'scroll', at); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   function useItem(S, R, idx) {
     const h = R.hero, it = h.bag[idx]; if (!it) return;

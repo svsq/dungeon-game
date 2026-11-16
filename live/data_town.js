@@ -106,7 +106,13 @@
   // end's rim in the 3/4 one, the top centre in the front one). It hangs `sag` px at the middle, less as it comes taut (`taut` of it at `far`
   // px of length) and none when short (under `near`); a plumb run bows `bow` px aside, towards where the rails turn, over `ramp` px from each
   // end, so it never lies on the rails' axis: cartCheck wants `gap` px from it, but for `ends` px at each end (town_motion_r8 6)
-  const CART = { diag: 39, front: 67, trim: 7, stop: 22, floor: 0.68, reach: 14,
+  // `gaugeF`: the front paintings' two wheel hubs across, in parts of their width; sizes.js sets their heights so the hubs stand on the
+  // rails (RAIL.gauge), at 31 px high the cart came out of the adit half its 3/4 size (TASKS 2109). `rim`: the near box from the wheels'
+  // bottom up to its near rim, in parts of each painting's height, the one size both views share: cartCheck wants it no less than
+  // `shrink` short of what the cart shows `ahead` px further along, and the front hubs `fit` (part of the gauge) off the rails. `dusk`: the run (px) over which the cart comes out of the adit's dark
+  const CART = { diag: 39, front: 67, trim: 7, stop: 22, floor: 0.68, reach: 14, dusk: [0, 20], shrink: 0.15, ahead: 6, fit: 0.06,
+    gaugeF: { cart_tw_f: [0.180, 0.816], cart_tw_f_half: [0.183, 0.818], cart_tw_f_empty: [0.184, 0.819] },
+    rim: { cart_tw: 0.445, cart_tw_half: 0.49, cart_tw_empty: 0.49, cart_tw_f: 0.51, cart_tw_f_half: 0.6, cart_tw_f_empty: 0.6 },
     seat: { cart_tw: [0.130, -0.210], cart_tw_half: [0.131, -0.231], cart_tw_empty: [0.130, -0.234] },
     hubs: { cart_tw: [[0.595, 0.868], [0.946, 0.592]], cart_tw_half: [[0.596, 0.854], [0.948, 0.549]], cart_tw_empty: [[0.595, 0.851], [0.946, 0.547]] },
     lug: { rx: 0.055, ry: 0.08, roll: 0.09, w: 2, h: 1, col: [0.72, 0.62, 0.5], step: 1.5 },
@@ -134,10 +140,12 @@
   const cartAt = (pts, s) => { const tot = railTot(pts), ds = Math.min(s, tot) * (tot - CART.stop) / tot, [x, y] = railAt(pts, ds); return { x, y, ds }; };
   const cartView = (pts, s) => {
     const q0 = railAt(pts, s - CART.reach), q1 = railAt(pts, s + CART.reach), th = Math.atan2(Math.abs(q1[1] - q0[1]), Math.abs(q1[0] - q0[0])) * 180 / Math.PI;
-    return th < CART.front ? { th, side: 1, turn: 1, sx: 1, rot: Math.max(-CART.trim, Math.min(CART.trim, CART.diag - th)), tilt: 0 } : { th, side: 0, sx: 1, rot: 0, tilt: 0 };
+    const run = Math.sign(q1[0] - q0[0]) || 1;
+    return th < CART.front ? { th, run, side: 1, turn: 1, sx: 1, rot: Math.max(-CART.trim, Math.min(CART.trim, CART.diag - th)), tilt: 0 } : { th, run, side: 0, sx: 1, rot: 0, tilt: 0 };
   };
-  // the lug's place on wheel `q` of the 3/4 painting `name` (w x h px) after `s` px rolled, from the painting's bottom centre
-  const cartLug = (name, q, w, h, s) => { const G = CART.lug, [hu, hv] = CART.hubs[name][q], a = s / (G.roll * w);
+  // the lug's place on wheel `q` of the 3/4 painting `name` (w x h px) after `s` px rolled, from the painting's bottom centre; `run` is
+  // the screen side (+1 right) the cart goes to as `s` grows, so the wheel's top turns that way (TASKS 2109: it turned against the travel)
+  const cartLug = (name, q, w, h, s, run) => { const G = CART.lug, [hu, hv] = CART.hubs[name][q], a = run * s / (G.roll * w);
     return [(hu - 0.5) * w + Math.cos(a) * G.rx * w, (hv - 1) * h + Math.sin(a) * G.ry * h]; };
   const cartHook = (side, name, w, h) => { const [hu, hv] = side ? CART.rope.hook.side[name] : CART.rope.hook.front; return [(hu - 0.5) * w, (hv - 1) * h]; };
   const cartWinch = (pts) => [pts[0][0], pts[0][1] - CART.rope.winch];
