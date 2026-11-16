@@ -9,6 +9,9 @@ PARAMS = {
     "disc_tw": {"sigma": 6, "groove_drop": 8, "offset": 7, "raise": 24, "darken": 6},
     "stairs_tw": {"a_min": 4, "b_max": 15, "l_mul": 0.84, "a_mul": 0.55},
     "forge_tw": {"a_min": 4, "b_max": 15, "l_mul": 0.84, "a_mul": 0.55},
+    # round 9: the soft fringe of the edge tree hid its ink ring; cut at half alpha, the ring under it is already closed. Fixed where the
+    # game loads it: the specks were cleaned there (2094), the art/gen source still has them
+    "tree_tw": {"cut": 128, "dir": "live/assets", "stamp": "20261116-2094b"},
 }
 WHITE = np.array([0.95047, 1.0, 1.08883])
 M = np.array([[0.4124564, 0.3575761, 0.1804375],
@@ -91,12 +94,19 @@ def lilac(rgb, a, p, report="L"):
     return from_lab(lab).astype(np.uint8), a
 
 
-FUNCS = {"runes_tw": runes, "disc_tw": disc, "stairs_tw": lilac, "forge_tw": lilac}
+def harden(rgb, a, p):
+    op = a > 0
+    a2 = np.where(a >= p["cut"], 255, 0).astype(np.uint8)
+    print("semi %.2f%% -> %.2f%%; opaque %d -> %d px" % (100 * ((a > 0) & (a < 255)).sum() / op.sum(), 0.0, op.sum(), (a2 > 0).sum()))
+    return rgb, a2
+
+
+FUNCS = {"runes_tw": runes, "disc_tw": disc, "stairs_tw": lilac, "forge_tw": lilac, "tree_tw": harden}
 
 
 def run(name):
-    src = "art/gen/%s.png" % name
-    bak = "art/old/%s-%s.png" % (name, STAMP)
+    src = "%s/%s.png" % (PARAMS[name].get("dir", "art/gen"), name)
+    bak = "art/old/%s-%s.png" % (name, PARAMS[name].get("stamp", STAMP))
     if os.path.exists(bak):
         sys.exit("backup exists: " + bak)
     im = Image.open(src).convert("RGBA")
