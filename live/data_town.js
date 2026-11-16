@@ -74,6 +74,9 @@
   // and stays while the hero is within keep px, no longer than max s; a wait run out is followed by cool s of his round before the
   // next, so a hero standing by cannot hold the yard's work up (one the hero walked off from needs none: he waits again at once)
   const FOLK_HOLD = { near: 160, keep: 220, max: 6, cool: 8, stop: 0.25, toward: 0.3, heroV: 10, way: 110 };
+  // E by a giver with a «!» or «?» and a service at once (TASKS 2128: the porter at the anvil, E opened the forge): the giver answers when
+  // the hero is no farther from him than from the service, or within `both` px of each, else the service
+  const FOLK_FIRST = { both: 48 };
   // the Keeper of the Fire (R-25, TASKS 1016): what he says when spoken to (E), by what has happened since he last spoke; each
   // event is a page of the dialogue, the most weighty first, each told once; with nothing new, a pair of his idle lines
   const KT = TXT.talk('keeper'), KE = KT.events, withName = (L) => (name) => L.map((p) => p.replace('{name}', name));
@@ -215,7 +218,7 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFeet, railAxes, cartAt, railAt, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFeet, railAxes, cartAt, railAt, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34, hudPad: 2, depth: 4 };

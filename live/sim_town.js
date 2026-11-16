@@ -187,6 +187,7 @@
       const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }; if (enterFloor(S, R, R.floor - 1, undefined, 'up')) ev(S, e); return; }
     const gt = gateNear(R); if (gt) { const was = R.portal; R.portal = { f: R.floor, x: gt.x, y: gt.y + 40, from: 'gate' }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; return; } ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007), taken at once
+    const gf = giverFirst(S, R); if (gf) { openTalk(S, R, gf); return; }
     const cs = craftShut(R); if (cs) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.CAPTIVES[cs].shut }); return; }
     // the workshop's master answers first, his talk has the button into the workshop (PR 49 review: the enchanter could not be talked to at all)
     const cw = atCraft(R), master = cw && folkOf(R).find((f) => f.role === CRAFT_OF[cw]);
@@ -199,7 +200,7 @@
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     // the prompt shows the way out when one is in reach, so E takes it (TASKS 1600)
-    const fk = folkNear(R), way = (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) || (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60); if (fk && !way) { openTalk(S, R, fk); return; }
+    const fk = folkNear(R); if (fk && !wayNear(R)) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor }; if (enterFloor(S, R, R.floor + 1)) ev(S, e); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
@@ -454,6 +455,15 @@
   const folkNear = (R) => { if (!R.town || !R.map.town) return null; let best = null, bd = 76;
     for (const f of folkOf(R)) { const FD = D.FOLK[f.role]; if (!FD.lines) continue; const d = Math.hypot(f.x - R.hero.x, f.y - R.hero.y); if (d < bd) { bd = d; best = f; } }
     return best; };
+  const wayNear = (R) => { const m = R.map, h = R.hero; return !!((m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) || (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60)); };
+  // where the town service E would open stands, in interact's order
+  const svcAt = (S, R) => { const t = R.map.town.svc;
+    if (craftShut(R) || atCraft(R)) return near(R, 'anvil', 80) ? t.anvil : t.lectern;
+    if (atStash(R)) return t.stash; if (atSoulAltar(R)) return t.altar; if (atExitGate(R)) return t.exitGate; if (atGate(R, S)) return t.portal; if (atBoard(R)) return t.board;
+    return null; };
+  const giverFirst = (S, R) => { if (!R.town || !R.map.town) return null; const f = folkNear(R); if (!f || !questMark(R, f.role) || wayNear(R)) return null;
+    const p = svcAt(S, R); if (!p) return null; const h = R.hero, df = Math.hypot(f.x - h.x, f.y - h.y), ds = Math.hypot(p.x - h.x, p.y - h.y);
+    return df <= ds || Math.max(df, ds) < D.FOLK_FIRST.both ? f : null; };
   // the Keeper's pages: the end of the last hero (a first death, a death, a win), a chapter's boss slain, a legendary found, a long
   // time below; each told once; nothing new, his idle pair
   function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = [];
@@ -599,7 +609,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf, settleStash,
+    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openHall, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell, CART_V, railLen, folkPause });
 })(typeof window !== 'undefined' ? window : globalThis);

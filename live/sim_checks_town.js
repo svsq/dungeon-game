@@ -127,6 +127,21 @@
         press(S2, b); if (S2.screen === 'classes') press(S2, UI.classes().find((q) => q.id === 'go')); const Q3 = S2.run;
         if (!Q3 || Q3.floor !== 0 || !Q3.town || S2.screen !== 'play' || Q3.hero.lvl !== 1 || Q3.hero.gold !== 0 || Q3.hero.bag.filter(Boolean).length !== 2 || !Q3.hero.bag.some((it) => it && it.b === 'scroll')) out.push(`town: after a ${how} the hero does not start anew in the town`);
         if (S2.meta.shards < shards) out.push(`town: the meta loses shards after a ${how}`); } }
+    // TASKS 2128: every giver with a «!» over him, the hero at each of the spots round him where he is the nearest townsman, out of the way's
+    // reach and no farther from him than from a service in reach: the first E opens his talk (the porter at the anvil opened the forge)
+    { const SPOTS = [[0, 30], [0, 40], [30, 10], [-30, 10], [0, -30], [40, 30], [-40, 30]], EVERY = 0.5, OVER = 40; let byService = 0;
+      for (let sd = 1; sd <= 24; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, home = [h.x, h.y];
+        R.quests = []; R.offers = D.QUEST_GIVE.from.filter((r) => folkOf(R).some((f) => f.role === r)).map((r) => ({ key: 'fetch', from: r, q: 0 }));
+        const bad = new Set();
+        for (let k = 0; k * EVERY < OVER; k++) { for (let i = 0, n = Math.round(EVERY / DT); i < n; i++) step(S, { keys: [] });
+          for (const f of folkOf(R)) { if (!questMark(R, f.role) || bad.has(f.role)) continue;
+            for (const [dx, dy] of SPOTS) { h.x = f.x + dx; h.y = f.y + dy; if (SIMX.folkNear(R) !== f || SIMX.wayNear(R)) continue;
+              const p = SIMX.svcAt(S, R); if (p && Math.hypot(p.x - h.x, p.y - h.y) < Math.hypot(f.x - h.x, f.y - h.y)) continue; if (p) byService++;
+              interact(S, R); const got = S.screen === 'talk' ? S.talk && S.talk.role : S.screen;
+              if (got !== f.role) { bad.add(f.role); out.push(`town ${sd}: E by the ${f.role} with a «${questMark(R, f.role)}» at ${(k * EVERY).toFixed(1)} s (${dx}, ${dy}) opens ${got}`); }
+              S.screen = 'play'; S.talk = null; S.craft = null; if (bad.has(f.role)) break; } }
+          h.x = home[0]; h.y = home[1]; } }
+      if (!byService) out.push('town: no giver with a mark ever stood by a service, the E order goes unchecked'); }
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,

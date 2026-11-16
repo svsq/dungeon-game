@@ -384,12 +384,15 @@
     { const g = SIM.Q.gateNear(R); if (g) pr = [g.x, g.y - 80, TXT('hud.world.18')]; }
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? TXT('hud.world.19') : TXT('hud.world.20', { p1: m.floor - 1 })];
+    const preSvc = pr;
     { const cw = SIM.Q.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern'], who = cw === 'forge' ? 'smith' : 'enchanter', mk = SIM.Q.questMark(R, who); pr = [P.x, P.y - 96, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[who].name, cw === 'forge' ? TXT('hud.world.22') : TXT('hud.world.23')]; } }
     if (SIM.Q.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, TXT('hud.world.24')];
     if (m.town && SIM.Q.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, TXT('hud.world.25')];
     if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
     if (SIM.Q.atExitGate(R)) pr = [m.town.svc.exitGate.x, m.town.svc.exitGate.y - 110, TXT('hud.world.gate')];
     if (SIM.Q.atGate(R, S)) { const o = SIM.Q.gateWays(R, S); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length !== 1 ? TXT('hud.world.ring.open') : o[0].k === 'boss' ? TXT('hud.world.ring.boss', { name: bossName(o[0].f), f: o[0].f }) : TXT('hud.world.29', { f: o[0].f })]; }
+    // the giver E talks to before the service it stands by (TASKS 2128) shows his own plate
+    if (S.screen === 'play' && m.town && SIM.Q.giverFirst(S, R)) pr = preSvc;
     if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
     if (!pr && tz) pr = [tz.x, tz.y - 46, TXT('hud.world.take', { p1: SIM.Q.itemName(tz.item) })];
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R, S).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
