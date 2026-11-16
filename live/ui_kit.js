@@ -70,11 +70,20 @@
   const trkFit = (s, maxW, size, measure) => { s = String(s); if (measure(s, size) <= maxW) return s; let lo = 0, hi = s.length;
     while (lo < hi) { const m = (lo + hi + 1) >> 1; if (measure(s.slice(0, m).trimEnd() + '…', size) <= maxW) lo = m; else hi = m - 1; }
     return s.slice(0, lo).trimEnd() + '…'; };
+  // a button's «+» and «−» (TASKS 2114): the font's glyph has its own height and side bearings, so a text «+» sat off the button's
+  // middle; the sign is two solid bars instead. A bar's length and thickness take the parity of the centre's doubled coordinate, so the
+  // bar's edges fall on whole px and its middle on the centre exactly, on odd and even buttons alike
+  const SIGN = { span: 0.46, stroke: 0.1, min: 2 };
+  const signLen = (raw, odd, min) => { let v = Math.max(min, Math.round(raw)); if ((v & 1) !== odd) v += raw >= v || v - 1 < min ? 1 : -1; return v; };
+  const signRects = (cx, cy, size, plus = true) => { const c = [Math.round(cx * 2) / 2, Math.round(cy * 2) / 2], odd = c.map((v) => (v * 2) & 1);
+    const bar = (lx, ly) => { const w = signLen(lx, odd[0], SIGN.min), h = signLen(ly, odd[1], SIGN.min); return { x: c[0] - w / 2, y: c[1] - h / 2, w, h }; };
+    const a = size * SIGN.span, t = size * SIGN.stroke, r = [bar(a, t)]; if (plus) r.push(bar(t, a)); return r; };
+  const SIGN_OF = { '+': true, '−': false };
   UI.add('kit', {
     // the bottom panel's height and its gap to the view's foot: the HUD lays it out by them and the camera keeps the hero above it (TASKS 1911)
     bp: { h: 122, foot: 6, purseY: 10 },
     purse: PURSE,
   });
-  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit };
+  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, SIGN, SIGN_OF, signRects };
   UI.share('kit', { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf });
 })(typeof window !== 'undefined' ? window : globalThis);

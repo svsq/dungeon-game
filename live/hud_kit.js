@@ -97,6 +97,13 @@
     const all = { x: px + pad, y: py + pad, w: pw - pad * 2, h: ph - pad * 2 };
     L.uiBox(id, all.x, all.y, all.w, all.h, 0); return { L: L0, R: R0, all };
   };
+  const rgbOf = (c) => (Array.isArray(c) ? c : [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255));
+  // a button's «+» or «−» as bars on its exact middle (TASKS 2114, UI.kit.signRects); o.out rings each bar in that colour, as a light
+  // label's outline did
+  K.sign = (id, cx, cy, size, plus, col, o = {}) => { const R = DATA.UI.kit.signRects(cx, cy, size, plus), c = rgbOf(col), a = o.a ?? 1, e = o.outW || 2;
+    if (o.out) for (const q of R) L.solid(q.x - e, q.y - e, q.w + 2 * e, q.h + 2 * e, rgbOf(o.out), 0, 0, 0, a);
+    for (const q of R) L.solid(q.x, q.y, q.w, q.h, c, 0, 0, 0, a); };
+  K.signOf = (s) => { const T = DATA.UI.kit.SIGN_OF; return Object.hasOwn(T, s) ? T[s] : undefined; };
   // a button: b = { x, y, w, h, label, on }; kind 'parch' (the plain one) or 'wax' (the one that does the thing, light letters)
   K.button = (id, b, st, kind = 'parch') => {
     // a button that cannot be pressed is dimmed, not greyed out: its words stay readable on it (TASKS 1762)
@@ -106,7 +113,9 @@
     const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.7, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.12, 1.5, 0, 1.08] : gradeOf(st), dy = st.press ? 2 : 0;
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: st.off && kind !== 'wax' ? { grade: g, tint: [1, 0.94, 0.87, 1] } : { grade: g } });
     const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#ffe7a3' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
-    (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
+    const sg = K.signOf(b.label);
+    if (sg !== undefined) K.sign(id + '_l', b.x + b.w / 2, b.y + b.h / 2 + dy, Math.min(b.w, b.h), sg, col);
+    else (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
   // the slider: an ink rule with ticks, a brass knob at f (0..1); o.ticks (count), o.value (text over the knob), o.ends ([left,

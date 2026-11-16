@@ -108,7 +108,9 @@
   function button(id, b, hover) {
     const on = b.on !== false, hv = hover === b.id && on, li = hv && b.lit;
     panel(id, b.x, b.y, b.w, b.h, { c0: li ? [0.42, 0.29, 0.18] : hv ? [0.24, 0.16, 0.1] : [0.13, 0.1, 0.11], c1: li ? [0.26, 0.16, 0.09] : hv ? [0.13, 0.08, 0.06] : [0.06, 0.05, 0.06], rim: li ? [0.86, 0.68, 0.42] : hv ? C.rimHi : C.rim });
-    lab(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: 30, fit: b.w - 8, al: 0.5, col: on ? (li ? '#ffe7a3' : hv ? '#fff2c8' : C.text) : '#6d6258' });
+    const col = on ? (li ? '#ffe7a3' : hv ? '#fff2c8' : C.text) : '#6d6258', sg = KIT.signOf(b.label);
+    if (sg !== undefined) KIT.sign(id + '_l', b.x + b.w / 2, b.y + b.h / 2, Math.min(b.w, b.h), sg, col);
+    else lab(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: 30, fit: b.w - 8, al: 0.5, col });
   }
   const dim = (a = 0.62) => L.solid(0, -G.oy, W, VH, [0, 0, 0], 0, 0, 0, a);
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
@@ -447,7 +449,7 @@
     plate('hud_plate', HB.x, HB.y, HB.w, HB.h, { k: 0.35, pad: 0 });
     L.solid(HB.x + 13, HB.y + 13, 110, 110, [0.05, 0.035, 0.03]); L.sprite(portraitOf(h), HB.x + 14, HB.y + 14, { w: 108, h: 108, src: [0.08, 0.02, 0.92, 0.86] }); edge(HB.x + 12, HB.y + 12, 112, 112, BRASS, 3); L.uiBox('portrait', HB.x + 12, HB.y + 12, 112, 112, 0);
     K.nine('btn', TLX, 14, 150, 52); K.ink('lvl', TXT('hud.hud', { lvl: h.lvl }), TLX + 75, 41, { size: 28, al: 0.5 }); L.uiBox('lvl_b', TLX + 16, 14, 118, 52, 0);
-    if (h.pts > 0 || h.sp > 0) { const a = 0.6 + 0.4 * Math.sin(t * 5); L.rrect(HB.x + HB.w - 30, HB.y + 2, 28, 28, 14, [1, 0.75, 0.2], [0.8, 0.45, 0.1], a); L.uiBox('lvl_up_b', HB.x + HB.w - 32, HB.y, 32, 32, 0); lab('lvl_up', '+', HB.x + HB.w - 16, HB.y + 16, { size: 20, al: 0.5, col: '#2a1606', out: '' }); }
+    if (h.pts > 0 || h.sp > 0) { const a = 0.6 + 0.4 * Math.sin(t * 5); L.rrect(HB.x + HB.w - 30, HB.y + 2, 28, 28, 14, [1, 0.75, 0.2], [0.8, 0.45, 0.1], a); L.uiBox('lvl_up_b', HB.x + HB.w - 32, HB.y, 32, 32, 0); KIT.sign('lvl_up', HB.x + HB.w - 16, HB.y + 16, 28, true, '#2a1606'); }
     // the stats on a parchment sheet under the portrait, ink on paper as on the ref
     const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
     const sw = Math.max(...rows.map(([, v], i) => lw('stv' + i, v, { size: 22 }))) + 76, sy = STS.y;
@@ -825,7 +827,7 @@
       KIT.light('st_v' + i, vs, vr - aw - vw, y, { size: 26 }); if (as) KIT.light('st_a' + i, as, vr - aw, y + 1, { size: 22, col: '#8fd98a' });
       for (let x = Lp.x + 50 + nw + 14; x < vr - aw - vw - 16; x += 12) L.solid(Math.round(x), y + 7, 3, 3, [0.80, 0.72, 0.60], 0, 0, 0, 0.45);
       L.solid(Lp.x + 50, b.y + b.h + 3, vr - Lp.x - 50, 1, BRASS, 0, 0, 0, 0.3);
-      if (h.pts > 0) { KIT.cell('st_b' + i, b.x, b.y, b.w, KIT.st(S, b.id)); KIT.light('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); }
+      if (h.pts > 0) { KIT.cell('st_b' + i, b.x, b.y, b.w, KIT.st(S, b.id)); KIT.sign('st_p' + i, b.x + b.w / 2, b.y + b.h / 2, b.w, true, C.gold, { out: '#2a0d08' }); }
       const tip = () => statGain(S, h, s.k), full = D.statFull(h, s); tipAt(Lp.x + 44, b.y - 4, vr - Lp.x - 40, b.h + 8, full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, full, tip); });
     const draft = h.draft || {}, rst = (id, on) => { if (on) KIT.button('inv_' + id, Object.assign({}, U.r.find((q) => q.id === id), { size: 22 }), KIT.st(S, id)); };
     rst('reset:st', Object.values(draft.st || {}).some((n) => n > 0));
@@ -863,7 +865,7 @@
       L.solid(b.x + 20, b.y + Y.rule, b.w - 40, 1, [0.66, 0.5, 0.28], 0, 0, 0, 0.4);
       if (whole) wrapLab('ab_e' + i, ds, b.x + 20, b.y + Y.y0, b.w - 40, 20, C.text);
       else { lab('ab_d' + i, d0, b.x + 20, b.y + Y.y0, { size: 20, col: C.dim }); wrapLab('ab_e' + i, d1, b.x + 20, b.y + Y.d1, b.w - 40, 20, C.text); }
-      if (can) { L.rrect(b.x + b.w - 52, b.y + b.h - 52, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 36, b.y + b.h - 36, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
+      if (can) { L.rrect(b.x + b.w - 52, b.y + b.h - 52, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); KIT.sign('ab_p' + i, b.x + b.w - 36, b.y + b.h - 36, 32, true, '#2a1606'); } });
     { const s = TXT('hud.inv.drag'), fw = Rp.w - 80, q = L.labelW(0, s, { size: 26 }) > fw ? dotHalves(s, 26) : [s]; q.forEach((v, i) => KIT.ink('inv_help' + i, v, Rp.x + Rp.w / 2, Rp.y + Rp.h - 56 - (q.length - 1 - i) * 28, { size: 26, fit: fw, al: 0.5, col: I.d })); }
     closeBtn('inv_x', U, S);
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 32; plate('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 36);

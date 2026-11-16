@@ -703,6 +703,19 @@
       if (!a.small) out.push(`quest mark: giver ${n} has a full-size mark`);
       else if (!inside(a)) out.push(`quest mark: giver ${n} has his mark at ${Math.round(a.x)},${Math.round(a.y)}, off the screen's margin`);
       else if (!a.edge[0] && !a.edge[1]) out.push(`quest mark: giver ${n} has no edge direction`); } }
+  // TASKS 2114: a button's «+» and «−» are bars whose middle is the button's middle to 0 px and whose edges fall on whole px, on odd
+  // and even button sizes and at odd and even corners; the split window's ± buttons are drawn by them
+  function checkSign(out) { const K = UI.kit; if (!K.signRects || !K.SIGN_OF) { out.push('sign: no shared «+»/«−» layout (UI.kit.signRects)'); return; }
+    const whole = (v) => Number.isInteger(v);
+    for (const x0 of [0, 7, 100, 333]) for (const y0 of [0, 4, 51]) for (let s = 16; s <= 72; s++) for (const plus of [true, false]) {
+      const cx = x0 + s / 2, cy = y0 + (s + 1) / 2, R = K.signRects(cx, cy, s, plus);
+      if (R.length !== (plus ? 2 : 1)) { out.push(`sign: the ${plus ? '«+»' : '«−»'} of a ${s} px button has ${R.length} bars`); return; }
+      for (const q of R) { const dx = q.x + q.w / 2 - cx, dy = q.y + q.h / 2 - cy;
+        if (dx || dy) { out.push(`sign: a bar of the ${plus ? '«+»' : '«−»'} on a ${s}×${s + 1} button at ${x0},${y0} is ${dx},${dy} px off its middle`); return; }
+        if (![q.x, q.y, q.w, q.h].every(whole) || Math.min(q.w, q.h) < K.SIGN.min) { out.push(`sign: a bar on a ${s} px button is ${q.x},${q.y} ${q.w}×${q.h}, not on whole px or under ${K.SIGN.min} px thick`); return; } } }
+    const sp = UI.split().r; for (const [id, plus] of [['spPlus', true], ['spMinus', false]]) { const b = sp.find((q) => q.id === id);
+      if (!b || K.SIGN_OF[b.label] !== plus) out.push(`sign: the split window's ${id} label is not drawn as the ${plus ? '«+»' : '«−»'} sign`); } }
+  SIMX.checks.add('signCheck', checkSign);
   SIMX.checks.add('menuCheck', menuCheck);
   SIMX.checks.add('uiCheck', checkReview57);
   SIMX.checks.add('splitCheck', checkSplit);
