@@ -7,6 +7,9 @@
   const FOLK0 = (m) => D.folkInit(m.town.npcs);
   const lerp1 = (a, b, k) => a + (b - a) * k, lerp2 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], E01 = (q) => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
   const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
+  const JOINT_W = 0.02;
+  // the legs step along the gait's eased heading (the sim's f.hx, f.hy, TASKS 2136) at the walker's speed
+  const gaitV = (f) => { const v = Math.hypot(f.vx, f.vy); return f.hx === undefined || !v ? { vx: f.vx, vy: f.vy } : { vx: f.hx * v, vy: f.hy * v }; };
   const TOOL = (tex, grip, o) => Object.assign({ tex, len: SZ(tex)[1], grip }, o);
   // one townsperson (TASKS 1015): a work loop on its own clock (DATA.folkClock, shared with the sim's events), the walk of a round,
   // and the talk: turned to the hero, head up, the free hand gesturing, eased in and out of the work pose. Hands are placed by IK on
@@ -39,13 +42,15 @@
     if (back) { rk = GT < fIn ? SS(f.sayT, fIn, GT) : GT < fOut - TURN ? 1 - SS(fIn, fIn + TURN, GT) : GT < fOut ? SS(fOut - TURN, fOut, GT) : 1 - SS(fOut, fOut + TURN, GT);
       tw = SS(fIn, fIn + TURN, GT) * (1 - SS(fOut - TURN, fOut, GT)); }
     const face = gOn && f.face ? f.face : back ? (GT >= fIn && GT < fOut ? f.face : wf) : (route || talkNow) && f.face ? f.face : wf;
-    // a walker turns like a paper figure: mirrored in one tick the whole rig jumped by its own width (TASKS 1409); the rig's width keeps
-    // a minimum, but the hand targets ride the unclamped width: through the clamp's sign flip they jumped 0.2 of their reach (TASKS 2101)
-    const FT = D.FOLK_TURN, tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, f.load ? FT.load : FT.t, GT - tT) : 1, turnW = turnK < 1 ? face * (turnK * 2 - 1) : face, rigFace = Math.abs(turnW) < FT.minW ? face * Math.sign(turnW * face || 1) * FT.minW : turnW;
+    // a walker turns like a paper figure: mirrored in one tick the whole rig jumped by its own width (TASKS 1409); the parts' width keeps
+    // a minimum, but the joints and the hand targets ride the width through zero (jointW, floored only off the IK's zero divide): through
+    // the clamp's sign flip the hands jumped 0.2 of their reach (TASKS 2101), the shoulders, elbows and feet 0.56 (town_motion_r10 2),
+    // and a hand's target pulled in toward the axis dipped the child's hand 3.6 px for a frame (town_motion_r10 3)
+    const FT = D.FOLK_TURN, tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, f.load ? FT.load : FT.t, GT - tT) : 1, turnW = turnK < 1 ? face * (turnK * 2 - 1) : face, floorW = (w) => (Math.abs(turnW) < w ? face * Math.sign(turnW * face || 1) * w : turnW), rigFace = floorW(FT.minW), jointW = floorW(JOINT_W);
     const RG = RIGS[nm], s = H / RG.h, gy = RG.foot ?? RG.footL[1], handAt = (sd, k = 1, dy = 0) => [X + face * k * (RG['hand' + sd][0] - RG.gap) * s, Yg + (RG['hand' + sd][1] + dy - gy) * s];
     const P = (dx, dy) => [X + face * dx * H, Yg + dy * H], mir = (q) => [X + (q[0] - X) * face * wf, q[1]];
     // a free hand on IK walking: along the travel against its own leg, FD.swing of the height each way, k its weight (biped's own stride and phase)
-    const stride = MONSTERS.rigStride(nm, H, FD.stride), swingAt = (k) => (stride ? (FD.swing || 0) * H * k * Math.cos(2 * Math.PI * f.dist / stride) : 0);
+    const stride = MONSTERS.rigStride(nm, H, FD.stride), swingAt = (k) => (stride ? (FD.swing || 0) * H * k * Math.cos(2 * Math.PI * (f.pace ?? f.dist) / stride) : 0);
     const talkR = P(0.27, -0.52 + 0.025 * Math.sin(GT * 5.3 + i)), talkL = P(0.08, -0.36);
     const atStop = route && !f.go, pu = GT - f.t0, stop = route && f.way >= 0 ? route[f.way] : null, moving = Math.hypot(f.vx, f.vy) > 2;
     let tg = {}, hold = null, lean = 0, headR = 0, headF = 1, crouch = 0, front = null, robe = null, fx = null;
@@ -98,7 +103,7 @@
     } else if (f.role === 'porter' || f.role === 'mason') {
       // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
       // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
-      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, chest = [X + turnW * 0.2 * H, Yg - 0.46 * H], act = atStop && f.lift, floor = mason ? (act === 'drop' ? [sx(T.bin.x), sy(T.bin.y) - 30] : P(0.5, -0.5)) : P(0.33, -0.14);
+      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, chest = [X + jointW * 0.2 * H, Yg - 0.46 * H], act = atStop && f.lift, floor = mason ? (act === 'drop' ? [sx(T.bin.x), sy(T.bin.y) - 30] : P(0.5, -0.5)) : P(0.33, -0.14);
       let k = f.load ? 1 : 0, bend = 0;
       const hang = (sd) => (sd === 'L' ? P(-0.2, -0.45) : P(0.2, -0.43));
       if (act === 'take') { k = mason ? SS(0.3, 1.15, pu) : SS(0.8, 1.4, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); } else if (act === 'drop') { k = 1 - SS(0.35, mason ? 0.95 : 1.2, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); }
@@ -171,7 +176,7 @@
     // struck by the hero's blow (TASKS 1033): a flinch back from it, knees giving, the head ducked, over half a second
     { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
       if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
-    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { stride: FD.stride, hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * turnW / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
+    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { stride: FD.stride, faceW: jointW, hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * jointW / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
       if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); }
@@ -193,10 +198,11 @@
     const pulse = (a, dur) => (a >= 0 && a < dur ? Math.sin(Math.PI * a / dur) * (1 - a / dur) : 0), sag = pulse(GT - (C.takeT ?? -9) - 0.45, 0.4), stopK = C.st === 'at' ? pulse(GT - (C.atT ?? -9), 0.4) : 0, end = pts[pts.length - 1], pre = pts[pts.length - 2], back = end[0] >= pre[0] ? -1 : 1;
     const wob = 0.05 * sag, Xc = X + back * 3 * stopK, Yc = Yg + bob + 2.5 * sag + 1.2 * stopK, tint = [k * 0.82, k * 0.82, k * 0.82, 1];
     // both paintings ride the rails' middle by their own seat, so through the cross-fade their wheels stay on the rails while the box turns
-    // the front painting stays opaque while the 3/4 one comes in over it, then fades under it: their sum never lets the ground or the ink
-    // through where they overlap (plain complementary alphas left a quarter of each, and the eight ink copies at the new view's alpha
-    // stacked into a dark ghost of it, 44 % at an alpha of 0.07)
-    const views = [[FD.F, nmF, Math.min(1, 2 - 2 * FD.a), 1 - FD.a], [FD.S, nmS, Math.min(1, 2 * FD.a), FD.a]].filter((q) => q[2] > 0).map(([V, nm, a, k2]) => { const [w, h] = SZ(nm), Mc = M.of(M.t(Xc, Yc), M.r(V.rot * L.D2R + wob)),
+    // the 3/4 painting comes in under the front one, which stays opaque, then the front one fades out over it: their sum never lets the
+    // ground or the ink through where they overlap (plain complementary alphas left a quarter of each, and the eight ink copies at the new
+    // view's alpha stacked into a dark ghost of it, 44 % at an alpha of 0.07). Each is inked on its own, the narrow front on top: drawn
+    // in one silhouette the 3/4 fill covered the front's outline and the box's darkest 5 % paled 14 → 24 (town_motion_r10 5)
+    const views = [[FD.S, nmS, Math.min(1, 2 * FD.a), FD.a], [FD.F, nmF, Math.min(1, 2 - 2 * FD.a), 1 - FD.a]].filter((q) => q[2] > 0).map(([V, nm, a, k2]) => { const [w, h] = SZ(nm), Mc = M.of(M.t(Xc, Yc), M.r(V.rot * L.D2R + wob)),
       seat = V.side ? D.cartSeat(nm, w, h, V) : D.cartSeatF(nm, w, h), rotAt = (dx, dy) => M.ap(Mc, [dx - seat[0], dy - seat[1]]);
       return { V, nm, a, k2, w, h, Mc, seat, rotAt, lugs: V.side ? D.CART.hubs[nm].map((_, q) => rotAt(...D.cartLug(nm, q, w, h, run, V.run))) : [], u: { tint, alpha: a } }; });
     const mix = (f) => views.reduce((o, q) => { const p = f(q); return [o[0] + p[0] * q.k2, o[1] + p[1] * q.k2]; }, [0, 0]);
@@ -205,8 +211,8 @@
     Y.push([y - 40, () => { let px, py; for (const [qx, qy] of rope) { const ix = Math.round(qx), iy = Math.round(qy); if (ix !== px || iy !== py) L.solid(ix, iy, 1, 1, RP.col, 0, 0, 0, 1); px = ix; py = iy; } }]);
     Y.push([y + 8, () => { L.shadow(Xc, Yg, 0.42 * wide, 5, 0.45); L.joint('cart', 'ground', [Xc, Yg]); L.joint('cart', 'top', mix((q) => q.rotAt(0, -q.h))); L.joint('cart', 'body', [Xc, Yc]);
       const INK = 8;
-      L.inked(() => { for (const q of views) L.sprite(q.nm, 0, 0, { m: q.Mc, pivot: [q.w / 2 + q.seat[0], q.h + q.seat[1]], w: q.w, h: q.h, u: L.sp ? Object.assign({}, q.u, { alpha: 1 - (1 - q.a) ** (1 / INK) }) : q.u }); }, { r: 2, n: INK, col: [0.09, 0.04, 0.04], dy: 0 });
-      for (const q of views) { if (q.V.side) q.lugs.forEach((p, i) => L.joint('cart', 'stud' + i, p));
+      for (const q of views) { L.inked(() => { L.sprite(q.nm, 0, 0, { m: q.Mc, pivot: [q.w / 2 + q.seat[0], q.h + q.seat[1]], w: q.w, h: q.h, u: L.sp ? Object.assign({}, q.u, { alpha: 1 - (1 - q.a) ** (1 / INK) }) : q.u }); }, { r: 2, n: INK, col: [0.09, 0.04, 0.04], dy: 0 });
+        if (q.V.side) q.lugs.forEach((p, i) => L.joint('cart', 'stud' + i, p));
         for (const [lx, ly] of q.lugs) L.solid(Math.round(lx - LG.w / 2), Math.round(ly - LG.h / 2), LG.w, LG.h, LG.col.map((c) => c * k), 0, 0, 0, q.a);
         if (shown === 1) { const [sx1, sy1] = q.rotAt(0.04 * q.w, -0.71 * q.h); L.sprite('town_tool_stone', sx1 - 7, sy1 - 7, { w: 14, h: 14, u: { tint: q.V.side ? tint : tint.map((c, i) => c * (D.CART.lumpF[i] ?? 1)), alpha: q.a } }); } } }]);
   }
@@ -214,8 +220,8 @@
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;
     Y.push([f.y, () => { L.shadow(X, Yg + 2, 0.24 * H, 6, 0.45); L.joint(id + '_view', 'face', [face, 0]);
       let hand = null;
-      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
-        : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, t: GT, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, Ufar: {}, strideK: o.stride, ...(f.go || f.spd0 === undefined ? {} : { spd0: f.spd0, vxn0: f.vxn0, vyn0: f.vyn0, t0: f.t0 }), hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, headF: o.headF, crouch: o.crouch, front: o.front, bend: o.arms ? { R: 1 } : undefined, farOver: o.arms });
+      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, faceW: o.faceW, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
+        : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, faceW: o.faceW, t: GT, seed, dist: f.dist, pace: f.pace, ...gaitV(f), U: {}, Ufar: {}, strideK: o.stride, ...(f.go || f.spd0 === undefined ? {} : { spd0: f.spd0, vxn0: f.vxn0, vyn0: f.vyn0, t0: f.t0 }), hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, headF: o.headF, crouch: o.crouch, front: o.front, bend: o.arms ? { R: 1 } : undefined, farOver: o.arms });
         if (r && fx && fx.hand) hand = r.hand ? r.hand(fx.hand) : r.R2U(r.arms[fx.hand].Hd[0], r.arms[fx.hand].Hd[1]); }, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
       if (fx) SCX.RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] - (fx.up || 0) } : {}));
       if (fx && (fx.k === 'grain' || fx.k === 'dust')) folkDust(fx, GT); }]);

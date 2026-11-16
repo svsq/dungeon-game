@@ -15,6 +15,7 @@
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
   // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
   const folkTalk = (f, t) => f.near && t - f.sayT < D.FOLK_SAY;
+  const HOLD_SIDE = 6, GAIT_TURN = 0.08, GAIT_SNAP = 2;
   function folkHeld(R, f, t) { const H = D.FOLK_HOLD, h = R.hero, dx = f.x - h.x, dy = f.y - h.y, d = Math.hypot(dx, dy), v = Math.hypot(h.vx, h.vy);
     if (f.holdA != null) { if (h.deadT < 0 && d <= H.keep && t >= f.holdA && t - f.holdA < H.max && questMark(R, f.role)) return true; if (t - f.holdA >= H.max) f.holdC = t + H.cool; f.holdA = null; return false; }
     // not by the way down: E there takes the way before the talk (TASKS 1600), a giver held at the stairs sent the hero down instead
@@ -140,6 +141,9 @@
           f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take') { C.takeT = t; if (--C.load <= 0) C.t = t + 2.5; } if (f.role === 'mason' && f.lift === 'drop') C.bin = (C.bin || 0) + 1; } }
         else { want = pass ? FD.v : Math.min(FD.v, d * 3 + 3); ux = dx / d; uy = dy / d; } }
       if (held && !want) f.spd = Math.max(0, f.spd - FD.v * DT / D.FOLK_HOLD.stop); else f.spd += (want - f.spd) * Math.min(1, 7 * DT);
+      // a giver held for the hero turns to him once stopped, the walkers' turn (D.FOLK_TURN): caught up with from behind, all four stood
+      // with their backs to him for up to 6 s, the «!» over the back of the head (town_motion_r10 1); turned at speed he would moonwalk
+      if (held && f.spd < 0.5 && Math.abs(h.x - f.x) > HOLD_SIDE) { const nf = h.x > f.x ? 1 : -1; if (nf !== f.face) { f.turnT = t; f.face = nf; } }
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
       if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }
       // round the others and the hero: try straight on, then wider and wider turns; nothing clear, it waits
@@ -148,7 +152,12 @@
       let moved = false;
       for (const a of [0, 0.6, -0.6, 1.2, -1.2]) { const c = Math.cos(a), sn = Math.sin(a), vx = ux * c - uy * sn, vy = ux * sn + uy * c, x = f.x + vx * step, y = f.y + vy * step;
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
-        f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
+        f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step;
+        // the gait's heading (f.hx, f.hy) eases round a corner of the round over GAIT_TURN, and the phase runs on f.pace, the stride
+        // shortened in depth (TASKS 2136): set by the way he goes, the feet swung over to the new heading in a frame (the porter 6.6 px)
+        // (a turn back on itself is snapped: eased, the heading never left the old way, and the feet turn with the figure's own turn then)
+        { const a0 = Math.atan2(f.hy ?? vy, f.hx ?? vx), da = Math.atan2(vy, vx) - a0, dw = da - 2 * Math.PI * Math.round(da / (2 * Math.PI)), a = Math.abs(dw) > GAIT_SNAP ? a0 + dw : a0 + dw * Math.min(1, DT / GAIT_TURN); f.hx = Math.cos(a); f.hy = Math.sin(a); }
+        f.pace = (f.pace ?? f.dist - step) + step / D.stepPace(f.hy); moved = true; break; }
       if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (f.path) { if ((f.stuck += DT) > GREET.stuck && f.path.length > 1) { f.path.shift(); f.stuck = 0; } continue; } if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
       if (Math.abs(f.vx) > (f.role === 'hen' ? 12 : 3)) { const nf = f.vx > 0 ? 1 : -1; if (f.role !== 'hen' || nf === f.face || t - (f.turnT ?? -9) > 1.1) { if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } } }
     // the merchant calls the hero over from across the yard, every so often

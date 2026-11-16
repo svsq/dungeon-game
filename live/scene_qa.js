@@ -1524,7 +1524,7 @@
     const folkS = (fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; R.captives = null; R.folk = D.folkInit(m.town.npcs);
       h.x = m.town.svc.portal.x + 3 * TILE; h.y = m.town.svc.portal.y; SIM.step(S, { keys: [] }); S.ev = []; if (fn) fn(S, R, m, h); });
     const folkAt = (R, role) => R.folk.find((q) => q.role === role), camOn = (R, f) => { R.cam = [f.x - SCX.VW / 2, f.y - 40 - SCX.VH / 2]; };
-    const atStop = (R, f, k) => { const st = R.map.town.npcs[f.i].route[k]; Object.assign(f, { x: st.x, y: st.y, way: k, go: 0, spd: 0, vx: 0, vy: 0 }); };
+    const atStop = (R, f, k) => { const st = R.map.town.npcs[f.i].route[k]; Object.assign(f, { x: st.x, y: st.y, way: k, go: 0, spd: 0, vx: 0, vy: 0, hx: undefined, hy: undefined }); };
     for (const role of ['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'mason']) { let i = 0, per = 1;
       const base = folkS((S, R) => { const f = folkAt(R, role); i = f.i; per = D.folkClock(role, i, S.t).per; if (R.map.town.npcs[i].route) { atStop(R, f, role === 'mason' ? 1 : 0); f.t0 = S.t - (role === 'mason' ? 3 : 0); f.face = role === 'child' || role === 'mason' ? 1 : -1; if (role === 'mason') Object.assign(R.cart, { st: 'in', t: S.t + 99 }); } camOn(R, f); });
       loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i; }
@@ -1535,7 +1535,7 @@
       const st = RG.hipL ? MONSTERS.rigStride(nm, H0, D.FOLK[role].stride) : MONSTERS.robeStride(nm, H0); let i = 0;
       if (!st) throw new Error('folk: the ' + role + ' walks a round but its rig has no gait');
       const walkAt = (d, turnIn) => folkS((S, R) => { const f = folkAt(R, role); i = f.i; const n = R.map.town.npcs[f.i];
-        Object.assign(f, { x: n.x + d, dist: d, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - SCX.VW / 2, n.y - 40 - SCX.VH / 2]; follow(S, d, 0);
+        Object.assign(f, { x: n.x + d, dist: d, pace: undefined, hx: undefined, hy: undefined, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - SCX.VW / 2, n.y - 40 - SCX.VH / 2]; follow(S, d, 0);
         if (turnIn !== undefined) Object.assign(f, { face: -1, turnT: S.t + turnIn }); });
       folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => walkAt(k * st / 12));
       { const base = walkAt(st / 3, FOLK_TURN_LEAD / 60); transitions['folk_' + role + '_turn'] = Array.from({ length: FOLK_TURN_FRAMES }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj['folk_' + role + '_turn'] = 'npc' + i; }
@@ -1544,7 +1544,7 @@
           for (let k = 0; k < n; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); } return fr; };
         const kS = role === 'porter' ? 4 : role === 'mason' ? 1 : 0, carry = load || role === 'mason' ? 1 : 0;
         transitions['folk_' + role + '_stop'] = run((S, R, f, rt) => { const b = rt[kS], a = rt[(kS + rt.length - 1) % rt.length], d = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d, back = Math.min(40, d);
-          Object.assign(f, { x: b.x - ux * back, y: b.y - uy * back, way: kS, go: 1, spd: v, vx: ux * v, vy: uy * v, face: ux >= 0 ? 1 : -1, turnT: undefined, goT: undefined, walked: 1, load: carry, lift: 0 });
+          Object.assign(f, { x: b.x - ux * back, y: b.y - uy * back, way: kS, go: 1, spd: v, vx: ux * v, vy: uy * v, hx: ux, hy: uy, face: ux >= 0 ? 1 : -1, turnT: undefined, goT: undefined, walked: 1, load: carry, lift: 0 });
           // arriving and leaving as the work loop is at its farthest reach (the child's throw out in front): the worst frame for a pose switched at once
           const c = D.folkClock(role, f.i, S.t + back / v + 0.1); S.t -= ((c.u - 0.45 + 1) % 1) * c.per; }, 150);
         folkSubj['folk_' + role + '_stop'] = 'npc' + i;

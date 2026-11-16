@@ -12,8 +12,8 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   // a townsperson's tool in its hand (TASKS 1015): T = { tex, len: view px, grip: from the top, rel: turn off the forearm or abs: an
   // angle, both as if facing right }; drawn upright the tool's head is at the top. Reports grip and tip (the head)
-  MON.tool = (id, T, E, Hd, face, u) => { if (!T || !window.ASSETS[T.tex] || T.len <= 0) return;
-    const sa = T.abs !== undefined ? Math.atan2(Math.sin(T.abs), face * Math.cos(T.abs)) : ang(E, Hd) + face * (T.rel || 0), th = T.len, tw = th * G.tex(T.tex).w / G.tex(T.tex).h;
+  MON.tool = (id, T, E, Hd, face, u, fw = face) => { if (!T || !window.ASSETS[T.tex] || T.len <= 0) return;
+    const sa = T.abs !== undefined ? Math.atan2(Math.sin(T.abs), fw * Math.cos(T.abs)) : ang(E, Hd) + fw * (T.rel || 0), th = T.len, tw = th * G.tex(T.tex).w / G.tex(T.tex).h;
     L.sprite(T.tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa + Math.PI / 2), M.s(face, 1)), w: tw, h: th, pivot: [tw / 2, th * T.grip], u });
     const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
     L.joint(id, 'grip', P(Hd)); L.joint(id, 'tip', P([Hd[0] + Math.cos(sa) * th * T.grip, Hd[1] + Math.sin(sa) * th * T.grip])); };
@@ -22,6 +22,9 @@
   // o: { id, n, x, y, face, H, dist, vx, vy, lean, crouch, arm(side, base) → [r1, r2], item, shield, wSide, U, Ufar, fallR, lift }
   // the depth of a foot's step in the rig's pixels (TASKS 2080): the table's (DATA.stepDz), eased for a lengthened stride; the colossus's check reads it from here
   const legDz = (MON.legDz = (off, A, diry, strideK) => DATA.stepDz(off, A, diry) / Math.pow(Math.max(1, strideK || 1), 0.75));
+  // o.pace (TASKS 2136): the phase's distance, the stride shortened in depth by DATA.stepPace; its depth then projects whole up to what the full stride's reached
+  const plantDz = (off, A, diry, strideK) => { const d = Math.abs(diry), c = DATA.STEP_DEPTH.ahead / Math.pow(Math.max(1, strideK || 1), 0.75), k = Math.min(1, c / Math.max(d * DATA.stepPace(diry), 1e-6));
+    return k * off * diry - DATA.STEP_DEPTH.back * A * d / Math.pow(Math.max(1, strideK || 1), 0.75); };
   const bipedSL = (RG, s, k) => 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s * (k || 1);
   function biped(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.footL[1], fallR = o.fallR || 0, lean = o.lean || 0;
@@ -32,24 +35,27 @@
     const sl = bipedSL(RG, s, o.strideK), cd = o.chargeK ? Math.min(o.chargeD || 0, o.dist) : 0;
     // (the distance covered charging is stepped at the charge's stride and the rest at the walk's, so the feet keep their phase as the
     // charge starts and ends instead of jumping to dist over the new stride)
-    const u0 = ((((o.dist - cd) / (2 * bipedSL(RG, s, o.walkK ?? o.strideK)) + cd / (2 * bipedSL(RG, s, o.chargeK || 1))) % 1) + 1) % 1, ph = u0 * TAU;
+    const u0 = (((((o.pace ?? o.dist) - cd) / (2 * bipedSL(RG, s, o.walkK ?? o.strideK)) + cd / (2 * bipedSL(RG, s, o.chargeK || 1))) % 1) + 1) % 1, ph = u0 * TAU;
     // the stride opens over the first step's distance, not with the speed: a step of a few px in from standing (after a blow, to the
     // hero at its reach's edge) threw the feet a full stride apart in two frames
     const cut = k0 < 1 && o.spd0 > 4, sp = Math.hypot(vxE, vyE), run = SS(4, 30, sp) * (o.gaitK ?? 1) * (cut ? 1 : SS(0, sl, o.walkIn ?? sl));
     const dirx = sp > 1 ? vxE / sp * face : 0, diry = sp > 1 ? vyE / sp : 0;
     const fc = Math.cos(fallR), fs = Math.sin(fallR), root = [o.x, o.y];
-    const R2S = (px, py, dy = 0) => { const x = face * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
+    // o.faceW: the joints' width through a turn, apart from the parts' own mirror (face, its width floored so a part never goes edge-on):
+    // on the floor's sign flip every joint jumped 0.56 of its reach off the axis in a frame (town_motion_r10 2)
+    const fw = o.faceW ?? face;
+    const R2S = (px, py, dy = 0) => { const x = fw * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
     // legs: the stance foot slides back at body speed, the swing foot eases forward on a lift arc (phase from distance)
     const tg = {};
     for (const side of ['L', 'R']) {
-      const A0 = RG['ankle' + side], u = (u0 + (side === 'L' ? 0 : 0.5)) % 1, A = sl * (o.stanceTime || 0.5) / s * run;
+      const A0 = RG['ankle' + side], u = (u0 + (side === 'L' ? 0 : 0.5)) % 1, A = sl * (o.stanceTime || 0.5) / s * run * (o.pace !== undefined ? DATA.stepPace(diry) : 1);
       let off, lift = 0;
       const stance = o.stanceTime || 0.5;
       if (u < stance) off = A * (1 - 2 * u / stance); else { const w = (u - stance) / (1 - stance); off = -A + 2 * A * SS(0.12, 0.95, w); lift = Math.pow(Math.sin(Math.PI * w), 0.6) * RG.h * (o.lift || 0.038) * (0.75 + 0.25 * Math.abs(dirx)) * run; }
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch); a stride lengthened by
       // strideK tilts it less in depth (TASKS 1802: the goblin's legs stretched 32 % walking down)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
-      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: legDz(off, A, diry, o.strideK) };
+      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: (o.pace !== undefined ? plantDz : legDz)(off, A, diry, o.strideK) };
       if (o.amb) { const B = o.amb, fw = SS(side === 'L' ? 0 : 0.45, side === 'L' ? 0.55 : 1, B.w), dx = B.x0 + (B.x1 - B.x0) * fw - B.x, dy = B.y0 + (B.y1 - B.y0) * fw - B.y;
         const lf = fw > 0 && fw < 1 ? Math.pow(Math.sin(Math.PI * fw), 0.6) * RG.h * (o.lift || 0.038) * 0.8 : 0;
         Object.assign(tg[side], { off: Math.hypot(dx, dy) / s, tx: tg[side].tx + dx * face / s, ty: tg[side].ty - lf, lift: tg[side].lift + lf, dz: tg[side].dz + dy / s }); }
@@ -143,7 +149,7 @@
     const drawArm = (side, u) => { const A = arms[side]; part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, lean); part('farm' + side, A.E0, R2U(A.E[0], A.E[1]), A.r2, u, 1, lean); };
     // (traced where drawn: through a turn's squash too, or a wide-armed rig's hands jumped mirror-wide in the trace as it turned)
     const items = {}, J = (nm, p, key) => { const m = key && CR[key], q = m ? [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]] : p; L.joint(o.id, nm, L.pre ? M.ap(L.pre, q) : q); };
-    const held = (side, u) => { const A = arms[side], Hd = R2U(A.Hd[0], A.Hd[1]); if (o.hold && o.hold[side]) MON.tool(o.id, o.hold[side], R2U(A.E[0], A.E[1]), Hd, face, u); piece('item' + side, Hd, () => {
+    const held = (side, u) => { const A = arms[side], Hd = R2U(A.Hd[0], A.Hd[1]); if (o.hold && o.hold[side]) MON.tool(o.id, o.hold[side], R2U(A.E[0], A.E[1]), Hd, face, u, fw); piece('item' + side, Hd, () => {
       if (side === (o.wSide || 'R') && window.ASSETS[o.n + '_weapon']) {
         const ba0 = A.r2 + Math.PI / 2 - (o.item.off ?? 0.8), ba = o.item.ang !== undefined ? ba0 + (((o.item.ang - ba0 + Math.PI) % TAU + TAU) % TAU - Math.PI) * (o.item.angK ?? 1) : ba0, sa = (face > 0 ? ba : Math.PI - ba) + fallR + lean;
         const tex = o.n + '_weapon', th = RG.weaponLen * s, tw = th * G.tex(tex).w / G.tex(tex).h, gr = RG.weaponGrip;
@@ -490,26 +496,26 @@
   MON.robeStride = (n, H) => { const q = ROBE[n]; return q && RIGS[n] ? 4 * q.step * H / RIGS[n].h : 0; };
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
-    const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, Q = ROBE[o.n];
+    const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, fw = o.faceW ?? f, Q = ROBE[o.n];   // fw: the joints' width through a turn (biped's faceW)
     const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? (o.dist || 0) / MON.robeStride(o.n, o.H) * TAU : 0;
-    const gk = (Q && Q.k) || 1, bob = run * 1.5 * gk * Math.sin(ph) ** 2, rot = f * run * 0.022 * gk * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
-    const S2 = (px, py) => { const x = f * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
+    const gk = (Q && Q.k) || 1, bob = run * 1.5 * gk * Math.sin(ph) ** 2, rot = fw * run * 0.022 * gk * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
+    const S2 = (px, py) => { const x = fw * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);
     // o.handTarget(side) → a screen point the hand reaches for (two-bone IK), or null to keep o.arms' angles
     const arm = (side) => { let r = o.arms ? o.arms(side, breath) : [(side === 'L' ? 1 : -1) * 0.03 * breath, 0.05 * breath], S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
-      const T = o.handTarget && o.handTarget(side); if (T) { const d = [T[0] - root[0], T[1] - root[1]], u = [d[0] * rc + d[1] * rs, -d[0] * rs + d[1] * rc]; r = reach(RG, side, [gx + u[0] / (f * s), gy + (u[1] + bob) / s - lift], side === 'L' ? 1 : -1); }
+      const T = o.handTarget && o.handTarget(side); if (T) { const d = [T[0] - root[0], T[1] - root[1]], u = [d[0] * rc + d[1] * rs, -d[0] * rs + d[1] * rc]; r = reach(RG, side, [gx + u[0] / (fw * s), gy + (u[1] + bob) / s - lift], side === 'L' ? 1 : -1); }
       const E = rotP([E0[0], E0[1] + lift], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + lift], Sp, r[0]), E, r[1] - r[0]); return { S0, E0, Sp, E, Hd, r }; };
     const A = { L: arm('L'), R: arm('R') };
     const part = (nm, pv, at, r) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot), M.s(f, 1), M.r(r)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
     // the drawing's own layering: mirrored, the near arm stays near
     const far = 'L', near = 'R', drawArm = (sd) => { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]);
-      if (o.hold && o.hold[sd]) MON.tool(o.id, o.hold[sd], S2(...a.E), S2(...a.Hd), f, o.U); };
+      if (o.hold && o.hold[sd]) MON.tool(o.id, o.hold[sd], S2(...a.E), S2(...a.Hd), f, o.U, fw); };
     drawArm(far);
     if (Q) {
       // a shoe's place off the hem over its phase: planted from +step back to -step, then lifted and swung forward again
       const shoe = (x0, x1, k) => { const q = ((ph + k * Math.PI) % TAU + TAU) % TAU, st = q < Math.PI, x = st ? Q.step * (1 - 2 * q / Math.PI) : -Q.step * Math.cos(q - Math.PI),
           up = st ? 0 : 7 * Math.sin(q - Math.PI), w = (x1 - x0) * s, h = (RG.h - Q.hem) * s;
-        L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(root[0] + f * (x0 - gx + run * x) * s, root[1] + (Q.hem - gy - run * up) * s), M.s(f, 1)), w, h, src: [x0 / RG.w, Q.hem / RG.h, x1 / RG.w, 1], u: o.U }); };
+        L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(root[0] + fw * (x0 - gx + run * x) * s, root[1] + (Q.hem - gy - run * up) * s), M.s(f, 1)), w, h, src: [x0 / RG.w, Q.hem / RG.h, x1 / RG.w, 1], u: o.U }); };
       // the far shoe (the drawing's right one, standing higher) first
       shoe(Q.split, RG.w, 1); shoe(0, Q.split, 0);
       L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...S2(gx, gy)), M.r(rot), M.s(f, 1)), w: RG.w * s, h: (Q.hem + 8) * s, src: [0, 0, 1, (Q.hem + 8) / RG.h], pivot: [gx * s, gy * s], pad: 0.04,

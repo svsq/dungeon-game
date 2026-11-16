@@ -202,6 +202,10 @@
       if (!offer) { steps(H.stop + 0.1); if (f.holdA != null || !(f.spd > 0.5 * FD.v)) out.push(`folk hold: the sweeper with nothing for the hero stops for him (spd ${f.spd.toFixed(1)})`); continue; }
       if (f.holdA == null) { out.push(`folk hold: the sweeper with an offer does not stop for the hero coming his way from ${Math.round(Math.hypot(f.x - h.x, f.y - h.y))} px`); continue; }
       const a = S.t; steps(H.stop + 0.1); if (f.spd > 0) out.push(`folk hold: the sweeper still walks at ${f.spd.toFixed(1)} ${(S.t - a).toFixed(2)} s after he stopped for the hero`);
+      // come up to from behind, he faces the hero within half a second, by the walkers' eased turn (town_motion_r10 1)
+      { const FACED = 0.5, TT = D.FOLK_TURN; steps(FACED - (S.t - a)); const sd = Math.sign(h.x - f.x), done = f.turnT === undefined ? -1 : f.turnT + (f.load ? TT.load : TT.t) - a;
+        if (f.face !== sd || done > FACED + 1e-6) out.push(`folk hold: ${FACED} s after he stopped for the hero the sweeper faces ${f.face} with the hero on side ${sd}, his turn done ${done.toFixed(2)} s in`);
+        else if (f.turnT === undefined || f.turnT < a) out.push('folk hold: the sweeper faced the hero with no turn: the check came at him from the front'); }
       const x0 = f.x, y0 = f.y, off = () => Math.hypot(f.x - x0, f.y - y0); steps(H.max - H.stop - 0.6); if (off() > 0.5) out.push('folk hold: the sweeper walks off before his wait for the hero is out');
       steps(1.5); if (off() < 2 || f.holdA != null) out.push(`folk hold: the sweeper still waits ${(S.t - a).toFixed(1)} s on for a hero who only stands by`); }
     return out; }
