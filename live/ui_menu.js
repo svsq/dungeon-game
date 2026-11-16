@@ -29,7 +29,7 @@
     { id: 'full', key: 'full', name: () => TXT('UI.settings.full'), stops: [0, 1], def: 0, check: true }];
   // the start screen's difficulty tabs over the cards; the hardcore checkbox under the name field with its label, the hit rect
   // covering both (TASKS 2108: a tab is one view of a group, an on-or-off mode is a checkbox)
-  const CLS_TABS = { y: 44, h: 60, w: 300, gap: 16 }, CLS_HARD = { gap: 14, w: 220, h: 44 };
+  const CLS_TABS = { y: 44, h: 60, w: 300, gap: 16 }, CLS_HARD = { gap: 10, w: 220, h: 44 };
   // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
   const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
   // five save slots: five rows of a portrait and four columns fill the left page at a readable size, as on ref_ui_saves_b
@@ -113,5 +113,7 @@
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
   const uiAt = (scr, meta) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes(meta));
-  UI.share('menu', { updShown, updMark, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen });
+  // the class cards' right edge, where the start screen's lines under them end (TASKS 2127)
+  const classesRight = (U) => Math.max(...U.filter((q) => q.cls).map((q) => q.x + q.w));
+  UI.share('menu', { updShown, updMark, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, classesRight });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -426,6 +426,12 @@
       for (const k of ['hud.gate.5', 'hud.gate.hall', 'hud.gate.boss.2']) fits('ring of stones', TXT(k), iw, 18, 18);
       fits('ring of stones', TXT('hud.gate.3', { f: C.floors }), iw, 26, 20);
       for (const [name, f] of bosses) fits('ring of stones', TXT('hud.gate.boss', { name, f }), iw, 26, 20); }
+    // TASKS 2127: with every hall of the campaign and the portal the ring's rows keep their second line, the window on the screen
+    { const G = D.UI.gate(bosses.length + 1); if (G.r.some((q) => q.i !== undefined && !q.full)) out.push(`ring of stones: with ${bosses.length + 1} ways a row loses its second line`);
+      if (G.P.y < 0 || G.P.y + G.P.h + 60 > D.VIEW_H[0]) out.push(`ring of stones: with ${bosses.length + 1} ways the window spans ${G.P.y}..${G.P.y + G.P.h}, its help line off the screen`); }
+    // the start screen's lines on the two modes (TASKS 2127), each on one line right of the hardcore box up to the cards' right edge
+    { const CU = UI.classes({}), hb = CU.find((q) => q.id === 'hard');
+      for (const s of [TXT('UI.classes.normal.note', { pct: Math.round(D.BAL.deathXpLoss * 100) }), TXT('UI.classes.hard.note')]) fits('start screen', s, D.classesRight(CU) - hb.x - hb.w, 19, 19); }
     const U = D.UI.stats();
     // the normal death's toast (TASKS 2126): each of its two lines whole on one line of the toast, the widest number in it
     { const T = D.TOAST, xp = String(Math.round(D.xpNeed(99) * D.BAL.deathXpLoss));

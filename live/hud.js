@@ -127,11 +127,11 @@
   // skills' notes show under a lit «+» or card, an item's own card under a cell. A line dear to work out is a function, asked only
   // of the note under the pointer (review of PR 57): a stat's gain is two whole recounts of the hero, eight a frame for the four
   // up: the top of the bottom panel, where a note of its numbers hangs above it (TASKS 1872)
-  const tipAt = (x, y, w, h, title, line, up) => TIPS.push([x, y, w, h, title, line || '', up]);
+  const tipAt = (x, y, w, h, title, line, up, at) => TIPS.push([x, y, w, h, title, line || '', up, at]);
   function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; if (S.screen === 'inv') { framed(D.uiDy('inv', VH), () => tipIn(S, (S.uiPtr || S.ptr)[0], S.uiPtr ? S.uiPtr[1] : S.ptr[1] - G.oy)); return; } tipIn(S, S.ptr[0], S.ptr[1]); }
   function tipIn(S, px, py) { const T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
-    const [, , , , title, ln, up] = T, line = typeof ln === 'function' ? ln() : ln, ls = [].concat(line).filter(Boolean), w = Math.max(lw('tip_t', title, { size: 24 }), ...ls.map((q, i) => lw('tip_l' + i, q, { size: 20 }))) + 32, h = 46 + 28 * ls.length, inPause = S.screen === 'pause',
-      x = up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
+    const [, , , , title, ln, up, at] = T, line = typeof ln === 'function' ? ln() : ln, ls = [].concat(line).filter(Boolean), w = Math.max(lw('tip_t', title, { size: 24 }), ...ls.map((q, i) => lw('tip_l' + i, q, { size: 20 }))) + 32, h = 46 + 28 * ls.length, inPause = S.screen === 'pause',
+      x = at ? Math.min(W - w - 8, at[0]) : up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = at ? Math.max(8, Math.min(H - h - 8, at[1])) : up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
     G.bind(null); G.blend(); VW = V || null; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
@@ -389,7 +389,7 @@
     if (m.town && SIM.Q.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, TXT('hud.world.25')];
     if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
     if (SIM.Q.atExitGate(R)) pr = [m.town.svc.exitGate.x, m.town.svc.exitGate.y - 110, TXT('hud.world.gate')];
-    if (SIM.Q.atGate(R, S)) { const o = SIM.Q.gateWays(R, S); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length === 1 ? TXT('hud.world.29', { f: o[0].f }) : TXT('hud.world.ring.open')]; }
+    if (SIM.Q.atGate(R, S)) { const o = SIM.Q.gateWays(R, S); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length !== 1 ? TXT('hud.world.ring.open') : o[0].k === 'boss' ? TXT('hud.world.ring.boss', { name: bossName(o[0].f), f: o[0].f }) : TXT('hud.world.29', { f: o[0].f })]; }
     if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
     if (!pr && tz) pr = [tz.x, tz.y - 46, TXT('hud.world.take', { p1: SIM.Q.itemName(tz.item) })];
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R, S).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
@@ -811,6 +811,8 @@
     if (forkAt) out.push(TXT('hud.abtip.forkNext'));
     if (pend) out.push(TXT('hud.abtip.forkNow')); else if (h.lvl < A.unlock) out.push(TXT('hud.abtip.locked', { unlock: A.unlock })); else if (h.sp <= 0) out.push(TXT('hud.abtip.noSp'));
     return [r ? TXT('hud.abtip.next', { r: n }) : TXT('hud.abtip.learn'), out]; }
+  // a stat's tip stands beside the sheet at its row (TASKS 2127): at the pointer it covered the «%» of the numbers under the stats
+  const STAT_TIP = { gap: 12, dy: -4 };
   function inv(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
     dim(0.45); L.uiCover('inv_cover', Lp.x, Lp.y, Lp.w, Lp.h); L.uiCover('inv_r_cover', Rp.x, Rp.y, Rp.w, Rp.h);
@@ -838,7 +840,7 @@
       for (let x = Lp.x + 50 + nw + 14; x < vr - aw - vw - 16; x += 12) L.solid(Math.round(x), y + 7, 3, 3, [0.80, 0.72, 0.60], 0, 0, 0, 0.45);
       L.solid(Lp.x + 50, b.y + b.h + 3, vr - Lp.x - 50, 1, BRASS, 0, 0, 0, 0.3);
       if (h.pts > 0) { KIT.cell('st_b' + i, b.x, b.y, b.w, KIT.st(S, b.id)); KIT.sign('st_p' + i, b.x + b.w / 2, b.y + b.h / 2, b.w, true, C.gold, { out: '#2a0d08' }); }
-      const tip = () => statGain(S, h, s.k), full = D.statFull(h, s); tipAt(Lp.x + 44, b.y - 4, vr - Lp.x - 40, b.h + 8, full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, full, tip); });
+      const tip = () => statGain(S, h, s.k), full = D.statFull(h, s); const by = [Lp.x + Lp.w + STAT_TIP.gap, b.y + STAT_TIP.dy]; tipAt(Lp.x + 44, b.y - 4, vr - Lp.x - 40, b.h + 8, full, tip, undefined, by); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, full, tip, undefined, by); });
     const draft = h.draft || {}, rst = (id, on) => { if (on) KIT.button('inv_' + id, Object.assign({}, U.r.find((q) => q.id === id), { size: 22 }), KIT.st(S, id)); };
     rst('reset:st', Object.values(draft.st || {}).some((n) => n > 0));
     const pct = (v) => (v > 0 ? '+' : '') + nf(v) + '%', num = nf;
@@ -1159,7 +1161,7 @@
     for (const id of ['back', 'go']) { const b = U.find((q) => q.id === id); KIT.button('cl_' + id, b, sl(id), id === 'go' ? 'wax' : 'parch'); }
     nameField(S, U, t, lit, sl);
     const hb = hardBox(S, U, lit, sl);
-    const keys = S.focus === 'name' ? TXT('hud.classes.keys.name') : TXT('hud.classes.keys'), ky = hb.y + hb.h + 30, kw = lw('cl_keys_w', keys, { size: 26 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    const keys = S.focus === 'name' ? TXT('hud.classes.keys.name') : TXT('hud.classes.keys'), ky = hb + HARD_BOX.keys, kw = lw('cl_keys_w', keys, { size: 26 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('cl_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // the hero's name (TASKS 1879): a parchment strip lit like a choice while it is lit or typed into, the name in ink with a blinking
@@ -1179,15 +1181,19 @@
   }
   // the hardcore checkbox under the name (TASKS 2108): the settings' checkbox and its name, lit as they are there, and what the mode
   // means always beside it, in two lines on the backdrop, so the choice is never made blind
-  const HARD_BOX = { s: 36, pad: 14, gap: 24, size: 26, note: 19, lead: 22 };
+  const HARD_BOX = { s: 36, pad: 14, gap: 24, size: 26, note: 19, lead: 21, keys: 26 };
+  // the normal mode's line over the hardcore's (TASKS 2127), so a player who leaves the box empty knows what a death costs him; each
+  // on one line out to the cards' right edge, or with the kits' row the keys' line under them sat on the screen's bottom edge
+  const hardNote = () => [TXT('UI.classes.normal.note', { pct: Math.round(D.BAL.deathXpLoss * 100) }), TXT('UI.classes.hard.note')];
   function hardBox(S, U, lit, sl) {
     const b = U.find((q) => q.id === 'hard'), H = HARD_BOX, hot = lit === 'hard', cy = b.y + b.h / 2;
     KIT.check('cl_hard_c', b.x, cy - H.s / 2, D.deathPick(S.meta) === 'hard', sl('hard'), H.s);
     const nw = KIT.light('cl_hard_n', D.DEATH_MODES.hard.name, b.x + H.s + H.pad, cy, { size: H.size, col: hot ? '#ffe7a3' : '#e6d3ac' }), nx = b.x + H.s + H.pad + nw + H.gap;
-    const fit = U.find((q) => q.id === 'go'), nl = halves(TXT('UI.classes.hard.note')), fw = fit.x + fit.w - nx;
+    const nl = hardNote(), fw = D.classesRight(U) - nx;
     nl.forEach((q, i) => KIT.light('cl_hard_d' + i, q, nx, cy + (i - (nl.length - 1) / 2) * H.lead, { size: H.note, fit: fw, col: '#cdb894' }));
-    L.uiBox('cl_hard_b', b.x, b.y, nx + fw - b.x, b.h, 0);
-    return b;
+    const top = Math.min(b.y, cy - nl.length * H.lead / 2), bot = Math.max(b.y + b.h, cy + nl.length * H.lead / 2);
+    L.uiBox('cl_hard_b', b.x, top, nx + fw - b.x, bot - top, 0);
+    return bot;
   }
   // the settings (TASKS 1302), look B: a wide parchment sheet in a leather board (1876) over the menu's backdrop, or over the dimmed run when opened from the pause
   function settings(S, t) {
@@ -1696,6 +1702,8 @@
     KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
     KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
+  const bossName = (f) => (D.ENEMIES[D.stageOf('campaign', f).boss] || { name: '' }).name;
+  // a hall's row has the key, as the hall stays open for good, the scroll's portal its scroll
   function gate(S, R, t) {
     const o = SIM.Q.gateWays(R, S), U = D.UI.gate(o.length), P = U.P, I = KIT.INK;
     dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 380, [0.45, 0.55, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend();
@@ -1703,10 +1711,10 @@
     KIT.banner('gt_t', W / 2, P.y + 16, 460, TXT('hud.gate'), { h: 76, size: 36 });
     KIT.light('gt_s', TXT('hud.gate.2'), W / 2, P.y + 118, { size: 22, al: 0.5, col: '#cdb89a' });
     o.forEach((q, i) => { const b = U.r[i], st = stN(S, b.id), x = b.tx, iw = b.tw, is = Math.min(48, b.h - 12);
-      const nm = q.k === 'boss' ? TXT('hud.gate.boss', { name: (D.ENEMIES[D.stageOf('campaign', q.f).boss] || { name: '' }).name, f: q.f }) : TXT('hud.gate.3', { f: q.f });
+      const nm = q.k === 'boss' ? TXT('hud.gate.boss', { name: bossName(q.f), f: q.f }) : TXT('hud.gate.3', { f: q.f });
       const ds = q.k === 'boss' ? TXT('hud.gate.boss.2') : q.from === 'gate' ? TXT('hud.gate.hall') : TXT('hud.gate.5');
       KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox('gt_r' + i, b.x + 30, b.y, b.w - 60, b.h, 2);
-      icon('it_scroll', b.x + 44, b.y + (b.h - is) / 2, is);
+      icon(q.k === 'boss' ? 'it_key' : 'it_scroll', b.x + 44, b.y + (b.h - is) / 2, is);
       KIT.ink('gt_n' + i, nm, x, b.full ? b.y + 26 : b.y + b.h / 2 + 8, { size: 26, fit: iw, col: st.hover ? I.r : I.t });
       if (b.full) KIT.ink('gt_d' + i, ds, x, b.y + 52, { size: 18, fit: iw, col: I.d }); });
     KIT.button('gt_leave', U.r[o.length], stN(S, 'leave'));

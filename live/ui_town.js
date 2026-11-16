@@ -6,7 +6,7 @@
   const { CELL, STEP, grid, sortCol, paperClose, bagGrid, tabRow } = UI.kit;
   const CARD_PAD = 16;
   // the ring's window: a row's step and the gap under it, and the height the rows may take at most (a campaign's halls and two ways more)
-  const GATE = { y: 190, row: 84, gap: 12, room: 480, text: 108, end: 40 };
+  const GATE = { y: 190, top: 40, bottom: 1000, head: 200, foot: 90, row: 84, gap: 12, text: 108, end: 40 };
   UI.add('town', {
     // a town workshop (TASKS 1013): the worn gear in a row and the bag under it on the left, the chosen piece, its affixes, the price
     // and the work's button on the right
@@ -79,9 +79,10 @@
     // the town's gate out (TASKS 1149): its question and two buttons, the way out on the left
     leave: () => { const P = { x: 610, y: 330, w: 700, h: 330 };
       return { P, r: [{ id: 'go', label: '', on: true, x: P.x + 40, y: P.y + P.h - 100, w: 300, h: 64 }, { id: 'stay', label: TXT('UI.leave.stay'), on: true, x: P.x + P.w - 340, y: P.y + P.h - 100, w: 300, h: 64 }] }; },
-    // the town's ring of stones (TASKS 1009): one row per way out (the open portal); with the boss halls (TASKS 2104) the rows grow
-    // thinner past what the page holds, and a thin one (full: 0) shows only its name
-    gate: (n) => { const G = GATE, st = Math.min(G.row, Math.floor(G.room / Math.max(1, n))), P = { x: 560, y: G.y, w: 800, h: 200 + Math.max(1, n) * st + 90 };
+    // the town's ring of stones (TASKS 1009): one row per way out (the open portal); with the boss halls (TASKS 2104) the window
+    // grows upward to the screen's top before its rows thin (TASKS 2127: every hall of the campaign and the portal keep their second
+    // line, the portal's «портал закроется»), and a thin one (full: 0) shows only its name
+    gate: (n) => { const G = GATE, k = Math.max(1, n), st = Math.min(G.row, Math.floor((G.bottom - G.top - G.head - G.foot) / k)), h = G.head + k * st + G.foot, P = { x: 560, y: Math.max(G.top, Math.min(G.y, G.bottom - h)), w: 800, h };
       return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'go:' + i, i, full: st === G.row ? 1 : 0, x: P.x + 40, y: P.y + 150 + i * st, w: P.w - 80, h: st - G.gap, tx: P.x + 40 + G.text, tw: P.w - 80 - G.text - G.end }))
         .concat([{ id: 'leave', label: TXT('UI.gate.r.leave.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 96, w: 300, h: 60 }]) }; },
     // a dungeon altar: its three gifts side by side, cheapest first; with a fourth the page widens, as its words cannot shrink

@@ -1817,8 +1817,11 @@
     const legend = (R, id, slot) => Object.assign(SIM.rollItem(R, 12, 4, slot || D.BASES[legendB].slot), { id, b: legendB, rar: 4 });
     states.push(['long_names_journal', keeperS((S, R) => { R.offers = []; R.quests = []; const keys = longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4);
       keys.forEach((key, i) => R.quests.push({ id: 960 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: i ? 'taken' : 'done', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.jsel = 960; S.screen = 'journal'; S.hover = 'q:1'; })]);
-    states.push(['long_names_tracker', keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
-      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; })]);
+    // TASKS 2127 (town_game_r9 4): the long lines with the legend shut, the tracker in its place; with the legend's map open it drops
+    // onto the adit and folds into its «Задания: N» plate
+    const longTrk = (leg) => keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
+      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; if (!leg) { R.legAuto = 0; R.mapLeg = 0; } });
+    states.push(['long_names_tracker', longTrk(0)], ['long_names_tracker_adit', longTrk(1)]);
     states.push(['long_names_craft', craftS('forge', (S, R, h, it) => { Object.assign(it, legend(R, 950)); h.bag[4] = it; S.hover = 'do'; })]);
     // TASKS 1818: a boss's unique, the longest of name, power text and lore together, its power and lore wrapped under the affixes
     const uniqL = Object.values(D.UNIQUES).sort((a, b) => (b.name + b.lore + D.POWERS[b.power].desc).length - (a.name + a.lore + D.POWERS[a.power].desc).length)[0];
@@ -1934,7 +1937,10 @@
       states.push(['town_gate_halls_all', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls); R.portal = { f: 15, x: 0, y: 0, from: 'scroll' }; S.screen = 'gate'; S.hover = 'go:' + halls.length; })]);
       states.push(['town_gate_halls_gate', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); R.portal = { f: halls[1], x: 0, y: 0, from: 'gate' }; S.screen = 'gate'; S.hover = 'go:0'; })]);
       states.push(['town_gate_halls_dup', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 2)); R.portal = { f: halls[0], x: 0, y: 0, from: 'gate' }; S.screen = 'gate'; S.hover = 'go:0'; })]);
-      states.push(['town_gate_halls_prompt', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); })]); }
+      states.push(['town_gate_halls_prompt', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); })]);
+      // TASKS 2127: a normal-mode death on the 5th floor with the halls of the 2nd and 4th open, the toast's two lines in the town
+      states.push(['death_normal_toast', climbS(5, (S, R, m, h) => { R.deathMode = 'normal'; S.meta.portals = halls.slice(0, 2); h.xp = Math.round(D.xpNeed(h.lvl) * 0.8); h.hp = 0; S.t += 3; h.deadT = S.t - 2; SIM.step(S, { keys: [] }); S.ev = [];
+        if (R.msg) R.msg.t = S.t - 0.8; })]); }
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // a chapter boss's portal home (TASKS 383): the town's ring of stones and rune disc in its hall, the hero at it
