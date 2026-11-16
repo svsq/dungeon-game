@@ -1531,8 +1531,8 @@
     // every townsperson with a round has a walk (TASKS 1031): the cycles come from the town's rounds, and a rig with no gait fails here
     const walkers = Object.keys(DUNGEON.TOWN.routes);
     const FOLK_TURN_LEAD = 4, FOLK_TURN_FRAMES = Math.ceil(Math.max(D.FOLK_TURN.t, D.FOLK_TURN.load) * 60) + 2 * FOLK_TURN_LEAD;   // frames before the flip and after the turn ends
-    for (const role of walkers) { const nm = 'town_' + role, H0 = SZ(nm)[1], RG = RIGS[nm], dd = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), v = D.FOLK[role].v, load = role === 'porter' ? 1 : 0;
-      const st = RG.hipL ? 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * H0 / RG.h : MONSTERS.robeStride(nm, H0); let i = 0;
+    for (const role of walkers) { const nm = 'town_' + role, H0 = SZ(nm)[1], RG = RIGS[nm], v = D.FOLK[role].v, load = role === 'porter' ? 1 : 0;
+      const st = RG.hipL ? MONSTERS.rigStride(nm, H0, D.FOLK[role].stride) : MONSTERS.robeStride(nm, H0); let i = 0;
       if (!st) throw new Error('folk: the ' + role + ' walks a round but its rig has no gait');
       const walkAt = (d, turnIn) => folkS((S, R) => { const f = folkAt(R, role); i = f.i; const n = R.map.town.npcs[f.i];
         Object.assign(f, { x: n.x + d, dist: d, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - SCX.VW / 2, n.y - 40 - SCX.VH / 2]; follow(S, d, 0);

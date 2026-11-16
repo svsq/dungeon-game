@@ -223,6 +223,7 @@
   // and every biped's step to at least 0.15 of its height (the skeletons' was 0.12); the golem and the colossus plod by their weight
   const STRIDE_K = (MON.STRIDE_K = { goblin: 2, imp: 1.8, skel_ember: 1.3, skeleton: 1.4, skel_archer: 1.3, skel_mage: 1.15, brute: 1.05, boss: 1.05, boss_forge: 1.05 });
   const CHARGE_K = { boss_colossus: 1.45 };
+  MON.rigStride = (n, H, k) => { const RG = RIGS[n]; return RG && RG.hipL ? 2 * bipedSL(RG, H / RG.h, k) : 0; };
   MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * bipedSL(RG, s, STRIDE_K[type]) : 0.28 * RG.h * s; };
 
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
