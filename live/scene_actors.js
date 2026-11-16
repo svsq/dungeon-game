@@ -530,7 +530,9 @@
     const u = j && j.fl > 0 ? Object.assign({}, o.u, { tint: [...(j.ft || [2.2, 2, 1.8]), j.fl] }) : o.u;
     if (NO_INK.has(n)) draw(u); else L.inked(() => draw(u), { r: 2, n: 8, col: BAS_PROPS.has(n) ? [0.03, 0.022, 0.026] : [0.09, 0.04, 0.04], dy: 0 });   // (the basalt's near black, TASKS 1793: brown, its contour sank into the ash)
     // (outside the inked call: stamped as outline too, the half-clear overlay left a dark halo round the block's foot)
-    if (warm) draw({ tint: [1.5, 0.7, 0.42, 1], alpha: 0.6 * warm, cut: [y + (o.dy || 0) - H * 0.55, -H * 0.35, 1] }); }
+    if (warm) draw({ tint: [1.5, 0.7, 0.42, 1], alpha: 0.6 * warm, cut: [y + (o.dy || 0) - H * 0.55, -H * 0.35, 1] });
+    // `lit`: a fire's side painted over as an emitter, so the light map's falloff cannot sink it (TASKS 2138: the tree by the fire read unlit)
+    if (o.lit) { G.blend('emit'); draw(o.lit); G.blend(); } }
   // a knocked prop's recoil about its foot, away from the blow (s): wood rocks, metal rattles, stone shudders, crystal rings, sacks slump
   const KNOCK = {
     fungus: (a, s) => ({ rot: s * 0.13 * Math.exp(-5 * a) * Math.sin(16 * a), dx: 0, sy: 1 - 0.06 * Math.exp(-7 * a) }),

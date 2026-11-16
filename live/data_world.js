@@ -39,9 +39,10 @@
       from: { cultist: 2, skel_ember: 2, imp: 1, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
-    // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
+    // concept's yellow-orange, not the dungeon's red; a cool shade between the pools, so the pools stand out of it (TASKS 2138: neutral, the
+    // shadows read warmer than the concept's, a* 8.3 against 4.5); wallG: unlit masonry dark with deep seams (r10: L50 24.8 against 15); fireK: its fires' strength
     // big*: the square's fire is a tight pool with no wide spill (TASKS 2095, r9: its 70–110 px ring read L 35 against the concept's 21)
-    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.17, 0.157, 0.17], ambK: 0.65, ambLvl: 1.0, fireK: 1.1, bigK: 0.4, bigR: 100, bigFall: 3.0, bigNear: 0.6, bigSpill: 0, torch: [1.0, 0.66, 0.36], torchR: 0.55, spill: [1.1, 0.35], topLift: 2.1, floorG: 1.7, wallG: [0.9, 0.9, 0, 1.05], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
+    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.155, 0.16, 0.18], ambK: 0.65, ambLvl: 1.05, fireK: 1.1, bigK: 0.4, bigR: 100, bigFall: 3.0, bigNear: 0.6, bigSpill: 0, torch: [1.0, 0.66, 0.36], torchR: 0.55, spill: [1.1, 0.35], topLift: 2.1, floorG: 1.7, wallG: [0.75, 0.62, 0, 1.35], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
       tint: [1, 1, 1], roster: [], props: [], town: true },
   };
 

@@ -100,9 +100,21 @@
   const chainOf = (n) => n.id.split('_')[0] + ':' + n.chain, CHAINS = {};
   for (const n of NOTE_LIST) if (n.chain) (CHAINS[chainOf(n)] = CHAINS[chainOf(n)] || [])[n.part - 1] = n.id;
   const NOTES = { lift: { table: 36, bookshelf: 58 }, n: [3, 5], era: { dungeon: 'cellar', crypt: 'crypt', lava: 'forge', arcane: 'halls', cave: 'flooded', magma: 'magma' }, list: NOTE_LIST, byId: Object.fromEntries(NOTE_LIST.map((n) => [n.id, n])), chains: CHAINS, chainOf };
-  // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1606)
-  const railPts = (m) => { const TILE = D.TILE; let p = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
-    for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
+  // the rails' line through their cells, each corner rounded over `RAIL.bend.arc` px of either stretch (no more than half of it), the ends kept,
+  // as points `RAIL.bend.pt` px apart (TASKS 2138: two passes of corner-cutting on the cells, 1606, turned the adit's bend inside one sleeper)
+  const railPts = (m) => { const TILE = D.TILE, B = RAIL.bend, c = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
+    const p = c.filter((q, i) => i === 0 || i === c.length - 1 || (q[0] - c[i - 1][0]) * (c[i + 1][1] - q[1]) !== (q[1] - c[i - 1][1]) * (c[i + 1][0] - q[0]));
+    const len = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), cut = p.map((q, i) => (i && i < p.length - 1 ? Math.min(B.arc, len(p[i - 1], q) / 2, len(q, p[i + 1]) / 2) : 0));
+    const toward = (a, b, d) => { const l = len(a, b); return [a[0] + (b[0] - a[0]) * d / l, a[1] + (b[1] - a[1]) * d / l]; }, out = [p[0]];
+    const line = (a, b) => { const n = Math.max(1, Math.round(len(a, b) / B.pt)); for (let j = 1; j <= n; j++) out.push([a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n]); };
+    let from = p[0];
+    for (let i = 1; i < p.length; i++) { const q = p[i];
+      if (i === p.length - 1) { line(from, q); break; }
+      const e = toward(q, p[i - 1], cut[i]), x = toward(q, p[i + 1], cut[i]); line(from, e);
+      const n = Math.max(2, Math.round((len(e, q) + len(q, x)) / B.pt));
+      for (let j = 1; j <= n; j++) { const t = j / n, u = 1 - t; out.push([u * u * e[0] + 2 * u * t * q[0] + t * t * x[0], u * u * e[1] + 2 * u * t * q[1] + t * t * x[1]]); }
+      from = x; }
+    return out; };
   // TASKS 1781, 2090: the cart has two paintings, the 3/4 view (its near wheels' feet line `diag` degrees up to the right on the screen,
   // the rails' own slope; TASKS 2121: the hubs' line, 39, left the far wheel 2 px off the rail on the 45° diagonal) and the front one
   // (travel plumb into the screen); each is drawn as painted, never sheared, squashed or tipped, because
@@ -155,7 +167,7 @@
   // `minW` 0.28: at 0.1 the mid-turn frame drew the figure as a sliver, the mason gone, the porter a lone crate (town_motion_r9 1, TASKS 2123)
   // `load`: the turn with a load in both hands, a third of the height out in front: its hands cross 0.62 of the height, over 0.2 s 6.2 px a frame (TASKS 2116)
   const FOLK_TURN = { t: 0.2, load: 0.25, minW: 0.28 };
-  const RAIL = { gauge: 18.6, bend: { reach: 6, step: 3, lap: 1, flat: 0.05, most: 16 }, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
+  const RAIL = { gauge: 18.6, bend: { reach: 6, step: 3, lap: 1, flat: 0.05, most: 16, arc: 28, pt: 8 }, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
   // the sprites that lay a track along `pts`, one period of the painting after another, the count carried round each bend: where each stands,
   // the way the stretch runs (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
   const railLay = (pts, size) => { const K = CART.floor, out = [], P = RAIL.h, B = RAIL.bend, [tw, th] = size(P.tex), k = RAIL.gauge / P.gauge, per = P.per * k, cut = P.at / tw, pw = P.per / tw;
