@@ -86,7 +86,7 @@
       u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) }, G.xf(0, 0, MW, MH));
     else masonry();
     // the town's ruin tops (TASKS 1029): laid block by block, each a cell, its own shade, the joints dark between them, moss on some
-    // of those by the yard; lifted less than the crypt's slate (a lift of 1.45 read as a pale pavement round the yard)
+    // of those by the yard; lifted by the biome's topLift (TASKS 2096: 2.1, the unlit stone's L90 read 27 against the concept's 42)
     function townTop(x, y) {
       const k = 0.82 + 0.3 * rnd(x * 7 + 1, y * 13 + 2), moss = RD[y * m.W + x] <= 2 && rnd(x * 3 + 5, y * 5 + 9) < 0.45, X = x * TILE, Y = y * TILE;
       { const u0 = Math.floor(rnd(x * 5 + 7, y * 3 + 11) * 3) / 3, v0 = Math.floor(rnd(x * 3 + 13, y * 7 + 5) * 3) / 3; L.sprite(B.top, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + 1 / 3, v0 + 1 / 3], u: { grade: [0.55, (B.topLift || TOP_LIFT) * k, 0, 1], tint: topTint(B) } }); }
