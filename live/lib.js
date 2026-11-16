@@ -419,7 +419,7 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
   // a requested size is a width target, not a pixel size: UI.kit.face picks the face and its grid step (ui_kit.js), so the Node checks
   // measure a label with the same face the page draws it in
-  const fit = (size, bold) => window.DATA.UI.kit.face(size, bold);
+  const fit = (size, bold) => DATA.UI.kit.face(size, bold);
   const AROUND = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
   const LBL = {};
   // bold (window titles, TASKS 1752): the font has no Cyrillic bold, so every glyph is stamped twice one grid pixel apart and

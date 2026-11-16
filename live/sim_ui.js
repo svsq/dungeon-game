@@ -36,7 +36,11 @@
     const lost = Math.min(h.xp, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss)), st = heroSt(S);
     h.xp -= lost; h.deadT = -1; h.deadRun = null; h.hp = st.maxHp; h.mp = D.clsOf(h).res === 'rage' ? 0 : st.maxMp; h.poison = 0; h.burn = 0; h.sunk = null; h.stag = null;
     if (!R.test) S.meta.deaths = (S.meta.deaths || 0) + 1; tally(S, R, 'deaths'); if (R.log) R.log.falls = (R.log.falls || 0) + 1;
-    if (enterFloor(S, R, 0, undefined, 'portal')) R.msg = { s: TXT('sim_ui.fell.msg', { xp: lost }), t: S.t, d: 5 }; }
+    if (enterFloor(S, R, 0, undefined, 'portal')) R.msg = { s: TXT('sim_ui.fell.msg', { xp: lost }) + '\n' + fellWay(S, R), t: S.t, d: 5 }; }
+  // the toast's second line names the deepest way the ring opens, or the mine from the first floor (town_game_r9 2: it named only
+  // the experience, while the real price may be four floors walked again)
+  function fellWay(S, R) { const w = SIMX.gateWays(R, S).reduce((a, q) => (!a || q.f > a.f ? q : a), null);
+    return !w ? TXT('sim_ui.fell.way.first') : TXT(w.k === 'boss' ? 'sim_ui.fell.way.boss' : 'sim_ui.fell.way.portal', { f: w.f }); }
   // the run ended alive past the campaign's last boss (TASKS 1148): a win, the campaign's if not won yet at the stairs on
   function finishRun(S) { S.talk = null; S.screen = 'play'; endRun(S, 'win'); }
   // a hero who starts above level 1 opens on the hero screen, his points still to lay out
@@ -626,5 +630,5 @@
   }
 
   Object.assign(SIMX, { talkWalk, talkFirst, boardRows,
-    endRun, heroFell, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
+    endRun, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

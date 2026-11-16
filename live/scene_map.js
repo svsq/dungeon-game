@@ -35,9 +35,9 @@
   // depth with the town's other flat things, one period of the painting (a sleeper, its ballast and the rails over them) after another
   function track(pts) {
     const K = D.CART.floor;
-    for (const r of D.railLay(pts, SZ)) {
-      const m = M.of(M.t(r.x, r.y), M.s(1, K), M.r(Math.atan2(r.dy / K, r.dx)));
-      L.sprite(r.tex, 0, 0, { m, w: r.w, h: r.h, pivot: [r.w / 2, r.h / 2], src: r.src, u: { grade: [1, r.lift, 0, 1] } }); }
+    for (const r of D.railLay(pts, SZ)) for (const q of r.parts || [r]) {
+      const m = M.of(M.t(q.x, q.y), M.s(1, K), M.r(Math.atan2(q.dy / K, q.dx)));
+      L.sprite(r.tex, 0, 0, { m, w: q.w, h: r.h, pivot: [q.w / 2, r.h / 2], src: q.src, u: { grade: [1, r.lift, 0, 1] } }); }
   }
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 8;

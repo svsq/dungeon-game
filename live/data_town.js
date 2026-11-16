@@ -61,15 +61,19 @@
     enchanter: { name: TXT('FOLK.enchanter.name'), job: TXT('FOLK.enchanter.job'), per: 7.5, hit: 0.55, lines: TXT.talk('enchanter').lines, topics: TXT.talk('enchanter').topics },
     keeper: { name: TXT('FOLK.keeper.name'), job: TXT('FOLK.keeper.job'), per: 9, hit: 0.3, lines: TXT.talk('keeper').lines, topics: TXT.talk('keeper').topics },
     guard: { name: TXT('FOLK.guard.name'), job: TXT('FOLK.guard.job'), per: 8, lines: TXT.talk('guard').lines, topics: TXT.talk('guard').topics },
-    porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, lines: TXT.talk('porter').lines, topics: TXT.talk('porter').topics },
+    porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, swing: 0.06, lines: TXT.talk('porter').lines, topics: TXT.talk('porter').topics },
     sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, lines: TXT.talk('sweeper').lines, topics: TXT.talk('sweeper').topics },
-    child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, lines: TXT.talk('child').lines, topics: TXT.talk('child').topics, won: TXT.talk('child').won },
-    mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, lines: TXT.talk('mason').lines, topics: TXT.talk('mason').topics },
+    child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, ease: 0.25, swing: 0.06, lines: TXT.talk('child').lines, topics: TXT.talk('child').topics, won: TXT.talk('child').won },
+    mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, swing: 0.06, lines: TXT.talk('mason').lines, topics: TXT.talk('mason').topics },
     merchant: { name: TXT('FOLK.merchant.name'), job: TXT('hud.shop.job'), topics: TXT.talk('merchant').topics },
     hen: { per: 2.2 },
   };
   // how long a pair of lines shows (each line half of it)
   const FOLK_SAY = 5;
+  // a walker with a quest for the hero waits for him (town_game_r9 3): he stops once the hero within near px comes his way, over stop s,
+  // and stays while the hero is within keep px, no longer than max s; a wait run out is followed by cool s of his round before the
+  // next, so a hero standing by cannot hold the yard's work up (one the hero walked off from needs none: he waits again at once)
+  const FOLK_HOLD = { near: 160, keep: 220, max: 6, cool: 8, stop: 0.25, toward: 0.3, heroV: 10, way: 110 };
   // the Keeper of the Fire (R-25, TASKS 1016): what he says when spoken to (E), by what has happened since he last spoke; each
   // event is a page of the dialogue, the most weighty first, each told once; with nothing new, a pair of his idle lines
   const KT = TXT.talk('keeper'), KE = KT.events, withName = (L) => (name) => L.map((p) => p.replace('{name}', name));
@@ -91,17 +95,22 @@
   // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1606)
   const railPts = (m) => { const TILE = D.TILE; let p = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
     for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
-  // TASKS 1781, 2090: the cart has two paintings, the 3/4 view (its wheel line `diag` degrees up to the right on the screen, the rails'
-  // own slope) and the front one (travel plumb into the screen); each is drawn as painted, never sheared, squashed or tipped, because
+  // TASKS 1781, 2090: the cart has two paintings, the 3/4 view (its near wheels' feet line `diag` degrees up to the right on the screen,
+  // the rails' own slope; TASKS 2121: the hubs' line, 39, left the far wheel 2 px off the rail on the 45° diagonal) and the front one
+  // (travel plumb into the screen); each is drawn as painted, never sheared, squashed or tipped, because
   // the floor is flat and a cart that leans along the rails' screen slope looks to be rolling downhill. The 3/4 one turns no more than
   // `trim` to take up what its painting's line lacks of the rails'; the front one takes over from `front` degrees of the rails' slope up
   // (one change of view, at the bend, the two paintings' bottoms on one line); the cart stops `stop` px short of the rails' end
-  // `seat`: the point of each 3/4 painting that rides the rails' middle, off its bottom centre in parts of its size: the near wheels' contact
-  // line, moved half the track's width away from the viewer (TASKS 2090: the three loads are one painting with the load changed, so their
-  // wheels sit at the same place in the 1024 px canvas they were painted on, and the crops differ only in height)
+  // `foot`: the near wheels' feet under their hubs in each 3/4 painting, in parts of its height (tools/measure/cart_f_wheels.py); `cartSeat`
+  // stands them on the near rail. The three loads are one painting with the load changed, cropped to different heights (TASKS 2090), so
+  // sizes.js sets the heights in the canvases' ratio and the box comes out one size (TASKS 2121: at one height it grew 54 -> 59 px unloading).
+  // The painting's wheels sit on the box's sides, so its wheel track is the box's width, wider than the gauge: with them on the near rail
+  // the box's foot hangs 8 px past the far rail on the 45° diagonal and none past the near one; centring it would set the near wheels
+  // 3 px off their rail, and wheels on the rails are the author's call (TASKS 2113)
   // `hubs`: the near side's two wheel hubs in each 3/4 painting, in parts of its size. The sprites' own wheels cannot turn, so a `lug`
   // (w x h px) runs round each hub on an ellipse of `rx` of the painting's width and `ry` of its height, the dark disc inside the rim,
-  // by the distance rolled on a wheel of `roll` of the width; it moves no more than `step` px a frame at the cart's top speed (town_motion_r8 5)
+  // by the distance rolled on a wheel of `roll` of the hubs' distance (TASKS 2121: of the width, the phase jumped with the painting's crop);
+  // it moves no more than `step` px a frame at the cart's top speed (town_motion_r8 5)
   // `rope`: from the adit's winch, `winch` px over the rails' first point, to the cart's `hook` (parts of the painting's size: the far
   // end's rim in the 3/4 one, the top centre in the front one). It hangs `sag` px at the middle, less as it comes taut (`taut` of it at `far`
   // px of length) and none when short (under `near`); a plumb run bows `bow` px aside, towards where the rails turn, over `ramp` px from each
@@ -110,45 +119,92 @@
   // the alpha by tools/measure/cart_f_wheels.py: `x` their centres across in parts of the width, `foot` their bottom in parts of the height;
   // sizes.js sets the heights so the slabs stand on the rails (RAIL.gauge) and `cartSeatF` puts their feet on the rails' line. `rim`: the near box from the wheels'
   // bottom up to its near rim, in parts of each painting's height, the one size both views share: cartCheck wants it no less than
-  // `shrink` short of what the cart shows `ahead` px further along. `dusk`: the run (px) over which the cart comes out of the adit's dark
-  const CART = { diag: 39, front: 67, trim: 7, stop: 22, floor: 0.68, reach: 14, dusk: [0, 20], shrink: 0.15, ahead: 6,
+  // `shrink` short of what the cart shows `ahead` px further along. `dusk`: the run (px) over which the cart comes out of the adit's dark.
+  // `grade` (TASKS 2122): the sprite shader's grade (saturation, brightness, haze, contrast) that brings each front painting, lifted by
+  // tools/fix_cart_art_2109.py, to its 3/4 one's L* p10/p50/p90 (tools/measure/assets/cartgrade.py: 28/45/83 -> 19/35/62 against 19/35/63),
+  // so the cross-fade does not darken the box by 10 L*. `front` 54 and `span` 12: the front painting's slabs stand within a pixel of the
+  // rails down to 54° of their slope and the 3/4 one's near wheels from 54° (the chord of the near rail under them, `span` px of path
+  // either side, sets its turn), so the change of view comes there and not at 67°, where the 3/4 wheels stood 4.9 px off the rail
+  // (tools/measure/motion/cartrails.cjs); `fade` px of rails the cross-fade takes, 0.19 s at the top speed
+  const CART = { diag: 43, front: 54, trim: 7, stop: 22, floor: 0.68, reach: 14, span: 12, fade: 9, dusk: [0, 20], shrink: 0.15, ahead: 6,
     wheelsF: { cart_tw_f: { x: [0.1293, 0.8707], foot: 0.9960 }, cart_tw_f_half: { x: [0.1294, 0.8717], foot: 0.9956 }, cart_tw_f_empty: { x: [0.1294, 0.8723], foot: 0.9954 } },
+    grade: { cart_tw_f: [1, 0.83, 0, 0.71], cart_tw_f_half: [1, 0.79, 0, 1.1], cart_tw_f_empty: [1, 0.81, 0, 0.88] },
     rim: { cart_tw: 0.445, cart_tw_half: 0.49, cart_tw_empty: 0.49, cart_tw_f: 0.51, cart_tw_f_half: 0.6, cart_tw_f_empty: 0.6 },
-    seat: { cart_tw: [0.130, -0.210], cart_tw_half: [0.131, -0.231], cart_tw_empty: [0.130, -0.234] },
+    foot: { cart_tw: [0.9956, 0.6777], cart_tw_half: [0.9951, 0.6456], cart_tw_empty: [0.9951, 0.6419] },
     hubs: { cart_tw: [[0.595, 0.868], [0.946, 0.592]], cart_tw_half: [[0.596, 0.854], [0.948, 0.549]], cart_tw_empty: [[0.595, 0.851], [0.946, 0.547]] },
-    lug: { rx: 0.055, ry: 0.08, roll: 0.09, w: 2, h: 1, col: [0.72, 0.62, 0.5], step: 1.5 },
+    lug: { rx: 0.055, ry: 0.08, roll: 0.2, w: 2, h: 1, col: [0.72, 0.62, 0.5], step: 1.5 },
     rope: { winch: 60, hook: { side: { cart_tw: [0.92, 0.31], cart_tw_half: [0.92, 0.24], cart_tw_empty: [0.92, 0.24] }, front: [0.5, 0] },
       sag: 7, taut: 0.5, far: 200, near: 40, bow: 5, ramp: 10, ends: 6, gap: 3, col: [0.22, 0.15, 0.09] } };
   // the track's painting (TASKS 2012, 2085, 2091): `per` one sleeper and the ballast after it and `at` the middle of the first gap between two
   // sleepers (where a period is cut, so it repeats without its ends), both in the painting's own pixels, `gauge` between the rails'
   // middles in it; the painting's size is not here, `railLay` takes it from the assets. It is seen from straight above and laid in floor
   // space for every stretch, the adit's plumb one too, so the sleepers keep one size and tone round the bend; the table's `gauge` (view px)
-  // sizes it, as the cart's wheels were set on; `lift` brings its sleepers to a brown
+  // sizes it, as the cart's wheels were set on; `lift` brings its sleepers to a brown. `bend` (TASKS 2122): a period whose rails turn over its
+  // length (over `flat` degrees) goes out in slices, no more than `most`, turning no more than `step` degrees from one to the next, each `lap`
+  // px longer so the outer edge leaves no gap, the way read from `reach` px either side (the 24 px straight periods broke the adit's bend in two kinks of 15-19° while the cart turned smoothly)
   // a walker's turn: the rig's width runs from the old side to the new over `t` s and never narrower than `minW`; the hand and tool targets ride the unclamped width.
+  // `minW` 0.28: at 0.1 the mid-turn frame drew the figure as a sliver, the mason gone, the porter a lone crate (town_motion_r9 1, TASKS 2123)
   // `load`: the turn with a load in both hands, a third of the height out in front: its hands cross 0.62 of the height, over 0.2 s 6.2 px a frame (TASKS 2116)
-  const FOLK_TURN = { t: 0.2, load: 0.25, minW: 0.1 };
-  const RAIL = { gauge: 18.6, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
+  const FOLK_TURN = { t: 0.2, load: 0.25, minW: 0.28 };
+  const RAIL = { gauge: 18.6, bend: { reach: 6, step: 3, lap: 1, flat: 0.05, most: 16 }, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
   // the sprites that lay a track along `pts`, one period of the painting after another, the count carried round each bend: where each stands,
   // the way the stretch runs (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
-  const railLay = (pts, size) => { const K = CART.floor, out = [], P = RAIL.h, [tw, th] = size(P.tex), k = RAIL.gauge / P.gauge, per = P.per * k, cut = P.at / tw; let carry = 0;
-    for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, (by - ay) / K);
-      let d = carry; for (; d < len; d += per) out.push({ tex: P.tex, x: ax + (bx - ax) * d / len, y: ay + (by - ay) * d / len, dx: bx - ax, dy: by - ay, lift: P.lift,
-        w: per + 0.5, h: th * k, src: [cut, 0, cut + P.per / tw, 1] });
-      carry = d - len; }
+  const railLay = (pts, size) => { const K = CART.floor, out = [], P = RAIL.h, B = RAIL.bend, [tw, th] = size(P.tex), k = RAIL.gauge / P.gauge, per = P.per * k, cut = P.at / tw, pw = P.per / tw;
+    const F = pts.map(([x, y]) => [x, y / K]), cum = [0]; for (let i = 1; i < F.length; i++) cum.push(cum[i - 1] + Math.hypot(F[i][0] - F[i - 1][0], F[i][1] - F[i - 1][1]));
+    const at = (d) => { let i = 1; while (i < F.length - 1 && cum[i] < d) i++; const t = (d - cum[i - 1]) / (cum[i] - cum[i - 1]); return [F[i - 1][0] + (F[i][0] - F[i - 1][0]) * t, F[i - 1][1] + (F[i][1] - F[i - 1][1]) * t, i]; };
+    const dir = (d) => { const a = at(d - B.reach), b = at(d + B.reach); return Math.atan2(b[1] - a[1], b[0] - a[0]); }, turn = (a, b) => Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a))) * 180 / Math.PI;
+    let last = null;
+    for (let d = 0; d < cum[cum.length - 1]; d += per) { const [x, y, i] = at(d), r = { tex: P.tex, x, y: y * K, dx: pts[i][0] - pts[i - 1][0], dy: pts[i][1] - pts[i - 1][1], lift: P.lift, w: per + 0.5, h: th * k, src: [cut, 0, cut + pw, 1] };
+      // round a bend the period goes out in slices, each along the rails' own way where it lies, as few as keep every turn under `step`
+      if (turn(dir(d - per / 2), dir(d)) + turn(dir(d), dir(d + per / 2)) > B.flat) for (let n = 2; n <= B.most; n++) {
+        const ph = Array.from({ length: n }, (_, j) => dir(d + per * ((j + 0.5) / n - 0.5)));
+        if (n < B.most && [last ?? ph[0], ...ph].some((q, j, o) => j && turn(o[j - 1], q) > B.step)) continue;
+        r.parts = ph.map((p, j) => { const dj = d + per * ((j + 0.5) / n - 0.5), [px, py] = at(dj), u = cut + pw * (j + 0.5) / n, hw = (per / n + B.lap) / 2 / k / tw;
+          return { x: px, y: py * K, dx: Math.cos(p), dy: Math.sin(p) * K, w: per / n + B.lap, src: [u - hw, 0, u + hw, 1] }; });
+        break; }
+      last = r.parts ? Math.atan2(r.parts[r.parts.length - 1].dy / K, r.parts[r.parts.length - 1].dx) : Math.atan2(r.dy / K, r.dx);
+      out.push(r); }
+    return out; };
+  // the two rails' axes of the laid track as view-px segments, one pair per laid sprite (`size` as railLay's)
+  const railAxes = (pts, size) => { const K = CART.floor, g = RAIL.gauge / 2, out = [];
+    for (const r of railLay(pts, size).flatMap((q) => q.parts || [q])) { const ph = Math.atan2(r.dy / K, r.dx), ux = Math.cos(ph), uy = Math.sin(ph), l = r.w / 2;
+      for (const sd of [-1, 1]) { const nx = -uy * g * sd, ny = ux * g * sd; out.push([[r.x - ux * l + nx, r.y + (-uy * l + ny) * K], [r.x + ux * l + nx, r.y + (uy * l + ny) * K]]); } }
     return out; };
   const railTot = (pts) => pts.reduce((a, q, i) => a + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0);
   const railAt = (pts, d) => { d = Math.max(0, Math.min(railTot(pts), d)); for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l || i === pts.length - 1) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } };
   // where the cart stands for the sim's distance `s` run: its distance `ds` along the rails (it stops `stop` px short of their end) and the point
   const cartAt = (pts, s) => { const tot = railTot(pts), ds = Math.min(s, tot) * (tot - CART.stop) / tot, [x, y] = railAt(pts, ds); return { x, y, ds }; };
-  const cartView = (pts, s) => {
+  const viewOf = (pts, s, side) => {
     const q0 = railAt(pts, s - CART.reach), q1 = railAt(pts, s + CART.reach), th = Math.atan2(Math.abs(q1[1] - q0[1]), Math.abs(q1[0] - q0[0])) * 180 / Math.PI;
     const run = Math.sign(q1[0] - q0[0]) || 1;
-    return th < CART.front ? { th, run, side: 1, turn: 1, sx: 1, rot: Math.max(-CART.trim, Math.min(CART.trim, CART.diag - th)), tilt: 0 } : { th, run, side: 0, sx: 1, rot: 0, tilt: 0 };
+    if (!side) return { th, run, side: 0, sx: 1, rot: 0, tilt: 0 };
+    const ph = Math.atan2((q1[1] - q0[1]) / CART.floor, q1[0] - q0[0]), g = Math.cos(ph) < 0 ? -RAIL.gauge / 2 : RAIL.gauge / 2;
+    const rail = (d) => { const a = railAt(pts, d - 1), b = railAt(pts, d + 1), p = Math.atan2((b[1] - a[1]) / CART.floor, b[0] - a[0]), c = railAt(pts, d); return [c[0] - Math.sin(p) * g, c[1] + CART.floor * Math.cos(p) * g]; };
+    const n0 = rail(s - CART.span), n1 = rail(s + CART.span), o = railAt(pts, s), tn = Math.atan2(Math.abs(n1[1] - n0[1]), Math.abs(n1[0] - n0[0])) * 180 / Math.PI;
+    return { th, run, side: 1, turn: 1, sx: 1, rot: Math.max(-CART.trim, Math.min(CART.trim, CART.diag - tn)), tilt: 0, near: [(n0[0] + n1[0]) / 2 - o[0], (n0[1] + n1[1]) / 2 - o[1]] };
   };
+  const cartView = (pts, s) => viewOf(pts, s, viewOf(pts, s, 0).th < CART.front ? 1 : 0);
+  // the change of view, the first rails' distance the 3/4 view is shown at, and the cross-fade over `fade` px of rails about it: `a` is the
+  // 3/4 painting's share, the front one's 1 - a (drawCart turns the shares into alphas), F and S their views (town_motion_r9 3: one frame swapped a 25 px box for a 54 px one)
+  const cartSwap = (pts) => { let lo = 0, hi = railTot(pts); if (cartView(pts, lo).side) return lo;
+    for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (cartView(pts, mid).side) hi = mid; else lo = mid; } return hi; };
+  const cartFade = (pts, s, at = cartSwap(pts)) => { const t = Math.max(0, Math.min(1, (s - at) / CART.fade + 0.5));
+    return { a: t * t * (3 - 2 * t), F: viewOf(pts, s, 0), S: viewOf(pts, s, 1) }; };
+  // where the painting's point (dx, dy from its bottom centre, w x h px) lands in the view for the cart at `v` (cartAt) on the view `V`
+  const cartPut = (name, w, h, V, v) => { const st = V.side ? cartSeat(name, w, h, V) : cartSeatF(name, w, h), r = V.rot * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r);
+    return (dx, dy) => { const x = dx - st[0], y = dy - st[1]; return [v.x + x * c - y * sn, v.y + x * sn + y * c]; }; };
+  // the points the cart touches the rails with: the front painting's two slab feet, the 3/4 one's two near wheels' feet
+  const cartFeet = (side, name, w, h, V, v) => { const P = cartPut(name, w, h, V, v);
+    return side ? CART.hubs[name].map(([u], q) => P((u - 0.5) * w, (CART.foot[name][q] - 1) * h)) : CART.wheelsF[name].x.map((u) => P((u - 0.5) * w, (CART.wheelsF[name].foot - 1) * h)); };
   // the lug's place on wheel `q` of the 3/4 painting `name` (w x h px) after `s` px rolled, from the painting's bottom centre; `run` is
   // the screen side (+1 right) the cart goes to as `s` grows, so the wheel's top turns that way (TASKS 2109: it turned against the travel)
-  const cartLug = (name, q, w, h, s, run) => { const G = CART.lug, [hu, hv] = CART.hubs[name][q], a = run * s / (G.roll * w);
+  const cartHubs = (name, w, h) => { const [[u0, v0], [u1, v1]] = CART.hubs[name]; return Math.hypot((u1 - u0) * w, (v1 - v0) * h); };
+  const cartLug = (name, q, w, h, s, run) => { const G = CART.lug, [hu, hv] = CART.hubs[name][q], a = run * s / (G.roll * cartHubs(name, w, h));
     return [(hu - 0.5) * w + Math.cos(a) * G.rx * w, (hv - 1) * h + Math.sin(a) * G.ry * h]; };
+  // the 3/4 painting's point that rides the rails' middle, from its bottom centre (w x h px) on the view `V`: its near feet's midpoint, off by
+  // the way to the near rail (`V.near`, view px, the rails' floor-space gauge squashed to the view) turned back into the painting by `V.rot`
+  const cartSeat = (name, w, h, V) => { const [[u0], [u1]] = CART.hubs[name], [f0, f1] = CART.foot[name], r = -V.rot * Math.PI / 180, [nx, ny] = V.near;
+    return [((u0 + u1) / 2 - 0.5) * w - (nx * Math.cos(r) - ny * Math.sin(r)), ((f0 + f1) / 2 - 1) * h - (nx * Math.sin(r) + ny * Math.cos(r))]; };
   // the front painting's point that rides the rails' middle, from its bottom centre (w x h px): midway between the slabs, at their feet
   const cartSeatF = (name, w, h) => { const F = CART.wheelsF[name]; return [((F.x[0] + F.x[1]) / 2 - 0.5) * w, (F.foot - 1) * h]; };
   const cartHook = (side, name, w, h) => { const [hu, hv] = side ? CART.rope.hook.side[name] : CART.rope.hook.front; return [(hu - 0.5) * w, (hv - 1) * h]; };
@@ -159,15 +215,29 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartAt, railAt, cartLug, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFeet, railAxes, cartAt, railAt, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
-  const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34 };
-  const questMarkAt = (gx, gy, spriteH, k, W, H, margin = QMARK.margin) => {
-    const cy = gy - spriteH * k - QMARK.gap - QMARK.h / 2;
-    if (gx >= 0 && gx <= W && gy >= 0 && gy <= H && cy - QMARK.h / 2 >= 0) return { x: gx, y: cy, small: false, edge: [0, 0] };
-    const ex = QMARK.w * QMARK.small / 2 + margin, ey = QMARK.h * QMARK.small / 2 + margin, x = Math.max(ex, Math.min(W - ex, gx)), y = Math.max(ey, Math.min(H - ey, cy));
-    return { x, y, small: true, edge: [Math.sign(gx - x), gy > H ? 1 : Math.sign(cy - y)] };
+  const QMARK = { gap: 10, w: 34, h: 40, box: [40, 48], bob: 4, bobSmall: 0, small: 0.6, margin: 16, glow: 46, label: 34, hudPad: 2, depth: 4 };
+  // the mark's hit box at (x, y), full or small, as [x0, y0, x1, y1]
+  const questMarkBox = (x, y, small) => { const s = small ? QMARK.small : 1, bw = QMARK.box[0] * s / 2, bh = QMARK.box[1] * s / 2; return [x - bw, y - bh, x + bw, y + bh]; };
+  // the world draws the marks under the HUD (TASKS 2125): `hud` is its parts as [x0, y0, x1, y1] (HUD.markZones), and no mark box
+  // may touch one. A full mark over a clear head stays there; one that would lie under a part becomes small, and a small one slides
+  // out of the parts to the free spot nearest where it would stand, so it keeps by its giver or along the edge toward him
+  const questMarkAt = (gx, gy, spriteH, k, W, H, hud = [], margin = QMARK.margin) => {
+    const cy = gy - spriteH * k - QMARK.gap - QMARK.h / 2, hits = (b) => hud.filter((z) => b[0] < z[2] && b[2] > z[0] && b[1] < z[3] && b[3] > z[1]);
+    if (gx >= 0 && gx <= W && gy >= 0 && gy <= H && cy - QMARK.h / 2 >= 0 && !hits(questMarkBox(gx, cy, false)).length) return { x: gx, y: cy, small: false, edge: [0, 0] };
+    const ex = QMARK.w * QMARK.small / 2 + margin, ey = QMARK.h * QMARK.small / 2 + margin, clamp = (x, y) => [Math.max(ex, Math.min(W - ex, x)), Math.max(ey, Math.min(H - ey, y))];
+    const p0 = clamp(gx, cy), b0 = questMarkBox(0, 0, true), pad = QMARK.hudPad, seen = new Set();
+    let best = null, bestD = Infinity, front = [p0];
+    for (let d = 0; d <= QMARK.depth && front.length; d++) { const next = [];
+      for (const p of front) { const key = Math.round(p[0]) + ',' + Math.round(p[1]); if (seen.has(key)) continue; seen.add(key);
+        const dist = Math.hypot(p[0] - p0[0], p[1] - p0[1]); if (dist >= bestD) continue;
+        const on = hits(questMarkBox(p[0], p[1], true)); if (!on.length) { best = p; bestD = dist; continue; }
+        for (const z of on) next.push(clamp(z[0] + b0[0] - pad, p[1]), clamp(z[2] + b0[2] + pad, p[1]), clamp(p[0], z[1] + b0[1] - pad), clamp(p[0], z[3] + b0[3] + pad)); }
+      front = next; }
+    const [x, y] = best || p0;
+    return { x, y, small: true, edge: [Math.sign(Math.round(gx - x)), gy > H ? 1 : Math.sign(Math.round(cy - y))], free: !!best };
   };
-  Object.assign(D, { QMARK, questMarkAt });
+  Object.assign(D, { QMARK, questMarkAt, questMarkBox });
 })(typeof window !== 'undefined' ? window : globalThis);

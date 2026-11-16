@@ -74,11 +74,16 @@
   // the key hints show for the first seconds on a floor, then fade (TASKS 1951 б): a standing plate over the panel's right end hid
   // whoever stood at the bottom edge there; how much of them is up
   const KEYS_T = 8, keysA = (S) => (S && S.screen === 'play' && S.run ? 1 - L.SS(KEYS_T - 1, KEYS_T, S.t - (S.run.enteredT ?? -1e9)) : 0);
+  // a long line (a gift's name and its whole effect, TASKS 1829) breaks in two instead of shrinking past the 20 px floor, and
+  // stays narrow enough to clear the HUD panel and the map; a line the message breaks itself ('\n', the death's way down, TASKS 2126)
+  // keeps whole up to the one-line width
+  const msgLines = (s) => { const T = D.TOAST, parts = s.split('\n'), one = parts.length === 1 && lw('msg_m', s, { size: T.size }) <= T.one, size = one ? T.size : T.size2;
+    return { size, ls: one ? [s] : parts.length > 1 ? parts.flatMap((q) => (lw('msg_m', q, { size }) <= T.one ? [q] : wrapWords(q, T.wrap, size))) : wrapWords(s, T.wrap, size) }; };
   // the floor's card while it is up (TASKS 1951 в): an elite's plate under it gives way, its own name read over the card's
   const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
-    const one = lw('msg_m', R.msg.s, { size: 30 }) <= 1000, size = one ? 30 : 24, ls = one ? [R.msg.s] : wrapWords(R.msg.s, 660, size), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+    const { size, ls } = msgLines(R.msg.s), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
     return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
   const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
   // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
@@ -218,8 +223,9 @@
     L.rrect(x0 - 3, y - 1, 14, 14, 7, [1, 0.3, 0.18], [0.62, 0.04, 0.03]);
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
+  function measureHud(S, R) { MMB = mmBox(S, R); TRK = trkBox(S, R); BPG = bpGeo(S, R); BFL = buffList(R, S.t); BFR = Math.ceil(BFL.length / BF.per); ZN = hudZones(S); }
   function world(S, R, t, V) {
-    MMB = mmBox(S, R); TRK = trkBox(S, R); BPG = bpGeo(S, R); BFL = buffList(R, S.t); BFR = Math.ceil(BFL.length / BF.per); ZN = hudZones(S); MKB = [];
+    measureHud(S, R); MKB = [];
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && !D.under(e) && seen(e.x, e.y)) {
@@ -252,9 +258,10 @@
     // the one the hero stands by shows his prompt in its place (TASKS 1026: the prompt, pushed off his own mark, landed by the Keeper's)
     const talkTo = S.screen === 'play' ? SIM.Q.folkNear(R) : null;
     // the mark is bound to its giver alone and stands over his head, however much else is there (TASKS 2105, over the review of PR 63);
-    // a giver off the screen has a small one at its edge, the map shows his mark either way
+    // a giver off the screen has a small one at its edge, the map shows his mark either way; the HUD is drawn over the world, so a mark
+    // that would lie under one of its parts is small and slid out of it (TASKS 2125)
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
-      const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ('town_' + f.role)[1], k, W, H), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
+      const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ('town_' + f.role)[1], k, W, H, markZones()), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
       const x = at.x, y = at.y + bob, col = QMARK_TONE[mk].glow, bw = Q.box[0] * sc, bh = Q.box[1] * sc;
       const box = { i: f.i, x: x - bw / 2, y: at.y - bh / 2, w: bw, h: bh }; MKB.push(box); occupied.push(box);
       G.blend('add'); L.glow(x, y, Q.glow * sc, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
@@ -418,6 +425,10 @@
   }
   HUD.bp = bpGeo;
   HUD.underHud = (x, y) => underHud(x, y); HUD.zones = () => ZN || hudZones(); HUD.marks = () => MKB;
+  // the parts a quest mark keeps off (TASKS 2125): all but the boss bar's strip, which the town never shows and which would turn every
+  // giver near the top's middle small. For the check it measures the HUD from the state and the view, as world() does before drawing
+  const markZones = () => (ZN || hudZones()).filter((z) => z[4] !== 'top');
+  HUD.markZones = (S, R, V) => { if (V) { W = SIM.VIEW.W; VH = H = SIM.VIEW.H; VW = V; measureHud(S, R); } return markZones(); };
   function skillCell(id, x, y, s, A, r, cd, full, low, rage) {
     L.rrect(x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8, s * 0.4, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
     icon(A.icon, x + s * 0.17, y + s * 0.17, s * 0.66, { alpha: r ? 1 : 0.25, grade: r ? [1, 1, 0, 1] : [0, 0.5, 0, 1] });
@@ -502,9 +513,7 @@
     if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
       else {
-      // a long line (a gift's name and its whole effect, TASKS 1829) breaks in two instead of shrinking past the 20 px floor, and
-      // stays narrow enough to clear the HUD panel and the map
-      const one = lw('msg_m', s, { size: 30 }) <= 1000, size = one ? 30 : 24, ls = one ? [s] : wrapWords(s, 660, size), lh = size + 8;
+      const { size, ls } = msgLines(s), lh = size + 8;
       const w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
       plate('msg_box', W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * lh, { a: al });
       ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lh, { size, al: 0.5, col: C.gold, a: al })); } } }

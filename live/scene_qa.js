@@ -1539,6 +1539,17 @@
         if (turnIn !== undefined) Object.assign(f, { face: -1, turnT: S.t + turnIn }); });
       folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => walkAt(k * st / 12));
       { const base = walkAt(st / 3, FOLK_TURN_LEAD / 60); transitions['folk_' + role + '_turn'] = Array.from({ length: FOLK_TURN_FRAMES }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj['folk_' + role + '_turn'] = 'npc' + i; }
+      // walk → idle and idle → walk from the real sim (TASKS 2124): the child's throwing hand switched on in a frame at a stop
+      { const run = (fn, n) => { let S = folkS((S, R) => { const f = folkAt(R, role); i = f.i; fn(S, R, f, R.map.town.npcs[f.i].route); camOn(R, f); }); const cam = S.run.cam.slice(), fr = [];
+          for (let k = 0; k < n; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); } return fr; };
+        const kS = role === 'porter' ? 4 : role === 'mason' ? 1 : 0, carry = load || role === 'mason' ? 1 : 0;
+        transitions['folk_' + role + '_stop'] = run((S, R, f, rt) => { const b = rt[kS], a = rt[(kS + rt.length - 1) % rt.length], d = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / d, uy = (b.y - a.y) / d, back = Math.min(40, d);
+          Object.assign(f, { x: b.x - ux * back, y: b.y - uy * back, way: kS, go: 1, spd: v, vx: ux * v, vy: uy * v, face: ux >= 0 ? 1 : -1, turnT: undefined, goT: undefined, walked: 1, load: carry, lift: 0 });
+          // arriving and leaving as the work loop is at its farthest reach (the child's throw out in front): the worst frame for a pose switched at once
+          const c = D.folkClock(role, f.i, S.t + back / v + 0.1); S.t -= ((c.u - 0.45 + 1) % 1) * c.per; }, 150);
+        folkSubj['folk_' + role + '_stop'] = 'npc' + i;
+        transitions['folk_' + role + '_go'] = run((S, R, f, rt) => { atStop(R, f, 0); const b = rt[0], c = rt[1]; Object.assign(f, { face: c.x >= b.x ? 1 : -1, turnT: undefined, walked: 1, load: carry, lift: carry ? 'take' : 0 }); const c0 = D.folkClock(role, f.i, S.t + 0.4); S.t -= ((c0.u - 0.45 + 1) % 1) * c0.per; f.t0 = S.t - SIMX.folkPause(f, b) + 0.4; }, 90);
+        folkSubj['folk_' + role + '_go'] = 'npc' + i; }
       folkCycT['folk_' + role + '_right'] = st / v; folkSubj['folk_' + role + '_right'] = 'npc' + i; folkSpr['folk_' + role + '_right'] = Object.keys(ASSETS).filter((a) => a.startsWith(nm + '__')); }
     { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'hen'); i = f.i; camOn(R, f); }); folkSubj.folk_hen_peck = 'npc' + i; loops.folk_hen_peck = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.t += k / 12; return S; }); }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 120 }); const p = SCX.railPts(R.map)[4]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_roll = 'cart'; loops.folk_cart_roll = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 6; return S; }); }
@@ -1762,6 +1773,11 @@
       SIM.giveQuest(S, R, 'guard'); const q = R.quests[0], h = R.hero; for (let f = 1; f <= q.f; f++) SIM.enterFloor(S, R, f); R.msg = null; R.seen = R.seen.map(() => 1); fn(S, R, q, h); R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; S.ev = []; });
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
+    // TASKS 2125: the porter's «?» with him under the open legend's map, and with him past the right edge at the tracker's height
+    const porterAt = (sx, sy, leg, zoom) => climbS(0, (S, R) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }]; R.legAuto = 0; R.mapLeg = leg;
+      R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const p = R.folk.find((f) => f.role === 'porter'), h = R.hero, z = (S.meta.zoom = R.zoom = zoom);
+      R.cam = [h.x - SCX.VW / 2 / z, h.y - 30 - SCX.VH / 2 / z]; p.x = R.cam[0] + sx / z; p.y = R.cam[1] + sy / z; });
+    states.push(['town_quest_marks_hud', porterAt(1760, 330, 1, 1)], ['town_quest_marks_edge', porterAt(2040, 420, 0, 1.5)]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
       const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge' } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);

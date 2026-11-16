@@ -21,7 +21,9 @@
   const mix32 = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
 
 
+  // the play toast (hud.js msgLines): one line at size up to one px wide, else size2 lines wrapped at wrap px, clear of the HUD panel and the map
+  const TOAST = { size: 30, size2: 24, one: 1000, wrap: 660 };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  Object.assign(D, { VERSION, TILE, ZOOM, ZOOMS, zoomFix, zoomName, mix32, mulOut, mul32, shuffleBy, hitUI });
+  Object.assign(D, { VERSION, TILE, ZOOM, ZOOMS, zoomFix, zoomName, mix32, mulOut, mul32, shuffleBy, hitUI, TOAST });
 })(typeof window !== 'undefined' ? window : globalThis);

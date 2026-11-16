@@ -427,6 +427,9 @@
       fits('ring of stones', TXT('hud.gate.3', { f: C.floors }), iw, 26, 20);
       for (const [name, f] of bosses) fits('ring of stones', TXT('hud.gate.boss', { name, f }), iw, 26, 20); }
     const U = D.UI.stats();
+    // the normal death's toast (TASKS 2126): each of its two lines whole on one line of the toast, the widest number in it
+    { const T = D.TOAST, xp = String(Math.round(D.xpNeed(99) * D.BAL.deathXpLoss));
+      for (const s of [TXT('sim_ui.fell.msg', { xp }), TXT('sim_ui.fell.way.first'), TXT('sim_ui.fell.way.portal', { f: C.floors }), TXT('sim_ui.fell.way.boss', { f: C.floors })]) fits('death toast', s, T.one, T.size2, T.size2); }
     for (const k of D.DEATH_ORDER) fits('statistics', TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: '999', d: '99 999', b: C.floors }), U.modeW, 22, 20); }
   // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
   function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
@@ -704,17 +707,40 @@
     }
     return out;
   }
-  // TASKS 2105: a giver's mark is centred on him and over his head within the gap while the head is on screen; off it, it is small and kept inside the screen
+  // TASKS 2105: a giver's mark is centred on him and over his head within the gap while the head is on screen; off it, it is small and kept inside the screen.
+  // TASKS 2125 (tools/measure/game/marks_hud.mjs moved here): the HUD is drawn over the world's marks, so over the town measured as the
+  // page measures it (HUD.markZones in live/sandbox.cjs), the hero on every 3rd cell of the yard, a giver on every cell he can stand on,
+  // the legend shut and open, one quest or four in the tracker, in the author's 2576×1456 and in 1920×1080 and 1366×768: no mark's box
+  // touches a part, a mark over a clear head on the screen is full and over it, and a small one stays inside the screen's margin
   function checkQuestMark(out) {
-    const W = 1920, H = 1080, k = 1, sh = 200, Q = D.QMARK, at = (x, y) => D.questMarkAt(x, y, sh, k, W, H, Q.margin);
-    const inside = (a) => a.x - Q.w * Q.small / 2 >= Q.margin && a.x + Q.w * Q.small / 2 <= W - Q.margin && a.y - Q.h * Q.small / 2 >= Q.margin && a.y + Q.h * Q.small / 2 <= H - Q.margin;
+    const W = 1920, H = 1080, k = 1, sh = 200, Q = D.QMARK, at = (x, y, hud) => D.questMarkAt(x, y, sh, k, W, H, hud, Q.margin);
+    const inside = (a, w = W, h = H) => a.x - Q.w * Q.small / 2 >= Q.margin - 0.5 && a.x + Q.w * Q.small / 2 <= w - Q.margin + 0.5 && a.y - Q.h * Q.small / 2 >= Q.margin - 0.5 && a.y + Q.h * Q.small / 2 <= h - Q.margin + 0.5;
     for (const [x, y] of [[960, 700], [300, 500], [1600, 900], [100, 400], [1800, 1000]]) { const a = at(x, y), head = y - sh * k;
       if (a.small || a.x !== x) out.push(`quest mark: giver at ${x},${y} has his mark at x ${a.x}, small ${a.small}`);
       else if (Math.abs((head - (a.y + Q.h / 2)) - Q.gap) > 0.5) out.push(`quest mark: giver at ${x},${y} has the plate's foot ${Math.round(head - a.y - Q.h / 2)} px over his head, not ${Q.gap}`); }
     for (const [n, x, y] of [['left', -50, 600], ['right', W + 50, 600], ['above', 960, -40], ['below', 960, H + 60], ['head over the top', 960, 120], ['corner', -80, H + 80]]) { const a = at(x, y);
       if (!a.small) out.push(`quest mark: giver ${n} has a full-size mark`);
       else if (!inside(a)) out.push(`quest mark: giver ${n} has his mark at ${Math.round(a.x)},${Math.round(a.y)}, off the screen's margin`);
-      else if (!a.edge[0] && !a.edge[1]) out.push(`quest mark: giver ${n} has no edge direction`); } }
+      else if (!a.edge[0] && !a.edge[1]) out.push(`quest mark: giver ${n} has no edge direction`); }
+    const page = require('./sandbox.cjs').hudBox(D, root.SIM, SIMX.checks.kit.fontW), { SIZES } = page, h0 = SIMX.VIEW.H, S = townRun(), R = S.run, m = R.map, h = R.hero, walk = DG.townWalk(m);
+    const heights = Object.keys(D.QUEST_SAY).map((r) => (SIZES['town_' + r] || [0, 0])[1]).filter(Boolean), hs = [Math.min(...heights), Math.max(...heights)];
+    const cells = []; for (let c = 0; c < walk.length; c++) if (walk[c]) cells.push([(c % m.W + 0.5) * TILE, (Math.floor(c / m.W) + 0.5) * TILE]);
+    const touch = (b, hud) => hud.find((z) => b[0] < z[2] && b[2] > z[0] && b[1] < z[3] && b[3] > z[1]), quest = (i, st) => ({ id: 900 + i, key: 'cull', f: 2 + i, need: 14, n: 0, st, from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) });
+    S.screen = 'play'; R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }]; R.legAuto = 0; R.msg = null; S.t = R.enteredT ?? S.t; R.zoom = 1;
+    let marks = 0, under = 0, first = null;
+    try { for (const [ww, wh] of [[2576, 1456], [1920, 1080], [1366, 768]]) { const vh = SIMX.setView(SIMX.viewFor(ww, wh)), VWd = SIMX.VIEW.W;
+      for (const leg of [0, 1]) for (const nq of [1, 4]) { R.mapLeg = leg; R.quests = Array.from({ length: nq }, (_, i) => quest(i, i ? 'taken' : 'done'));
+        for (let c = 0; c < cells.length; c += 3) { [h.x, h.y] = cells[c]; R.camLook = [0, 0]; SIMX.snapCam(R); const z = R.zoom, cx = R.cam[0], cy = R.cam[1];
+          const hud = page.HUD.markZones(S, R, { cx, cy, sx: (x) => (x - cx) * z, sy: (y) => (y - cy) * z, k: z });
+          for (const [fx, fy] of cells) { const gx = (fx - cx) * z, gy = (fy - cy) * z; for (const sh of hs) { const a = D.questMarkAt(gx, gy, sh, z, VWd, vh, hud), b = D.questMarkBox(a.x, a.y, a.small), hit = touch(b, hud); marks++;
+            const tag = `${ww}×${wh}, legend ${leg ? 'open' : 'shut'}, ${nq} quests, hero at ${Math.floor(h.x / TILE)},${Math.floor(h.y / TILE)}, a ${sh} px giver at ${Math.floor(fx / TILE)},${Math.floor(fy / TILE)}`;
+            if (hit) { under++; first = first || `quest mark: ${tag}: its ${a.small ? 'small ' : ''}mark at ${Math.round(a.x)},${Math.round(a.y)} lies under the HUD's ${hit[4]}`; continue; }
+            const head = gy - sh * z, full = D.questMarkBox(gx, head - Q.gap - Q.h / 2, false);
+            if (a.small && gx >= 0 && gx <= VWd && gy >= 0 && gy <= vh && full[1] >= 0 && !touch(full, hud)) first = first || `quest mark: ${tag}: his head is on the screen and clear of the HUD, but the mark is small`;
+            else if (!a.small && (a.x !== gx || Math.abs(head - a.y - Q.h / 2 - Q.gap) > 0.5)) first = first || `quest mark: ${tag}: the full mark at ${Math.round(a.x)},${Math.round(a.y)} is not over his head`;
+            else if (a.small && !inside(a, VWd, vh)) first = first || `quest mark: ${tag}: the small mark at ${Math.round(a.x)},${Math.round(a.y)} is off the screen's margin`; } } } } } }
+    finally { SIMX.setView(h0); }
+    if (first) out.push(first + (under ? ` (${under} of ${marks} marks under the HUD)` : '')); }
   // TASKS 2114: a button's «+» and «−» are bars whose middle is the button's middle to 0 px and whose edges fall on whole px, on odd
   // and even button sizes and at odd and even corners; the split window's ± buttons are drawn by them
   function checkSign(out) { const K = UI.kit; if (!K.signRects || !K.SIGN_OF) { out.push('sign: no shared «+»/«−» layout (UI.kit.signRects)'); return; }

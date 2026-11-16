@@ -15,6 +15,12 @@
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
   // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
   const folkTalk = (f, t) => f.near && t - f.sayT < D.FOLK_SAY;
+  function folkHeld(R, f, t) { const H = D.FOLK_HOLD, h = R.hero, dx = f.x - h.x, dy = f.y - h.y, d = Math.hypot(dx, dy), v = Math.hypot(h.vx, h.vy);
+    if (f.holdA != null) { if (h.deadT < 0 && d <= H.keep && t >= f.holdA && t - f.holdA < H.max && questMark(R, f.role)) return true; if (t - f.holdA >= H.max) f.holdC = t + H.cool; f.holdA = null; return false; }
+    // not by the way down: E there takes the way before the talk (TASKS 1600), a giver held at the stairs sent the hero down instead
+    const m = R.map, byWay = [m.down, exitKind(R) && m.exit].some((q) => q && Math.hypot(q.x - f.x, q.y - f.y) < H.way);
+    if (h.deadT >= 0 || d > H.near || byWay || t < (f.holdC ?? -9) || v < H.heroV || h.vx * dx + h.vy * dy < H.toward * v * d || !questMark(R, f.role)) return false;
+    f.holdA = t; return true; }
   const folkPause = (f, stop) => (f.role === 'porter' || f.role === 'mason' ? (stop && stop.act ? 1.8 : 0) : D.FOLK[f.role].pause || 0);
   // a hen (TASKS 1032): scatters from the hero who comes close (and from a walker's feet), runs to the child's grain and pecks there, else wanders about its
   // place a few steps at a time. f.goal { x, y, v, k: the grain it came for }; f.next: when it may pick its next spot
@@ -123,15 +129,17 @@
         else if (last && d < 1.5) { f.x = tg.x; f.y = tg.y; f.path = null; f.spd = 0; f.vx = f.vy = 0; continue; }
         else { want = last ? Math.min(GREET_V, d * 3 + 3) : GREET_V; ux = dx / d; uy = dy / d; } }
       else if (!route) { f.spd = 0; continue; }
-      if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0 && t >= (C.atT ?? -9) + 0.6))) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
-      if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
+      const held = route && folkHeld(R, f, t);
+      if (route && !held && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0 && t >= (C.atT ?? -9) + 0.6))) { f.go = 1; f.goT = t; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
+      if (route && f.go && !held && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
         const pass = f.role === 'porter' && !tg.act;
         if (pass && d < 3) { f.way = (f.way + 1) % route.length; f.stuck = 0; const t2 = route[f.way], d2 = Math.hypot(t2.x - f.x, t2.y - f.y) || 1; want = FD.v; ux = (t2.x - f.x) / d2; uy = (t2.y - f.y) / d2; }
-        else if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
+        // the speed it came in at, for the render to ease the stride out (biped's spd0): zeroed here, the legs snapped to standing in a frame (TASKS 2124)
+        else if (d < 1.5) { const v0 = Math.hypot(f.vx, f.vy); Object.assign(f, { spd0: v0, vxn0: v0 ? f.vx / v0 : 0, vyn0: v0 ? f.vy / v0 : 0 }); f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
           // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
           f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take') { C.takeT = t; if (--C.load <= 0) C.t = t + 2.5; } if (f.role === 'mason' && f.lift === 'drop') C.bin = (C.bin || 0) + 1; } }
         else { want = pass ? FD.v : Math.min(FD.v, d * 3 + 3); ux = dx / d; uy = dy / d; } }
-      f.spd += (want - f.spd) * Math.min(1, 7 * DT);
+      if (held && !want) f.spd = Math.max(0, f.spd - FD.v * DT / D.FOLK_HOLD.stop); else f.spd += (want - f.spd) * Math.min(1, 7 * DT);
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
       if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }
       // round the others and the hero: try straight on, then wider and wider turns; nothing clear, it waits
@@ -593,5 +601,5 @@
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openHall, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
-    sell, CART_V });
+    sell, CART_V, railLen, folkPause });
 })(typeof window !== 'undefined' ? window : globalThis);

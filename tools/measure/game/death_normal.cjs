@@ -13,7 +13,7 @@ function trial(withPortal, boss) {
   h.hp = 0; h.deadT = S.t; P.run(S, 2.5);
   const ways = X.gateWays ? X.gateWays(R, S) : '(no gateWays export)';
   console.log(`portal ${withPortal ? 'open' : 'none'}${boss ? ', halls 2,4 open' : ''}: died on ${f0} -> screen ${S.screen}, floor ${R.floor}, town ${!!R.town}; xp ${xp0} -> ${h.xp} (lost ${xp0 - h.xp} = ${((xp0 - h.xp) / need * 100).toFixed(1)} % of the level's ${need}); lvl ${h.lvl}; gold ${gold0} -> ${h.gold}; deaths ${deaths0} -> ${S.meta.deaths}`);
-  console.log(`  msg: ${R.msg && R.msg.s}`);
+  console.log(`  msg: ${R.msg && R.msg.s.replace(/\n/g, ' | ')}`);
   console.log(`  portal ${JSON.stringify(R.portal)}; ring ways ${JSON.stringify(ways)}; deepest ${R.deepest}; result ${JSON.stringify(S.result && S.result.how)}`);
   const k = P.folk(S, 'keeper'); if (k) { P.goXY(S, k.x, k.y + 30, 30); P.tap(S, 'KeyE'); console.log(`  keeper: ${S.screen} ${S.talk ? S.talk.pages.join(' / ').slice(0, 160) : ''}`); for (let i = 0; i < 8 && S.screen !== 'play'; i++) P.tap(S, S.screen === 'talk' ? 'KeyE' : 'Escape'); }
   const r = P.goSvc(S, 'stairs', 30); P.tap(S, 'KeyE'); P.run(S, 1);
