@@ -124,8 +124,9 @@
   // middles in it; the painting's size is not here, `railLay` takes it from the assets. It is seen from straight above and laid in floor
   // space for every stretch, the adit's plumb one too, so the sleepers keep one size and tone round the bend; the table's `gauge` (view px)
   // sizes it, as the cart's wheels were set on; `lift` brings its sleepers to a brown
-  // a walker's turn: the rig's width runs from the old side to the new over `t` s and never narrower than `minW`; the hand and tool targets ride the unclamped width
-  const FOLK_TURN = { t: 0.2, minW: 0.1 };
+  // a walker's turn: the rig's width runs from the old side to the new over `t` s and never narrower than `minW`; the hand and tool targets ride the unclamped width.
+  // `load`: the turn with a load in both hands, a third of the height out in front: its hands cross 0.62 of the height, over 0.2 s 6.2 px a frame (TASKS 2116)
+  const FOLK_TURN = { t: 0.2, load: 0.25, minW: 0.1 };
   const RAIL = { gauge: 18.6, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
   // the sprites that lay a track along `pts`, one period of the painting after another, the count carried round each bend: where each stands,
   // the way the stretch runs (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name

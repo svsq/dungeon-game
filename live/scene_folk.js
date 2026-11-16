@@ -39,6 +39,9 @@
     if (back) { rk = GT < fIn ? SS(f.sayT, fIn, GT) : GT < fOut - TURN ? 1 - SS(fIn, fIn + TURN, GT) : GT < fOut ? SS(fOut - TURN, fOut, GT) : 1 - SS(fOut, fOut + TURN, GT);
       tw = SS(fIn, fIn + TURN, GT) * (1 - SS(fOut - TURN, fOut, GT)); }
     const face = gOn && f.face ? f.face : back ? (GT >= fIn && GT < fOut ? f.face : wf) : (route || talkNow) && f.face ? f.face : wf;
+    // a walker turns like a paper figure: mirrored in one tick the whole rig jumped by its own width (TASKS 1409); the rig's width keeps
+    // a minimum, but the hand targets ride the unclamped width: through the clamp's sign flip they jumped 0.2 of their reach (TASKS 2101)
+    const FT = D.FOLK_TURN, tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, f.load ? FT.load : FT.t, GT - tT) : 1, turnW = turnK < 1 ? face * (turnK * 2 - 1) : face, rigFace = Math.abs(turnW) < FT.minW ? face * Math.sign(turnW * face || 1) * FT.minW : turnW;
     const RG = RIGS[nm], s = H / RG.h, gy = RG.foot ?? RG.footL[1], handAt = (sd, k = 1, dy = 0) => [X + face * k * (RG['hand' + sd][0] - RG.gap) * s, Yg + (RG['hand' + sd][1] + dy - gy) * s];
     const P = (dx, dy) => [X + face * dx * H, Yg + dy * H], mir = (q) => [X + (q[0] - X) * face * wf, q[1]];
     const talkR = P(0.27, -0.52 + 0.025 * Math.sin(GT * 5.3 + i)), talkL = P(0.08, -0.36);
@@ -93,7 +96,7 @@
     } else if (f.role === 'porter' || f.role === 'mason') {
       // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
       // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
-      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, kt = SS(0, 0.22, GT - (f.turnT ?? -9)), chest = [X + face * (2 * kt - 1) * 0.2 * H, Yg - 0.46 * H], act = atStop && f.lift, floor = mason ? (act === 'drop' ? [sx(T.bin.x), sy(T.bin.y) - 30] : P(0.5, -0.5)) : P(0.33, -0.14);
+      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, chest = [X + turnW * 0.2 * H, Yg - 0.46 * H], act = atStop && f.lift, floor = mason ? (act === 'drop' ? [sx(T.bin.x), sy(T.bin.y) - 30] : P(0.5, -0.5)) : P(0.33, -0.14);
       let k = f.load ? 1 : 0, bend = 0;
       const hang = (sd) => (sd === 'L' ? P(-0.2, -0.45) : P(0.2, -0.43));
       if (act === 'take') { k = mason ? SS(0.3, 1.15, pu) : SS(0.8, 1.4, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); } else if (act === 'drop') { k = 1 - SS(0.35, mason ? 0.95 : 1.2, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); }
@@ -101,7 +104,8 @@
       if (hasCrate) { cp[1] -= moving ? 1.2 * Math.abs(Math.sin(f.dist / 14)) : 0; tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] };
         front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
       else if (act === 'take') { tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] }; front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, Object.assign({ w: cw, h: cw }, mason ? { u: { alpha: SS(0, 0.25, pu) } } : {})); }
-      // hands on a load turn about the load, which crosses the body on its own (TASKS 1636)
+      // hands on a load turn about the load, and the load crosses the body on the rig's own width: on a clock of its own (0.22 s) it lay
+      // off the axis while the rig stood at its clamped width, the target fell behind the body and the hand jumped to reach it (TASKS 2116)
       if (hasCrate || act === 'take') turnAbout = cp[0];
       if (act === 'take') { const rw = mason ? SS(0, 0.25, pu) : SS(0.2, 0.8, pu); tg = { L: lerp2(hang('L'), tg.L, rw), R: lerp2(hang('R'), tg.R, rw) }; }
       if (!mason && act === 'drop' && pu >= 1.2) { const rk = SS(1.2, 1.75, pu); tg = { L: lerp2(tg.L, hang('L'), rk), R: lerp2(tg.R, hang('R'), rk) }; }
@@ -160,9 +164,6 @@
     // struck by the hero's blow (TASKS 1033): a flinch back from it, knees giving, the head ducked, over half a second
     { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
       if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
-    // a walker turns like a paper figure: mirrored in one tick the whole rig jumped by its own width (TASKS 1409); the rig's width keeps
-    // a minimum, but the hand targets ride the unclamped width: through the clamp's sign flip they jumped 0.2 of their reach (TASKS 2101)
-    const FT = D.FOLK_TURN, tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, FT.t, GT - tT) : 1, turnW = turnK < 1 ? face * (turnK * 2 - 1) : face, rigFace = Math.abs(turnW) < FT.minW ? face * Math.sign(turnW * face || 1) * FT.minW : turnW;
     drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * turnW / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
