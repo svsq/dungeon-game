@@ -82,10 +82,10 @@
   // the two pages' writing areas and the whole spread
   // the cover has a board's thickness: its back board in shadow a little lower, and the block of pages' edges at the foot (TASKS 1758).
   // o.spine false: one wide parchment sheet in a leather board, no gutter, page block or clasp (TASKS 1876: the spine cut the
-  // settings' title and rows in two)
+  // settings' title and rows in two); a lone sheet has no back board either, the second frame under it read as a doubled border
   K.book = (id, x, y, w, h, o = {}) => {
     const spine = o.spine !== false;
-    K.nine('leather', x + 4, y + 12, w, h, { u: { grade: [0.42, 0.8, 0, 1] } });
+    if (spine) K.nine('leather', x + 4, y + 12, w, h, { u: { grade: [0.42, 0.8, 0, 1] } });
     K.nine('leather', x, y, w, h);
     const m = 22, px = x + m, py = y + m, pw = w - 2 * m, ph = h - 2 * m, gw = 56;
     if (spine) for (let i = 0; i < 3; i++) L.solid(px + 6 + i * 4, py + ph + 2 + i * 4, pw - 12 - i * 8, 3, [0.80 - i * 0.07, 0.69 - i * 0.07, 0.50 - i * 0.06]);
