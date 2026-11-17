@@ -11,6 +11,8 @@
     // a state drawn once while it is built, for what the scene keeps of a map between two frames of it
     const drawn = (S) => { const was = SC.state; SC.state = S; try { SC.render(S.t + 0.01); } finally { SC.state = was; } };
     const FLOOD_STEPS = 600;
+    const HELD_KINDS = [['sword', 'warrior'], ['longsword', 'warrior'], ['axe', 'warrior'], ['hammer', 'warrior'], ['staff', 'mage'], ['wand', 'mage'], ['shortbow', 'archer'], ['longbow', 'archer'], ['crossbow', 'archer']];
+    const MAGE_KITS = ['', 'robe', 'leather_armor', 'cloak'].flatMap((a) => ['', 'circlet', 'leather_helm'].map((m) => [(a ? a.split('_')[0] : 'bare') + '_' + (m ? m.split('_')[0] : 'none'), a, m]));
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
       // look B's parts kit (R-41): every part in every state
@@ -19,6 +21,13 @@
       // TASKS 1815: the menu shows the saved run's hero, a mage or an archer, not the painted warrior
       ...['mage', 'archer'].map((c) => ['menu_continue_' + c, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: c }); })]),
       ['menu_continue_mage_orb', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); S.saved.hero.eq.offhand = Object.assign(SIM.rollItem(S.saved, 1, 0, 'offhand'), { b: 'orb', id: S.saved.nextId++ }); })],
+      // TASKS 2153: every weapon kind in the arch and at rest in the world, in its class's hands
+      ...HELD_KINDS.flatMap(([b, cls]) => [['menu_weapon_' + b, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls }); const R = S.saved; R.hero.eq.weapon = Object.assign(SIM.rollItem(R, 1, 0, 'weapon'), { b, id: R.nextId++ }); })],
+        ['play_weapon_' + b, play((S) => { const h = S.run.hero; h.cls = cls; h.eq.weapon = Object.assign({}, h.eq.weapon, { b }); })]]),
+      ['menu_weapon_wand_orb', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); const R = S.saved, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ }); R.hero.eq.weapon = gear('wand', 'weapon'); R.hero.eq.offhand = gear('orb', 'offhand'); })],
+      // TASKS 2151: the mage's arch in every armour (none, robe, leather, hooded cloak) under every helm (none, circlet, leather helm)
+      ...MAGE_KITS.map(([n, armor, helm]) => ['menu_continue_mage_' + n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); const R = S.saved, h = R.hero, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ });
+        if (armor) h.eq.armor = gear(armor, 'armor'); else delete h.eq.armor; if (helm) h.eq.helm = gear(helm, 'helm'); else delete h.eq.helm; })]),
       // the main menu's sheet (TASKS 1301): every slot taken (the longest labels, the longest saved run's line), every item under the
       // keyboard's focus, the pointer over an item; a new run pressed over five taken slots asks, naming the oldest run (TASKS 1785)
       ['menu_full', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;
@@ -1688,6 +1697,7 @@
       ['mage_leather', mageS((S, R, h, gear) => { h.eq.armor = gear('leather_armor', 'armor'); h.eq.offhand = gear('orb', 'offhand'); })],
       ['mage_cloak', mageS((S, R, h, gear) => { h.eq.armor = gear('cloak', 'armor'); h.eq.weapon = gear('wand', 'weapon'); })],
       ['mage_circlet', mageS((S, R, h, gear) => { h.eq.helm = gear('circlet', 'helm'); })], ['mage_warrior', play((S) => { S.run.msg = null; })]);
+    states.push(...MAGE_KITS.map(([n, armor, helm]) => ['mage_' + n, mageS((S, R, h, gear) => { if (armor) h.eq.armor = gear(armor, 'armor'); else delete h.eq.armor; if (helm) h.eq.helm = gear(helm, 'helm'); else delete h.eq.helm; })]));
     // the class screen (TASKS 1103): the mage picked, the pointer on the warrior's card
     states.push(['classes_kit', mk((S) => { S.meta.cls = 'archer'; S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'kit:archer'; })]);
     // the hero's name (TASKS 1879): the field typed into at its longest, and the die lit
@@ -2168,7 +2178,7 @@
         out.cycles[n] = cyc(dx, dy, (S) => asArcher(S, b)); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S, b); if (dy < 0) S.run.hero.back = 1; }); } }
     transitions.hero_archer_shoot2_r = archerT(0, null, [5, 30]); transitions.hero_archer_volley_r = archerT(0, 'volley'); transitions.hero_archer_leap_r = archerT(0, 'leap');
     // the warrior's charge and war cry (TASKS 1134), through the sim
-    const warT = (a, slot, foe, press, upto = 75) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < upto; i++) { const h = S.run.hero, R = S.run;
+    const warT = (a, slot, foe, press, upto = 75, wb) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; if (wb) h.eq.weapon = Object.assign({}, h.eq.weapon, { b: wb }); h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < upto; i++) { const h = S.run.hero, R = S.run;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } } fr.push(S); S = structuredClone(S); h.mp = 100;
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, slot: i === 5 && k === 0 ? slot : 0, press: press && i >= press && i < press + 2 ? 1 : 0, keys: [] }); } return fr; };
     // hero_charge_strike: the charge up to the press that starts the swing; the swing, pull and strike, stays sharp (the player's call,
@@ -2176,6 +2186,10 @@
     transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28, 30); transitions.hero_cry = warT(0, 3);
     // (TASKS 2146) a plain blow from rest through the sim, right and down: the blade rises from its lowered rest to the guard and back
     transitions.hero_attack_r = warT(0, 0, 0, 5); transitions.hero_attack_d = warT(Math.PI / 2, 0, 0, 5);
+    // (TASKS 2156) a shot, a cast and a blow loosed behind him: the aim turns him round in the action
+    transitions.hero_attack_l = warT(Math.PI, 0, 0, 5); transitions.hero_mage_shoot_l = mageT(Math.PI, null, 1); transitions.hero_mage_cast_l = mageT(Math.PI, cast);
+    // (TASKS 2153) the heavy weapons' blow from their own rest
+    for (const wb of ['longsword', 'axe', 'hammer']) transitions['hero_attack_' + wb + '_r'] = warT(0, 0, 0, 5, 75, wb);
     transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, heroDies);
     // (TASKS 2146) a turn at rest: it passes through the back view
     const turnAt = (S, h) => { h.face = -h.face; h.faceT = S.t; }; transitions.hero_mage_turn = mageT(0, turnAt); transitions.hero_archer_turn = archerT(0, turnAt);

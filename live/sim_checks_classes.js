@@ -578,8 +578,32 @@
         if (cross >= 0 || [a, b].some((e) => d(e, g) < STRING[0] || d(e, g) > STRING[1]) || near > SPAN * span) say(`the string does not span the bow about the grip (ends ${d(a, g).toFixed(0)} and ${d(b, g).toFixed(0)} px out, ${near.toFixed(0)} px off it)`); }
     }
   }
+  // (TASKS 2156) a shot, a cast or a frost loosed behind him, and a plain turn, go through the back view: the drawn facing flips only while
+  // the back view is up, nothing held jumps across the body on the flip, and a bow is in one hand or the other in every frame
+  function heroTurnCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), BACK = 0.9, FLIP_JUMP = 10, GRIP = 3, T0 = 10, FPS = 60, N = 30;
+    const KITS = [['archer', 'shortbow', '', 'shot'], ['archer', 'shortbow', '', 'turn'], ['mage', 'staff', '', 'shot'], ['mage', 'staff', '', 'fireball'], ['mage', 'staff', '', 'frost'],
+      ['mage', 'wand', 'orb', 'shot'], ['mage', 'staff', 'orb', 'turn'], ['warrior', 'sword', 'shield', 'turn']], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    for (const [cls, wb, ob, act] of KITS) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
+      const cast = act === 'fireball' || act === 'frost', h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: 1, aim: 0, back: 0, backT: -9, faceT: T0, deadT: -1, hurtT: -9, dashT: -9,
+        atkT: act === 'shot' ? T0 : -9, atkA: 0, patkT: -9, castT: cast ? T0 : -9, castK: cast ? act : '', whirlT: -9 }), tag = `${cls} ${wb}${ob ? ' and ' + ob : ''}, ${act} behind him`, st = heroSt(S);
+      const rows = [];
+      for (let k = 0; k <= N; k++) { const J = {}, V = {}; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; if (id === 'hero_view') V[n] = p; }; L.sprite = () => ({ w: 10, h: 10 }); L.solid = () => {};
+        drawHero(h, 300, 300, T0 + k / FPS, st, {}); rows.push({ J, back: V.back[0], face: V.face[0] }); }
+      const flips = rows.map((r, k) => (k && r.face !== rows[k - 1].face ? k : -1)).filter((k) => k > 0);
+      if (flips.length !== 1) { out.push(`hero turn: ${tag}: the drawn facing flips ${flips.length} times`); continue; }
+      const k = flips[0], a = rows[k - 1], b = rows[k];
+      if (Math.min(a.back, b.back) < BACK) out.push(`hero turn: ${tag}: the facing flips at back view ${Math.min(a.back, b.back).toFixed(2)}`);
+      for (const p of ['grip', 'shield', 'orb', 'handL', 'handR']) if (a.J[p] && b.J[p] && d(a.J[p], b.J[p]) > FLIP_JUMP) out.push(`hero turn: ${tag}: the ${p} jumps ${d(a.J[p], b.J[p]).toFixed(1)} px on the flip`);
+      if (wb.endsWith('bow')) { const far = rows.map((r) => Math.min(d(r.J.grip, r.J.handR), d(r.J.grip, r.J.handL))), m = Math.max(...far);
+        if (m > GRIP) out.push(`hero turn: ${tag}: the bow is ${m.toFixed(1)} px from either hand at frame ${far.indexOf(m)}`); }
+    }
+  }
   SIMX.checks.add('classCheck', classCheck);
   SIMX.checks.add('heroGripCheck', heroGripCheck);
+  SIMX.checks.add('heroTurnCheck', heroTurnCheck);
   SIMX.checks.add('powerCheck', checkPowers);
   SIMX.checks.add('dataLinkCheck', dataLinkCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,4 +1,4 @@
-// node tools/measure/chars_assets/gearsheet.mjs [outDir] [--z 4] [--box 120]
+// node tools/measure/chars_assets/gearsheet.mjs [outDir] [--z 4] [--box 120] [--cls mage,archer]
 // every outfit a class can wear (data_items bases with its cls or none), on that class's body, in the world: rest facing right,
 // two run frames right, rest left, rest from behind, run down and up; one contact sheet per class (rows: outfits), hard pixels ×z.
 // Also the menu's arch for each class in each armour and helm, and the joint trace of every frame to a json beside the sheets.
@@ -20,7 +20,10 @@ const OUTFITS = {
     ['cloak_helm', { armor: 'cloak', helm: 'leather_helm', gloves: 'leather_gloves', boots: 'boots', offhand: 'quiver' }]],
   mage: [['bare', {}], ['robe', { armor: 'robe' }], ['leather', { armor: 'leather_armor' }], ['cloak', { armor: 'cloak' }], ['circlet', { armor: 'robe', helm: 'circlet' }],
     ['helm_le', { armor: 'robe', helm: 'leather_helm' }], ['orb', { armor: 'robe', offhand: 'orb' }], ['leather_ci_orb', { armor: 'leather_armor', helm: 'circlet', offhand: 'orb' }],
-    ['cloak_ci', { armor: 'cloak', helm: 'circlet', gloves: 'leather_gloves', boots: 'boots' }]] };
+    ['cloak_ci', { armor: 'cloak', helm: 'circlet', gloves: 'leather_gloves', boots: 'boots' }],
+    ['bare_ci', { helm: 'circlet' }], ['bare_le', { helm: 'leather_helm' }], ['leather_ci', { armor: 'leather_armor', helm: 'circlet' }],
+    ['leather_le', { armor: 'leather_armor', helm: 'leather_helm' }], ['cloak_le_orb', { armor: 'cloak', helm: 'leather_helm', offhand: 'orb' }]] };
+const ONLY = opt('cls', ''); if (ONLY) for (const c of Object.keys(OUTFITS)) if (!ONLY.split(',').includes(c)) delete OUTFITS[c];
 const VIEWS = [['rest_r', 'rest', 'hero_right', 0], ['run_r0', 'cyc', 'hero_right', 0], ['run_r1', 'cyc', 'hero_right', 0.5], ['rest_l', 'rest', 'hero_left', 0],
   ['rest_back', 'rest', 'hero_up', 0], ['run_d', 'cyc', 'hero_down', 0.25], ['run_u', 'cyc', 'hero_up', 0.25]];
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');

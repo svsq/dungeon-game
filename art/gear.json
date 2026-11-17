@@ -956,5 +956,39 @@
     ]
    }
   ]
+ },
+ "mage_helm_le": {
+  "sfx": "hle",
+  "K": 5,
+  "items": [
+   {
+    "piece": "head",
+    "src": "head:body",
+    "box": [
+     58,
+     1,
+     145,
+     78
+    ],
+    "at": [
+     225,
+     319
+    ]
+   },
+   {
+    "piece": "head_back",
+    "src": "head:body_back",
+    "box": [
+     59,
+     0,
+     144,
+     72
+    ],
+    "at": [
+     885,
+     332
+    ]
+   }
+  ]
  }
 }

@@ -1,4 +1,5 @@
-"""the mage's circlet on his world-grid head (TASKS 2146): the generated whole head (gear.py cut mage_circlet) is drawn, so in the
+"""superseded by mageheads_2151.py (TASKS 2151: it left the leather and hooded bodies headless under the circlet); kept as the record
+the mage's circlet on his world-grid head (TASKS 2146): the generated whole head (gear.py cut mage_circlet) is drawn, so in the
 world its face lost to the shader's vote and sat over the grid head's beard; there the circlet is one row of grid cells over the
 grid head (body_nh is the whole body), the drawn heads stay for the arch (head_ci_menu over body_nh_menu)
   python3 tools/gear.py cut mage_circlet && python3 tools/measure/circlet_2146.py   (it reads the drawn head the cut just wrote)"""
