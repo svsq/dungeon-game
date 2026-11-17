@@ -17,12 +17,14 @@
   const updShown = (u) => !!u && (!!u.can || (!!u.web && u.st === 'web'));
   const updMark = (u) => (!u || u.web ? '' : u.st === 'avail' ? TXT('hud.menu.upd.avail', { v: u.v }) : u.st === 'down' ? TXT('hud.menu.upd.down', { pct: Math.floor(u.pct || 0) }) : u.st === 'ready' ? TXT('hud.menu.upd.ready') : '');
   // the settings screen's rows, in order (TASKS 1302): each a slider over its stops, its value kept in S.meta[key]
-  const SETTINGS_BOOK = { x: 380, w: 1160, top: 236, row: 100, foot: 160 };
+  const SETTINGS_BOOK = { x: 380, w: 1160, top: 220, row: 100, foot: 125 };
   // the brightness (TASKS 1303): a gamma on the frame's final grade, the HUD drawn after it untouched
   const VOLS = [0, 0.25, 0.5, 0.75, 1], BRIGHTS = [0.7, 0.85, 1, 1.2, 1.4], stepName = (v) => { const i = BRIGHTS.indexOf(v) - 2; return i > 0 ? '+' + i : i < 0 ? '\u2212' + -i : '0'; };
   const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName },
     { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] },
+    // the sound's two volumes: the effects (vol, the key an older save already holds) and the background, the drone, the water and the drips (amb)
     { id: 'vol', key: 'vol', name: () => TXT('UI.settings.vol'), stops: VOLS, def: 1, fmt: (v) => Math.round(v * 100) + ' %', ends: () => [TXT('UI.settings.vol.lo'), TXT('UI.settings.vol.hi')] },
+    { id: 'amb', key: 'amb', name: () => TXT('UI.settings.amb'), stops: VOLS, def: 1, fmt: (v) => Math.round(v * 100) + ' %', ends: () => [TXT('UI.settings.vol.lo'), TXT('UI.settings.vol.hi')] },
     // the graphics (TASKS 1372): 2 the full picture, 1 and 0 drop the costliest passes for the Steam Deck and weak PCs (scene reads S.meta.gfx)
     { id: 'gfx', key: 'gfx', name: () => TXT('UI.settings.gfx'), stops: [0, 1, 2], def: 2, fmt: (v) => (v === 0 ? TXT('UI.settings.gfx.0') : v === 1 ? TXT('UI.settings.gfx.1') : TXT('UI.settings.gfx.2')), ends: () => [TXT('UI.settings.gfx.lo'), TXT('UI.settings.gfx.hi')] },
     // the fullscreen (TASKS 1864): a checkbox, as on ref_ui_settings_b; the sim keeps the wish, the page applies it and reports it back
