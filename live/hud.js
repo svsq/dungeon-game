@@ -1492,12 +1492,14 @@
   function meta(S, t) { const I = KIT.INK;
     desk(t); page('mt_page', 130, 70, 1660, 940);
     KIT.heading('mt_t', TXT('hud.meta'), W / 2, 140, { size: 60, wing: 100 });
-    KIT.ink('mt_s', TXT('hud.meta.2'), W / 2, S.metaRun ? 206 : 226, { size: 26, fit: 1560, al: 0.5, col: I.d });
+    // mid-run the lead sits 8 px lower than it did (TASKS 2174: 5 px under the heading's rule), its two lines under it closer
+    const MT = S.metaRun ? { s: 214, run: 243, lead: 22 } : { s: 226 };
+    KIT.ink('mt_s', TXT('hud.meta.2'), W / 2, MT.s, { size: 26, fit: 1560, al: 0.5, col: I.d });
     // the count of shards (and the gold at the altar mid-run) is the shared purse, by the buttons, its foot on theirs (TASKS 2098)
     { const R = S.metaRun ? S.run : null, rows = R ? [['gold'], ['shards']] : [['shards']], bk = D.UI.meta(S.meta.cls, S.metaTab).find((q) => q.id === 'back'), bh = D.UI.kit.purseBox(purseRows(S, R, rows), purseW).h;
       purse('meta', S, R, rows, 190, bk.y + bk.h - bh + D.UI.purse.h / 2); }
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
-    if (S.metaRun) halves(TXT('hud.meta.3')).forEach((q, i) => KIT.ink('mt_run' + i, q, W / 2, 237 + i * 24, { size: 20, al: 0.5, col: I.d }));
+    if (S.metaRun) halves(TXT('hud.meta.3')).forEach((q, i) => KIT.ink('mt_run' + i, q, W / 2, MT.run + i * MT.lead, { size: 20, al: 0.5, col: I.d }));
     // a row lights under the pointer whether or not it can be bought; one the shards do not reach is dimmed (TASKS 1858)
     // the strip's light field spans rows 43–208 of the 251-row art and stretches with the row: two lines sit at fixed shares of it,
     // so a shorter row (six rows of eleven upgrades for a mage or an archer) still keeps them off its rims (TASKS 1986)
@@ -1720,7 +1722,10 @@
     const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], U = D.UI.event(), P = U.P;
     dim(0.6); KIT.panel('event', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('ev_t', W / 2, P.y + 16, 460, P0.name, { h: 76, size: 36 });
-    wrapLab('ev_s', SIM.Q.eventSay(E), P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
+    // the window keeps the longest question's size; a shorter one sits in the middle between the ribbon and the buttons (TASKS 2174: a
+    // three-line question left a strip of 200 px under it)
+    const say = SIM.Q.eventSay(E), EV = { size: 26, top: 100, bot: 100 }, n = wrapWords(say.replace(/\*\*/g, ''), P.w - 96, EV.size).length, bh = n * (EV.size + 7) - 7;
+    wrapLab('ev_s', say, P.x + 48, P.y + EV.top + Math.max(0, (P.h - EV.top - EV.bot - bh) / 2) + EV.size / 2, P.w - 96, EV.size, KIT.INK.cream);
     KIT.button('ev_yes', Object.assign({}, U.r[0], { label: P0.yes }), askSt(S, U, 'evYes'));
     KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
     KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
