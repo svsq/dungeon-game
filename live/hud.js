@@ -1268,7 +1268,7 @@
       KIT.ink('sa_cn' + c, D.CLASSES[c].name, cx, G0.y + G0.h + 26, { size: 24, al: 0.5, col: tab === c ? KIT.INK.r : on ? KIT.INK.t : KIT.INK.off }); });
     KIT.rule(B.R.x, G0.y + G0.h + 50, B.R.w, 0.7);
     const sy = G0.y + G0.h + 96, sh = TXT('hud.stats.hand', { n: grp(S.meta.shards || 0) }), shw = lw('sa_hw', sh, { size: 28 }) + 56;
-    icon('dc_shards', B.R.x + B.R.w / 2 - shw / 2, sy - 22, 44); KIT.ink('sa_hand', sh, B.R.x + B.R.w / 2 - shw / 2 + 56, sy, { size: 28 });
+    icon(D.UI.purse.icons.shards, B.R.x + B.R.w / 2 - shw / 2, sy - 22, 44); KIT.ink('sa_hand', sh, B.R.x + B.R.w / 2 - shw / 2 + 56, sy, { size: 28 });
     if (S.meta.bestEndless) KIT.ink('sa_end', TXT('hud.stats.endless', { n: S.meta.bestEndless }), B.R.x + B.R.w / 2, sy + 44, { size: 22, al: 0.5, col: KIT.INK.d });
     // the modes' own counters and records (TASKS 2104), each under the other
     D.DEATH_ORDER.forEach((k, i) => { const M = (T.mode || {})[k] || {}; KIT.ink('sa_md' + k, TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: grp(M.wins || 0), d: grp(M.deaths || 0), b: M.best || 0 }), B.R.x + B.R.w / 2, sy + (S.meta.bestEndless ? 76 : 44) + i * 28, { size: 22, al: 0.5, fit: U.modeW, col: KIT.INK.d }); });
