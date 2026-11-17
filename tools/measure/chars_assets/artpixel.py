@@ -5,7 +5,7 @@ import os, json, re; import numpy as np; from PIL import Image
 ROOT = os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')); os.chdir(ROOT)
 A = json.loads(re.sub(r'^window\.ASSETS = |;\s*$', '', open('live/assets.js').read().strip()))
 # world length in px of the longest side (scene_hero.js WEAPON / SHIELD), the hero's texture by its 84 px height
-L = {'it_sword': 42, 'it_staff': 42, 'it_bow_s': 32, 'orb_held': 18, 'it_shield': 30, 'it_wand': 40}
+L = {'it_sword_held': 42, 'it_staff_held': 42, 'it_wand_held': 40, 'orb_held_menu': 18, 'it_bow_s_h': 32, 'it_sword': 42, 'it_staff': 42, 'it_bow_s': 32, 'orb_held': 18, 'it_shield': 30, 'it_wand': 40}
 def artpx(a):
     op = a[..., 3] > 128; c = a[..., :3].astype(int); best = 1
     for k in range(2, 13):
@@ -19,7 +19,7 @@ def artpx(a):
             if ok: break
         if ok: best = k
     return best
-for n in ['hero__body', 'hero__body_menu', 'archer__body_menu', 'mage__body_menu', 'mage__head_ci_menu', 'archer__quiver', 'it_sword', 'it_staff', 'it_bow_s', 'orb_held', 'it_shield']:
+for n in [n for n in ['hero__body', 'hero__body_menu', 'archer__body_menu', 'mage__body_menu', 'mage__head_ci_menu', 'archer__quiver', 'it_sword', 'it_staff', 'it_bow_s', 'orb_held', 'it_shield', 'it_sword_held', 'it_staff_held', 'it_bow_s_h', 'orb_held_menu'] if os.path.exists(f'live/assets/{n}.png')]:
     a = np.array(Image.open(f'live/assets/{n}.png').convert('RGBA')); k = artpx(a)
     wpt = 84 / 360 if '__' in n else L[n] / max(a.shape[:2])
     print(f'{n:22s} {a.shape[1]}x{a.shape[0]} art pixel {k} tex px = {k * wpt:.2f} world px = {k * wpt * 3.2:.1f} arch px')

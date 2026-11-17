@@ -2,7 +2,7 @@
 # reached in each traced frame, to set jointseam.py's ranges on what the game draws
 import os, json, math
 ROOT = os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')); os.chdir(ROOT)
-T = json.load(open('frames/critic_chars_r1_assets/gear/trace.json'))
+T = json.load(open(os.environ.get('OUTD', 'frames/critic_chars_r2_assets/') + 'gear/trace.json'))
 ang = lambda a, b: math.atan2(b[1] - a[1], b[0] - a[0])
 w = lambda x: (x + math.pi) % (2 * math.pi) - math.pi
 for cls, outs in T.items():

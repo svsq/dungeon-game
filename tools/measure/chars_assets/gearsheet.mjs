@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const ROOT = process.env.ROOT || fileURLToPath(new URL('../../..', import.meta.url));
-const OUT = path.resolve(ROOT, args[0] && !args[0].startsWith('--') ? args[0] : 'frames/critic_chars_r1_assets/gear'), Z = +opt('z', 4), BOX = +opt('box', 120);
+const OUT = path.resolve(ROOT, args[0] && !args[0].startsWith('--') ? args[0] : 'frames/critic_chars_r2_assets/gear'), Z = +opt('z', 4), BOX = +opt('box', 120);
 fs.mkdirSync(OUT, { recursive: true });
 const it = (b) => ({ id: 0, b, rar: 0, lvl: 1, mods: {}, def: 1 });
 const W = { warrior: 'sword', mage: 'staff', archer: 'shortbow' };

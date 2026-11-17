@@ -6,7 +6,7 @@ ROOT = os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__
 A = json.loads(re.sub(r'^window\.ASSETS = |;\s*$', '', open('live/assets.js').read().strip()))
 RG = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))
 GEARS = {'hero': {'armor': ['cl', '', 'pw', 'hd'], 'gloves': ['', 'pw'], 'boots': ['', 'pw'], 'helm': ['le', 'kn']},
-         'mage': {'armor': ['', 'le', 'hd'], 'gloves': [''], 'boots': [''], 'helm': ['ci']},
+         'mage': {'armor': ['', 'le', 'hd'], 'gloves': [''], 'boots': [''], 'helm': ['ci', 'le']},
          'archer': {'armor': ['', 'hd'], 'gloves': [''], 'boots': [''], 'helm': ['le']}}
 tot = 0
 for rig, G in GEARS.items():
@@ -28,6 +28,8 @@ for rig, G in GEARS.items():
     for h in G['helm']:
         for k in (f'{rig}__head_{h}', f'{rig}__head_{h}_menu', f'{rig}__head_back_{h}'): used.add(k)
     used |= {f'{rig}__body_w', f'{rig}__body_back_w'}
+    # (r2) scene_hero.js fine(): in the arch every drawn part takes its _menu copy when one exists
+    used |= {u + '_menu' for u in list(used)}
     for k in sorted(x for x in A if x.startswith(rig + '__')):
         if k not in used:
             b = os.path.getsize(f'live/assets/{k}.png'); tot += b

@@ -11,8 +11,8 @@ OUT = {'hero': {'shirt': ('cl', '', ''), 'leather': ('', '', ''), 'plate': ('pw'
        'mage': {'robe': ('', '', ''), 'leather': ('le', '', ''), 'cloak': ('hd', '', '')}}
 # radius in rig px and ranges as the project's rig_*.sh pass jointgap.py (12 px at the shoulder, 14 at the hip; the near arm's swing
 # −1.95..0.5, the far arm's −0.6..0.4); elbow, knee and ankle ranges cover the run and the strike's bend
-JOINTS = [('uarm', 'body', 'sh', 12, {'R': (-1.95, 0.5), 'L': (-0.6, 0.4)}), ('farm', 'uarm', 'elbow', 12, (-1.4, 0.1)), ('thigh', 'body', 'hip', 14, (-0.7, 0.5)),
-          ('shin', 'thigh', 'knee', 12, (-0.1, 1.2)), ('foot', 'shin', 'ankle', 12, (-0.3, 0.3))]
+JOINTS = [('uarm', 'body', 'sh', 12, {'R': (-1.95, 0.5), 'L': (-0.6, 0.4)}), ('farm', 'uarm', 'elbow', 12, (float(os.environ.get('ELBOW_MIN', -1.4)), 0.1)), ('thigh', 'body', 'hip', 14, (-0.7, 0.5)),
+          ('shin', 'thigh', 'knee', 12, (-0.1, float(os.environ.get('KNEE_MAX', 1.2)))), ('foot', 'shin', 'ankle', 12, (-0.3, 0.3))]
 def tex(rig, n, s): k = f'{rig}__{n}' + (f'_{s}' if s and f'{rig}__{n}_{s}' in A else ''); return k
 def op(k): return np.array(Image.open(f'live/assets/{k}.png').convert('RGBA'))[..., 3] > 60
 rows = []
