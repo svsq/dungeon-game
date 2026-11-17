@@ -56,13 +56,19 @@
   }
   function finishArena(S, R, e) {
     if (R.arena) R.arena.active = 0;
-    for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.loot = SIMX.bossLoot(R, e); c.pay = chapterEnd(R, e) ? 0 : LOOT.mini.gold; SIMX.fstat(R).lootN += c.loot.length; ev(S, { k: 'unseal', x: c.x, y: c.y }); }
+    for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.loot = SIMX.bossLoot(R, e); c.pay = chapterEnd(R, e) ? 0 : LOOT.mini.gold; c.auto = D.BOSS_CHEST.auto; SIMX.fstat(R).lootN += c.loot.length; ev(S, { k: 'unseal', x: c.x, y: c.y }); }
     unseal(S, R, e);
     // the campaign's last boss leaves one too (TASKS 514): a run through the town ends in the town
     if (R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
     if (lastFloor(R) && R.arena && R.arena.gate) R.msg = { s: ENEMIES[e.type].name + TXT('sim_bosses.finishArena.msg.s'), t: S.t };
     if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e) && !R.chests.some((c) => c.boss)) drop(R, e.x, e.y, { kind: 'item', item: SIMX.bossPrize(R, e, rollItem(R, dep(R), 2)) }); }
   }
+  // the pause runs on play time kept in the chest, so a window, a save or a floor left and come back to never cuts it short; the
+  // opening is the hero's own (openChest), so E or a blow in the pause takes it and nothing opens twice
+  function stepBossChests(S, R) { const B = D.BOSS_CHEST, w = SIMX.WIN(R), [cx, cy] = R.cam;
+    for (const c of R.chests) { if (c.auto === undefined) continue; if (c.open) { delete c.auto; continue; }
+      c.auto = Math.max(0, c.auto - DT);
+      if (!c.auto && c.x > cx + B.edge && c.x < cx + w.W - B.edge && c.y > cy + B.edge && c.y < cy + w.H - B.edge) { delete c.auto; SIMX.openChest(S, R, c); } } }
   // the hall let out of its fight: its water and lava gone, its doors open, the boss's summons and eggs dead
   function unseal(S, R, e) {
     R.map.flood = null; R.map.arenaBox = null;
@@ -396,6 +402,6 @@
   // foot, so the prop draws after it) inside its box cannot be seen, so it hops to the nearest open spot instead
 
   Object.assign(SIMX, {
-    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, bossGate, regate, gateNear, callOff, hallGate, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
+    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, stepBossChests, bossGate, regate, gateNear, callOff, hallGate, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
     beginBossMove, bossThink, roar, bossSummon, wideClear, colossusRise, colossusStep, poolOk, colossusBoulder, colossusRain, stepBossMove, crackSpan });
 })(typeof window !== 'undefined' ? window : globalThis);

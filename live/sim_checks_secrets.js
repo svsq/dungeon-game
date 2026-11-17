@@ -1104,5 +1104,44 @@
   SIMX.checks.add('secretCheck', secretCheck);
   SIMX.checks.add('altarCheck', altarCheck, { slow: true });
   SIMX.checks.add('secretRestCheck', secretRestCheck, { slow: true });
+  // TASKS 2169: a boss's chest opens by itself after the win, through the hero's own opening
+  function bossChestAutoCheck() { const out = [], { chapterEnd, finishArena, snapCam } = root.SIMX, B = D.BOSS_CHEST, pause = Math.ceil(B.auto / DT), sd = 77;
+    const play = (S, n) => { for (let k = 0; k < n; k++) step(S, { keys: [], px: SIMX.VIEW.W / 2, py: SIMX.VIEW.H / 2 }); };
+    const won = (f) => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); enterFloor(S, S.run, f); S.screen = 'play'; noWelcome(S);
+      const R = S.run, c = R.chests.find((o) => o.boss), b = R.en.find((e) => D.BOSSES[e.type]); if (!b || !c) return null;
+      R.en = [b]; b.hp = 0; b.deadT = S.t; Object.assign(R.hero, { x: c.x, y: c.y + 150, vx: 0, vy: 0, ifr: 1e9 }); snapCam(R);
+      const n0 = fstat(R).lootN; finishArena(S, R, b); return { S, R, c, b, ids: c.loot.map((it) => it.id), n0 }; };
+    const held = (R, id) => R.drops.filter((d) => d.item && d.item.id === id).length + R.hero.bag.filter((it) => it && it.id === id).length;
+    const chestEvs = (S) => S.ev.filter((e) => e.k === 'chest').length;
+    const opened = (tag, R, c, ids, n0, mini) => {
+      if (!c.open || c.auto !== undefined) out.push(`${tag}: not opened by itself (open ${c.open}, auto ${c.auto})`);
+      if (c.loot.length) out.push(`${tag}: ${c.loot.length} items left in the open chest`);
+      for (const id of ids) if (held(R, id) !== 1) out.push(`${tag}: item ${id} delivered ${held(R, id)} times`);
+      const u = R.drops.filter((d) => d.item && d.item.u && ids.includes(d.item.id)).length; if (u !== 1) out.push(`${tag}: the boss's unique dropped ${u} times`);
+      if (fstat(R).lootN !== n0 + ids.length) out.push(`${tag}: lootN ${fstat(R).lootN}, not ${n0 + ids.length}`);
+      if (R.drops.some((d) => d.kind === 'gold') !== mini) out.push(`${tag}: gold ${mini ? 'missing from' : 'in'} the chest`); };
+    let kinds = 0;
+    for (const f of [2, 8]) { const A = won(f); if (!A) { out.push(`boss chest auto ${f}: no boss or chest`); continue; } kinds++;
+      const { S, R, c, ids, n0 } = A, mini = !chapterEnd(R, A.b), tag = `boss chest auto ${f}`;
+      if (mini === (f === 8)) out.push(`${tag}: the floor is not the boss kind it was taken for`);
+      if (c.sealed || c.open || c.auto !== B.auto || ids.length !== (mini ? LOOT.mini.items : LOOT.boss).length) out.push(`${tag}: after the win sealed ${c.sealed}, open ${c.open}, auto ${c.auto}, ${ids.length} items`);
+      S.screen = 'inv'; play(S, pause * 2); if (c.open) out.push(`${tag}: opened behind a window`); S.screen = 'play';
+      play(S, Math.floor(pause / 2)); if (c.open) out.push(`${tag}: opened before its pause`);
+      const T = spawn(1, JSON.parse(JSON.stringify(persist(S)))); T.run = T.saved; T.saved = null; T.screen = 'play'; const R2 = T.run, c2 = R2.chests.find((o) => o.boss);
+      if (!c2 || c2.open || !(c2.auto > 0 && c2.auto < B.auto) || c2.loot.length !== ids.length) out.push(`${tag}: a save in the pause restores open ${c2 && c2.open}, auto ${c2 && c2.auto}`);
+      play(S, pause); play(T, pause); const e0 = chestEvs(T); play(S, pause); play(T, pause);
+      opened(tag, R, c, ids, n0, mini); if (c2) opened(`${tag} (loaded)`, R2, c2, ids, n0, mini); if (chestEvs(T) !== e0) out.push(`${tag}: opened twice`);
+      const M = won(f); play(M.S, 3); openChest(M.S, M.R, M.c); const d0 = M.R.drops.length; play(M.S, pause * 2);
+      if (!M.c.open || M.c.auto !== undefined || M.R.drops.length < d0 || M.R.drops.filter((d) => d.kind === 'item').length !== ids.length) out.push(`${tag}: a hand opening in the pause is opened again or loses loot`);
+      opened(`${tag} (by hand)`, M.R, M.c, M.ids, M.n0, mini);
+      const F = won(f), h = F.R.hero, far = F.R.map.rooms.map((r) => SIMX.standNear(F.R, (r.x + r.w / 2) * TILE, (r.y + r.h / 2) * TILE)).sort((p, q) => Math.hypot(q[0] - F.c.x, q[1] - F.c.y) - Math.hypot(p[0] - F.c.x, p[1] - F.c.y))[0];
+      [h.x, h.y] = far; snapCam(F.R); play(F.S, pause * 2); const w = SIMX.WIN(F.R), seen = F.c.x > F.R.cam[0] && F.c.x < F.R.cam[0] + w.W && F.c.y > F.R.cam[1] && F.c.y < F.R.cam[1] + w.H;
+      if (seen) out.push(`${tag}: no room far enough to hide the chest`); else if (F.c.open) out.push(`${tag}: opened out of the hero's sight`);
+      h.x = F.c.x; h.y = F.c.y + 150; snapCam(F.R); play(F.S, 2); opened(`${tag} (came back)`, F.R, F.c, F.ids, F.n0, mini); }
+    if (kinds < 2) out.push('boss chest auto: a mini-boss and a chapter boss not both found');
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); enterFloor(S, S.run, 1); S.screen = 'play'; noWelcome(S);
+      if (S.run.chests.some((c) => c.auto !== undefined)) out.push('boss chest auto: a plain chest waits to open by itself'); }
+    return out; }
   SIMX.checks.add('chestCheck', chestCheck, { slow: true });
+  SIMX.checks.add('bossChestAutoCheck', bossChestAutoCheck, { slow: true });
 })(typeof window !== 'undefined' ? window : globalThis);

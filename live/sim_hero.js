@@ -370,7 +370,7 @@
     if (R.events && R.events.length) SIMX.stepEvents(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
-    if (R.chests.length) SIMX.stepChestTraps(S, R);
+    if (R.chests.length) { SIMX.stepChestTraps(S, R); SIMX.stepBossChests(S, R); }
     SIMX.stepStatues(S, R); SIMX.stepLeaves(S, R);
     if (R.fires && R.fires.length) stepFires(S, R);
     // water puts the fire out

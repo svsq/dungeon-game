@@ -16,6 +16,7 @@ RIG = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read
 NECK, NECK_BACK = 77, 58                  # tools/gear.py NEW_LOOK archer: the cell head and beard above, kept as drawn
 CAP_R = 20                                # caps_2146 laid 16 px round sh; the rest catches its antialiased rim
 SLEEVE_TOP = 22                           # the mantle hangs this far below sh on the upper arm, the cream sleeve shows under it
+SLEEVE_WORLD = 30                         # (TASKS 2166) in the world a cell lower: olive 12 % of the figure against the ref's 21 %
 Q_SHIFT = (-9, 24)                        # 3 world cells down, one back: a dark cell of cape between fletching and head
 CAPPED = ('body', 'body_menu', 'body_nh')
 BODIES = CAPPED + ('body_hd', 'body_hd_nh')
@@ -42,24 +43,47 @@ def mantle(a, sel):
     out = a.copy(); out[m, :3] = rgb(nL, nA, nB)[m]; return out
 
 
-def lift(a, head_rows):
+# TASKS 2166 (chars_style_r2.md 4): lifted for the brazier the olive read L 58 and yellow in the world, the figure the floor's own tone
+# (dL -1). The world parts (gridded, tools/archer_2170.py) take WORLD instead: olive under the ref's L 43 and a step greener, leather a
+# step darker, so the figure sits under the floor as the warrior does; the cream sleeves stay the one light accent. The arch keeps LIFT:
+# under no brazier its olive already matched the small ref (L 37 against 43).
+LIFT = dict(oL=5, oa=-5, ob=3, eL=5)
+WORLD = dict(oL=-6, oa=-9, ob=3, eL=-4)
+
+
+def lift(a, head_rows, k=LIFT):
     L, A, B, cream, olive, leather = classes(a)
     keep = np.zeros(L.shape, bool); keep[:head_rows] = True
     lo = L.copy(); la, lb = A.copy(), B.copy()
     w = np.clip((L - 8) / 12, 0, 1)
     o = olive
-    lo[o] += 5 * w[o]; la[o] -= 5 * w[o]; lb[o] += 3 * w[o]
+    lo[o] += k['oL'] * w[o]; la[o] += k['oa'] * w[o]; lb[o] += k['ob'] * w[o]
     le = leather & ~keep
-    lo[le] += 5 * w[le]
+    lo[le] += k['eL'] * w[le]
     out = a.copy(); m = o | le; out[m, :3] = rgb(lo, la, lb)[m]; return out
 
 
-def quiver(a):
-    L, A, B = lab(a[..., :3].astype(float)); light = (a[..., 3] > 127) & (L > 62)
-    nL = np.where(light, 50 + (L - 62) * 0.45, L)
-    out = a.copy(); out[light, :3] = rgb(nL, A * 0.7, B * 0.7)[light]
+# (TASKS 2166, chars_style_r2.md 5) in the world the fletching still voted a cream lump at the nape: there it is a dull grey-olive
+Q_WORLD = (52, 36, 0.12, 0.3)   # from L, to L, slope, chroma kept
+
+
+def quiver(a, world=False):
+    L, A, B = lab(a[..., :3].astype(float)); lo, q0, qk, c = (52,) + Q_WORLD[1:] if world else (62, 50, 0.45, 0.7)
+    light = (a[..., 3] > 127) & (L > lo); nL = np.where(light, q0 + (L - lo) * qk, L)
+    out = a.copy(); out[light, :3] = rgb(nL, A * c, B * c)[light]
     dx, dy = Q_SHIFT; sh = np.zeros_like(out); H, W = out.shape[:2]
     sh[dy:, max(0, dx):W + min(0, dx)] = out[:H - dy, max(0, -dx):W - max(0, dx)]; return sh
+
+
+# (TASKS 2166, chars_assets_r2.md 4) under the hooded outfit's brown cloak the olive cape showed at the legs: archer__cape_hd is the
+# cape turned to that cloak's brown (archer__body_back_hd, as drawn: L 25, a 16, b 23), its own folds kept
+HD_CLOAK = (-4, 16.2, 22.7)
+
+
+def cape_hd(a):
+    L, A, B, cream, olive, leather = classes(a); op = a[..., 3] > 127
+    oa, ob = A[olive].mean(), B[olive].mean(); dL, ca, cb = HD_CLOAK; w = np.clip((L - 8) / 12, 0, 1)
+    out = a.copy(); out[op, :3] = rgb(L + dL * w, A + (ca - oa) * w, B + (cb - ob) * w)[op]; return out
 
 
 def main(out):
@@ -76,4 +100,18 @@ def main(out):
     write('archer__quiver', quiver(source('archer__quiver', STAMP)), STAMP, out); print('archer__quiver')
 
 
-main(sys.argv[1])
+def colour(n, world):
+    """part n (without the rig prefix) recoloured from its frozen original: the arch's tone or the world's"""
+    yy, xx = np.mgrid[:360, :RIG['w']]
+    caps = np.zeros(yy.shape, bool)
+    for s in 'LR': caps |= np.hypot(xx - RIG['sh' + s][0], yy - RIG['sh' + s][1]) < CAP_R
+    if n == 'quiver': return quiver(source('archer__quiver', STAMP), world)
+    if n == 'cape_hd': return cape_hd(colour('cape', world))
+    a = source('archer__' + n, STAMP)
+    if n in CAPPED: a = mantle(a, caps)
+    if n in ('uarmL', 'uarmR'): a = mantle(a, yy < RIG['sh' + n[-1]][1] + (SLEEVE_WORLD if world else SLEEVE_TOP))
+    return lift(a, NECK if n in BODIES else NECK_BACK if n in BACKS else 0, WORLD if world else LIFT)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1])

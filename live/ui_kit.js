@@ -84,6 +84,13 @@
     const bar = (lx, ly) => { const w = signLen(lx, odd[0], SIGN.min), h = signLen(ly, odd[1], SIGN.min); return { x: c[0] - w / 2, y: c[1] - h / 2, w, h }; };
     const a = size * SIGN.span, t = size * SIGN.stroke, r = [bar(a, t)]; if (plus) r.push(bar(t, a)); return r; };
   const SIGN_OF = { '+': true, '−': false };
+  // a hero's portrait in its frame (TASKS 2168): the art fills the frame's well at one margin m on every side, its crop fw of the art's
+  // width and as tall as the drawn rect's aspect asks from `top` down, so no place stretches it or leaves a band of the well under it
+  // (the saves page's sat 5 px under the frame's top and 11 over its foot, the slots' rows stretched it 8 %). portCheck holds them to it
+  const PORT = { art: 1, frames: { hud: { w: 112, h: 112, m: 2, fw: 0.84, top: 0.02 }, inv: { w: 242, h: 206, m: 6, fw: 0.92, top: 0 }, classes: { w: 236, h: 200, m: 8, fw: 0.92, top: 0 },
+    load: { w: 220, h: 190, m: 8, fw: 0.92, top: 0 }, row: { m: 6, fw: 0.78, top: 0 } } };
+  const portIn = (f, x, y, w = f.w, h = f.h) => { const iw = w - 2 * f.m, ih = h - 2 * f.m, fh = f.fw * ih / iw * PORT.art, u0 = (1 - f.fw) / 2;
+    return { x: x + f.m, y: y + f.m, w: iw, h: ih, src: [u0, f.top, 1 - u0, f.top + fh] }; };
   // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
   // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
   // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1861):
@@ -101,6 +108,6 @@
   // the skull door's wave counter (TASKS 2132): a plate at the top of the screen's middle, where a boss's ribbon stands in its fight;
   // its line keeps to w less pad each side at its size (trialWaveCheck)
   const WAVE = { y: 10, w: 260, h: 48, size: 28, pad: 22 };
-  UI.kit = { WAVE, wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, FONT, face, SIGN, SIGN_OF, signRects };
+  UI.kit = { WAVE, wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, FONT, face, SIGN, SIGN_OF, signRects, PORT, portIn };
   UI.share('kit', { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf });
 })(typeof window !== 'undefined' ? window : globalThis);

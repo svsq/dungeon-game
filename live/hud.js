@@ -43,6 +43,7 @@
   const lab = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: C.text, out: Object.values(INK).includes(o.col) ? '' : '#140c0c' }, o));
   // a class drawn on its own rig has its own portrait (TASKS 1114)
   const portraitOf = (h) => { const r = D.clsOf(h).look.rig; return r !== 'hero' && window.ASSETS['portrait_' + r] ? 'portrait_' + r : 'portrait'; };
+  const PF = D.UI.kit.PORT.frames, portrait = (tex, f, x, y, w, h) => { const P = D.UI.kit.portIn(f, x, y, w, h); L.sprite(tex, P.x, P.y, { w: P.w, h: P.h, src: P.src }); };
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
   let MMB = null, TRK = null, VW = null, KEYP = {};
@@ -449,7 +450,7 @@
     const h = R.hero, st = SIM.Q.stats(h, S.meta), GT = S.t, K = KIT, B = bp(S, R);
     // the portrait in its frame and the level on its plate; the experience runs along the bottom panel's foot (TASKS 1909)
     plate('hud_plate', HB.x, HB.y, HB.w, HB.h, { k: 0.35, pad: 0 });
-    L.solid(HB.x + 13, HB.y + 13, 110, 110, [0.05, 0.035, 0.03]); L.sprite(portraitOf(h), HB.x + 14, HB.y + 14, { w: 108, h: 108, src: [0.08, 0.02, 0.92, 0.86] }); edge(HB.x + 12, HB.y + 12, 112, 112, BRASS, 3); L.uiBox('portrait', HB.x + 12, HB.y + 12, 112, 112, 0);
+    const pf = PF.hud; L.solid(HB.x + 13, HB.y + 13, pf.w - 2, pf.h - 2, [0.05, 0.035, 0.03]); portrait(portraitOf(h), pf, HB.x + 12, HB.y + 12); edge(HB.x + 12, HB.y + 12, pf.w, pf.h, BRASS, 3); L.uiBox('portrait', HB.x + 12, HB.y + 12, pf.w, pf.h, 0);
     K.nine('btn', TLX, 14, 150, 52); K.ink('lvl', TXT('hud.hud', { lvl: h.lvl }), TLX + 75, 41, { size: 28, al: 0.5 }); L.uiBox('lvl_b', TLX + 16, 14, 118, 52, 0);
     if (h.pts > 0 || h.sp > 0) { const a = 0.6 + 0.4 * Math.sin(t * 5); L.rrect(HB.x + HB.w - 30, HB.y + 2, 28, 28, 14, [1, 0.75, 0.2], [0.8, 0.45, 0.1], a); L.uiBox('lvl_up_b', HB.x + HB.w - 32, HB.y, 32, 32, 0); KIT.sign('lvl_up', HB.x + HB.w - 16, HB.y + 16, 28, true, '#2a1606'); }
     // the stats on a parchment sheet under the portrait, ink on paper as on the ref
@@ -815,8 +816,9 @@
     // the name typed on the class screen heads the page (TASKS 1912); a nameless hero keeps the page's own title
     { const nm = (h.name || '').trim() || TXT('hud.inv'); KIT.banner('inv_t', cx, Lp.y + 16, Math.min(Lp.w - 80, Math.max(340, lw('inv_tm', nm, { size: 34 }) + 140)), nm, { h: 72, size: 34 }); }
     // portrait and level between the two columns of gear
-    L.solid(cx - 121, Lp.y + 106, 242, 206, [0.05, 0.035, 0.03]); L.sprite(portraitOf(h), cx - 115, Lp.y + 112, { w: 230, h: 194, src: [0.04, 0.0, 0.96, 0.77] }); edge(cx - 121, Lp.y + 106, 242, 206, BRASS, 3);
-    L.uiBox('inv_por', cx - 121, Lp.y + 106, 242, 206);
+    const pf = PF.inv, fx = cx - pf.w / 2, fy = Lp.y + 106;
+    L.solid(fx, fy, pf.w, pf.h, [0.05, 0.035, 0.03]); portrait(portraitOf(h), pf, fx, fy); edge(fx, fy, pf.w, pf.h, BRASS, 3);
+    L.uiBox('inv_por', fx, fy, pf.w, pf.h);
     KIT.light('inv_lv', TXT('hud.inv.5', { lvl: h.lvl }), cx, Lp.y + 340, { size: 30, al: 0.5 });
     KIT.bar('inv_xp', cx - 130, Lp.y + 362, 260, 22, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
     KIT.light('inv_xpn', TXT('hud.inv.6', { xp: h.xp, p2: D.xpNeed(h.lvl) }), cx, Lp.y + 404, { size: 19, al: 0.5, col: '#cdb89a' });
@@ -1146,9 +1148,9 @@
       const Cl = D.CLASSES[b.cls], on = cur === b.cls, hot = lit === b.id, red = hot || (on && !U.some((q) => q.cls && q.id === lit));
       KIT.nine('leather', b.x, b.y, b.w, b.h, hot ? { u: { grade: [1.1, 1.5, 0, 1.06] } } : {}); KIT.paper(b.x + 22, b.y + 22, b.w - 44, b.h - 44, { u: hot ? { grade: [1.08, 1.17, 0, 1.04] } : undefined });
       const ix = b.x + 34, iw = b.w - 68; L.uiBox('cl_card' + b.cls, ix, b.y + 30, iw, b.h - 50, 0);
-      KIT.nine('cell', b.x + (b.w - 236) / 2, b.y + 38, 236, 200);
+      KIT.nine('cell', b.x + (b.w - PF.classes.w) / 2, b.y + 38, PF.classes.w, PF.classes.h);
       const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
-      L.sprite(por, b.x + (b.w - 220) / 2, b.y + 46, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
+      portrait(por, PF.classes, b.x + (b.w - PF.classes.w) / 2, b.y + 38);
       if (on) KIT.seal(b.x + b.w - 52, b.y + 52, 1.1);
       KIT.ink('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 268, { size: 44, al: 0.5, col: red ? KIT.INK.r : KIT.INK.t, bold: true });
       KIT.rule(ix + 30, b.y + 296, iw - 60, 0.7);
@@ -1277,7 +1279,7 @@
       L.uiBox('ld_r' + r.i, r.x + 24, r.y + 8, r.w - 48, r.h - 16, 0);
       const cx = r.x + 40, cs = r.h - 26; KIT.nine('cell', cx, r.y + 13, cs, cs);
       if (!R) { KIT.ink('ld_e' + r.i, TXT('hud.load.empty'), cx + cs + 24, r.y + r.h / 2, { size: 28, col: KIT.INK.off }); continue; }
-      L.sprite(portraitOf(R.hero), cx + 6, r.y + 19, { w: cs - 12, h: (cs - 12), src: [0.1, 0.0, 0.9, 0.74] });
+      portrait(portraitOf(R.hero), PF.row, cx, r.y + 13, cs, cs);
       const nx = cx + cs + 20, rr = r.x + r.w - 54, lv = TXT('hud.load.lvl', { n: R.hero.lvl }), wh = whereOf(R), dt = stamp(R.at), tm = hrs(R.play);
       KIT.ink('ld_n' + r.i, D.heroName(R.hero), nx, r.y + 30, { size: 30, fit: rr - nx - 110, col: red ? KIT.INK.r : KIT.INK.t, bold: true });
       KIT.ink('ld_l' + r.i, lv, rr, r.y + 32, { size: 24, al: 1 });
@@ -1285,7 +1287,7 @@
       KIT.ink('ld_d' + r.i, dt, nx, r.y + 83, { size: 20, col: KIT.INK.d });
       KIT.ink('ld_p' + r.i, tm, rr, r.y + 83, { size: 20, fit: (rr - nx) / 2 - 10, al: 1, col: KIT.INK.d }); }
     const R = SIM.Q.slotRun(S, sel), px = B.R.x, pw = B.R.w, mx = px + pw / 2;
-    if (R) { const Cl = D.clsOf(R.hero); KIT.nine('cell', mx - 110, U.B.y + 120, 220, 190); L.sprite(portraitOf(R.hero), mx - 100, U.B.y + 128, { w: 200, h: 200 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
+    if (R) { const Cl = D.clsOf(R.hero); KIT.nine('cell', mx - PF.load.w / 2, U.B.y + 120, PF.load.w, PF.load.h); portrait(portraitOf(R.hero), PF.load, mx - PF.load.w / 2, U.B.y + 120);
       KIT.ink('ld_dn', D.heroName(R.hero), mx, U.B.y + 346, { size: 44, fit: pw - 60, al: 0.5, col: KIT.INK.r, bold: true }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
       // a test's place is its test and floor (TASKS 2003): with the floor's own name after them the row ran out of room
       const lines = [[TXT('hud.load.d.cls'), Cl.name], [TXT('hud.load.d.lvl'), String(R.hero.lvl)], [TXT('hud.load.d.where'), R.test ? whereOf(R) : D.placeName(R.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map)], [TXT('hud.load.d.diff'), (D.DIFF[R.diff] || D.DIFF.normal).name],
@@ -1465,7 +1467,8 @@
         if (on && b.q.icon) icon(b.q.icon, b.x + 5, b.y + 5, cs - 10);
         if (on && mon) { const [sw, sh] = SZ(mon), f = (cs - 12) / Math.max(sw, sh); L.sprite(mon, b.x + cs / 2 - sw * f / 2, b.y + cs / 2 - sh * f / 2, { w: sw * f, h: sh * f }); } }
       KIT.ink('cx_n' + b.q.k, on ? b.q.name : TXT('hud.codex.unknown'), x, b.y + b.h / 2, { size: 24, fit: b.w - (x - b.x) - 8, col: on ? I.t : I.off });
-      L.solid(x, b.y + b.h - 2, b.w - (x - b.x) - 12, 2, [0.42, 0.27, 0.15], 0, 0, 0, 0.25); }
+      // a rule parts two entries of a column; under a column's last it was one more line over the page's foot (TASKS 2168)
+      if (U.r.some((o) => o.q && o.x === b.x && o.y > b.y)) L.solid(x, b.y + b.h - 2, b.w - (x - b.x) - 12, 2, [0.42, 0.27, 0.15], 0, 0, 0, 0.25); }
     for (const b of U.r) if (!b.q && !b.tab) KIT.button('cx_b' + b.id, b, stN(S, b.id, b.on));
   }
   // the Altar of souls (TASKS 1722), look B: a manuscript page, each upgrade or discovery a parchment strip, its ranks red diamonds

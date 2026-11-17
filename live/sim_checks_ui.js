@@ -789,6 +789,16 @@
         if (![q.x, q.y, q.w, q.h].every(whole) || Math.min(q.w, q.h) < K.SIGN.min) { out.push(`sign: a bar on a ${s} px button is ${q.x},${q.y} ${q.w}×${q.h}, not on whole px or under ${K.SIGN.min} px thick`); return; } } }
     const sp = UI.split().r; for (const [id, plus] of [['spPlus', true], ['spMinus', false]]) { const b = sp.find((q) => q.id === id);
       if (!b || K.SIGN_OF[b.label] !== plus) out.push(`sign: the split window's ${id} label is not drawn as the ${plus ? '«+»' : '«−»'} sign`); } }
+  // TASKS 2168: every hero portrait's frame leaves the same well on all four sides (to 2 px) and its crop keeps the art's aspect (to 1 %)
+  // inside the art, so none sits high in its frame or comes out stretched
+  function checkPort(out) { const K = UI.kit; if (!K.portIn || !K.PORT) { out.push('port: no shared portrait layout (UI.kit.portIn)'); return; }
+    for (const [name, f] of Object.entries(K.PORT.frames)) for (const s of f.w ? [[f.w, f.h]] : [60, 81, 96, 120].map((v) => [v, v])) {
+      const [w, h] = s, x = 13, y = 7, P = K.portIn(f, x, y, w, h), m = [P.x - x, P.y - y, x + w - P.x - P.w, y + h - P.y - P.h];
+      if (Math.max(...m) - Math.min(...m) > 2) out.push(`port: the ${name} portrait (${w}×${h}) leaves ${m.join('/')} px of well left/top/right/bottom`);
+      const [u0, v0, u1, v1] = P.src, k = ((u1 - u0) / (v1 - v0)) * K.PORT.art / (P.w / P.h);
+      if (Math.abs(k - 1) > 0.01) out.push(`port: the ${name} portrait (${w}×${h}) is stretched ×${k.toFixed(3)}`);
+      if (Math.min(u0, v0) < 0 || Math.max(u1, v1) > 1) out.push(`port: the ${name} portrait's crop ${P.src.map((v) => v.toFixed(3)).join(',')} runs off the art`); } }
+  SIMX.checks.add('portCheck', checkPort);
   SIMX.checks.add('signCheck', checkSign);
   SIMX.checks.add('menuCheck', menuCheck);
   SIMX.checks.add('uiCheck', checkReview57);

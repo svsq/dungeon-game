@@ -378,6 +378,9 @@
   // the blast, time to step or dash away; r: the blast's reach; hp: share of max health, never the killing blow
   const CHEST_TRAP = { from: 2, p: 0.1, max: 2, fuse: 0.55, r: 96, hp: 0.2 };
   const MIMIC = { from: 3, p: 0.08 };
+  // a boss's chest opens by itself after the win (TASKS 2169): auto: play seconds after its seal falls, long enough to see it fall;
+  // edge: how far inside the camera's window the chest must be, so it never opens where the hero cannot see it
+  const BOSS_CHEST = { auto: 1.2, edge: 48 };
   // a statue that slides aside off a secret (TASKS 1354): p: chance a top-wall secret takes this cover where the statue fits
   // planned: the same chance in a room dressed to a matching plan, plans: those rooms (TASKS 1355); hostP: chance a room hosting a secret takes one of the plans
   // slide: seconds the stone takes to grind aside; the cell it leaves stays blocked until it is gone
@@ -389,5 +392,5 @@
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2, rest: 'wreck_cv_broken' };
   for (const b of Object.values(BIOMES)) b.flick = b.flick || FLICK.deep;
-  Object.assign(D, { FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  Object.assign(D, { FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BOSS_CHEST, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

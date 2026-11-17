@@ -6,29 +6,35 @@
     D, L, M, SC, SS } = SCX;
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
   // (TASKS 2146) the bows at the new archer's scale: the short bow shoulder to knee as on his reference, it stood head to foot at 48
-  const WEAPON = { sword: ['it_sword', 42], longsword: ['it_longsword', 46], axe: ['it_axe', 44], hammer: ['it_hammer', 44], staff: ['it_staff', 42], wand: ['it_wand', 40], shortbow: ['it_bow_s', 32], longbow: ['it_bow_l', 28], crossbow: ['it_crossbow', 46], fist: null };
+  const WEAPON = { sword: ['it_sword', 42], longsword: ['it_longsword', 46], axe: ['it_axe', 44], hammer: ['it_hammer', 44], staff: ['it_staff', 56], wand: ['it_wand', 26], shortbow: ['it_bow_s', 34], longbow: ['it_bow_l', 28], crossbow: ['it_crossbow', 46], fist: null };
+  // (TASKS 2165) the wand a short rod about half his height, the staff taller than him; the arch draws <held>_menu (fine), on its own finer cell
   // (TASKS 2153) the hand holds its own picture of a weapon, <icon>_held (a bow's _h), in the new look on the body's cell; the bag keeps the
   // icon. HELD_HULL: the held art's outline cut to eight corners, in canvas fractions (tools/weapons_2153.py hull), for the rest below
-  const HELD_HULL = { it_sword_held: [[0.028, 0.842], [0.165, 0.543], [0.821, 0.072], [0.967, 0.014], [0.925, 0.231], [0.524, 0.787], [0.165, 0.973], [0.028, 0.923]],
+  const HELD_HULL = { it_sword_held: [[0.028, 0.873], [0.165, 0.602], [0.208, 0.557], [0.925, 0.027], [0.958, 0.113], [0.448, 0.787], [0.132, 0.973], [0.028, 0.923]],
     it_longsword_held: [[0.012, 0.883], [0.218, 0.5], [0.905, 0.0], [0.967, 0.012], [1.0, 0.078], [0.539, 0.77], [0.136, 0.988], [0.086, 0.988]],
     it_axe_held: [[0.016, 0.874], [0.356, 0.207], [0.443, 0.096], [0.696, 0.027], [0.957, 0.31], [0.957, 0.429], [0.83, 0.613], [0.13, 0.973]],
     it_hammer_held: [[0.028, 0.856], [0.442, 0.156], [0.614, 0.0], [0.787, 0.088], [1.0, 0.332], [0.984, 0.444], [0.827, 0.6], [0.145, 0.984]] };
   // at ease a blade or a head hangs along the leg, but no lower than this above the soles (TASKS 2153: in the arch the long sword reached 38 px under them)
-  const SOLE_CLEAR = 2;
+  const SOLE_CLEAR = 2, BLADE_BACK = 0.3, ROBE_BACK = 0.12;
   const NOCKS = { it_bow_s: [[0.894, 0.174], [0.255, 0.863]], it_bow_l: [[0.937, 0.072], [0.096, 0.941]] };
   // the wrapped grip on the stave, where the fist holds it (TASKS 2145: held by the middle of its picture the fist closed on air by the string)
-  const BOW_GRIP = { it_bow_s: [0.36, 0.46], it_bow_l: [0.37, 0.51] };
+  const BOW_GRIP = { it_bow_s: [0.32, 0.48], it_bow_l: [0.37, 0.51] };
   // (TASKS 2142) a staff is a walking staff at rest: upright by the near leg, its foot by the floor, gripped a third of the way up;
   // raised to shoot it slides to its old low grip, so the crystal reaches out as before. foot and head: the shaft's ends in texture
   // fractions; drawn along its own painted axis, so it leans the same way facing either side
   // (TASKS 2146) 42 px: at 50 its crystal stood bigger than the head in the arch; gripped lower on the shorter shaft so its foot still
   // reaches the floor, and held near plumb (it leaned 20° forward with the arm's turn)
-  const POLE = { it_staff: { foot: [0.074, 0.973], head: [0.96, 0.054], grip: [0.42, 0.18], rest: -1.53, lean: 0.1, hand: [0.22, 0.95] } };
+  // (TASKS 2164) 56 px with a small head: the crystal stands over the head as on the mage's ref; gripped a third up, its foot stays on the floor
+  // (TASKS 2164) the mage's hand hangs 0.14 H higher on the shorter arm: gripped nearer the middle, the foot stays on the floor
+  const POLE = { it_staff: { foot: [0.074, 0.973], head: [0.96, 0.054], grip: [0.47, 0.25], rest: -1.53, lean: 0.1, hand: [0.22, 0.95] } };
   // (TASKS 2145) a bow at rest is held out a little from the hip and stands near upright, its lower tip by the near foot: at the hip's
   // height and canted 33° the lower limb crossed both legs to the floor. hand: the near hand's rest in arm lengths from its shoulder
   const BOW_REST = { ba: -1.8, hand: [0.22, 0.95] }, BOW_MEET = 0.4;
-  // the mage's orb on his staff's head (TASKS 2142), in the claws the crystal sat in; on the far forearm it hid behind the cloak
-  const ORB_ON_POLE = { h: 15, neck: 0.78 }, POLE_SWING = 0.15;
+  // the staff's arm barely swings on the run (TASKS 2156)
+  const POLE_SWING = 0.15;
+  // (TASKS 2165, 2170) the orb rests on the far palm whatever the other hand holds, as on mage_a_v4: the forearm bent forward at the
+  // waist, palm up; hand: its reach from the shoulder in arm lengths, swing: how much of the run's arm swing it keeps
+  const ORB_HOLD = { hand: [0.42, 0.74], swing: 0.15 };
   // (TASKS 2156) the fireball's staff held overhead: its rig angle (up, a little forward) and the hand's reach along it in arm lengths
   const FB_RAISE = { a: -1.35, reach: 0.62 };
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
@@ -44,8 +50,9 @@
     // (the archer starts in leather: it is his jacket as drawn, so his own look is the first seen, TASKS 1124 critic)
     archer: { armor: { leather_armor: '', cloak: 'hd' }, gloves: {}, boots: {}, helm: { leather_helm: 'le' } } };
   // (TASKS 2146) the orb in the world is the mage's approved small orb (art/char_refs/mage_orb_small_r4.png), not the bag icon on its stand
-  const SHIELD = { shield: ['it_shield', 30], buckler: ['it_buckler', 22], tower_shield: ['it_shield_t', 44], orb: ['orb_held', 18] };
-  const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', shin: 'boots', foot: 'boots' };
+  // (TASKS 2170) 18 → 14 px: about the head's width, as on the refs; on the palm at 18 it covered the chest
+  const SHIELD = { shield: ['it_shield', 30], buckler: ['it_buckler', 22], tower_shield: ['it_shield_t', 44], orb: ['orb_held', 14] }, SHIELD_AT = 0.8;
+  const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', fist: 'gloves', shin: 'boots', foot: 'boots' };
   function gearOf(h) {
     const pn = D.clsOf(h).look.rig + '__', eq = h.eq || {}, b = (k) => (eq[k] ? eq[k].b : ''), tex = (n, sfx) => (sfx && window.ASSETS[pn + n + '_' + sfx] ? pn + n + '_' + sfx : pn + n);
     const GE = GEARS[D.clsOf(h).look.rig] || GEAR, sfx = { armor: GE.armor[b('armor')] ?? '', gloves: GE.gloves[b('gloves')] ?? '', boots: GE.boots[b('boots')] ?? '' };
@@ -55,7 +62,8 @@
     const part = (n) => { const slot = SLOT_OF[n.slice(0, -1)]; return { tex: tex(n, sfx[slot]), tint: rar(slot) }; };
     const nh = helm ? '_nh' : '', body = (v) => (window.ASSETS[pn + v + (sfx.armor ? '_' + sfx.armor : '') + nh] ? pn + v + (sfx.armor ? '_' + sfx.armor : '') + nh : pn + v);
     const sh = SHIELD[b('offhand')];
-    return { part, body: body('body'), back: body('body_back'), helm: helm || null, helmTint: rar('helm'), shield: sh, shieldTint: rar('offhand') };
+    // (TASKS 2166) an outfit may bring its own hanging cape: under the archer's brown hooded cloak the olive one showed at the legs
+    return { part, body: body('body'), back: body('body_back'), cape: tex('cape', sfx.armor), helm: helm || null, helmTint: rar('helm'), shield: sh, shieldTint: rar('offhand') };
   }
   SC.gearOf = gearOf;
   function heroPose(h, GT, st) {
@@ -112,7 +120,11 @@
   // near straight (the refs 0–8°): the breath's hip bob of 1.4 world px and the weight's 10 rig px slide over one foot folded the knees
   // 28–40° at their low, the hip level over a slanted and an upright leg (shift, rig px; breath, world px); reach: the hip's drop as a
   // share of the leg, the run's 0.955 eased toward straight at a stop
-  const ARM_BEND = -0.06, STANCE = { half: 14, frontFoot: 0.62, depth: 9, reach: 1, sink: 0, breath: 0.2, shift: 4 };
+  // (TASKS 2164) the near foot is in 3/4 at ease too (nearFoot; full length it stood in profile, 0.155–0.175 H heel to toe against the
+  // refs' 0.12–0.13); the warrior stands narrower, as on his sheet (halfBy; 0.187 H between the ankles against 0.145); at ease the
+  // cape-side knee gives outward and the near one stands straight, as on the refs (fold: a share of the run's forward sideways bend; bent
+  // forward like a stride's, the cape-side shin leaned 14–17° toward the cape against the refs' 2–4°)
+  const ARM_BEND = -0.06, STANCE = { half: 14, halfBy: { hero: 8.5 }, frontFoot: 0.62, nearFoot: 0.78, fold: { L: -0.4, R: 0 }, depth: 9, reach: 1, sink: 0, breath: 0.2, shift: 4 };
   const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1, headLift: 1 };
   // the slash crescent's half-span about the aim, and where its brightness centroid sits along it (the ARC shader's taper and tail fade)
   const ARC_HALF = 1.35, ARC_MID = 0.52;
@@ -145,8 +157,11 @@
     const melee = swinging && !(D.clsOf(h).shoots || []).includes(st.wtype), fT = h.faceT ?? -9, inAct = [h.atkT, h.castT].some((t0) => fT - t0 > -0.05 && fT - t0 < SWING.end);
     const turnT = GT - fT, turnD = TURN_T, turning = !o.menu && h.deadT < 0 && !melee && turnT >= -0.05 && turnT < turnD, turnK = turning ? SS(0, 0.04, turnT) * (1 - SS(turnD - 0.04, turnD, turnT)) : 0;
     const face = turning && turnT < turnD / 2 ? -h.face : h.face, fX = face;
-    const tIn = turnD / 2 - TUCK_HOLD, tOut = turnD / 2 + TUCK_HOLD, tRel = inAct ? TUCK_REL : tIn, tuck = !o.menu && h.deadT < 0 && !melee && whirlE === 0 && turnT >= 0 && turnT < tOut + tRel
+    const tIn = turnD / 2 - TUCK_HOLD, tOut = turnD / 2 + TUCK_HOLD, tRel = inAct || whirlE > 0 ? TUCK_REL : tIn, tuckL = !o.menu && h.deadT < 0 && !melee && turnT >= 0 && turnT < tOut + tRel
       ? (turnT < tIn ? 1 - Math.cos(Math.PI / 2 * turnT / tIn) : turnT < tOut ? 1 : 1 - Math.sin(Math.PI / 2 * (turnT - tOut) / tRel)) : 0;
+    // (TASKS 2162) in a whirl the free hand and the shield come in as in any turn (posed in rig space they mirrored across the body, the
+    // hand 31 px a frame); the blade's hand keeps its sweep as far as the whirl has eased in, its ellipse centred on the axis at the mirror
+    const tuck = tuckL * (1 - whirlE);
     // the charge crouches through its 0.06 s before the rush, the cry draws breath before the shout (TASKS 1183); the leap is a hop, not a slide (TASKS 1160)
     const crouch = h.castK === 'charge' ? SS(0, 0.05, castT) * (1 - SS(0.05, 0.12, castT)) : 0, cryPrep = h.castK === 'cry' ? SS(0, 0.08, castT) * (1 - SS(0.1, 0.18, castT)) : 0;
     // (the hop leaves and meets the floor at rest, a little after the dash: a sine left and landed at full speed, the whole body
@@ -223,7 +238,7 @@
       // (TASKS 1802: the longer step tilts the leg in depth by 0.88 of its travel; at 1 the knee folded 29° a frame walking down)
       let off, lift = 0;
       if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2, e = SS(0.12, 0.95, w); off = -A + 2 * A * e; lift = Math.pow(Math.sin(Math.PI * w), 0.6) * (13 + 2 * Math.abs(pdx)) * run; }
-      tg[side] = { tx: A0[0] + off * pdx + (side === 'L' ? -STANCE.half : STANCE.half) * (1 - run * 0.6), ty: A0[1] - lift, lift, dz: 0.88 * (off * P.diry - 0.5 * A * Math.abs(P.diry)) };
+      tg[side] = { tx: A0[0] + off * pdx + (side === 'L' ? -1 : 1) * (STANCE.halfBy[cls] ?? STANCE.half) * (1 - run * 0.6), ty: A0[1] - lift, lift, dz: 0.88 * (off * P.diry - 0.5 * A * Math.abs(P.diry)) };
     }
     // the dash pose: the near leg reaches toward the dash, the far one trails with its knee bent (the gait does not run while dashing)
     if (dashE > 0) { tg.R.tx += 12 * dashE * dashF; tg.L.tx -= 16 * dashE * dashF; tg.L.ty -= 12 * dashE; tg.L.lift = Math.max(tg.L.lift, 12 * dashE); }
@@ -250,8 +265,9 @@
       const l1 = dist2(H0, K0), l2 = dist2(K0, A0); let dx = tx - Hp[0], dy = ty - Hp[1], d = Math.hypot(dx, dy);
       const dm = Math.min(d, l1 + l2 - 0.5); const base = Math.atan2(dy, dx), cosA = (l1 * l1 + dm * dm - l2 * l2) / (2 * l1 * dm);
       // seen from the front or back, most of the knee's fold points at the camera: a smaller sideways bend, a foreshortened shin
-      const fold = 1, alphaK = Math.acos(Math.max(-1, Math.min(1, cosA))), ka = base - alphaK * fold;
-      const K1 = [Hp[0] + Math.cos(ka) * l1, Hp[1] + Math.sin(ka) * l1], T1 = [K1[0] + Math.cos(Math.atan2(ty - K1[1], tx - K1[0])) * l2, K1[1] + Math.sin(Math.atan2(ty - K1[1], tx - K1[0])) * l2];
+      // (TASKS 2164) the stance's fold only while the knee is near straight: a crouch, a fall or a kneel keeps the full forward bend
+      const alphaK = Math.acos(Math.max(-1, Math.min(1, cosA))), fold = 1 + (STANCE.fold[side] - 1) * (1 - run) * (1 - SS(0.15, 0.35, alphaK)), ka = base - alphaK * fold;
+      const K1 = [Hp[0] + Math.cos(ka) * l1, Hp[1] + Math.sin(ka) * l1], sA = Math.atan2(ty - K1[1], tx - K1[0]), sL = Math.min(l2, Math.hypot(tx - K1[0], ty - K1[1])), T1 = [K1[0] + Math.cos(sA) * sL, K1[1] + Math.sin(sA) * sL];
       // a step toward or away from the camera tilts the leg in depth: it projects longer or shorter, the stance foot stays planted
       // in world space. The range is biased back (−1.5..+0.5 half-steps) since a leg projects at most ~1.12× its standing length.
       const f = (T1[1] - Hp[1] + tg[side].dz) / (T1[1] - Hp[1]), Y = (p) => [p[0], Hp[1] + (p[1] - Hp[1]) * f], K = Y(K1), T = Y(T1);
@@ -311,9 +327,10 @@
     // down onto it, the fireball the free hand drawn in to the chest, then thrown at the aim
     // (TASKS 2156) and the staff raised high over it the while, crystal up: kept low it read as the plain shot's forward thrust
     const mageG = shooter && !bowArm && castE > shootE ? h.castK : null, frostUp = mageG === 'frost' ? SS(0, 0.26, castT) * (1 - SS(0.28, 0.54, castT)) : 0, aimG = mageG === 'fireball' && pole ? FB_RAISE.a : aimS - 1.1 * frostUp, fbOpen = mageG === 'fireball' ? SS(0.14, 0.28, castT) : 1;
-    const orbInPalm = !!(GR.shield && GR.shield[0] === SHIELD.orb[0] && !pole);
+    const orbInPalm = !!(GR.shield && GR.shield[0] === SHIELD.orb[0]);
+    if (orbInPalm) reach(arms.L, ORB_HOLD.hand[0] * armLen(arms.L), ORB_HOLD.hand[1] * armLen(arms.L), 1 - ORB_HOLD.swing * run);
     if (whirlE > 0 && swingK === 0) {   // the ellipse is centred behind the shoulder, toward the body's axis, inside the arm's reach
-      const l = armLen(arms.R), wx = Math.cos(whirlTh) * face, tx = -0.3 * l + 0.4 * l * wx, ty = 0.6 * l + 0.25 * l * Math.sin(whirlTh);
+      const l = armLen(arms.R), wx = Math.cos(whirlTh) * face, c0 = -0.3 * l, cx = c0 + (gx - hipDx - arms.R.Sp[0] - c0) * tuckL, tx = cx + 0.4 * l * wx, ty = 0.6 * l + 0.25 * l * Math.sin(whirlTh);
       armR = arms.R; reach(arms.R, tx, ty, whirlE);
       pose(arms.L, 0.8, -0.5, whirlE);
     } else if (chargeE > 0 || cryE > 0 || cryPrep > 0) {
@@ -331,7 +348,7 @@
       // (aimed high the shouldered hand reaches as far as a bow's: tucked closer the elbow flipped over on the lowering)
       const rl = xbow ? 0.52 + 0.2 * Math.max(0, -Math.sin(aimS)) : mageG === 'fireball' ? (pole ? FB_RAISE.reach : 0.42) : 0.72, tx = 0.15 * l + Math.cos(aimG) * (rl * l - kick), ty = Math.sin(aimG) * (rl * l - kick) - 0.12 * l;
       // (TASKS 2146) casting with the orb in the free palm, the orb hand is raised high toward the aim and the wand arm braced low before him
-      const orbCast = mageG && orbInPalm;
+      const orbCast = mageG && orbInPalm && !pole;
       if (orbCast) reach(arms.R, 0.15 * l + Math.cos(aimS) * 0.45 * l, Math.sin(aimS) * 0.45 * l + 0.2 * l, pe); else reach(arms.R, tx, ty, mageG === 'fireball' && !pole ? 0.35 * pe : pe);
       // a bow is drawn (TASKS 1125 critic): the far hand takes the string at the stave and pulls it back along the aim through the
       // wind-up, lets it snap home on the loose
@@ -365,7 +382,10 @@
     const wave = (1 - run) * (0.06 * Math.sin(GT * 1.1 + 0.4) + 0.035 * Math.sin(GT * 1.9));
     const capeA = Math.max(-0.04, wave + run * (0.12 + 0.12 * fwd + 0.08 * Math.sin(2 * P.p)) + 0.35 * dashE * (dashF > 0 ? 1 : 0) + 0.12 * (ring(atkT - 0.08, 2.2, 5) + (shooter ? ring(GT - h.patkT - 0.08, 2.2, 5) : 0))
       + 0.25 * ring(GT - (h.faceT ?? -9), 1.6, 4) + 0.15 * hurtE + 0.25 * buckle);
-    const capeB = wave + run * (0.1 * P.dirx + 0.05 * Math.sin(P.p)) + 0.08 * (ring(atkT - 0.08, 2.2, 5) + (shooter ? ring(GT - h.patkT - 0.08, 2.2, 5) : 0)) + 0.1 * ring(GT - (h.backT ?? -9) - 0.05, 1.6, 4);
+    // (TASKS 2162) a robe's back is one painted piece: on the run its hem swings with the stride, look.robe of ROBE_BACK rad more than
+    // a cape's (the cape's 0.05 rad, about 2 px at the hem, read as a still back with the legs walking under it)
+    const robeSw = (LK.robe || 0) * ROBE_BACK * run * Math.sin(P.p);
+    const capeB = wave + run * (0.1 * P.dirx + 0.05 * Math.sin(P.p)) + robeSw + 0.08 * (ring(atkT - 0.08, 2.2, 5) + (shooter ? ring(GT - h.patkT - 0.08, 2.2, 5) : 0)) + 0.1 * ring(GT - (h.backT ?? -9) - 0.05, 1.6, 4);
     // (a shooter fires again inside the ring: the last shot's ring rings on, or the hair snapped back, TASKS 1125)
     const hairA = 1.5 * wave - run * (0.1 + 0.08 * fwd - 0.08 * Math.sin(2 * P.p + 0.8)) - 0.2 * dashE + 0.15 * (ring(atkT - 0.05, 3, 6) + (shooter ? ring(GT - h.patkT - 0.05, 3, 6) : 0)) + 0.12 * hurtE;
     const soft = (n, ...a) => window.ASSETS[n + '_w'] ? Object.assign({ wtex: G.tex(n + '_w'), wsz: [RG.w, RG.h] }, ...a.map((v, b) => ({ ['bone' + b]: [RIGS[n].bones[b][0] / RG.w, RIGS[n].bones[b][1] / RG.h, v, 1] }))) : {};
@@ -379,27 +399,35 @@
     if (bowArm && !xbow && bowHand > 0 && bowHand < 1) { const PR = armJ(arms.R).Hd, PL = armJ(arms.L).Hd, m = SS(0, BOW_MEET, bowHand) * (1 - SS(1 - BOW_MEET, 1, bowHand));
       const G0 = [PR[0] + (PL[0] - PR[0]) * bowHand, PR[1] + (PL[1] - PR[1]) * bowHand], SL = arms.L.Sp, gL = Math.min(1, 0.97 * armLen(arms.L) / dist2(G0, SL)), G = [SL[0] + (G0[0] - SL[0]) * gL, SL[1] + (G0[1] - SL[1]) * gL];   // within the far arm's reach
       for (const A of [arms.L, arms.R]) { const P = armJ(A).Hd; reach(A, P[0] + (G[0] - P[0]) * m - A.Sp[0], P[1] + (G[1] - P[1]) * m - A.Sp[1], SS(0, 0.3, m)); } }
-    if (tuck > 0) for (const A of [arms.L, arms.R]) { const Hd = armJ(A).Hd; reach(A, Hd[0] + (gx - hipDx - Hd[0]) * tuck - A.Sp[0], Hd[1] - A.Sp[1], SS(0, 0.3, tuck)); }
+    for (const [A, k] of [[arms.L, tuckL], [arms.R, tuck]]) if (k > 0) { const Hd = armJ(A).Hd; reach(A, Hd[0] + (gx - hipDx - Hd[0]) * k - A.Sp[0], Hd[1] - A.Sp[1], SS(0, 0.3, k)); }
     const jL = armJ(arms.L), jR = armJ(arms.R);
     // ---- draw: far arm → far leg → near leg → body → near arm + weapon (weapon behind the body when it points away) ----
     // (TASKS 2146) a robe to the ankles (look.robe): its thighs are the skirt's two halves, swung after the legs by that share of the
     // thigh's turn and drawn over the shins, so the boots step out under a hem that parts at the front instead of a sack sliding on
     const robe = LK.robe || 0;
-    const footK = (side) => (1 - (1 - BACK_VIEW.footFs) * backV) * (side === 'L' ? 1 - (1 - STANCE.frontFoot) * (1 - run) * (1 - backV) : 1);
+    const footK = (side) => (1 - (1 - BACK_VIEW.footFs) * backV) * (1 - (1 - (side === 'L' ? STANCE.frontFoot : STANCE.nearFoot)) * (1 - run) * (1 - backV));
     const drawLeg = (side, u) => { const g = legs[side], thigh = () => part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), robe ? robe * g.r1 : g.r1, u, robe ? 1 : g.k1);
       if (!robe) thigh();
       part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02 + heel[side], u, 1, 0, footK(side));
       if (robe) thigh(); };
-    const drawArm = (side, u0) => { const A = arms[side], J = side === 'L' ? jL : jR, u = shade(u0, 1, BACK_VIEW.armShade);
-      part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR); part('farm' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
+    // bits: u the upper arm, f the forearm, t the far hand's fingertips alone (over the orb in its palm)
+    const drawArm = (side, u0, bits = 'uf') => { const A = arms[side], J = side === 'L' ? jL : jR, u = shade(u0, 1, BACK_VIEW.armShade);
+      if (bits.includes('u')) part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR);
+      if (bits.includes('f')) part('farm' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR);
+      if (bits.includes('t') && window.ASSETS[pn + 'farm' + side + '_tips']) part('farm' + side + '_tips', A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
+    // (TASKS 2170) the archer's fists close over his bow and crossbow as the warrior's over his hilt: the near one at rest and on the
+    // string, the far one round the stave once the bow has passed to it on a shot
+    const fistOver = !!W && (!shooter || bowArm) && !!window.ASSETS[pn + 'fistR'];
+    const fistOne = (side, u0) => { const A = arms[side], J = side === 'L' ? jL : jR; if (window.ASSETS[pn + 'fist' + side]) part('fist' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, shade(u0, 1, BACK_VIEW.armShade), 1, bodyR); };
+    const drawFist = (u0) => { fistOne('R', u0); if (bowArm && !xbow && bowHand >= 0.5) fistOne('L', u0); };
     // the shield is strapped across the far forearm, its face to the camera; from behind its plain back shows (darker)
-    const orbOnPole = !!(GR.shield && GR.shield[0] === SHIELD.orb[0] && pole);
     // (TASKS 2153) in the arch's x3.2 the small world orb blurred into a blob: there it is the orb of the mage's reference
     const orbTex = (t) => (o.menu && window.ASSETS[t + '_menu'] ? t + '_menu' : t);
-    const shield = (u) => { if (!GR.shield || orbOnPole) return; const [tex, hh] = GR.shield, A = arms.L, E = R2U(jL.E[0], jL.E[1]), Hd = R2U(jL.Hd[0], jL.Hd[1]), ww = hh * G.tex(tex).w / G.tex(tex).h;
+    const shield = (u) => { if (!GR.shield) return; const [tex, hh] = GR.shield, A = arms.L, E = R2U(jL.E[0], jL.E[1]), Hd = R2U(jL.Hd[0], jL.Hd[1]), ww = hh * G.tex(tex).w / G.tex(tex).h;
       // (TASKS 2146) the orb is not strapped on: it rests in the open far palm, as on the mage's reference
-      if (tex === SHIELD.orb[0]) { L.sprite(orbTex(tex), 0, 0, { m: M.of(M.t(Hd[0] + fX * 2, Hd[1] - 0.42 * hh), M.r(fallR + bodyR)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: tinted(Object.assign({}, U, { alpha: u.alpha }), GR.shieldTint) }); L.joint(id, 'orb', [Hd[0] + fX * 2, Hd[1] - 0.42 * hh]); return; }
-      const sk = 0.55 + 0.45 * tuck, c = [E[0] + sk * (Hd[0] - E[0]) - fX * 4 * (1 - tuck), E[1] + sk * (Hd[1] - E[1])], back = backK > 0.5; L.joint(id, 'shield', c);
+      if (tex === SHIELD.orb[0]) { L.sprite(orbTex(tex), 0, 0, { m: M.of(M.t(Hd[0] + fX * 2, Hd[1] - 0.42 * hh), M.r(fallR + bodyR)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: tinted(Object.assign({}, U, { alpha: u.alpha }), GR.shieldTint) }); L.joint(id, 'orb', [Hd[0] + fX * 2, Hd[1] - 0.42 * hh]); drawArm('L', u, 't'); return; }
+      // (TASKS 2170) its middle near the fist that holds its grip: on the forearm's middle the buckler left the fist at its rim
+      const sk = SHIELD_AT + (1 - SHIELD_AT) * tuckL, c = [E[0] + sk * (Hd[0] - E[0]) - fX * 4 * (1 - tuckL), E[1] + sk * (Hd[1] - E[1])], back = backK > 0.5; L.joint(id, 'shield', c);
       L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
     const scroll = () => { const Hd = R2U(jL.Hd[0], jL.Hd[1]), w = 22, hh = w * 177 / 228;
       L.sprite('it_scroll', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(fallR + bodyR - 0.35 * fX), M.s(fX, 1)), w, h: hh, pivot: [w * 0.45, hh * 0.55], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.5, readE) }) }); };
@@ -418,7 +446,7 @@
       // the weapon answers a blow (TASKS 1153, 1160) and a bow's stave kicks at the loose; dead, a shooter's weapon falls and lies beside him
       if (shooter) sa += 0.2 * ring(GT - h.hurtT, 3.2, 9) + (bow ? 0.05 * ring(atkT - BT, 7, 12) : 0);
       const drop = du >= 0 ? SS(0.12, 0.42, du) : 0;   // (any weapon falls: the warrior's sword stood up out of his dead hand, TASKS 1803)
-      if (shooter) { if (!bow) Hd[0] += pole ? 0 : fX * 3 * (1 - pk0) * (1 - drop) * (1 - tuck); else Hd[1] -= 2 * (1 - pk0) * (1 - drop); }
+      if (shooter) { if (!bow) Hd[0] += pole || W[0] === 'it_wand' ? 0 : fX * 3 * (1 - pk0) * (1 - drop) * (1 - tuck); else Hd[1] -= 2 * (1 - pk0) * (1 - drop); }
       // (it arcs off the hand and bounces once; a bow lies clear of the legs and at an angle, along them it read as a third leg, critic r3)
       if (drop > 0) { sa += wrapPi((bow ? 0.45 : 0.1) - sa) * drop; fsD += (1 - fsD) * drop; Hd[0] += (root[0] + fX * (bow ? 60 : shooter ? 30 : fDir > 0 ? 70 : 34) - Hd[0]) * drop; Hd[1] += (hy - 3 - Hd[1]) * drop; Hd[1] -= 28 * drop * (1 - drop) + 6 * Math.sin(Math.PI * Math.max(0, Math.min(1, (du - 0.42) / 0.18))); }
       // (TASKS 2160) at ease the blade hangs near plumb along the leg, as on the warrior's ref; its point leans toward the camera, so it
@@ -429,13 +457,15 @@
         const low = (a) => { const c = Math.cos(a), sn = Math.sin(a); let y = -1e9;
           for (const [fx, fy] of hull) { const x0 = (fx - 0.22) * tw, y0 = (fy - 0.78) * th, u = (x0 - y0) * Math.SQRT1_2 * fsD, v = (x0 + y0) * Math.SQRT1_2; y = Math.max(y, Hd[1] + sn * u + c * v); }
           return y; };
-        if (low(sa) > hy - SOLE_CLEAR) { const to = wrapPi((Math.cos(sa) >= 0 ? 0 : Math.PI) - sa); let f0 = 0, f1 = 1;
+        // (TASKS 2162) it tips toward the facing unless it clearly points back: by the sign of cos(sa) the near-plumb blade from behind
+        // crossed over on the run's arm swing and flipped sides twice a stride, 30 px a frame
+        if (low(sa) > hy - SOLE_CLEAR) { const away = Math.cos(sa) * fX < -BLADE_BACK, to = wrapPi(((fX > 0) !== away ? 0 : Math.PI) - sa); let f0 = 0, f1 = 1;
           for (let i = 0; i < 10; i++) { const f = (f0 + f1) / 2; if (low(sa + to * f) > hy - SOLE_CLEAR) f0 = f; else f1 = f; }
           sa += to * f1; } }
       // the crossbow is painted from above: laid on the floor plane along its screen angle, it shortens aiming at or away from the
       // camera and shows its prod across the shot from every side; a bolt lies on it but for a moment after the loose
       if (xbow) { const th0 = Math.atan2(Math.sin(sa) / DEPTH_K, Math.cos(sa)), at = (fx) => { const lx = (fx - 0.3) * tw; return [Hd[0] + Math.cos(th0) * lx, Hd[1] + DEPTH_K * Math.sin(th0) * lx]; };
-        L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.s(1, DEPTH_K), M.r(th0)), w: tw, h: th, pivot: [tw * 0.3, th * 0.5], u: U });
+        L.sprite(fine(tex), 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.s(1, DEPTH_K), M.r(th0)), w: tw, h: th, pivot: [tw * 0.3, th * 0.5], u: U });
         if (drop === 0 && !(swinging && atkT >= BT && atkT < BT + 0.3)) { const [a0, a1] = [at(0.33), at(0.86)], bl = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]), ba3 = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]);
           L.solid(a0[0], a0[1], bl, 2.5, [0.16, 0.1, 0.06], ba3, 0, 1.25, alpha); L.solid(a0[0], a0[1], bl, 1.2, [0.92, 0.8, 0.58], ba3, 0, 0.6, alpha); L.solid(a1[0], a1[1], 4, 3, [0.8, 0.82, 0.86], ba3, 0, 1.5, alpha); }
         const tip = at(0.9); L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; return; }
@@ -445,11 +475,9 @@
       const gq = pole ? pole.grip[0] + (pole.grip[1] - pole.grip[0]) * Math.max(pk, drop) : 0, along = (q) => pole ? [(pole.foot[q] + (pole.head[q] - pole.foot[q]) * gq) * (q ? th : tw)] : [],
         axis = pole ? Math.atan2((pole.head[1] - pole.foot[1]) * th, (pole.head[0] - pole.foot[0]) * tw) + Math.PI / 4 : 0;
       const wm = M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, bow && fX > 0 ? -1 : 1), M.r(Math.PI / 4 - axis)), bg = bow ? BOW_GRIP[tex0] || [0.5, 0.5] : null, wpiv = bow ? [tw * bg[0], th * bg[1]] : pole ? [...along(0), ...along(1)] : [tw * 0.22, th * 0.78];
-      L.sprite(tex, 0, 0, { m: wm, w: tw, h: th, pivot: wpiv, u: U });
+      L.sprite(fine(tex), 0, 0, { m: wm, w: tw, h: th, pivot: wpiv, u: U });
       const onAxis = (q) => M.ap(wm, [(pole.foot[0] + (pole.head[0] - pole.foot[0]) * q) * tw - wpiv[0], (pole.foot[1] + (pole.head[1] - pole.foot[1]) * q) * th - wpiv[1]]), head = pole ? onAxis(1) : null;
-      if (pole && orbOnPole) { const [ot] = GR.shield, oh = ORB_ON_POLE.h, ow = oh * G.tex(ot).w / G.tex(ot).h, nk = onAxis(ORB_ON_POLE.neck);
-        L.sprite(orbTex(ot), 0, 0, { m: M.of(M.t(nk[0], nk[1]), M.r(sa + Math.PI / 2)), w: ow, h: oh, pivot: [ow / 2, oh * 0.88], u: tinted(U, GR.shieldTint) }); L.joint(id, 'orb', nk); }
-      if (!bow && !pole && drop === 0 && backK < 0.5 && guard >= 0.5) L.solid(Hd[0] - 3, Hd[1] - 1, 6, 2, D.clsOf(h).look.fist || [0.85, 0.62, 0.48], 0, 0, 0, alpha);
+      if (!bow && !pole && drop === 0 && backK < 0.5 && guard >= 0.5 && !fistOver) L.solid(Hd[0] - 3, Hd[1] - 1, 6, 2, D.clsOf(h).look.fist || [0.85, 0.62, 0.48], 0, 0, 0, alpha);
       if (bow && drop === 0 && (bowH || drawE > 0.05)) { const Hs = bowHand < 0.5 ? HdL : HdR, flip = fX > 0 ? -1 : 1, nock = ([fx, fy]) => { const lx = (fx - bg[0]) * tw, ly = (fy - bg[1]) * th, c = Math.SQRT1_2, ux = (lx - ly) * c * fsD, uy = (lx + ly) * c * flip; return [Hd[0] + ux * Math.cos(sa) - uy * Math.sin(sa), Hd[1] + ux * Math.sin(sa) + uy * Math.cos(sa)]; }, [n1, n2] = NOCKS[tex0] || [[0.9, 0.15], [0.2, 0.87]], e1 = nock(n1), e2 = nock(n2);
         // the string is always drawn (TASKS 1160): straight at rest, a wedge to the hand on the draw, a shiver for three frames at the loose
         const quiver = atkT > BT && atkT < BT + 0.05 ? 2 * Math.sin(atkT * 190) : 0, Mid = drawE > 0.05 && atkT <= BT ? Hs : [(e1[0] + e2[0]) / 2 - Math.sin(sa) * quiver, (e1[1] + e2[1]) / 2 + Math.cos(sa) * quiver];
@@ -464,7 +492,9 @@
         L.solid(Hs[0] + ca * AL, Hs[1] + sa2 * AL, 6, 4, [0.8, 0.82, 0.86], as, 0, 2, alpha); L.solid(Hs[0], Hs[1], 7, 4, [0.95, 0.9, 0.78], as, 0, 2, alpha); } }
       const tip = bow ? [Hd[0] + Math.cos(sa + Math.PI / 2 * fX) * 12, Hd[1] + Math.sin(sa + Math.PI / 2 * fX) * 12] : head || [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
       L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; };
-    const backK = Math.max(backK0, whirlE * SS(0.2, 0.75, -Math.sin(whirlTh)), twist && du >= 0 ? SS(0.04, 0.3, du) : 0);
+    // (TASKS 2162) the turn swaps the drawn views in one frame while the pose eases on turnK: cross-faded over 4 frames the front face
+    // showed through the back of the head, a double face at ×3
+    const backK = Math.max(turnK >= 0.5 ? 1 : 0, backF, whirlE * SS(0.2, 0.75, -Math.sin(whirlTh)), twist && du >= 0 ? SS(0.04, 0.3, du) : 0);
     const behind = whirlE > 0.5 ? Math.sin(whirlTh) < -0.1 : bladeA !== null ? Math.sin(face > 0 ? bladeA : Math.PI - bladeA) < -0.35 : backK > 0.5;
     L.joint(id + '_view', 'back', [backK, 0]);
     L.joint(id + '_view', 'face', [face, 0]);
@@ -473,14 +503,15 @@
       const bodyAt = { m: M.of(M.t(...hipS), M.r(fallR + bodyR), M.s(fX, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s] };
       // the cape hangs from the shoulders behind the body and both arms (TASKS 2142, 2144, 2145: laid over the far arm it hid that arm
       // whole, and the shield or orb on it, the warrior seemed one-armed)
-      const cape = () => { if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(fine(pn + 'cape'), 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt)); };
+      const cape = () => { if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(fine(GR.cape), 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt)); };
       cape();
       // (TASKS 2146) the archer's quiver is its own rigid layer over the cape and under the far arm: painted into the body or the
       // cape it bent with their soft bones; from behind it is painted on the back view
       if (backK < 1 && window.ASSETS[pn + 'quiver']) L.sprite(fine(pn + 'quiver'), 0, 0, Object.assign({ u: U }, bodyAt));
       // (TASKS 2146) the orb in the far palm is drawn after the body: under it the far arm's swing took it behind the torso on every stride
       const orbLate = orbInPalm && backK < 0.5;
-      if (!castFront) { drawArm('L', Ufar); if (!orbLate) shield(Ufar); }
+      // (TASKS 2170) the forearm holding the orb comes forward across the waist: over the body, under the orb
+      if (!castFront) { drawArm('L', Ufar, orbLate && !behind ? 'u' : 'uf'); if (!orbLate) shield(Ufar); }
       // (TASKS 2160) the cape hangs behind both legs, in the arch too: over the cape-side leg it cut that leg off at the knee
       drawLeg('L', Ufar);
       drawLeg('R', U);
@@ -499,9 +530,11 @@
       if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, shade(tinted(U, GR.helmTint), 1, BACK_VIEW.headLift), { alpha: alpha * backK }) }, bodyAt));
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); if (!orbLate) shield(backK > 0.5 ? Ufar : U); if (readE > 0.3) scroll(); }
       if (orbLate && behind) shield(castFront ? U : Ufar);
-      if (!behind) { if (grasp) { weapon(); drawArm('R', U); } else { drawArm('R', U); weapon(); } }
+      // (TASKS 2170) a rig with its near fist cut out (fistR) draws it again over the held weapon: the hilt or haft passes under the
+      // fingers and shows above and below the fist in every pose, where the whole arm over the weapon hid the pommel under the wrist
+      if (!behind) { if (fistOver) { drawArm('R', U); weapon(); drawFist(U); } else if (grasp) { weapon(); drawArm('R', U); } else { drawArm('R', U); weapon(); } }
       // (TASKS 2156) and after the near arm: on the run its forward swing passed over the orb for 3 frames of 12
-      if (orbLate && !behind) shield(castFront ? U : Ufar);
+      if (orbLate && !behind) { if (!castFront) drawArm('L', Ufar, 'f'); shield(castFront ? U : Ufar); }
     };
     all();
     // joint trace (animation.md §14)
