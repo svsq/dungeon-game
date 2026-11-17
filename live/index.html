@@ -7,12 +7,16 @@ canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-r
 canvas{cursor:crosshair}
 #dev{position:absolute;left:10px;bottom:8px;font:12px ui-monospace,Menlo,monospace;color:#fff;background:#0008;padding:5px 8px;border-radius:6px;opacity:.55;white-space:pre}
 #dev:hover{opacity:1}
-#boot{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b0806;color:#e8d3a8;font-family:Georgia,'Times New Roman',serif;z-index:5;user-select:none}
-#boot .t{font-size:clamp(28px,5vw,64px);letter-spacing:.04em;color:#f0d9a6;text-shadow:0 2px 0 #3a1a0c}
-#boot .s{font-size:clamp(14px,1.8vw,24px);margin-top:.3em;color:#b89a6e;font-style:italic}
+#boot{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b0806;color:#e8d3a8;font-family:Galmuri11,monospace;-webkit-font-smoothing:none;z-index:5;user-select:none}
+#boot.fade{transition:opacity .45s ease-out;opacity:0;pointer-events:none}
+#boot .t,#boot .s{visibility:hidden}
+#boot.font .t,#boot.font .s{visibility:visible}
+#boot .t{font-size:72px;font-weight:bold;color:#f0d9a6;text-shadow:0 4px 0 #3a1a0c}
+#boot .s{font-size:36px;margin-top:.3em;color:#b89a6e}
+@media (max-width:800px){#boot .t{font-size:48px}#boot .s{font-size:24px}}
 #boot .bar{width:min(420px,60vw);height:8px;margin-top:2.4em;background:#2a1a10;border:1px solid #5a3a22;border-radius:2px;overflow:hidden}
 #boot .bar i{display:block;height:100%;width:0;background:linear-gradient(#e0a24a,#a8601e)}
-#boot .n{margin-top:.8em;font-size:16px;color:#9c8462;font-variant-numeric:tabular-nums}
+#boot .n{margin-top:.8em;font-size:24px;color:#9c8462;font-variant-numeric:tabular-nums}
 #flash{position:absolute;right:12px;bottom:10px;font:600 13px -apple-system,sans-serif;color:#9f9;background:#000a;padding:4px 10px;border-radius:6px;opacity:0;transition:opacity .6s}
 </style>
 </head><body><canvas id="c"></canvas>
@@ -33,9 +37,12 @@ const bootLog = (s) => { console.info('[boot] ' + s); try { if (window.desktop &
 const mark = (k, more = '') => { const now = performance.now(); bootLog(`${k.padEnd(9)} ${(now - BOOT.t).toFixed(0).padStart(6)} ms  (at ${now.toFixed(0)} ms)${more ? '  ' + more : ''}`); BOOT.t = now; };
 // the start's screen stays for a floor whose programs are still compiling (TASKS 2106): shown again with their share on its bar
 const LOADING = BOOT.el;
-const bootEnd = () => { if (BOOT.el) { BOOT.el.style.display = 'none'; BOOT.el = null; } };
-const loadingShow = (f) => { if (BOOT.el) return; LOADING.style.display = ''; barTo(LOADING, f); };
-const loadingHide = () => { if (!BOOT.el && LOADING.style.display !== 'none') LOADING.style.display = 'none'; };
+// the screen fades out over the first frames (TASKS 2159: it went to the menu in one frame, brightness 9 → 67); a tool's render hides it at once
+const FADE_MS = 450;
+const fadeOut = (el, now) => { if (now) { el.style.display = 'none'; return; } el.classList.add('fade'); setTimeout(() => { if (el.classList.contains('fade')) el.style.display = 'none'; }, FADE_MS); };
+const bootEnd = (now) => { if (BOOT.el) { fadeOut(BOOT.el, now); BOOT.el = null; } };
+const loadingShow = (f) => { if (BOOT.el) return; LOADING.classList.remove('fade'); LOADING.style.display = ''; barTo(LOADING, f); };
+const loadingHide = () => { if (!BOOT.el && LOADING.style.display !== 'none' && !LOADING.classList.contains('fade')) fadeOut(LOADING); };
 // the scripts download side by side and still run in the list's order (async = false); one after another, each waited for its own
 // round trip into the desktop build's archive
 const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V; s.async = false; s.onload = () => { bootStep(); res(); }; s.onerror = () => rej(new Error('failed ' + src)); document.head.appendChild(s); });
@@ -45,8 +52,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // the bar's steps: a script, a texture each; the fonts, the shaders and the first frame 20, 40 and 20 (the textures' count is
   // known once assets.js has run: 900 till then)
   const steps = (nTex) => MODULES.page.length + 20 + nTex + 40 + 20;
+  // the game's pixel face first, so the loading screen's title is set in the menu's (TASKS 2159: it was a serif one till then)
+  await load('font_data.js');
+  const fonts = Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))))
+    .then(() => { if (BOOT.el) BOOT.el.classList.add('font'); LOADING.classList.add('font'); });
   await load('text_files.js'); await load('ui_files.js'); await load('modules.js'); BOOT.all = steps(900);
-  await Promise.all(MODULES.page.map(load)); BOOT.all = steps(Object.keys(ASSETS).length);
+  await Promise.all(MODULES.page.filter((f) => f !== 'font_data.js').map(load)); BOOT.all = steps(Object.keys(ASSETS).length);
   mark('scripts', `${MODULES.page.length} files`);
   const q = new URLSearchParams(location.search), render = q.has('render');
   // the view's height follows the window's aspect (TASKS 1861): the sim keeps the size, the page tells it the window's and lets the
@@ -56,7 +67,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const VW = SIM.VIEW.W, VH = SIM.VIEW.H;
   G.init(document.getElementById('c'), VW, VH, { keep: !STATIC || !!navigator.webdriver });
   { const g = G.gl, dbg = g.getExtension('WEBGL_debug_renderer_info'); mark('gl', `${dbg ? g.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)}  parallel shaders ${G.parallel() ? 'yes' : 'no'}`); }
-  await Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))));
+  await fonts;
   bootStep(20); mark('fonts');
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
   const px = Object.values(ASSETS).reduce((a, o) => a + o.w * o.h, 0);
@@ -68,7 +79,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   G.defer = true; SCENE.programs(); if (render) G.want(Object.keys(LIB.P)); mark('programs');
   const nSh = await G.settle(); bootStep(40); mark('shaders', `${nSh} programs, ${G.pending()} left for the background`);
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
-  if (render) { bootEnd(); window.__ready = true; return; }
+  if (render) { bootEnd(true); window.__ready = true; return; }
   window.__ready = true;
 
   const keys = {}, dev = document.getElementById('dev'), flash = document.getElementById('flash');

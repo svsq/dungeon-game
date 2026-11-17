@@ -106,7 +106,8 @@
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 404 + i * 88, w: 480, h: 72 }))
       .concat([done ? { id: 'finish', label: TXT('UI.pause.5') } : { id: 'abandon', label: test ? TXT('UI.pause.test') : TXT('UI.pause.4') }].map((b) => Object.assign(b, { on: true, x: 780, y: 714, w: 360, h: 56, size: 22 }))),
     // a new run over five taken slots (TASKS 1785): the question in the middle of the menu, «Нет» on the right as in the pause's
-    newAsk: () => { const A = { x: 680, y: 390, w: 560, h: 380 };
+    // 640×400: a long run's line takes two rows (TASKS 2172: on one row of 560 it was cut to «эт…»)
+    newAsk: () => { const A = { x: 640, y: 380, w: 640, h: 400 };
       return { A, r: [{ id: 'yes', label: TXT('UI.menu.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
     pauseAsk: (done, test) => { const A = { x: 680, y: 480, w: 560, h: 300 };
       return { A, r: [{ id: 'yes', label: done || test ? TXT('UI.pause.ask.yesDone') : TXT('UI.pause.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },

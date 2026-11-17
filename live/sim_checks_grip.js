@@ -9,7 +9,7 @@
     for (let y = 0; y < H; y++) { const f = raw[y * (st + 1)], r = y * (st + 1) + 1, o = y * st;
       for (let x = 0; x < st; x++) { const a = x >= 4 ? px[o + x - 4] : 0, b = y ? px[o - st + x] : 0, c = x >= 4 && y ? px[o - st + x - 4] : 0, p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
         px[o + x] = (raw[r + x] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][f]) & 255; } }
-    const A = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) A[i] = px[i * 4 + 3]; return { W, H, A };
+    const A = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) A[i] = px[i * 4 + 3]; return { W, H, A, P: px };
   }
   // a drawn sprite's opaque texels on the screen: (u w − pivot) through its matrix, one point per texel
   const TEX = {}, texelsOf = (L, q) => { const t = TEX[q.n] || (TEX[q.n] = png(q.n)), o = q.o, pts = [];
@@ -110,6 +110,40 @@
     }
     if (counted < 48) out.push(`archer fist: only ${counted} frames hold the weapon in front of the body`);
   }
+  // (TASKS 2177) the weapon arm is the far arm of the 3/4 view: at ease and on the run each class draws its upper arm before the body
+  // (under the torso), its forearm cut short of the hand (cuffR) and its own fist (fistR) after the weapon; while a blow, a shot or a
+  // cast raises it the arm is drawn after the body. Each fist texture (every outfit, the arch's and the world's) is a fist and not a
+  // hand: in the arch's the dark lines between the finger stacks cross its middle in at least STACKS rows (four fingers, three lines)
+  function heroArmCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), STACKS = 3, LINE = 4, seen = new Set();
+    const KITS = [['warrior', 'sword', 0.15], ['mage', 'staff', 0.15], ['archer', 'shortbow', 0.15]];
+    for (const [cls, wb, act] of KITS) for (const face of [1, -1]) for (const menu of [0, 1]) for (const [pose, vx, atkT] of [['rest', 0, -9], ['run', 150, -9], ['act', 0, 10 - act]]) {
+      if (menu && pose !== 'rest') continue;
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const h = Object.assign({}, R.hero, { vx, vy: 0, gp: 40, face, aim: 0, atkA: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT, patkT: -9, castT: -9, whirlT: -9 });
+      const spr = [], pn = D.CLASSES[cls].look.rig + '__', tag = `${cls} ${pose} face ${face}${menu ? ' in the arch' : ''}`, say = (m) => { if (!seen.has(cls + pose + m)) { seen.add(cls + pose + m); out.push(`hero arm: ${tag}: ${m}`); } };
+      L.joint = () => {}; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+      drawHero(h, 300, 300, 10, heroSt(S), menu ? { menu: 1 } : {});
+      const at = (re) => spr.findIndex((q) => q.n.startsWith(pn) && re.test(q.n.slice(pn.length))), body = at(/^body/), ua = spr.map((q, i) => (q.n.startsWith(pn + 'uarmR') ? i : -1)).filter((i) => i >= 0);
+      const fist = at(/^fistR/), wpn = spr.findIndex((q) => /^it_/.test(q.n));
+      if (!ua.length || body < 0) { say('the weapon arm or the body is not drawn'); continue; }
+      if (pose === 'act') { if (Math.max(...ua) < body) say('the arm raised in the action stays under the body'); continue; }
+      if (ua.some((i) => i > body)) say('the upper arm is drawn over the torso at ease');
+      if (at(/^cuffR/) < 0 || at(/^farmR/) >= 0) say('the forearm is not cut short of its hand');
+      if (fist < 0 || fist < wpn) say('the fist is not drawn over the weapon');
+    }
+    for (const cls of ['warrior', 'mage', 'archer']) { const pn = D.CLASSES[cls].look.rig + '__';
+      for (const n of Object.keys(SB.assets()).filter((a) => a.startsWith(pn + 'fistR') && a.endsWith('_menu'))) {
+        const t = png(n), lum = (i) => (t.A[i] > 127 ? t.P[i * 4] * 0.3 + t.P[i * 4 + 1] * 0.59 + t.P[i * 4 + 2] * 0.11 : -1);
+        let lo = 255; for (let i = 0; i < t.W * t.H; i++) if (t.A[i] > 127) lo = Math.min(lo, lum(i));
+        const ys = [];
+        for (let y = 1; y < t.H - 2; y++) { let k = 0;
+          for (let x = 0; x < t.W; x++) { const i = y * t.W + x, v = lum(i); if (v >= 0 && v <= lo + 24 && lum(i - t.W) > lo + 24 && Math.max(lum(i + t.W), lum(i + 2 * t.W)) > lo + 24) k++; }
+          if (k >= LINE) ys.push(y); }
+        const n0 = ys.filter((y, i) => !i || y > ys[i - 1] + 1).length;
+        if (n0 < STACKS) out.push(`hero arm: ${n}: ${n0} lines between finger stacks, not a closed fist`); } }
+  }
+  SIMX.checks.add('heroArmCheck', heroArmCheck);
   SIMX.checks.add('warriorFistCheck', warriorFistCheck);
   SIMX.checks.add('archerFistCheck', archerFistCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

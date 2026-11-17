@@ -6,7 +6,7 @@
     D, L, M, SC, SS } = SCX;
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
   // (TASKS 2146) the bows at the new archer's scale: the short bow shoulder to knee as on his reference, it stood head to foot at 48
-  const WEAPON = { sword: ['it_sword', 42], longsword: ['it_longsword', 46], axe: ['it_axe', 44], hammer: ['it_hammer', 44], staff: ['it_staff', 56], wand: ['it_wand', 26], shortbow: ['it_bow_s', 34], longbow: ['it_bow_l', 28], crossbow: ['it_crossbow', 46], fist: null };
+  const WEAPON = { sword: ['it_sword', 42], longsword: ['it_longsword', 46], axe: ['it_axe', 44], hammer: ['it_hammer', 44], staff: ['it_staff', 60], wand: ['it_wand', 26], shortbow: ['it_bow_s', 34], longbow: ['it_bow_l', 28], crossbow: ['it_crossbow', 46], fist: null };
   // (TASKS 2165) the wand a short rod about half his height, the staff taller than him; the arch draws <held>_menu (fine), on its own finer cell
   // (TASKS 2153) the hand holds its own picture of a weapon, <icon>_held (a bow's _h), in the new look on the body's cell; the bag keeps the
   // icon. HELD_HULL: the held art's outline cut to eight corners, in canvas fractions (tools/weapons_2153.py hull), for the rest below
@@ -26,10 +26,14 @@
   // reaches the floor, and held near plumb (it leaned 20° forward with the arm's turn)
   // (TASKS 2164) 56 px with a small head: the crystal stands over the head as on the mage's ref; gripped a third up, its foot stays on the floor
   // (TASKS 2164) the mage's hand hangs 0.14 H higher on the shorter arm: gripped nearer the middle, the foot stays on the floor
-  const POLE = { it_staff: { foot: [0.074, 0.973], head: [0.96, 0.054], grip: [0.47, 0.25], rest: -1.53, lean: 0.1, hand: [0.22, 0.95] } };
+  // (TASKS 2177) 60 px gripped at its middle: the fist at the belt stood its foot 0.08 H off the floor at 56, crystal over the head as before
+  const POLE = { it_staff: { foot: [0.074, 0.973], head: [0.96, 0.054], grip: [0.5, 0.25], rest: -1.53, lean: 0.1 } };
   // (TASKS 2145) a bow at rest is held out a little from the hip and stands near upright, its lower tip by the near foot: at the hip's
-  // height and canted 33° the lower limb crossed both legs to the floor. hand: the near hand's rest in arm lengths from its shoulder
-  const BOW_REST = { ba: -1.8, hand: [0.22, 0.95] }, BOW_MEET = 0.4;
+  // height and canted 33° the lower limb crossed both legs to the floor
+  const BOW_REST = { ba: -1.8 }, BOW_MEET = 0.4;
+  // (TASKS 2177) the weapon arm at ease under the torso (look.arm.behind) comes over it as an action raises it, cross-faded over this
+  // much of the action's envelope: switched in one frame the arm popped over the chest
+  const ARM_FRONT = 0.35;
   // the staff's arm barely swings on the run (TASKS 2156)
   const POLE_SWING = 0.15;
   // (TASKS 2165, 2170) the orb rests on the far palm whatever the other hand holds, as on mage_a_v4: the forearm bent forward at the
@@ -52,7 +56,7 @@
   // (TASKS 2146) the orb in the world is the mage's approved small orb (art/char_refs/mage_orb_small_r4.png), not the bag icon on its stand
   // (TASKS 2170) 18 → 14 px: about the head's width, as on the refs; on the palm at 18 it covered the chest
   const SHIELD = { shield: ['it_shield', 30], buckler: ['it_buckler', 22], tower_shield: ['it_shield_t', 44], orb: ['orb_held', 14] }, SHIELD_AT = 0.8;
-  const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', fist: 'gloves', shin: 'boots', foot: 'boots' };
+  const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', fist: 'gloves', cuff: 'gloves', shin: 'boots', foot: 'boots' };
   function gearOf(h) {
     const pn = D.clsOf(h).look.rig + '__', eq = h.eq || {}, b = (k) => (eq[k] ? eq[k].b : ''), tex = (n, sfx) => (sfx && window.ASSETS[pn + n + '_' + sfx] ? pn + n + '_' + sfx : pn + n);
     const GE = GEARS[D.clsOf(h).look.rig] || GEAR, sfx = { armor: GE.armor[b('armor')] ?? '', gloves: GE.gloves[b('gloves')] ?? '', boots: GE.boots[b('boots')] ?? '' };
@@ -318,9 +322,10 @@
       const r1 = a1 - ang(A.S0, A.E0), bend = wrapPi(Math.atan2(ty - E[1], tx - E[0]) - ang(A.E0, A.Hd0) - r1), bend0 = A.r2 - A.r1;
       A.r1 += wrapPi(r1 - A.r1) * k; A.r2 = A.r1 + bend0 + wrapPi(bend - bend0) * k; };
     const armLen = (A) => dist2(A.S0, A.E0) + dist2(A.E0, A.Hd0);
-    const hold = bowArm && !xbow ? BOW_REST.hand : pole ? pole.hand : null;
+    // (the hand held out before him comes in as he turns: mirrored out there on a whirl's turn it jumped 12 px)
+    const hold = (LK.arm || {}).hold;
     // (TASKS 2156) the staff is heavy: its arm barely swings on the run, or on the back swing the upper arm covered the crystal in 4 of 12 frames
-    if (hold) reach(arms.R, hold[0] * armLen(arms.R), hold[1] * armLen(arms.R), 1 - (pole ? POLE_SWING : 0.5) * run);
+    if (hold && W) reach(arms.R, hold[0] * (1 - tuckL) * armLen(arms.R), hold[1] * armLen(arms.R), 1 - (pole ? POLE_SWING : 0.5) * run);
     // a shot's weapon follows the aim the shot was loosed on, not the live pointer (TASKS 1153: a mouse turned in the wind-up parted staff and bolt); the kick belongs to what is being done
     const aimS = shooter && swinging && shootE >= castE ? (h.face > 0 ? h.atkA : Math.PI - h.atkA) : aimL, kickT = castE > shootE ? castT : atkT;
     // (TASKS 1800) the mage's three are three gestures: the shot a thrust down the aim, the frost the staff raised overhead and swept
@@ -401,6 +406,8 @@
       for (const A of [arms.L, arms.R]) { const P = armJ(A).Hd; reach(A, P[0] + (G[0] - P[0]) * m - A.Sp[0], P[1] + (G[1] - P[1]) * m - A.Sp[1], SS(0, 0.3, m)); } }
     for (const [A, k] of [[arms.L, tuckL], [arms.R, tuck]]) if (k > 0) { const Hd = armJ(A).Hd; reach(A, Hd[0] + (gx - hipDx - Hd[0]) * k - A.Sp[0], Hd[1] - A.Sp[1], SS(0, 0.3, k)); }
     const jL = armJ(arms.L), jR = armJ(arms.R);
+    const armAct = Math.max(swingK, whirlE, chargeE, cryE, cryPrep, shooter ? Math.max(shootE, castE) : 0, readE, buckle, o.victory ? 1 : 0, o.armsUp || 0);
+    const front = (LK.arm || {}).behind ? SS(0, ARM_FRONT, armAct) : 1;
     // ---- draw: far arm → far leg → near leg → body → near arm + weapon (weapon behind the body when it points away) ----
     // (TASKS 2146) a robe to the ankles (look.robe): its thighs are the skirt's two halves, swung after the legs by that share of the
     // thigh's turn and drawn over the shins, so the boots step out under a hem that parts at the front instead of a sack sliding on
@@ -413,12 +420,20 @@
     // bits: u the upper arm, f the forearm, t the far hand's fingertips alone (over the orb in its palm)
     const drawArm = (side, u0, bits = 'uf') => { const A = arms[side], J = side === 'L' ? jL : jR, u = shade(u0, 1, BACK_VIEW.armShade);
       if (bits.includes('u')) part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR);
-      if (bits.includes('f')) part('farm' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR);
+      if (bits.includes('f')) part((side === 'R' && gripFist && !behind ? 'cuff' : 'farm') + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR);
       if (bits.includes('t') && window.ASSETS[pn + 'farm' + side + '_tips']) part('farm' + side + '_tips', A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
     // (TASKS 2170) the archer's fists close over his bow and crossbow as the warrior's over his hilt: the near one at rest and on the
     // string, the far one round the stave once the bow has passed to it on a shot
-    const fistOver = !!W && (!shooter || bowArm) && !!window.ASSETS[pn + 'fistR'];
-    const fistOne = (side, u0) => { const A = arms[side], J = side === 'L' ? jL : jR; if (window.ASSETS[pn + 'fist' + side]) part('fist' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, shade(u0, 1, BACK_VIEW.armShade), 1, bodyR); };
+    // (TASKS 2177) a rig with a cuff (the forearm cut short of its hand) closes a fist of its own over the weapon, turned with the weapon's
+    // axis (gripAt, set as the weapon is drawn): the fingers lie across the shaft in every pose, where the forearm's hand turned with the
+    // forearm and showed its back over the hilt
+    const fistOver = !!W && !!window.ASSETS[pn + 'fistR'], gripFist = fistOver && !!window.ASSETS[pn + 'cuffR'];
+    let gripAt = null;
+    const fistOne = (side, u0) => { const A = arms[side], J = side === 'L' ? jL : jR, u = shade(u0, 1, BACK_VIEW.armShade); if (!window.ASSETS[pn + 'fist' + side]) return;
+      if (side !== 'R' || !gripFist) { part('fist' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); return; }
+      const g = GR.part('fistR'), tx = fine(g.tex), T = G.tex(tx), w = T.w * s, hh = T.h * s, E = R2U(J.E[0], J.E[1]), Hd = R2U(J.Hd[0], J.Hd[1]);
+      const at = gripAt && bowHand < 0.5 ? gripAt.p : Hd, a = gripAt ? gripAt.a : Math.atan2(Hd[1] - E[1], Hd[0] - E[0]);
+      L.sprite(tx, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(a + Math.PI / 2), M.s(fX, 1)), w, h: hh, pivot: [w / 2, hh / 2], u: tinted(u, g.tint) }); };
     const drawFist = (u0) => { fistOne('R', u0); if (bowArm && !xbow && bowHand >= 0.5) fistOne('L', u0); };
     // the shield is strapped across the far forearm, its face to the camera; from behind its plain back shows (darker)
     // (TASKS 2153) in the arch's x3.2 the small world orb blurred into a blob: there it is the orb of the mage's reference
@@ -468,6 +483,7 @@
         L.sprite(fine(tex), 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.s(1, DEPTH_K), M.r(th0)), w: tw, h: th, pivot: [tw * 0.3, th * 0.5], u: U });
         if (drop === 0 && !(swinging && atkT >= BT && atkT < BT + 0.3)) { const [a0, a1] = [at(0.33), at(0.86)], bl = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]), ba3 = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]);
           L.solid(a0[0], a0[1], bl, 2.5, [0.16, 0.1, 0.06], ba3, 0, 1.25, alpha); L.solid(a0[0], a0[1], bl, 1.2, [0.92, 0.8, 0.58], ba3, 0, 0.6, alpha); L.solid(a1[0], a1[1], 4, 3, [0.8, 0.82, 0.86], ba3, 0, 1.5, alpha); }
+        gripAt = drop === 0 ? { p: [...Hd], a: Math.atan2(DEPTH_K * Math.sin(th0), Math.cos(th0)) - fX * Math.PI / 2 } : null;
         const tip = at(0.9); L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; return; }
       // a bow is held by the middle of its stave and turned across the shot (TASKS 1125); until the loose an arrow lies on it along the aim
       // (mirrored across its stave facing right, so its string faces the archer, not the target; turned over on the raise it went
@@ -476,6 +492,8 @@
         axis = pole ? Math.atan2((pole.head[1] - pole.foot[1]) * th, (pole.head[0] - pole.foot[0]) * tw) + Math.PI / 4 : 0;
       const wm = M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, bow && fX > 0 ? -1 : 1), M.r(Math.PI / 4 - axis)), bg = bow ? BOW_GRIP[tex0] || [0.5, 0.5] : null, wpiv = bow ? [tw * bg[0], th * bg[1]] : pole ? [...along(0), ...along(1)] : [tw * 0.22, th * 0.78];
       L.sprite(fine(tex), 0, 0, { m: wm, w: tw, h: th, pivot: wpiv, u: U });
+      const tAt = (f) => M.ap(wm, [f[0] * tw - wpiv[0], f[1] * th - wpiv[1]]), ends = bow ? (NOCKS[tex0] || [[0.9, 0.15], [0.2, 0.87]]).map(tAt) : pole ? [pole.head, pole.foot].map(tAt) : null;
+      gripAt = drop === 0 ? { p: [...Hd], a: ends ? Math.atan2(ends[0][1] - ends[1][1], ends[0][0] - ends[1][0]) : sa } : null;
       const onAxis = (q) => M.ap(wm, [(pole.foot[0] + (pole.head[0] - pole.foot[0]) * q) * tw - wpiv[0], (pole.foot[1] + (pole.head[1] - pole.foot[1]) * q) * th - wpiv[1]]), head = pole ? onAxis(1) : null;
       if (!bow && !pole && drop === 0 && backK < 0.5 && guard >= 0.5 && !fistOver) L.solid(Hd[0] - 3, Hd[1] - 1, 6, 2, D.clsOf(h).look.fist || [0.85, 0.62, 0.48], 0, 0, 0, alpha);
       if (bow && drop === 0 && (bowH || drawE > 0.05)) { const Hs = bowHand < 0.5 ? HdL : HdR, flip = fX > 0 ? -1 : 1, nock = ([fx, fy]) => { const lx = (fx - bg[0]) * tw, ly = (fy - bg[1]) * th, c = Math.SQRT1_2, ux = (lx - ly) * c * fsD, uy = (lx + ly) * c * flip; return [Hd[0] + ux * Math.cos(sa) - uy * Math.sin(sa), Hd[1] + ux * Math.sin(sa) + uy * Math.cos(sa)]; }, [n1, n2] = NOCKS[tex0] || [[0.9, 0.15], [0.2, 0.87]], e1 = nock(n1), e2 = nock(n2);
@@ -518,7 +536,7 @@
       // a staff or a bow is gripped: the fist is drawn over its shaft, not the shaft across the fist
       // (TASKS 2146) and so is the lowered sword at ease: the hilt laid over the fist hid the hand that held it
       const grasp = (shooter && !xbow) || (swingK === 0 && whirlE === 0 && chargeE === 0 && cryE === 0 && guard < 0.5);
-      if (behind) { weapon(); drawArm('R', U); }
+      if (behind) { weapon(); drawArm('R', U); } else if (front < 1) drawArm('R', U);
       // the arch's ×3.2 shows the texture nearly 1:1, where the face painted in world cells read as a mask (TASKS 2144, 2146): there
       // the same body with its head as drawn
       const bodyTex = fine(GR.body);
@@ -532,7 +550,8 @@
       if (orbLate && behind) shield(castFront ? U : Ufar);
       // (TASKS 2170) a rig with its near fist cut out (fistR) draws it again over the held weapon: the hilt or haft passes under the
       // fingers and shows above and below the fist in every pose, where the whole arm over the weapon hid the pommel under the wrist
-      if (!behind) { if (fistOver) { drawArm('R', U); weapon(); drawFist(U); } else if (grasp) { weapon(); drawArm('R', U); } else { drawArm('R', U); weapon(); } }
+      const armOver = () => { if (front > 0) drawArm('R', front < 1 ? Object.assign({}, U, { alpha: U.alpha * front }) : U); };
+      if (!behind) { if (fistOver) { armOver(); weapon(); drawFist(U); } else if (grasp) { weapon(); armOver(); } else { armOver(); weapon(); } }
       // (TASKS 2156) and after the near arm: on the run its forward swing passed over the orb for 3 frames of 12
       if (orbLate && !behind) { if (!castFront) drawArm('L', Ufar, 'f'); shield(castFront ? U : Ufar); }
     };

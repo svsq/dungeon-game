@@ -2,12 +2,15 @@
 """TASKS 2167: socket-cut pixels left visible at rest. The L arm rests under the torso; in the zone of fix_2167.zone (shoulder to
 armpit, the torso's span over the arm) every torso pixel that is a hole or not the arm's own colour (OKLab ΔE > 0.05) is the
 torso's socket edge or sleeve stub showing in front of the arm. World: the gridded parts as the game draws them; arch: the _menu.
+TASKS 2177: and the weapon arm's (R) cap, the zone of fix_2177.zone (CAP px round shR where the arm, turned as it rests, lies under
+the torso): its pixels the same way.
   python3 tools/measure/shoulders2167/socket.py [--max N]    exits 1 when any body shows more than N (default 0)"""
 import os, sys
 import numpy as np
 ROOT = os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 os.chdir(ROOT); sys.path.insert(0, os.path.join(ROOT, 'tools'))
 from fix_2167 import BODIES, arm_names, zone, rigs, load, exists
+import fix_2177
 
 def oklab(rgb):
     c = rgb / 255.0; c = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
@@ -25,7 +28,7 @@ def count(body, arm, g):
 if __name__ == '__main__':
     lim = int(sys.argv[sys.argv.index('--max') + 1]) if '--max' in sys.argv else 0
     R = rigs(); worst = 0
-    print(f'{"body":22s} {"world":>12s} {"arch":>12s}   (cut px / zone px)')
+    print(f'{"body":22s} {"L world":>12s} {"L arch":>12s} {"R world":>12s} {"R arch":>12s}   (cut px / zone px)')
     for rig, bodies in BODIES.items():
         for b in bodies:
             row = []
@@ -36,5 +39,7 @@ if __name__ == '__main__':
                     if arm is None: arm = a.copy()
                     else: m = a[..., 3] > 0; arm[m] = a[m]
                 c, z = count(gen(f'{rig}__{b}', menu), arm, R[rig]); worst = max(worst, c); row.append(f'{c:5d} / {z:4d}')
-            print(f'{rig + "__" + b:22s} {row[0]:>12s} {row[1]:>12s}')
+            for menu in (False, True):
+                c, z = fix_2177.count(gen(f'{rig}__{b}', menu), fix_2177.turned_arm(rig, b, menu, R[rig]), R[rig], menu); worst = max(worst, c); row.append(f'{c:5d} / {z:4d}')
+            print(f'{rig + "__" + b:22s} ' + ' '.join(f'{r:>12s}' for r in row))
     sys.exit(1 if worst > lim else 0)

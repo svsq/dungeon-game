@@ -60,8 +60,10 @@
       r.push({ id: 'talk', on: true, label: TXT('UI.talk.talk'), x: P.x + 250, y: P.y + P.h - 150, w: 260, h: 56 });
       r.push({ id: 'close', x: P.x + P.w - 92, y: P.y + 34, w: 52, h: 52 });
       // the item's card has its own pane under the bag, the merchant and his button moved under his shelf, so the card covers
-      // neither the bag's prices nor the button (TASKS 1761)
-      const by = Math.max(...r.filter((q) => q.id.startsWith('sell:')).map((q) => q.y + q.h)) + 40, card = { x: P.x + 700, y: by, w: P.w - 740, h: P.y + P.h - 20 - by, bot: 1036 };
+      // neither the bag's prices nor the button (TASKS 1761); its card ends with the pane, over the window's own edge (2171: to y 1036
+      // it covered the keys' line)
+      const by = Math.max(...r.filter((q) => q.id.startsWith('sell:')).map((q) => q.y + q.h)) + 40, card = { x: P.x + 700, y: by, w: P.w - 740, h: P.y + P.h - 20 - by };
+      card.bot = card.y + card.h;
       return { P, r, card };
     },
     // a legendary's sale asks first (TASKS 1978): a sheet in the middle of the shop, clear of the merchant's button, «Оставить» on the right

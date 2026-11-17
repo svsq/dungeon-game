@@ -258,7 +258,13 @@
     if (TXT('GIFTS.phoenix.descN', { n: 2, times: TXT.n('hud.tip.times', 2), v: 50 }).indexOf('50%') < 0) out.push('gift phoenix: the tip for two loses its 50%');
     for (const [k, v] of Object.entries(R)) for (const s of [].concat(v)) if (typeof s === 'string' && /(^|[^\d.])\d+\.\d+(?![.\d])/.test(s.replace(/\{[^}]*\}/g, ''))) out.push(`text ${k}: a decimal dot in «${s}»`);
     if (!TXT('GIFTS.life.desc', { v: 4.5 }).startsWith('+4,5 ')) out.push(`text: a fractional value goes in as «${TXT('GIFTS.life.desc', { v: 4.5 })}»`); }
-  function checkReview57(out) { checkGiftDecimal(out); checkTalkFace(out); checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
+  function checkReview57(out) { checkGiftDecimal(out); checkTalkFace(out); checkAbCard(out); checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); checkShopCard(out); }
+  // TASKS 2171: the shop's item card ends inside the window, above the keys' line, at every bag size, and holds a compact card's
+  // closed-up lines (a legendary's with its comparison, about 400 px)
+  function checkShopCard(out) { const CARD_MIN_H = 380;
+    for (const len of [24, 40, 56, 72]) for (const tab of [0, 1]) { const U = UI.shop(12, len, tab), P = U.P, Cd = U.card;
+      if (Cd.bot > P.y + P.h || Cd.y + Cd.h > P.y + P.h || Cd.y < P.y) out.push(`shop card: ${Cd.y}..${Cd.bot} leaves the window ${P.y}..${P.y + P.h} (bag ${len}, tab ${tab})`);
+      if (Cd.h < CARD_MIN_H) out.push(`shop card: ${Cd.h} px high, a compact card needs ${CARD_MIN_H} (bag ${len}, tab ${tab})`); } }
   // TASKS 1988: Shift+click asks how many of a stack and the part rides the pointer to the next click, Shift+right click takes half; the
   // total never changes, no stack goes past its limit, a save keeps both parts; the merchant sells and buys the number asked, at its price
   function checkSplit(out) {
@@ -432,6 +438,12 @@
     // the start screen's lines on the two modes (TASKS 2127), each on one line right of the hardcore box up to the cards' right edge
     { const CU = UI.classes({}), hb = CU.find((q) => q.id === 'hard');
       for (const s of [TXT('UI.classes.normal.note', { pct: Math.round(D.BAL.deathXpLoss * 100) }), TXT('UI.classes.hard.note')]) fits('start screen', s, D.classesRight(CU) - hb.x - hb.w, 19, 19); }
+    // TASKS 2172: the new run's question names the oldest run in two rows at most, each inside its torn sheet (the sheet's rim and the
+    // text's margin: 60 px a side), for the longest name and a test run's place
+    { const ASK_SIDE = 60, A = UI.newAsk().A, nm = 'Ш'.repeat(D.NAME_MAX), mode = Object.keys(D.RUNS).sort((a, b) => D.RUNS[b].name.length - D.RUNS[a].name.length)[0];
+      const run = TXT('hud.menu.ask.run', { name: nm, where: TXT('hud.load.test', { name: D.RUNS[mode].name }) + ', ' + TXT('hud.load.floor', { n: 16 }) }), w = run.split(' ');
+      let best = 1; for (let i = 1; i < w.length; i++) if (Math.abs(w.slice(0, i).join(' ').length - w.slice(i).join(' ').length) < Math.abs(w.slice(0, best).join(' ').length - w.slice(best).join(' ').length)) best = i;
+      for (const s of [w.slice(0, best).join(' '), w.slice(best).join(' ')]) { const r = fitW(s, A.w - 2 * ASK_SIDE, 26, true); if (r.cut || r.size < 22) out.push(`new run's question: «${s}» is ${r.w.toFixed(0)} px at ${r.size} px, its room ${A.w - 2 * ASK_SIDE}`); } }
     const U = D.UI.stats();
     // the normal death's toast (TASKS 2126): each of its two lines whole on one line of the toast, the widest number in it
     { const T = D.TOAST, xp = String(Math.round(D.xpNeed(99) * D.BAL.deathXpLoss));

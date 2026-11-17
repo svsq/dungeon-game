@@ -657,7 +657,7 @@
   // the orb rests above the far palm, the forearm under it near level, standing and running, either way round, in the world and the arch
   function heroFistCheck(out) {
     const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), fs = require('fs'), zlib = require('zlib'), path = require('path');
-    const AXIS = 2, OVER = 4, PAST = 2, FIST_R = 12, ORB_UP = [3, 10], ORB_SIDE = 4, LEVEL = 50, HAND = 0.5, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const AXIS = 2, OVER = 4, PAST = 2, GRIP = 0.5, ORB_UP = [3, 10], ORB_SIDE = 4, LEVEL = 50, HAND = 0.5, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const alphaCache = {}, alpha = (n) => alphaCache[n] || (alphaCache[n] = (() => {
       const buf = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), W = buf.readUInt32BE(16), H = buf.readUInt32BE(20), ct = buf[25], bpp = { 6: 4, 2: 3, 4: 2, 0: 1 }[ct];
       if (buf[24] !== 8 || !bpp) throw new Error(n + ': only 8-bit PNGs are read');
@@ -671,7 +671,7 @@
     const texels = (q, keep = () => true) => { const t = alpha(q.n), o = q.o, pts = [];
       for (let y = 0; y < t.H; y++) for (let x = 0; x < t.W; x++) if (t.A[y * t.W + x] > 127 && keep(x, y, t)) pts.push(L.M.ap(o.m, [(x + 0.5) / t.W * o.w - o.pivot[0], (y + 0.5) / t.H * o.h - o.pivot[1]]));
       return pts; };
-    const RG = root.RIGS ? root.RIGS.mage : SB.rigs().mage, seen = new Set();
+    const seen = new Set();
     for (const [wb, ob] of [['staff'], ['wand'], ['staff', 'orb'], ['wand', 'orb']]) for (const face of [1, -1]) for (const menu of [0, 1]) for (const [act, vx, GT] of [['rest', 0, 10], ['rest', 0, 11.3], ['run', 150, 10], ['run', 150, 11.3], ['cast', 0, 10.3]]) {
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'mage' }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
@@ -679,12 +679,13 @@
       const J = {}, spr = [], tag = `mage ${wb}${ob ? ' and orb' : ''} ${act} face ${face}${menu ? ' in the arch' : ''} at ${GT}`, say = (m) => { const k = wb + (ob || '') + m.replace(/[\d.]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`hero fist: ${tag}: ${m}`); } };
       L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
       drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
-      const fi = spr.findIndex((q) => /^mage__farmR/.test(q.n)), wi = spr.findIndex((q) => /^it_(staff|wand)/.test(q.n));
-      if (fi < 0 || wi < 0) { say(`the near forearm or the ${wb} is not drawn`); continue; }
-      const F = spr[fi], s = F.o.w / RG.w, hand = L.M.ap(F.o.m, [RG.handR[0] * s - F.o.pivot[0], RG.handR[1] * s - F.o.pivot[1]]);
-      if (d(hand, J.handR) > 0.5) { say(`the texel mapping misses the hand by ${d(hand, J.handR).toFixed(1)} px`); continue; }
+      // (TASKS 2177) the fist is its own sprite (mage__fistR), closed over the shaft at the hand
+      const fi = spr.findIndex((q) => /^mage__fistR/.test(q.n)), wi = spr.findIndex((q) => /^it_(staff|wand)/.test(q.n));
+      if (fi < 0 || wi < 0) { say(`the fist or the ${wb} is not drawn`); continue; }
+      const F = spr[fi], at = [F.o.m[4], F.o.m[5]];
+      if (d(at, J.handR) > GRIP) { say(`the fist sits ${d(at, J.handR).toFixed(1)} px from the hand`); continue; }
       if (fi < wi) say(`the ${wb} is drawn over the fist`);
-      const fist = texels(F, (x, y, t) => Math.hypot((x + 0.5) / t.W * RG.w - RG.handR[0], (y + 0.5) / t.H * RG.h - RG.handR[1]) < FIST_R), wpn = texels(spr[wi]);
+      const fist = texels(F), wpn = texels(spr[wi]);
       const c = fist.reduce((a, p) => [a[0] + p[0] / fist.length, a[1] + p[1] / fist.length], [0, 0]), g = J.grip, t = J.tip, len = d(g, t), u = [(t[0] - g[0]) / len, (t[1] - g[1]) / len];
       const off = Math.abs((c[0] - g[0]) * u[1] - (c[1] - g[1]) * u[0]);
       if (off > AXIS) say(`the ${wb}'s axis passes ${off.toFixed(1)} px from the fist's centre`);
