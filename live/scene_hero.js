@@ -198,7 +198,9 @@
     const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, ft = [1, 1, 1, 0], LK = D.clsOf(h).look, lt0 = LK.cold && HERO.lightAt ? HERO.lightAt(h.x, h.y) : null, cold = lt0 && !(SC.state && SC.state.run && SC.state.run.town) ? SS(1.2, 1, lt0.all[0] / Math.max(0.02, lt0.all[1])) : 0, U = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [(LK.sat || HSAT) * (1 - (1 - (LK.cold?.sat ?? 1)) * cold) * dk, HERO.lift * (1 - (1 - (LK.cold?.lift ?? 1)) * cold) * dk, 0, 1] }, Ufar = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * HSAT * dk, 0.72 * HERO.lift * dk, 0, 1] };
     if (o.cut) U.cut = Ufar.cut = o.cut;
     const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: [0, 1, 2].map((i) => (u.tint ? 1 + (u.tint[i] - 1) * u.tint[3] : 1) * (1 + (t[i] - 1) * t[3])).concat(1) }) : u);   // a piece's rarity over the fire's tint
-    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0, kx = 1) => { const g = GR.part(n); return L.sprite(g.tex, 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX * kx, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };
+    // (TASKS 2155) the world parts are painted in cells of the world grid; the arch's ×3.2 shows them nearly 1:1, so it has the parts as drawn
+    const fine = (t) => (o.menu && window.ASSETS[t + '_menu'] ? t + '_menu' : t);
+    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0, kx = 1) => { const g = GR.part(n); return L.sprite(fine(g.tex), 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX * kx, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };
     const shade = (u, sat, lift) => (hurt || !(backV > 0) ? u : Object.assign({}, u, { grade: [u.grade[0] * (1 - (1 - sat) * backV), u.grade[1] * (1 - (1 - lift) * backV), u.grade[2], u.grade[3]] }));
     const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
     const dist2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -455,14 +457,14 @@
       const bodyAt = { m: M.of(M.t(...hipS), M.r(fallR + bodyR), M.s(fX, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s] };
       // the cape hangs from the shoulders behind the body and both arms (TASKS 2142, 2144, 2145: laid over the far arm it hid that arm
       // whole, and the shield or orb on it, the warrior seemed one-armed)
-      const cape = () => { if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(pn + 'cape', 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt)); };
+      const cape = () => { if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(fine(pn + 'cape'), 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt)); };
       // in the menu's arch, three times its size, the far thigh's cut top showed past the tunic's hem against the cape, a leg stuck on
       // from outside (TASKS 1874): there the cape hangs over it
       if (o.menu && !robe) drawLeg('L', Ufar);
       cape();
       // (TASKS 2146) the archer's quiver is its own rigid layer over the cape and under the far arm: painted into the body or the
       // cape it bent with their soft bones; from behind it is painted on the back view
-      if (backK < 1 && window.ASSETS[pn + 'quiver']) L.sprite(pn + 'quiver', 0, 0, Object.assign({ u: U }, bodyAt));
+      if (backK < 1 && window.ASSETS[pn + 'quiver']) L.sprite(fine(pn + 'quiver'), 0, 0, Object.assign({ u: U }, bodyAt));
       // (TASKS 2146) the orb in the far palm is drawn after the body: under it the far arm's swing took it behind the torso on every stride
       const orbLate = orbInPalm && backK < 0.5;
       if (!castFront) { drawArm('L', Ufar); if (!orbLate) shield(Ufar); }
@@ -474,10 +476,10 @@
       if (behind) { weapon(); drawArm('R', U); }
       // the arch's ×3.2 shows the texture nearly 1:1, where the face painted in world cells read as a mask (TASKS 2144, 2146): there
       // the same body with its head as drawn
-      const bodyTex = o.menu && window.ASSETS[GR.body + '_menu'] ? GR.body + '_menu' : GR.body;
+      const bodyTex = fine(GR.body);
       if (backK < 1) L.sprite(bodyTex, 0, 0, Object.assign({ u: Object.assign({}, U, { snap: 2 * L.SNAP }, soft(pn + 'body', GR.helm ? 0 : hairA)) }, bodyAt));
       // (the mage's helms in the world are his grid head with the helm in grid cells; the arch has the drawn head wearing it, TASKS 2146, 2151)
-      const helmTex = pn + 'head_' + GR.helm + (o.menu && window.ASSETS[pn + 'head_' + GR.helm + '_menu'] ? '_menu' : '');
+      const helmTex = fine(pn + 'head_' + GR.helm);
       if (backK < 1 && GR.helm) L.sprite(helmTex, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
       if (backK > 0 && window.ASSETS[pn + 'body_back']) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, shade(U, BACK_VIEW.bodySat, BACK_VIEW.bodyLift), { alpha: alpha * backK, snap: 2 * L.SNAP }, soft(pn + 'body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, shade(tinted(U, GR.helmTint), 1, BACK_VIEW.headLift), { alpha: alpha * backK }) }, bodyAt));
