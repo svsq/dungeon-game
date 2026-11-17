@@ -35,7 +35,7 @@
       for (const [d, pan] of [[0.29, -0.5], [0.43, 0.5]]) { const dl = ctx.createDelay(1), fb = ctx.createGain(), lp = ctx.createBiquadFilter(), p = ctx.createStereoPanner(), g = ctx.createGain();
         dl.delayTime.value = d; fb.gain.value = 0.32; lp.type = 'lowpass'; lp.frequency.value = 1700; p.pan.value = pan; g.gain.value = 0.5;
         echo.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(p); p.connect(g); g.connect(gain); }
-      return { gain, dry, wet, echo }; };
+      return { vol: gain.gain, dry, wet, echo }; };
     sfx = mkBus(); bed = mkBus();
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   }
@@ -390,8 +390,8 @@
     if (!ctx || !live || ctx.state !== 'running' || !S || S.demo) { if (S) lastT = S.t; return; }
     const M = S.meta || {}, g = M.mute ? 0 : 0.7, gs = M.vol ?? 1, ga = M.amb ?? 1; muted = !!M.mute;
     if (g !== gainNow) { master.gain.setTargetAtTime(g, ctx.currentTime, 0.05); gainNow = g; }
-    if (gs !== sfxNow) { sfx.gain.setTargetAtTime(gs, ctx.currentTime, 0.05); sfxNow = gs; }
-    if (ga !== ambNow) { bed.gain.setTargetAtTime(ga, ctx.currentTime, 0.05); ambNow = ga; }
+    if (gs !== sfxNow) { sfx.vol.setTargetAtTime(gs, ctx.currentTime, 0.05); sfxNow = gs; }
+    if (ga !== ambNow) { bed.vol.setTargetAtTime(ga, ctx.currentTime, 0.05); ambNow = ga; }
     if (S.run !== lastRun && S.run && lastRun && S.t < lastT) lastT = -1;
     if (S.t < lastT) lastT = S.t;
     lastRun = S.run;
