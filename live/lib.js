@@ -396,7 +396,9 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
-  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (rot || G.rec || !L.SOLIDS ? G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
+  // under a pre-transform (the menu's arch hero, TASKS 2145) a solid goes through it as a sprite does: unscaled, a bowstring hung by the feet
+  const solidPre = (x, y, w, h, col, rot, px, py, a) => { const X = G.xf(x, y, w, h, rot, px, py), F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); return G.draw(P.solid, { u_col: col, u_a: a }, [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]); };
+  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (L.pre ? solidPre(x, y, w, h, col, rot, px, py, a) : rot || G.rec || !L.SOLIDS ?G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
   L.rrect = (x, y, w, h, r, c0, c1 = c0, a = 1) => G.draw(P.rrect, { u_sz: [w, h], u_r: r, u_a: a, u_c0: c0, u_c1: c1 }, G.xf(x, y, w, h));
   L.puff = (x, y, r, col, amt, seed) => G.draw(P.puff, { u_col: col, u_amt: amt, u_seed: seed, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r));
   L.star = (x, y, r, col, amt) => { G.blend('add'); G.draw(P.star, { u_col: col, u_amt: amt, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };

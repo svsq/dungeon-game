@@ -136,13 +136,12 @@
   HUD.draw = (S, t, V) => {
     G.bind(null); G.blend(); VW = V || null; KEYP = {}; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
-    if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
     if (R && V && S.screen === 'play') souls(S, R, V);
     framed(D.uiDy(S.screen, VH), () => windows(S, R, t, V));
-    if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
-    if (!S.demo) muteNote(S);
+    if (R && S.debug && S.screen === 'play') { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
+    muteNote(S);
     if (onPad()) padCursor(S);
     drawTip(S);
   };
@@ -188,22 +187,10 @@
     for (let i = 0; i < 13; i++) { L.solid(x + 3 + i * 0.9, y - 6 + i, 3, 2, [0.95, 0.42, 0.35]); L.solid(x + 3 + i * 0.9, y + 6 - i, 3, 2, [0.95, 0.42, 0.35]); } }
   // the pad's pointer (pad.js): a ring on the screens it points on, the aim mark in play; none on the keyboard-walked menus
   function padCursor(S) {
-    const P = window.PAD, x = P.px, y = P.py, play = S.screen === 'play'; if (x == null || S.demo || P.focusScreen) return;
+    const P = window.PAD, x = P.px, y = P.py, play = S.screen === 'play'; if (x == null || P.focusScreen) return;
     if (play && !S.run) return; const r = play ? 12 : 10, gold = [1, 0.84, 0.42];
     L.ring(x, y, r + 2, r + 2, [0.05, 0.03, 0.02], 0.8, 0.2); L.ring(x, y, r, r, gold, 0.95, play ? 0.12 : 0.16);
     if (!play) L.solid(x - 2, y - 2, 4, 4, gold, 0, 0, 0, 0.95);
-  }
-
-  // ---------------- attract title over the demo ----------------
-  function title(S, t) {
-    L.solid(0, 0, W, 200, [0, 0, 0], 0, 0, 0, 0.35);
-    lab('tt', TXT('hud.title'), W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
-    lab('tsb', TXT('hud.title.sub'), W / 2, 164, { size: 40, al: 0.5, col: '#e8c890', out: '#2a0d06' });
-    lab('ts', TXT('hud.title.2'), W / 2, 214, { size: 28, al: 0.5, col: C.dim });
-    const a = 0.55 + 0.45 * Math.sin(t * 3);
-    lab('tp', TXT('hud.title.3'), W / 2, H - 90, { size: 34, al: 0.5, a });
-    // the keys in the game's own letters, as the page's line under the canvas was set in a bold system font (TASKS 1887 к)
-    lab('tk', SIM.HINT, W / 2, H - 40, { size: 24, al: 0.5, col: C.dim, fit: W - 120 });
   }
 
   // ---------------- world-space overlays: monster bars, damage numbers, prompts ----------------
@@ -1096,13 +1083,15 @@
   }
   // the hero and a brute facing each other across the buttons; the news frame takes the brute's place on the right; on the main
   // menu (mid) the hero stands in the crypt's arch. It is the hero of the run under «Продолжить», or of the run played last (TASKS
-  // 1815: a warrior stood there over a mage's save); with neither, the painted warrior
+  // 1815: a warrior stood there over a mage's save); with neither, a fresh warrior in his starting kit. Every class is its rig
+  // (TASKS 2146: the warrior was a painting, its arms and cape could not be fixed in code); the painting only if the rig throws
   function menuBack(t, alone, mid, S, cover) {
     backdrop(t, cover);
     const { k, x0, y0 } = bk(), [hw, hh] = SZ('hero'), hk = 3.2 * k, hx = x0 + k * (mid ? 900 - hw * 1.6 : 440 - hw * 1.6), hy = y0 + k * (mid ? 470 : 340);
-    const own = S && ((S.saved && S.saved.hero) || (S.result && S.result.hero));
-    if (own && D.clsOf(own).look.rig !== 'hero') { try { SCENE.menuHero(own, SIM.Q.stats(own, S.meta), t, hx + hw * hk / 2, hy + hh * hk, hk); } catch (e) { console.error(e); L.pre = null; G.blend(); } }
-    else L.sprite('hero', hx, hy, { w: hw * hk, h: hh * hk });
+    try {
+      const own = (S && ((S.saved && S.saved.hero) || (S.result && S.result.hero))) || SIM.Q.freshHero('warrior');
+      SCENE.menuHero(own, SIM.Q.stats(own, (S && S.meta) || {}), t, hx + hw * hk / 2, hy + hh * hk, hk);
+    } catch (e) { console.error(e); L.pre = null; G.blend(); L.sprite('hero', hx, hy, { w: hw * hk, h: hh * hk }); }
     if (!(S && (S.newAsk || S.updOpen))) L.uiBox('menu_hero', hx, hy, hw * hk, hh * hk);
     if (alone) return;
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', x0 + 1430 * k, y0 + 330 * k, { w: bw * 2.6 * k, h: bh * 2.6 * k, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });

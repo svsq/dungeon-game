@@ -3,15 +3,15 @@
   const SIMX = root.SIMX, {
     aggroRoom, arenaSealed, BAL, BASES, begin, boxHit, brinkOf, castAbility, cell, D, DG, DOOM, dropCell, DT, endRun, ENEMIES, enterFloor, heroHit,
     heroSt, hitEnemy, hitProps, hurtHero, inRoom1, inStart, interact, inWater, isCons, itemPower, K, killEnemy, lastFloor, LOOT, losClear, MOD, move,
-    newRun, persist, reveal, REWARD, rollItem, scriptInput, solidAt, solidC, solids, spawn, stats, steer, step, stepArena, throwAway, TILE, toPx, UI,
+    newRun, persist, reveal, REWARD, rollItem, solidAt, solidC, solids, spawn, stats, steer, step, stepArena, throwAway, TILE, toPx, UI,
     useItem, WADE, who } = SIMX;
-  const { plainRun } = SIMX.checks.kit;
+  const { fight, plainRun } = SIMX.checks.kit;
   function playCheck() {
     const out = [];
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
-    { const S = spawn(0, {}); begin(S); let snap = null;   // the last save of a living hero: the demo hero may fall before 40 s
-      for (let i = 0; i < 120 * 40; i++) { step(S, scriptInput(S.t, S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
-      if (!snap) out.push('save check: the demo hero never lives past 10 s');
+    { const S = spawn(0, {}); begin(S); let snap = null;   // the last save of a living hero: he may fall before 40 s
+      for (let i = 0; i < 120 * 40; i++) { step(S, fight(S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
+      if (!snap) out.push('save check: the hero never lives past 10 s');
       const T = spawn(0, { run: JSON.parse(snap || 'null') }); T.screen = 'play'; T.run = T.saved; if (T.run) T.run.hero.ifr = 1e9; for (let i = 0; i < 240; i++) step(T, { press: 1, px: 1000, py: 500, keys: [] });
       if (!T.ev.some((e) => e.k === 'swing')) out.push('a loaded save cannot attack (clock behind the saved timers)');
       const p0 = T.run.play; T.screen = 'pause'; for (let i = 0; i < 240; i++) step(T, { keys: [] }); T.screen = 'play'; step(T, { keys: [] });

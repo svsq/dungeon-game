@@ -47,11 +47,11 @@ void main(){ vec2 p = artPoint(), q = (p - u_center) * vec2(1.0, 1.3); float r =
   o = vec4(col * al, al * 0.65); }
 `;
   const FIREBALL = SPELL_MASK + `
-uniform vec2 u_center, u_dir; uniform float u_radius, u_age, u_amt, u_seed, u_mode, u_lift;
+uniform vec2 u_center, u_dir; uniform float u_radius, u_age, u_amt, u_seed, u_mode, u_lift, u_rate;
 void main(){ vec2 p = artPoint(), d = p - u_center;
   if (spellGate(p + vec2(0.0, u_lift)) < 0.5) discard;
   vec2 q = vec2(dot(d, u_dir), dot(d, vec2(-u_dir.y, u_dir.x))) / u_radius;
-  float flick = hash(vec2(floor(u_age * 30.0), u_seed)), noise = vnoise(p * 0.25 + floor(u_age * 30.0));
+  float a = u_age * u_rate, flick = mix(hash(vec2(floor(a), u_seed)), hash(vec2(floor(a) + 1.0, u_seed)), smoothstep(0.0, 1.0, fract(a))), noise = vnoise(p * 0.25 + a);
   float shape = length(q * vec2(0.86, 1.0)) + (noise - 0.5) * 0.24;
   shape += max(0.0, -q.x) * (0.13 + 0.12 * sin(q.y * 9.0 + u_age * 45.0));
   if (shape > 0.94 + 0.06 * flick) discard;

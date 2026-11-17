@@ -1,0 +1,62 @@
+[
+ {
+  "name": "gear_shirt",
+  "prompt": "art/prompts/gear_shirt_2146.txt",
+  "ref": [
+   "art/gen/gear_shirt_tpl.png=the warrior's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_warrior_2146/gear"
+ },
+ {
+  "name": "gear_plate",
+  "prompt": "art/prompts/gear_plate_2146.txt",
+  "ref": [
+   "art/gen/gear_plate_tpl.png=the warrior's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_warrior_2146/gear"
+ },
+ {
+  "name": "gear_hood",
+  "prompt": "art/prompts/gear_hood_2146.txt",
+  "ref": [
+   "art/gen/gear_hood_tpl.png=the warrior's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_warrior_2146/gear"
+ },
+ {
+  "name": "gear_helm_le",
+  "prompt": "art/prompts/gear_helm_le_2146.txt",
+  "ref": [
+   "art/gen/gear_helm_le_tpl.png=the warrior's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_warrior_2146/gear"
+ },
+ {
+  "name": "gear_helm_kn",
+  "prompt": "art/prompts/gear_helm_kn_2146.txt",
+  "ref": [
+   "art/gen/gear_helm_kn_tpl.png=the warrior's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_warrior_2146/gear"
+ }
+]

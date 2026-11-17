@@ -37,7 +37,7 @@
   const busy = (v) => { for (let i = 0; i < 4; i++) if (Math.abs(v.ax[i]) > 0.3) return true; for (let i = 0; i < 16; i++) if (v.press(i)) return true; return false; };   // (no arrays a frame, review of PR 62)
   const stick = (x, y) => { const m = Math.hypot(x, y); return m < DEAD ? [0, 0, 0] : [x / m, y / m, Math.min(1, (m - DEAD) / (1 - DEAD))]; };
 
-  // io: { keys, ptr, pend, VW, VH, play(), start(), dev() } — index.html's own input state, written the way its listeners write it
+  // io: { keys, ptr, pend, VW, VH, play(), dev() } — index.html's own input state, written the way its listeners write it
   function create(io) {
     const P = { active: 0, n: 0, px: io.VW / 2, py: io.VH / 2, mode: 'kbm', screen: '' }; root.PAD = P;
     Object.defineProperty(P, 'raw', { get: () => { const gp = P.gp; return gp ? { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) } : null; } });
@@ -112,7 +112,6 @@
       // press until the sound is on and running: deck.sh's Chrome runs the context from the start, and a browser that does not take
       // a pad's press for a gesture keeps it suspended (reviews of PR 62)
       if (root.AUDIO && AUDIO.start && !(AUDIO.live && AUDIO.state === 'running')) for (let i = 0; i < 16; i++) if (edge(i)) { AUDIO.start(); break; }
-      if (!S) { if (edge(0) || edge(1) || edge(2) || edge(3) || edge(7) || edge(9)) io.start(); for (let i = 0; i < 16; i++) prev[i] = pr(i); return; }
       const scr = S.screen || 'play', play = scr === 'play' && S.run, focus = FOCUS.has(scr);
       // a screen entered anew waits for its own buttons: the last visit's (another talk's) stay behind (re-review of PR 62)
       if (scr !== last) { last = scr; rects = []; rectsOf = ''; nav.k = ''; for (const c of held) keys[c] = 0; held.clear(); walk(0, 0); if (ptrDown) { ptr.down = 0; ptrDown = 0; }

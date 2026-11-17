@@ -1,9 +1,9 @@
 // live/sim_checks_ui.js — selfCheck's parts for the menus, settings and windows (the review of PR 57 and on). Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    BASES, castAbility, D, DG, DT, endRun, itemMods, itemPower, K, killEnemy, newRun, persist, RARITY, rebalanceRun, rollItem, spawn, startRun,
+    BASES, begin, castAbility, D, DG, DT, endRun, itemMods, itemPower, K, killEnemy, newRun, persist, RARITY, rebalanceRun, rollItem, spawn, startRun,
     stats, step, TILE, typeMods, UI } = SIMX;
-  const { noWelcome } = SIMX.checks.kit;
+  const { fight, noWelcome } = SIMX.checks.kit;
   const mid = (S, b) => ({ px: b.x + b.w / 2, py: b.y + b.h / 2 + SIMX.uiDy(S.screen) });
   const press = (S, b) => { const p = mid(S, b); step(S, Object.assign({ keys: [], click: 1, press: 1 }, p)); step(S, Object.assign({ keys: [] }, p)); };
   const townRun = () => { const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes(S.meta).find((b) => b.id === 'go')); if (S.run) S.run.greet = 'done'; return S; };
@@ -50,7 +50,7 @@
       R.en = [e]; S.screen = 'pause'; press(S, UI.pause(S.meta.zoom).find((b) => b.id === 'save')); press(S, UI.menu(true).find((b) => b.id === 'continue'));
       const ago = S.t - e.stompT; while (S.t < R.holdT + DT) step(S, { keys: [] });
       if (e.nearT !== 1 || Math.abs(S.t - e.stompT - ago) > 3 * DT) out.push(`resume: the hold moves the colossus's stomp (nearT ${e.nearT}, stomp ${(S.t - e.stompT).toFixed(2)} s ago, not ${ago.toFixed(2)})`); } }
-  // a resize under a still pointer is not a move of it, and the attract demo plays the same in any window
+  // a resize under a still pointer is not a move of it, and a run plays the same in any window
   function checkResize(out) { const h0 = SIMX.VIEW.H;
     try { SIMX.setView(1200); const T = spawn(0, {}), U = UI.menu(false, T.meta.diff, T.meta.zoom), st = U.find((b) => b.id === 'stats'), P = mid(T, st);
       step(T, Object.assign({ keys: [] }, P)); step(T, Object.assign({ keys: [], moved: 1 }, P, { px: P.px + 1 })); const f0 = T.focus;
@@ -58,9 +58,9 @@
       SIMX.setView(1080); const Q = mid(T, U.find((b) => b.id === (f1 === 'settings' ? 'load' : 'settings'))); step(T, Object.assign({ keys: [], moved: 0 }, Q));
       if (f1 === f0 || T.focus !== f1) out.push(`resize: a still pointer takes the menu's focus as the window is resized (${f0} → ${f1} → ${T.focus})`); }
     finally { SIMX.setView(h0); }
-    const demo = (vh) => { SIMX.setView(vh); try { const S = root.SIM.create(); while (S.t < root.SIM.L - 1e-6) step(S, root.SIM.scriptInput(S.t, S)); const h = S.run.hero;
+    const run = (vh) => { SIMX.setView(vh); try { const S = spawn(0, {}); begin(S); for (let i = 0; i < 120 * 26; i++) step(S, fight(S)); const h = S.run.hero;
       return [h.x, h.y, h.hp, h.mp, S.run.kills, S.steps].map((v) => +v.toFixed(6)).join(','); } finally { SIMX.setView(h0); } };
-    { const a = demo(1080), b = demo(1248); if (a !== b) out.push(`resize: the attract demo plays otherwise in a 16:10 window (${b}, not ${a})`); } }
+    { const a = run(1080), b = run(1248); if (a !== b) out.push(`resize: a run plays otherwise in a 16:10 window (${b}, not ${a})`); } }
   // the minimap's sheet tells nothing of the floor before it is seen, and grows by blocks as it is, never each step
   function checkMapCut(out) {
     for (const [mode, seed] of [['campaign', 5], ['campaign', 17], ['cave', 5], ['magma', 5]]) {
@@ -531,7 +531,6 @@
       if (A.kills !== 1 || A.elites !== 1 || A.bosses || A.deaths !== 1 || A.runs !== 1 || M.runs !== 1 || M.kills !== 1 || !(A.time > 0.9) || !(A.shards >= 3) || A.shards !== M.shards) out.push('stats: a run\'s kill, elite, death, time or shards are not counted, or not for its class');
       if (T.meta.runs !== 6) out.push('stats: the meta\'s run count changed its rule');
       const L2 = spawn(1, JSON.parse(JSON.stringify(persist(T)))); if (L2.meta.stats.from !== 5 || L2.meta.stats.all.kills !== 1) out.push('stats: the counters are lost or restarted on load');
-      const D0 = SIMX.spawn(0, {}); D0.demo = 1; D0.run = newRun(D0, 'campaign', 7); D0.screen = 'play'; for (let i = 0; i < 60; i++) step(D0, { keys: [] }); if (D0.meta.stats.all.time) out.push('stats: the attract demo counts into the player\'s time');
       T.screen = 'menu'; step(T, (() => { const b = UI.menu(false).find((q) => q.id === 'stats'); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; })());
       if (T.screen !== 'stats' || T.statTab !== 'all') out.push('stats: the menu does not open the statistics');
       step(T, { keys: [], press: 0 }); key('ArrowRight'); if (T.statTab !== D.classesReady()[0] || T.focus !== 'tab:' + T.statTab) out.push('stats: → does not open the first class\'s tab');

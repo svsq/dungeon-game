@@ -4,7 +4,7 @@
   const SIMX = (root.SIMX = root.SIMX || {}), { rev, waterSet } = SIMX;
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
   const { TILE, ENEMIES, BAL, ELITE, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
-  const DT = 1 / 120, L = 26.0;
+  const DT = 1 / 120;
   // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
   // the zoom lives on the run (R.zoom, copied from the player's setting every step) so camera and pointer follow a change at once
   // the view is 1920 wide and as tall as the window's aspect asks, from 1080 (16:9) past 1200 (16:10) to 1248 (a MacBook's 1512×982)
@@ -15,11 +15,10 @@
     setView = (h) => { VIEW.H = Math.max(VIEW_H[0], Math.min(VIEW_H[1], Math.round(h / 8) * 8)); return VIEW.H; }, uiDy = (scr) => D.uiDy(scr, VIEW.H),
     zoomOf = (R) => (R && R.zoom) || D.ZOOM || 1, WIN = (R) => ({ W: VIEW.W / zoomOf(R), H: VIEW.H / zoomOf(R) }),
     toPx = (R, x, y) => ({ px: (x - R.cam[0]) * zoomOf(R), py: (y - R.cam[1]) * zoomOf(R) });
-  const HINT = TXT('HINT');
   // STEP: a step's length at a run (TASKS 1802: 20 px stepped 8.7 times a second at a quarter of his height; 26 broke his gait's bob and his knees walking down)
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 22 };
   // CAM_LOOK: how far toward the cursor the camera leans, as a share of the cursor's offset from the window's middle
-  const DEMO_SEED = 4247, CAM_FEET = 18, CAM_LOOK = 0.12;
+  const CAM_FEET = 18, CAM_LOOK = 0.12;
   const EEL_MOUTH = [44, 56];   // where the eel's mouth is when it is up: ahead of it and over the water (view px; the scene draws it there)
 
   // ---------------- rng (state lives in the run: deterministic replay) ----------------
@@ -27,8 +26,8 @@
   const ri = (R, a, b) => a + Math.floor(rnd(R) * (b - a + 1));
   const pick = (R, arr) => arr[Math.floor(rnd(R) * arr.length)];
   const ev = (S, e) => { e.t = S.t;
-    S.ev.push(e); if (!S.demo && !(S.run && S.run.test) && META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
-    if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log && !S.demo) note(S, e); };
+    S.ev.push(e); if (!(S.run && S.run.test) && META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
+    if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log) note(S, e); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
   // reads the depth, the run's own floor numbers only place its bosses, guards and end
@@ -55,7 +54,7 @@
   const deathOf = (R) => (R.viaTown && R.deathMode === 'normal' ? 'normal' : 'hard');
   const hardcore = (R) => deathOf(R) === 'hard';
   // the counters go by mode as well (TASKS 2104): stats.mode.normal and stats.mode.hard, each with the keys of stats.all
-  const tally = (S, R, k, n = 1, max) => { if (S.demo || !R || !n || R.test) return; const T = statsOf(S), id = D.clsOf(R.hero).id, C = T.cls[id] || (T.cls[id] = {});
+  const tally = (S, R, k, n = 1, max) => { if (!R || !n || R.test) return; const T = statsOf(S), id = D.clsOf(R.hero).id, C = T.cls[id] || (T.cls[id] = {});
     const md = T.mode || (T.mode = {}), M = md[deathOf(R)] || (md[deathOf(R)] = {});
     for (const o of [T.all, C, M]) o[k] = max ? Math.max(o[k] || 0, n) : (o[k] || 0) + n; };
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
@@ -297,8 +296,8 @@
   function snapCam(R) { const h = R.hero, lk = R.camLook || [0, 0], w = WIN(R); R.cam = [h.x - w.W / 2 + lk[0], camAimY(R, h) + lk[1]]; R.camV = [0, 0]; clampCam(R, R.cam); }
 
   Object.assign(SIMX, {
-    D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW, VIEW_H, viewFor, setView, uiDy,
-    zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
+    D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, VIEW, VIEW_H, viewFor, setView, uiDy,
+    zoomOf, WIN, toPx, K, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
     losClear, overLava, doorLock, doorTwin, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });

@@ -85,7 +85,7 @@ try {
   await p.evaluate(() => {
     const S = structuredClone(window.__WATER.find(([name]) => name === 'water_fountain_dungeon')[1]), R = S.run;
     const q = R.map.waterFeatures.find((q) => q.kind === 'fountain'); R.hero.x = q.x; R.hero.y = q.y + 32;
-    R.seen.fill(1); S.demo = false; window.__waterAudioState = S;
+    R.seen.fill(1); window.__waterAudioState = S;
   });
   await hold(800);
   const near = await p.evaluate(() => {
@@ -101,7 +101,7 @@ try {
   samples.push({ sound: { near, far, ...audio } });
   // a cave's fall roars further and louder than a fountain, panned to its side (TASKS 304)
   await p.evaluate(() => { const S = structuredClone(window.__WATER.find(([name]) => name === 'cave_waterfall')[1]), R = S.run, q = R.map.waterFeatures.find((q) => q.kind === 'waterfall');
-    R.hero.x = q.x + 200; R.hero.y = q.y + 32; R.seen.fill(1); S.demo = false; window.__waterAudioState = S; });
+    R.hero.x = q.x + 200; R.hero.y = q.y + 32; R.seen.fill(1); window.__waterAudioState = S; });
   await hold(1500);
   const fall = await p.evaluate(() => window.__waterGain?.gain.value || 0);
   // away from every source on the floor, not just this one

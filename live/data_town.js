@@ -140,16 +140,18 @@
   // sizes.js sets the heights so the slabs stand on the rails (RAIL.gauge) and `cartSeatF` puts their feet on the rails' line. `rim`: the near box from the wheels'
   // bottom up to its near rim, in parts of each painting's height, the one size both views share: cartCheck wants it no less than
   // `shrink` short of what the cart shows `ahead` px further along. `dusk`: the run (px) over which the cart comes out of the adit's dark.
-  // The front paintings' box carries the grade TASKS 2122 fitted to the 3/4 ones' L* (tools/measure/assets/cartgrade.py), baked in by
-  // tools/fix_cart_ore_2133.py with the ore recoloured apart, one slate in all paintings: graded whole, the heap went flat and pale
-  // (town_assets_r10 1). `lumpF`: load 1's one lump in the front view, set colder and darker as that view's ore for the adit's lamp it is
-  // only seen in (tools/fix_cart_ore_2133.py FRONT). `front` 54 and `span` 12: the front painting's slabs stand within a pixel of the
+  // The front paintings carry the 3/4 ones' colour class by class (ore, ink, lit rims, wood, iron, wheels; tools/fix_cart_views_2140.py):
+  // set for the adit's lamp (TASKS 2122, 2133) they were paler, greyer and pale-lined where the two views meet at the bend, and load 1's
+  // one lump goes untinted in both views for the same reason. `front` 54 and `span` 12: the front painting's slabs stand within a pixel of the
   // rails down to 54° of their slope and the 3/4 one's near wheels from 54° (the chord of the near rail under them, `span` px of path
   // either side, sets its turn), so the change of view comes there and not at 67°, where the 3/4 wheels stood 4.9 px off the rail
-  // (tools/measure/motion/cartrails.cjs); `fade` px of rails the cross-fade takes, 0.19 s at the top speed
-  const CART = { diag: 43, front: 54, trim: 7, stop: 22, floor: 0.68, reach: 14, span: 12, fade: 9, dusk: [0, 20], shrink: 0.15, ahead: 6,
+  // (tools/measure/motion/cartrails.cjs); `fade` px of rails the cross-fade takes, 0.29 s at the top speed (TASKS 2140: at 0.19 s the
+  // author saw the change as a jump). `face`: the end of the box the camera sees head-on in the front view and at the lower left in the
+  // 3/4 one, top (the near rim, `rim` up from the feet) to bottom (its lowest opaque px), in parts of the height: the 3/4 end stands
+  // 2.8-3.3 px taller (tools/measure/cart2140), so through the fade the 3/4 painting grows from the front one's end to its own (`cartGrow`)
+  const CART = { diag: 43, front: 54, trim: 7, stop: 22, floor: 0.68, reach: 14, span: 12, fade: 14, dusk: [0, 20], shrink: 0.15, ahead: 6,
+    face: { cart_tw: [0.551, 0.966], cart_tw_half: [0.505, 0.961], cart_tw_empty: [0.505, 0.957], cart_tw_f: [0.486, 0.905], cart_tw_f_half: [0.396, 0.889], cart_tw_f_empty: [0.396, 0.878] },
     wheelsF: { cart_tw_f: { x: [0.1293, 0.8707], foot: 0.9960 }, cart_tw_f_half: { x: [0.1294, 0.8717], foot: 0.9956 }, cart_tw_f_empty: { x: [0.1294, 0.8723], foot: 0.9954 } },
-    lumpF: [0.7, 0.74, 0.95],
     rim: { cart_tw: 0.445, cart_tw_half: 0.49, cart_tw_empty: 0.49, cart_tw_f: 0.51, cart_tw_f_half: 0.6, cart_tw_f_empty: 0.6 },
     foot: { cart_tw: [0.9956, 0.6777], cart_tw_half: [0.9951, 0.6456], cart_tw_empty: [0.9951, 0.6419] },
     hubs: { cart_tw: [[0.595, 0.868], [0.946, 0.592]], cart_tw_half: [[0.596, 0.854], [0.948, 0.549]], cart_tw_empty: [[0.595, 0.851], [0.946, 0.547]] },
@@ -213,10 +215,15 @@
   const cartFade = (pts, s, at = cartSwap(pts)) => { const t = Math.max(0, Math.min(1, (s - at) / CART.fade + 0.5));
     return { a: t * t * (3 - 2 * t), F: viewOf(pts, s, 0), S: viewOf(pts, s, 1) }; };
   // where the painting's point (dx, dy from its bottom centre, w x h px) lands in the view for the cart at `v` (cartAt) on the view `V`
-  const cartPut = (name, w, h, V, v) => { const st = V.side ? cartSeat(name, w, h, V) : cartSeatF(name, w, h), r = V.rot * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r);
-    return (dx, dy) => { const x = dx - st[0], y = dy - st[1]; return [v.x + x * c - y * sn, v.y + x * sn + y * c]; }; };
+  // drawn `g` times its size about its near feet's midpoint (`cartFoot`), so they stay on the near rail as it grows
+  const cartPut = (name, w, h, V, v, g = 1) => { const st = V.side ? cartSeat(name, w, h, V) : cartSeatF(name, w, h), r = V.rot * Math.PI / 180, c = Math.cos(r), sn = Math.sin(r), fm = V.side ? cartFoot(name, w, h, V) : [0, 0];
+    return (dx, dy) => { const x = fm[0] + g * (dx - st[0] - fm[0]), y = fm[1] + g * (dy - st[1] - fm[1]); return [v.x + x * c - y * sn, v.y + x * sn + y * c]; }; };
+  // the 3/4 painting's near feet's midpoint from its seat, in its own px
+  const cartFoot = (name, w, h, V) => { const [[u0], [u1]] = CART.hubs[name], [f0, f1] = CART.foot[name], st = cartSeat(name, w, h, V); return [((u0 + u1) / 2 - 0.5) * w - st[0], ((f0 + f1) / 2 - 1) * h - st[1]]; };
+  // the 3/4 painting's size through the fade at its share `a`: its end of the box (`face`) as tall as the front one's when it comes in, its own when the fade is done
+  const cartGrow = (nmS, nmF, size, a) => { const f = (n) => (CART.face[n][1] - CART.face[n][0]) * size(n)[1], r = f(nmF) / f(nmS); return r + (1 - r) * a; };
   // the points the cart touches the rails with: the front painting's two slab feet, the 3/4 one's two near wheels' feet
-  const cartFeet = (side, name, w, h, V, v) => { const P = cartPut(name, w, h, V, v);
+  const cartFeet = (side, name, w, h, V, v, g = 1) => { const P = cartPut(name, w, h, V, v, g);
     return side ? CART.hubs[name].map(([u], q) => P((u - 0.5) * w, (CART.foot[name][q] - 1) * h)) : CART.wheelsF[name].x.map((u) => P((u - 0.5) * w, (CART.wheelsF[name].foot - 1) * h)); };
   // the lug's place on wheel `q` of the 3/4 painting `name` (w x h px) after `s` px rolled, from the painting's bottom centre; `run` is
   // the screen side (+1 right) the cart goes to as `s` grows, so the wheel's top turns that way (TASKS 2109: it turned against the travel)
@@ -237,7 +244,7 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   // `nudge` (town_game_r10 4): how far a full mark may slide across and down from over the head to clear the HUD before it goes small;

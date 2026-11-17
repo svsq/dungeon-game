@@ -1,7 +1,7 @@
 // live/sim_checks_getters.js — selfCheck's part for what the render may ask the sim (SIM.Q and the getters beside it): a read leaves the state as it was, so a frame drawn or not changes nothing (TASKS 2064). Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, { enterFloor, newRun, spawn, step } = SIMX;
-  const SKIP = { at: 'it replays the attract demo into a cache of its own, not into the state' };
+  const SKIP = {};
   const BESIDE = ['offersOf'];
   const ser = SIMX.checks.kit.stateJson;
   const parts = (S) => { const { run, ...rest } = S, o = {}; for (const [k, v] of Object.entries(rest)) o['S.' + k] = ser(v); for (const [k, v] of Object.entries(run || {})) o['run.' + k] = ser(v); return o; };

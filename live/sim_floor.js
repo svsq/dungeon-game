@@ -17,12 +17,12 @@
     return h;
   }
   function newRun(S, mode, seed, o = {}) {
-    const R = { mode, seed, diff: S.demo ? 'normal' : S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta, o.cls || S.meta.cls || 'warrior'), cam: [0, 0], camV: [0, 0],
+    const R = { mode, seed, diff: S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta, o.cls || S.meta.cls || 'warrior'), cam: [0, 0], camV: [0, 0],
       freeze: 0, trauma: 0, map: null, en: [], proj: [], drops: [], chests: [], pots: [], shrines: [], seen: [], rseen: [], bossDead: 0, won: 0, saveT: 0, msg: null };
-    if (!S.demo) R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
+    R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
     if (o.name) { R.hero.name = o.name; if (R.log) R.log.name = o.name; }
     if (o.deathMode) { R.deathMode = o.deathMode; if (R.log) R.log.deathMode = o.deathMode; }
-    const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.demo ? {} : S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
+    const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
     const give = (it) => { it.id = R.nextId++; return it; };
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: W, rar: 0, mods: {}, atk: BASES[W].atk }));
     h.eq.armor = give({ b: A, rar: 0, lvl: 1, mods: {}, def: BASES[A].def });
@@ -227,7 +227,7 @@
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null; h.volleyT = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
-    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; snapCam(R);
+    R.zoom = S.meta.zoom; snapCam(R);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
     reveal(R, 1); R.msg = R.town && R.newOffers ? { s: TXT('sim_floor.newOffers'), t: S.t, d: 3.5 } : { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 }; R.newOffers = 0;
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);

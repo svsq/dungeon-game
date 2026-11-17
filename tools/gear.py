@@ -18,6 +18,10 @@ from scipy import ndimage as nd
 W, H = 1536, 1024
 GEN = 'art/gen'
 HEAD = {'body': 76, 'body_back': 70}     # rows above this are the head (the collar and the cape start below)
+# a class redrawn in its new look (TASKS 2146, docs/CHAR_REGEN_2146.md): its own head rows; its red is its clothes too (the warrior's
+# gambeson), so no red comes back from the base; the sheet shows its drawn head (body_menu), the world-grid head comes back at the cut
+NEW_LOOK = {'hero': {'body': 69, 'body_back': 60}, 'archer': {'body': 77, 'body_back': 58}, 'mage': {'body': 64, 'body_back': 58}}
+head_of = lambda who, v: NEW_LOOK.get(who, HEAD)[v]
 # set → (suffix, scale, pieces in columns: each column a list of [piece, source]); source: a part name or 'head:<view>'
 # a set's 4th field (TASKS 1113–1114): src — whose parts the sheet is made of, out — whose parts it writes (the mage is the hero
 # repainted: the same rig, a new face, no red cape restored), base — the set paints the class itself (no suffix)
@@ -27,13 +31,15 @@ SETS = {
     'hood': ('hd', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]]),
     'gauntlet': ('pl', 6, [[['farmL', 'farmL']]]),
     # the plate warmed (TASKS 1791): the same pieces as the plate, gauntlet and iron greave, browned steel instead of the cold blue-grey
-    'plate': ('pw', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['farmL', 'farmL_pl']], [['thighL', 'thighL'], ['shinL', 'shinL']]]),
+    'plate': ('pw', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['farmL', 'farmL']], [['thighL', 'thighL'], ['shinL', 'shinL']]]),
     'helm_le': ('hle', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]]),
     'helm_kn': ('hkn', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]]),
     'mage': ('', 3, [[['body', 'body']], [['body_back', 'body_back']], [['cape', 'cape']], [['uarmL', 'uarmL'], ['farmL', 'farmL']], [['thighL', 'thighL'], ['shinL', 'shinL'], ['footL', 'footL']]],
              {'src': 'hero', 'out': 'mage', 'base': 1}),
-    'mage_leather': ('le', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'mage', 'out': 'mage'}),
-    'mage_hood': ('hd', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'mage', 'out': 'mage'}),
+    # (TASKS 2146) the new mage's thighs are his robe's skirt (regen_2146.py --skirt): an armour over the robe repaints only the torso,
+    # its back and the shoulders, the skirt stays
+    'mage_leather': ('le', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL']]], {'src': 'mage', 'out': 'mage'}),
+    'mage_hood': ('hd', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL']]], {'src': 'mage', 'out': 'mage'}),
     'mage_circlet': ('hci', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]], {'src': 'mage', 'out': 'mage'}),
     'archer': ('', 3, [[['body', 'body']], [['body_back', 'body_back']], [['cape', 'cape']], [['uarmL', 'uarmL'], ['farmL', 'farmL']], [['thighL', 'thighL'], ['shinL', 'shinL'], ['footL', 'footL']]],
                {'src': 'hero', 'out': 'archer', 'base': 1}),
@@ -49,9 +55,10 @@ def bbox(m):
     ys, xs = np.where(m); return ys.min(), xs.min(), ys.max() + 1, xs.max() + 1
 
 def source(src, who='hero'):
+    menu = lambda v: f'{GEN}/{who}__{v}_menu.png' if who in NEW_LOOK and v == 'body' else f'{GEN}/{who}__{v}.png'
     if src.startswith('head:'):
-        v = src[5:]; a = load(f'{GEN}/{who}__{v}.png'); a[HEAD[v] + 14:] = 0; return a
-    return load(f'{GEN}/{who}__{src}.png')
+        v = src[5:]; a = load(menu(v)); a[head_of(who, v) + 14:] = 0; return a
+    return load(menu(src))
 
 def make(names=None):
     lay = json.load(open('art/gear.json')) if names else {}
@@ -108,7 +115,7 @@ def clean(a, min_px=20, one=False):
 # and above the skirt those columns are the arm pieces' place, so they are cleared and the new flank gets its outline
 ARMLESS = {'mage': {'rows': (152, 205), 'x': (79, 139), 'hem': (205, 216, 62, 152)}}
 def armless(a, who):
-    A = ARMLESS.get(who)
+    A = ARMLESS.get(who) if who not in NEW_LOOK else None
     if not A: return a
     (y0, y1), (xl, xr) = A['rows'], A['x']; band = a[y0:y1]; band[:, :xl, 3] = 0; band[:, xr + 1:, 3] = 0
     for x in (xl, xr):
@@ -155,7 +162,7 @@ def cut(names):
     lay = json.load(open('art/gear.json'))
     for name in names:
         O = opt(name); who, out_, base = O.get('src', 'hero'), O.get('out', 'hero'), O.get('base', 0)
-        put = lambda a, n: save(archer_tone(a, n, skip) if out_ == 'archer' else a, n)
+        put = lambda a, n: save(archer_tone(a, n, skip) if out_ == 'archer' and who not in NEW_LOOK else a, n)
         nm = lambda piece, sx: f'{out_}__{piece}' + (f'_{sx}' if sx else '')
         L = lay[name]; K, sfx = L['K'], L['sfx']; sheet = Image.open(f'{GEN}/gear_{name}.png').convert('RGBA').resize((W, H), Image.LANCZOS)
         for it in L['items']:
@@ -174,19 +181,22 @@ def cut(names):
             if piece == 'body': a = clean(armless(a, out_), one=out_ != 'hero')
             if piece in ('body', 'body_back') and not base:
                 full = load(f'{GEN}/{who}__{piece}.png'); keep = red(full) & ((np.arange(full.shape[0])[:, None] > 110) if sfx == 'hd' else True)
+                if who in NEW_LOOK: keep[:] = False
                 a[keep] = full[keep]; skip = keep.copy()
-                if sfx != 'hd': hy = HEAD[piece]; a[:hy] = full[:hy]; skip[:hy] = True
+                if sfx != 'hd': hy = head_of(who, piece); a[:hy] = full[:hy]; skip[:hy] = True
             if piece.startswith('head'):
-                v = 'body' if piece == 'head' else 'body_back'; hy = HEAD[v]; full = load(f'{GEN}/{who}__{v}.png')
+                v = 'body' if piece == 'head' else 'body_back'; hy = head_of(who, v); full = load(f'{GEN}/{who}__{v}.png')
                 a[hy + 6:] = 0; a[hy:hy + 6] = np.where(a[hy:hy + 6, :, 3:] > 0, a[hy:hy + 6], full[hy:hy + 6])   # the collar under the chin stays the body's
                 put(a, nm(piece, sfx[1:])); print(f'{name}: {piece} fit {iou:.2f}'); continue
             put(a, nm(piece, sfx)); print(f'{name}: {piece} fit {iou:.2f}')
+            if piece == 'body' and who in NEW_LOOK and sfx and sfx != 'hd':   # the arch's copy (scene_hero.js bodyTex): the head as drawn, not on the grid
+                mm = a.copy(); hy = head_of(who, 'body'); mm[:hy] = load(f'{GEN}/{who}__body_menu.png')[:hy]; put(mm, nm(piece, sfx) + '_menu')
             if piece.endswith('L'): put(near(a, piece[:-1], who), nm(piece[:-1] + 'R', sfx))
             if piece in ('body', 'body_back'):
-                nh = a.copy(); nh[:HEAD[piece]] = 0; put(nh, nm(piece, (sfx + '_nh') if sfx else 'nh'))
+                nh = a.copy(); nh[:head_of(who, piece)] = 0; put(nh, nm(piece, (sfx + '_nh') if sfx else 'nh'))
     if all(opt(n).get('out', 'hero') == 'hero' for n in names):   # (a class's sets leave the hero's parts alone)
         for v in ('body', 'body_back'):   # the plate armour (the hero as drawn) without its head, under a helmet
-            nh = load(f'{GEN}/hero__{v}.png'); nh[:HEAD[v]] = 0; save(nh, f'hero__{v}_nh')
+            nh = load(f'{GEN}/hero__{v}.png'); nh[:head_of('hero', v)] = 0; save(nh, f'hero__{v}_nh')
 
 if __name__ == '__main__':
     if sys.argv[1] == 'make': make(sys.argv[2:] or None)

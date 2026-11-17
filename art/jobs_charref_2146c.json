@@ -1,0 +1,30 @@
+[
+ {
+  "name": "charref3_archer_a_small_1",
+  "prompt": "art/prompts/charref3_archer_a_small.txt",
+  "ref": [
+   "frames/char_refs_r3/gen/guide_archer_a_h40.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_r3/gen/scale_warrior_a.png=another hero on the same grid: the archer must be exactly this tall with these pixel blocks; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_r3/gen"
+ },
+ {
+  "name": "charref3_archer_a_small_2",
+  "prompt": "art/prompts/charref3_archer_a_small.txt",
+  "ref": [
+   "frames/char_refs_r3/gen/guide_archer_a_h40.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_r3/gen/scale_warrior_a.png=another hero on the same grid: the archer must be exactly this tall with these pixel blocks; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_r3/gen"
+ }
+]

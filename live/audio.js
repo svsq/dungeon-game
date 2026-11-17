@@ -2,7 +2,7 @@
 // oscillators and filtered noise, panned and attenuated by where it happens on screen, through one shared dungeon reverb.
 // The ambience is a per-biome bed (a low drone, air, drips / embers / shimmer) and a heartbeat on low health.
 // AUDIO.update(S) runs once a frame from the live loop; the volumes and M's mute are the sim's (S.meta.vol for the effects, S.meta.amb for the background, S.meta.mute). Sound starts on the first key or click,
-// as browsers require (the context is made ahead, suspended), and stays silent in the attract demo.
+// as browsers require (the context is made ahead, suspended).
 (function () {
   const W = 1920, H = 1080;
   let played = 0, ctx = null, master, sfx, bed, noiseBuf, lastT = -1, lastRun = null, muted = false, gainNow = 0, sfxNow = -1, ambNow = -1, amb = null, beatT = 0;
@@ -387,7 +387,7 @@
     // (re-review of PR 62) idle time may never come at 60 fps on the Deck: built within a second anyway; and nothing is played
     // until the context runs: sounds queued on a suspended one all went off at once when it resumed
     if (!ctx && !asked) { asked = true; if (window.requestIdleCallback) requestIdleCallback(prepare, { timeout: 1000 }); else setTimeout(prepare, 0); }
-    if (!ctx || !live || ctx.state !== 'running' || !S || S.demo) { if (S) lastT = S.t; return; }
+    if (!ctx || !live || ctx.state !== 'running' || !S) { if (S) lastT = S.t; return; }
     const M = S.meta || {}, g = M.mute ? 0 : 0.7, gs = M.vol ?? 1, ga = M.amb ?? 1; muted = !!M.mute;
     if (g !== gainNow) { master.gain.setTargetAtTime(g, ctx.currentTime, 0.05); gainNow = g; }
     if (gs !== sfxNow) { sfx.vol.setTargetAtTime(gs, ctx.currentTime, 0.05); sfxNow = gs; }

@@ -20,8 +20,8 @@ canvas{cursor:crosshair}
 <div id="dev"></div><div id="flash">reloaded</div>
 <script>
 // LIVE PREVIEW. Scripts and images load with a cache-buster; the page polls its sources and reloads itself when any of
-// them changes, keeping the play state (sessionStorage). Attract demo until a key or click, then play (keyboard + pointer).
-// Dev keys: P pause, [ ] speed (0.1 / 0.25 / 0.5 / 1), . single step, Esc back to the demo, R restart.
+// them changes, keeping the play state (sessionStorage). The loading screen, then the main menu (keyboard + pointer).
+// Dev keys: P pause, [ ] speed (0.1 / 0.25 / 0.5 / 1), . single step.
 // ?render=1 exposes window.__renderAt(t) for render.mjs (no loop, no polling).
 const V = Date.now(), STATIC = !!window.__STATIC__;          // STATIC: packed build (no polling, no dev overlay)
 // the start's screen and log (TASKS 2004): a title and a bar from the first paint, so the window is never a black one while the
@@ -67,7 +67,6 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // a tool's render (?render=1) draws any floor at once: it gets every program before its first frame
   G.defer = true; SCENE.programs(); if (render) G.want(Object.keys(LIB.P)); mark('programs');
   const nSh = await G.settle(); bootStep(40); mark('shaders', `${nSh} programs, ${G.pending()} left for the background`);
-  window.__duration = SIM.L;
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
   if (render) { bootEnd(); window.__ready = true; return; }
   window.__ready = true;
@@ -86,8 +85,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const persist = () => { if (!play || !SIM.persist) return; const p = SIM.persist(play);
     try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run');
       localStorage.setItem('dc2_slot', JSON.stringify(p.slot || 0)); localStorage.setItem('dc2_saves', JSON.stringify(p.saves || [])); } catch (e) { console.warn('save failed', e); } };
-  addEventListener('beforeunload', () => { if (play && play.screen === 'play' && play.run && !play.demo) { play.saved = play.run; persist(); play.saved = null; } });
-  const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; updReqN = play.updReq ? play.updReq.n : 0; };
+  addEventListener('beforeunload', () => { if (play && play.screen === 'play' && play.run) { play.saved = play.run; persist(); play.saved = null; } });
+  // the wall clock seeds the names and the runs' seeds: the game opens on its menu at once, at the same sim time on every launch
+  const startPlay = () => { play = SIM.spawn(Date.now() % 1e8 / 1000, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; updReqN = play.updReq ? play.updReq.n : 0; };
   // a finished run's log goes to the browser's downloads as crypt-run-<date>.json, for the balance analysis
   let loggedN = 0, loggedReq = 0, quitN = 0, updReqN = 0;
   const downloadLog = (res) => { const d = new Date(), pad = (n) => String(n).padStart(2, '0'), stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
@@ -98,7 +98,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   try { const sv = JSON.parse(sessionStorage.getItem('live2') || 'null');                     // restore across live reloads
     if (sv) { simT = sv.simT; speed = sv.speed; paused = sv.paused; if (sv.play) { play = Object.assign(SIM.create(), sv.play); }
       flash.style.opacity = 1; setTimeout(() => (flash.style.opacity = 0), 1200); } } catch (e) {}
-  if (play) { loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; updReqN = play.updReq ? play.updReq.n : 0; }
+  if (!play) startPlay(); else { loggedN = play.logN || 0; loggedReq = play.logReq || 0; quitN = play.quitReq || 0; updReqN = play.updReq ? play.updReq.n : 0; }
   const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
@@ -115,7 +115,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'Enter' && play && play.screen === 'play' && !e.repeat) pend.keys.push('KeyE');
     if (play && e.key.length === 1 && !e.ctrlKey && !e.metaKey) pend.chars.push(e.key);   // e.key, not e.code: the name takes the letters of the player's layout (TASKS 1879)
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
-    if (!play) startPlay(); else fullSync(true);
+    fullSync(true);
     e.preventDefault();
   });
   addEventListener('keyup', (e) => { keys[e.code] = 0; });
@@ -157,7 +157,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const toView = (e, force) => { cx = e.clientX; cy = e.clientY; if (!force && pad && pad.state.active) return; ptr.moved = 1; viewPtr(); };
   const viewPtr = () => { if (cx === null) return; const r = cv.getBoundingClientRect(); ptr.x = (cx - r.left) / r.width * SIM.VIEW.W; ptr.y = (cy - r.top) / r.height * SIM.VIEW.H; };
   addEventListener('pointermove', toView);
-  addEventListener('pointerdown', (e) => { toView(e, true); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
+  addEventListener('pointerdown', (e) => { toView(e, true);
     fullSync(true);
     if (e.button !== 2 && window.HUD && HUD.trkFoldAt && HUD.trkFoldAt(ptr.x, ptr.y)) { pend.keys.push('TrkFold'); return; }
     if (e.button !== 2 && window.HUD && HUD.trkHideAt && HUD.trkHideAt(ptr.x, ptr.y)) { pend.keys.push('TrkHide'); return; }
@@ -170,7 +170,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   if (desk && desk.onAway) desk.onAway(away);
   // the gamepad (pad.js, R-08): writes keys, ptr and pend as the listeners above do; R3 or F2 toggle the dev line
   let devOn = q.has('dev') || /dev/.test(location.hash), padCursor = false;
-  const pad = window.PADIN ? PADIN.create({ keys, ptr, pend, VW, VH, play: () => play, start: () => { if (!play) startPlay(); }, dev: () => { devOn = !devOn; } }) : null;
+  const pad = window.PADIN ? PADIN.create({ keys, ptr, pend, VW, VH, play: () => play, dev: () => { devOn = !devOn; } }) : null;
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   // the frames' times over the first minute, one line to boot.log (TASKS 2106: a weak PC's own frame was never measured); cap: room
   // for a minute at 240 Hz, filled in place
@@ -180,8 +180,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (now - ftT0 < FRAMES.s * 1000) return; ftT0 = -2; const a = ft.subarray(0, ftN).sort(), at = (q) => a[Math.min(ftN - 1, Math.floor(q * ftN))].toFixed(1);
     let slow = 0; for (let i = 0; i < ftN; i++) if (a[i] > FRAMES.slow) slow++;
     bootLog(`frames   ${FRAMES.s} s: ${ftN} frames, ${FRAMES.q.map((q) => `p${q * 100} ${at(q)} ms`).join(', ')}, ${slow} over ${FRAMES.slow} ms`); };
-  // a floor drawn only once its programs are ready (TASKS 2106): till then the run stands under the loading screen, the attract
-  // demo leaves the title alone on the dark; held: when the wait began, what it was for
+  // a floor drawn only once its programs are ready (TASKS 2106): till then the run stands under the loading screen; held: when
+  // the wait began, what it was for
   let held = null, frameN = 0;
   const holdEnd = (now) => { if (!held) return; bootLog(`wait     ${held.what}: ${(now - held.t).toFixed(0)} ms for its programs`); held = null; };
   const loop = () => {
@@ -189,40 +189,37 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     fpsAcc += wall; fpsN++; if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
     // (the first frame starts no compile of its own: it is the start's last step)
     const warm = frameN++ > 0; if (warm) G.pump();
-    let wait = play ? SCENE.ready(play.run) : 1;
+    let wait = SCENE.ready(play.run);
     if (pad) pad.poll(wall);                           // in real time, not scaled by the dev speed
     if (pad && !!pad.state.active !== padCursor) { padCursor = !!pad.state.active; cv.style.cursor = padCursor ? 'none' : 'crosshair'; }   // the HUD draws the pad's pointer
     const dt = paused ? (stepOnce ? 1 / 60 : 0) : wall * speed; stepOnce = false;
     simT += dt;
-    if (play) {
-      acc += dt; if (!padCursor) viewPtr();   // (the pad's pointer is its own while the pad leads, pad.js)
-      const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, shift: !!(keys.ShiftLeft || keys.ShiftRight), slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
-        now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away, upd };
-      if (wait < 1) { acc = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; ptr.click = ptr.rclick = 0; pend.slot = pend.wheel = 0; }
-      while (acc >= SIM.DT) { if (pad) pad.stepBegin(); SIM.step(play, inp); if (pad) pad.stepEnd(); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
-      fullSync(false);
-      if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
-      // «Выход» (TASKS 1877): the save is written just above, then the desktop build closes its window
-      if ((play.quitReq || 0) !== quitN) { quitN = play.quitReq || 0; if (desk && desk.quit) desk.quit(); }
-      // the update's asks (TASKS 1870): the save above is written before a restart is asked for
-      const ur = play.updReq; if (ur && ur.n !== updReqN) { updReqN = ur.n; if (ur.k === 'open') { if (updBase && updBase.url) window.open(updBase.url, '_blank'); } else if (desk && desk.update) desk.update.ask(ur.k); }
-      const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
-      if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
-      if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
-      SCENE.state = play; wait = SCENE.ready(play.run);
-      if (wait < 1 && !held) held = { t: now, what: 'floor ' + play.run.floor + ' ' + play.run.map.biome };
-      if (wait < 1) loadingShow(wait); else { loadingHide(); holdEnd(now); }
-    } else { const d = SIM.Q.at(simT), dw = warm ? SCENE.ready(d.run) : 0; SCENE.state = dw < 1 ? Object.assign({}, d, { run: null }) : null; loadingHide();
-      if (dw < 1 && !held) held = { t: now, what: 'the demo ' + d.run.map.biome }; if (dw >= 1) holdEnd(now); }
+    acc += dt; if (!padCursor) viewPtr();   // (the pad's pointer is its own while the pad leads, pad.js)
+    const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
+      jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, shift: !!(keys.ShiftLeft || keys.ShiftRight), slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep, chars: pend.chars,
+      now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away, upd };
+    if (wait < 1) { acc = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; ptr.click = ptr.rclick = 0; pend.slot = pend.wheel = 0; }
+    while (acc >= SIM.DT) { if (pad) pad.stepBegin(); SIM.step(play, inp); if (pad) pad.stepEnd(); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
+    fullSync(false);
+    if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
+    // «Выход» (TASKS 1877): the save is written just above, then the desktop build closes its window
+    if ((play.quitReq || 0) !== quitN) { quitN = play.quitReq || 0; if (desk && desk.quit) desk.quit(); }
+    // the update's asks (TASKS 1870): the save above is written before a restart is asked for
+    const ur = play.updReq; if (ur && ur.n !== updReqN) { updReqN = ur.n; if (ur.k === 'open') { if (updBase && updBase.url) window.open(updBase.url, '_blank'); } else if (desk && desk.update) desk.update.ask(ur.k); }
+    const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
+    if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
+    if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
+    SCENE.state = play; wait = SCENE.ready(play.run);
+    if (wait < 1 && !held) held = { t: now, what: 'floor ' + play.run.floor + ' ' + play.run.map.biome };
+    if (wait < 1) loadingShow(wait); else { loadingHide(); holdEnd(now); }
     if (wait >= 1) try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
     const devShown = !STATIC && (paused || speed !== 1 || devOn);
     if (!STATIC) dev.style.display = devShown ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
-    if (devShown) { const raw = pad && pad.state.raw; dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (raw ? `\nPAD ${pad.state.n} «${raw.id}» ${pad.state.map}  ax ${raw.ax.join(' ')}  b[${raw.b.join(' ')}]  ${pad.state.mode}` : ''); }
+    if (devShown) { const raw = pad && pad.state.raw; dev.textContent = `LIVE  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (raw ? `\nPAD ${pad.state.n} «${raw.id}» ${pad.state.map}  ax ${raw.ax.join(' ')}  b[${raw.b.join(' ')}]  ${pad.state.mode}` : ''); }
     requestAnimationFrame(loop);
   };
-  loop(); bootStep(20); mark('frame', 'the first one, menu or demo'); bootLog(`ready in ${performance.now().toFixed(0)} ms`); bootEnd();
+  loop(); bootStep(20); mark('frame', 'the first one'); bootLog(`ready in ${performance.now().toFixed(0)} ms`); bootEnd();
   if (STATIC) { dev.style.display = 'none'; return; }
   const WATCH = ['index.html', 'modules.js', 'text_files.js', 'ui_files.js', ...MODULES.page], stamp = {};
   const poll = async () => {

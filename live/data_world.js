@@ -10,6 +10,10 @@
   // candle: the warm light of the wall torches in a room without a hearth (TASKS 1787: the concept's side rooms, the biome's colour in its
   // braziers' pools only); hearth: how much wider and brighter a brazier's cold pool is [r, amt]; sconce: the reach of a wall torch in its colour;
   // candleR: a candle's pool against a torch's (the halls keep 1: 1787's floor between the hearths, L 18–20, was tuned on full pools); ambK, ambLvl: its neutral stone between them
+  // flick: how a fire's light breathes, base + Σ amp·sin(2π·hz·t + ph·i), i the source's index or place so neighbours never beat in
+  // step (TASKS 2149: a tester found the fires shimmering each on its own tiring, the town's most: its swing now a third of the old ±19 %, slow; the halls' half of it);
+  // fireball: the rate (Hz) the fireball's edge and heart drift at, smooth (a 30 Hz stepped hash read as shimmer)
+  const FLICK = { deep: { base: 0.85, waves: [[0.05, 1.45, 3.7], [0.03, 3.7, 1.3]] }, town: { base: 0.85, waves: [[0.035, 0.6, 3.7], [0.021, 1.3, 1.3]] }, fireball: 9 };
   const BIOMES = {
     dungeon: { name: TXT('BIOMES.dungeon.name'), rock: [0.05, 0.04, 0.052], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], litSat: 1.0, floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
@@ -43,7 +47,7 @@
     // shadows read warmer than the concept's, a* 8.3 against 4.5); wallG: unlit masonry dark with deep seams (r10: L50 24.8 against 15); fireK: its fires' strength
     // big*: the square's fire is a tight pool with no wide spill (TASKS 2095, r9: its 70–110 px ring read L 35 against the concept's 21)
     town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.155, 0.16, 0.18], ambK: 0.65, ambLvl: 1.05, fireK: 1.1, bigK: 0.4, bigR: 100, bigFall: 3.0, bigNear: 0.6, bigSpill: 0, torch: [1.0, 0.66, 0.36], torchR: 0.55, spill: [1.1, 0.35], topLift: 2.1, floorG: 1.7, wallG: [0.75, 0.62, 0, 1.35], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
-      tint: [1, 1, 1], roster: [], props: [], town: true },
+      tint: [1, 1, 1], roster: [], props: [], town: true, flick: FLICK.town },
   };
 
   const ARCH = {
@@ -384,5 +388,6 @@
   // `rest`: the painting of what is left lying there, its keel and half its ribs (TASKS 1736: only splinters marked where it had stood)
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2, rest: 'wreck_cv_broken' };
-  Object.assign(D, { PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  for (const b of Object.values(BIOMES)) b.flick = b.flick || FLICK.deep;
+  Object.assign(D, { FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

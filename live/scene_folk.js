@@ -10,6 +10,9 @@
   const JOINT_W = 0.02;
   // the legs step along the gait's eased heading (the sim's f.hx, f.hy, TASKS 2136) at the walker's speed
   const gaitV = (f) => { const v = Math.hypot(f.vx, f.vy); return f.hx === undefined || !v ? { vx: f.vx, vy: f.vy } : { vx: f.hx * v, vy: f.hy * v }; };
+  // the stone the mason takes leaves the cart's box at its near rim, where the cart stands (TASKS 2141: it rose from a point off his own
+  // body, behind the cart he stood in)
+  const cartRim = (m, R, sx, sy) => { const c = D.cartAt(SCX.railPts(m), (R.cart || {}).s ?? 1e9); return [sx(c.x), sy(c.y) - D.CART.rim.cart_tw * SZ('cart_tw')[1]]; };
   const TOOL = (tex, grip, o) => Object.assign({ tex, len: SZ(tex)[1], grip }, o);
   // one townsperson (TASKS 1015): a work loop on its own clock (DATA.folkClock, shared with the sim's events), the walk of a round,
   // and the talk: turned to the hero, head up, the free hand gesturing, eased in and out of the work pose. Hands are placed by IK on
@@ -103,7 +106,7 @@
     } else if (f.role === 'porter' || f.role === 'mason') {
       // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
       // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
-      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, chest = [X + jointW * 0.2 * H, Yg - 0.46 * H], act = atStop && f.lift, floor = mason ? (act === 'drop' ? [sx(T.bin.x), sy(T.bin.y) - 30] : P(0.5, -0.5)) : P(0.33, -0.14);
+      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, chest = [X + jointW * 0.2 * H, Yg - 0.46 * H], act = atStop && f.lift, floor = mason ? (act === 'drop' ? [sx(T.bin.x), sy(T.bin.y) - 30] : act === 'take' ? cartRim(m, R, sx, sy) : P(0.5, -0.5)) : P(0.33, -0.14);
       let k = f.load ? 1 : 0, bend = 0;
       const hang = (sd) => (sd === 'L' ? P(-0.2, -0.45) : P(0.2, -0.43));
       if (act === 'take') { k = mason ? SS(0.3, 1.15, pu) : SS(0.8, 1.4, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); } else if (act === 'drop') { k = 1 - SS(0.35, mason ? 0.95 : 1.2, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); }
@@ -202,7 +205,10 @@
     // ground or the ink through where they overlap (plain complementary alphas left a quarter of each, and the eight ink copies at the new
     // view's alpha stacked into a dark ghost of it, 44 % at an alpha of 0.07). Each is inked on its own, the narrow front on top: drawn
     // in one silhouette the 3/4 fill covered the front's outline and the box's darkest 5 % paled 14 → 24 (town_motion_r10 5)
-    const views = [[FD.S, nmS, Math.min(1, 2 * FD.a), FD.a], [FD.F, nmF, Math.min(1, 2 - 2 * FD.a), 1 - FD.a]].filter((q) => q[2] > 0).map(([V, nm, a, k2]) => { const [w, h] = SZ(nm), Mc = M.of(M.t(Xc, Yc), M.r(V.rot * L.D2R + wob)),
+    // the 3/4 painting grows through the fade from the front one's size to its own about its near wheels' feet, which stay on the near rail (TASKS 2140)
+    const grow = D.cartGrow(nmS, nmF, SZ, FD.a);
+    const views = [[FD.S, nmS, Math.min(1, 2 * FD.a), FD.a], [FD.F, nmF, Math.min(1, 2 - 2 * FD.a), 1 - FD.a]].filter((q) => q[2] > 0).map(([V, nm, a, k2]) => { const [w, h] = SZ(nm), fm = V.side ? D.cartFoot(nm, w, h, V) : [0, 0], g = V.side ? grow : 1,
+      Mc = M.of(M.t(Xc, Yc), M.r(V.rot * L.D2R + wob), M.t(fm[0], fm[1]), M.s(g, g), M.t(-fm[0], -fm[1])),
       seat = V.side ? D.cartSeat(nm, w, h, V) : D.cartSeatF(nm, w, h), rotAt = (dx, dy) => M.ap(Mc, [dx - seat[0], dy - seat[1]]);
       return { V, nm, a, k2, w, h, Mc, seat, rotAt, lugs: V.side ? D.CART.hubs[nm].map((_, q) => rotAt(...D.cartLug(nm, q, w, h, run, V.run))) : [], u: { tint, alpha: a } }; });
     const mix = (f) => views.reduce((o, q) => { const p = f(q); return [o[0] + p[0] * q.k2, o[1] + p[1] * q.k2]; }, [0, 0]);
@@ -214,7 +220,7 @@
       for (const q of views) { L.inked(() => { L.sprite(q.nm, 0, 0, { m: q.Mc, pivot: [q.w / 2 + q.seat[0], q.h + q.seat[1]], w: q.w, h: q.h, u: L.sp ? Object.assign({}, q.u, { alpha: 1 - (1 - q.a) ** (1 / INK) }) : q.u }); }, { r: 2, n: INK, col: [0.09, 0.04, 0.04], dy: 0 });
         if (q.V.side) q.lugs.forEach((p, i) => L.joint('cart', 'stud' + i, p));
         for (const [lx, ly] of q.lugs) L.solid(Math.round(lx - LG.w / 2), Math.round(ly - LG.h / 2), LG.w, LG.h, LG.col.map((c) => c * k), 0, 0, 0, q.a);
-        if (shown === 1) { const [sx1, sy1] = q.rotAt(0.04 * q.w, -0.71 * q.h); L.sprite('town_tool_stone', sx1 - 7, sy1 - 7, { w: 14, h: 14, u: { tint: q.V.side ? tint : tint.map((c, i) => c * (D.CART.lumpF[i] ?? 1)), alpha: q.a } }); } } }]);
+        if (shown === 1) { const [sx1, sy1] = q.rotAt(0.04 * q.w, -0.71 * q.h); L.sprite('town_tool_stone', sx1 - 7, sy1 - 7, { w: 14, h: 14, u: { tint, alpha: q.a } }); } } }]);
   }
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;

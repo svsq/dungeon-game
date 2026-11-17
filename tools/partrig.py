@@ -127,7 +127,7 @@ if 'weapon' in P:                                      # held item: its own spri
     widths = wa.sum(axis=1); gy = int(np.argmax(widths[:int(wh * 0.35)]))           # the crossguard: the widest row near the top
     meta['weaponLen'] = round(wh * sc, 1); meta['weaponGrip'] = a.grip or round(gy * 0.5 / wh, 3)   # --grip for spears, bows, hammers
     Image.fromarray(wpn).save(os.path.join(a.src, a.name + '_weapon.png'))
-rp = 'live/rigs.js'; R = {}
+rp = os.environ.get('RIGS_JS', 'live/rigs.js'); R = {}   # a scratch copy while a cut is tried out of the tree (TASKS 2146)
 if os.path.exists(rp):
     try: R = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open(rp).read().strip()))
     except Exception: R = {}

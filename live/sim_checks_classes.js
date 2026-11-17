@@ -85,9 +85,8 @@
   }
   function checkCodex(out) {
     for (const t of D.CODEX_TABS) { if (!D.codexList(t).length) out.push(`codex: tab ${t} is empty`); for (let p = 0; ; p++) { const U = D.UI.codex(t, p); for (const b of U.r) if (b.x + b.w > 1920 || b.y + b.h > 1080) out.push('codex: a row runs off the screen'); if (U.page !== p || p >= U.pages - 1) break; } }
-    const c = stage('warrior'); c.S.meta.codex = {}; c.S.demo = 0; SIMX.metaEvent(c.S, { k: 'hit', type: 'skeleton', id: 1, x: 0, y: 0 }); SIMX.metaEvent(c.S, { k: 'pickup', b: 'sword' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'whirl_pull' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'fury' });
+    const c = stage('warrior'); c.S.meta.codex = {}; SIMX.metaEvent(c.S, { k: 'hit', type: 'skeleton', id: 1, x: 0, y: 0 }); SIMX.metaEvent(c.S, { k: 'pickup', b: 'sword' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'whirl_pull' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'fury' });
     if (!c.S.meta.codex.m.skeleton || !c.S.meta.codex.it.sword || !c.S.meta.codex.p.whirl_pull || c.S.meta.codex.p.fury) out.push('codex: meetings are not written down');
-    { const S = spawn(0, {}); S.demo = 1; S.ev = []; SIMX.ev(S, { k: 'kill', type: 'skeleton', x: 0, y: 0 }); if (S.meta.codex) out.push('codex: the attract demo writes in it'); }
     { const S = spawn(0, {}); S.screen = 'meta'; const b = D.UI.meta('warrior').find((q) => q.id === 'codex'); SIMX.step(S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (S.screen !== 'codex') out.push('codex: the button does not open it'); SIMX.step(S, { keys: ['Escape'] }); if (S.screen !== 'meta') out.push('codex: Escape does not lead back'); }
   }
   function checkForks(out) {
@@ -545,7 +544,42 @@
       const tip = (v) => with_(T, 'v', v, () => { const c = stage('warrior'); c.h.thTip = 0; c.R.msg = null; SIMX.thresholdTip(c.S, c.R); return c.R.msg && c.R.msg.s; });
       if (tip(str + 1) || !String(tip(str)).includes(String(str))) out.push(`threshold: the tip does not follow THRESHOLD.warrior.v («${tip(str)}» at ${str}, «${tip(str + 1)}» above it)`); }
   }
+  // the held weapons in the hand that holds them (TASKS 2142, 2144, 2145), drawn in a sandbox at the textures' real sizes, standing and
+  // running, either way round, at three moments of the idle: the grip on the near hand, the mage's orb on his staff's head, the bowstring
+  // across the bow on both sides of the grip, and the cape under the far arm (laid over it, it hid that arm and what it held)
+  function heroGripCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), GRIP = 3, ON_AXIS = 2, HEAD_PART = 0.6, STRING = [15, 45], SPAN = 0.35;
+    // (TASKS 2146) the orb only when worn: none on a bare staff, in the open far palm beside a wand (its world texture is orb_held)
+    const KITS = [['warrior', 'sword'], ['mage', 'staff', 'orb'], ['mage', 'staff'], ['mage', 'wand', 'orb'], ['archer', 'shortbow'], ['archer', 'longbow']], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const ORB = 'orb_held', PALM = 14;
+    const STRING_COL = '0.66,0.6,0.5', seen = new Set();
+    for (const [cls, wb, ob] of KITS) for (const face of [1, -1]) for (const vx of [0, 150]) for (const GT of [10, 11.3, 12.7]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
+      const h = Object.assign({}, R.hero, { vx, vy: 0, gp: GT * 4, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
+      const J = {}, spr = [], sol = [], tag = `${cls} ${wb} face ${face}${vx ? ' running' : ''} at ${GT}`;
+      L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = (x, y, w, hh, col) => sol.push({ p: [x, y], col: String(col) });
+      drawHero(h, 300, 300, GT, heroSt(S), {});
+      const say = (s) => { if (!seen.has(s)) { seen.add(s); out.push(`hero grip: ${tag}: ${s}`); } };
+      if (!(d(J.grip, J.handR) <= GRIP)) say(`the weapon is held ${d(J.grip, J.handR).toFixed(1)} px from the hand`);
+      const pn = D.CLASSES[cls].look.rig + '__', cape = spr.findIndex((q) => q.n === pn + 'cape'), farArm = spr.findIndex((q) => q.n.startsWith(pn + 'uarmL'));
+      if (cape >= 0 && farArm >= 0 && cape > farArm) say('the cape is drawn over the far arm');
+      const orbs = spr.filter((q) => q.n === ORB);
+      if (!ob && orbs.length) say(`the orb is drawn ${orbs.length} times with no orb worn`);
+      if (ob === 'orb' && wb !== 'staff') { if (orbs.length !== 1) say(`the orb is drawn ${orbs.length} times`); else if (d([orbs[0].o.m[4], orbs[0].o.m[5]], J.handL) > PALM) say(`the orb sits ${d([orbs[0].o.m[4], orbs[0].o.m[5]], J.handL).toFixed(1)} px from the far palm`); }
+      if (ob === 'orb' && wb === 'staff') { const g = J.grip, t = J.tip, L2 = d(g, t);
+        if (orbs.length !== 1) say(`the orb is drawn ${orbs.length} times`);
+        else { const p = [orbs[0].o.m[4], orbs[0].o.m[5]], u = ((p[0] - g[0]) * (t[0] - g[0]) + (p[1] - g[1]) * (t[1] - g[1])) / (L2 * L2), off = Math.abs((p[0] - g[0]) * (t[1] - g[1]) - (p[1] - g[1]) * (t[0] - g[0])) / L2;
+          if (off > ON_AXIS || u < HEAD_PART || u > 1) say(`the orb sits ${off.toFixed(1)} px off the staff, ${u.toFixed(2)} of the way to its head`); } }
+      if (wb.endsWith('bow')) { const ends = sol.filter((q) => q.col === STRING_COL).map((q) => q.p), g = J.grip;
+        if (ends.length !== 2) { say(`the string is drawn in ${ends.length} pieces`); continue; }
+        const [a, b] = ends, span = d(a, b), cross = (a[0] - g[0]) * (b[0] - g[0]) + (a[1] - g[1]) * (b[1] - g[1]), u = Math.max(0, Math.min(1, ((g[0] - a[0]) * (b[0] - a[0]) + (g[1] - a[1]) * (b[1] - a[1])) / (span * span)));
+        const near = d(g, [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
+        if (cross >= 0 || [a, b].some((e) => d(e, g) < STRING[0] || d(e, g) > STRING[1]) || near > SPAN * span) say(`the string does not span the bow about the grip (ends ${d(a, g).toFixed(0)} and ${d(b, g).toFixed(0)} px out, ${near.toFixed(0)} px off it)`); }
+    }
+  }
   SIMX.checks.add('classCheck', classCheck);
+  SIMX.checks.add('heroGripCheck', heroGripCheck);
   SIMX.checks.add('powerCheck', checkPowers);
   SIMX.checks.add('dataLinkCheck', dataLinkCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

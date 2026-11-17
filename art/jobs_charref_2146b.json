@@ -1,0 +1,185 @@
+[
+ {
+  "name": "charref2_warrior_a",
+  "prompt": "art/prompts/charref2_warrior_a.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "art/char_refs/warrior_a.png=this character's approved design from the previous round: keep this exact person, gear and colours"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_mage_a",
+  "prompt": "art/prompts/charref2_mage_a.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "art/char_refs/mage_a.png=this character's approved design from the previous round: keep this exact person, gear and colours"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_archer_b",
+  "prompt": "art/prompts/charref2_archer_b.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "art/char_refs/archer_b.png=this character's approved design from the previous round: keep this exact person, gear and colours"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_warrior_a_small_1",
+  "prompt": "art/prompts/charref2_warrior_a_small_try1.txt",
+  "ref": [
+   "art/char_refs/warrior_a.png=this character's approved design, drawn large: identity, gear and colours only, redesign it for a tiny sprite"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_warrior_a_small_2",
+  "prompt": "art/prompts/charref2_warrior_a_small_try1.txt",
+  "ref": [
+   "art/char_refs/warrior_a.png=this character's approved design, drawn large: identity, gear and colours only, redesign it for a tiny sprite"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_mage_a_small_1",
+  "prompt": "art/prompts/charref2_mage_a_small_try1.txt",
+  "ref": [
+   "art/char_refs/mage_a.png=this character's approved design, drawn large: identity, gear and colours only, redesign it for a tiny sprite"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_mage_a_small_2",
+  "prompt": "art/prompts/charref2_mage_a_small_try1.txt",
+  "ref": [
+   "art/char_refs/mage_a.png=this character's approved design, drawn large: identity, gear and colours only, redesign it for a tiny sprite"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_archer_a_small_1",
+  "prompt": "art/prompts/charref2_archer_a_small_try1.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, gear and colours only, redesign it for a tiny sprite"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_archer_a_small_2",
+  "prompt": "art/prompts/charref2_archer_a_small_try1.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, gear and colours only, redesign it for a tiny sprite"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_warrior_a_small_3",
+  "prompt": "art/prompts/charref2_warrior_a_small.txt",
+  "ref": [
+   "frames/char_refs_r2/gen/guide_warrior_a.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and figure size, not its noise",
+   "art/char_refs/warrior_a_v2.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_warrior_a_small_4",
+  "prompt": "art/prompts/charref2_warrior_a_small.txt",
+  "ref": [
+   "frames/char_refs_r2/gen/guide_warrior_a.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and figure size, not its noise",
+   "art/char_refs/warrior_a_v2.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_mage_a_small_3",
+  "prompt": "art/prompts/charref2_mage_a_small.txt",
+  "ref": [
+   "frames/char_refs_r2/gen/guide_mage_a.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and figure size, not its noise",
+   "art/char_refs/mage_a_v2.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_mage_a_small_4",
+  "prompt": "art/prompts/charref2_mage_a_small.txt",
+  "ref": [
+   "frames/char_refs_r2/gen/guide_mage_a.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and figure size, not its noise",
+   "art/char_refs/mage_a_v2.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_archer_a_small_3",
+  "prompt": "art/prompts/charref2_archer_a_small.txt",
+  "ref": [
+   "frames/char_refs_r2/gen/guide_archer_a.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and figure size, not its noise",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_r2/gen"
+ },
+ {
+  "name": "charref2_archer_a_small_4",
+  "prompt": "art/prompts/charref2_archer_a_small.txt",
+  "ref": [
+   "frames/char_refs_r2/gen/guide_archer_a.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and figure size, not its noise",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_r2/gen"
+ }
+]

@@ -142,6 +142,13 @@
               S.screen = 'play'; S.talk = null; S.craft = null; if (bad.has(f.role)) break; } }
           h.x = home[0]; h.y = home[1]; } }
       if (!byService) out.push('town: no giver with a mark ever stood by a service, the E order goes unchecked'); }
+    // TASKS 2149: the town's fires breathe within ±7.5 % (0.4 of the old ±19 %), below the halls' and slower than 1.5 Hz, the halls'
+    // within ±10 %, and every wave keeps a phase per source, so neighbouring fires never beat in step
+    { const swing = (f) => f.waves.reduce((a, w) => a + w[0], 0) / f.base, TOWN_K = 0.075, TOWN_HZ = 1.5, DEEP_K = 0.1, T = D.BIOMES.town.flick, Dp = D.FLICK.deep, pc = (v) => (100 * v).toFixed(1);
+      if (swing(T) > TOWN_K || swing(T) >= swing(Dp)) out.push(`town: its fires flicker ±${pc(swing(T))} %, over ±${pc(TOWN_K)} % or the halls' ±${pc(swing(Dp))} %`);
+      if (T.waves.some((w) => w[1] > TOWN_HZ)) out.push(`town: a flicker wave over ${TOWN_HZ} Hz`);
+      if (swing(Dp) > DEEP_K) out.push(`the halls' fires flicker ±${pc(swing(Dp))} %, over ±${pc(DEEP_K)} %`);
+      if ([T, Dp].some((f) => f.waves.some((w) => !w[2]))) out.push('a flicker wave without a phase per source: neighbouring fires beat in step'); }
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -391,6 +398,20 @@
     return out; }
   // TASKS 1781, 2090: the floor is flat, so a cart is never sheared, squashed or tipped by the rails' slope: the 3/4 painting turns no more than
   // CART.trim, the front one not at all, one change of view along the whole rail, and the bend's change keeps the rails' slope under CART.front
+  // TASKS 2141: the mason takes the stone at the cart where it halts and puts it into the bin, each stop a step from it on its near side:
+  // the folk sort by their feet's y, the bin by its own, so a stop above it hid him behind it; at the cart (sorted by its halt's y + 8 in
+  // drawCart) he stood 16 px below the halt, inside its box, and the stone rose off the box's far end: MASON_CLEAR puts him out in front
+  const MASON_REACH = 48, MASON_CLEAR = 20;
+  function masonStopCheck() { const out = [];
+    for (const sd of [1, 31, 977]) { const m = DG.genTown(sd), T = m.town, rt = T.npcs.find((n) => n.role === 'mason').route, c = D.cartAt(D.railPts(m), 1e9), tk = rt.find((q) => q.act === 'take'), dp = rt.find((q) => q.act === 'drop');
+      if (!tk || !dp) { out.push(`mason ${sd}: his round has no take or no drop`); continue; }
+      const dc = Math.hypot(tk.x - c.x, tk.y - c.y), db = Math.hypot(dp.x - T.svc.bin.x, dp.y - T.svc.bin.y);
+      if (dc > MASON_REACH) out.push(`mason ${sd}: takes ${dc.toFixed(0)} px from the cart's halt, over ${MASON_REACH}`);
+      if (tk.y - c.y < MASON_CLEAR) out.push(`mason ${sd}: takes standing in or behind the cart (${(tk.y - c.y).toFixed(0)} px below its halt, under ${MASON_CLEAR})`);
+      if (db > MASON_REACH) out.push(`mason ${sd}: drops ${db.toFixed(0)} px from the bin, over ${MASON_REACH}`);
+      if (dp.y <= T.svc.bin.y) out.push(`mason ${sd}: drops into the bin from behind it (his y ${dp.y.toFixed(0)}, the bin's ${T.svc.bin.y.toFixed(0)})`);
+      for (const q of [tk, dp]) if (!folkFree(m, q.x, q.y, folkR({ role: 'mason' }))) out.push(`mason ${sd}: the ${q.act} stop ${q.x.toFixed(0)},${q.y.toFixed(0)} is off the open floor`); }
+    return out; }
   function cartCheck() {
     const fs = require('fs'), path = require('path'), out = [], C = D.CART, m = DG.genTown(31), pts = D.railPts(m);
     let prev = null, swaps = 0;
@@ -470,11 +491,21 @@
     const png = (n) => { const b = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
     const axes = D.railAxes(pts, png), offRail = (p) => Math.min(...axes.map(([a, b]) => { const ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * ex + (p[1] - a[1]) * ey) / (ex * ex + ey * ey)));
       return Math.hypot(p[0] - a[0] - t * ex, p[1] - a[1] - t * ey); })), swap = D.cartSwap(pts), secs = C.fade / (CART_V * (railLen(m) - C.stop) / railLen(m));
-    if (secs < 0.15 || secs > 0.2) out.push(`cart: the change of view fades over ${secs.toFixed(2)} s at the top speed, not 0.15-0.2`);
+    if (secs < 0.25 || secs > 0.35) out.push(`cart: the change of view fades over ${secs.toFixed(2)} s at the top speed, not 0.25-0.35`);
+    // TASKS 2140: while the two paintings share the screen (each a quarter or more of the fade's shares) the end of the box (C.face) they
+    // show differs by no more than 3 px, the 3/4 one grown through the fade (D.cartGrow), and the shares' blend of it changes by no more
+    // than 1 px a 1 px step of s
+    for (const [nmS, nmF] of LOADS) { const end = (n, g) => g * (C.face[n][1] - C.face[n][0]) * size(n)[1], F0 = end(nmF, 1);
+      let worst = [0], step = [0], prev = null;
+      for (let s = 0; s <= rest; s++) { const F = D.cartFade(pts, D.cartAt(pts, s).ds, swap), g = D.cartGrow(nmS, nmF, size, F.a), S0 = end(nmS, g), shown = F0 * (1 - F.a) + S0 * F.a;
+        if (F.a >= 0.25 && F.a <= 0.75 && Math.abs(S0 - F0) > worst[0]) worst = [Math.abs(S0 - F0), s];
+        if (prev !== null && Math.abs(shown - prev) > step[0]) step = [Math.abs(shown - prev), s]; prev = shown; }
+      if (worst[0] > 3) out.push(`cart: through the fade the ${nmS} pair's ends of the box differ by ${worst[0].toFixed(2)} px at ${worst[1]} px`);
+      if (step[0] > 1) out.push(`cart: the ${nmS} pair's end of the box changes ${step[0].toFixed(2)} px over the 1 px of s to ${step[1]}`); }
     for (const [nmS, nmF] of LOADS) { let worst = [0], jump = [0], top = [0], last = null, lastTop = null;
-      for (let s = 0; s <= rest; s++) { const v = D.cartAt(pts, s), F = D.cartFade(pts, v.ds, swap), [nm, V] = F.a >= 0.5 ? [nmS, F.S] : [nmF, F.F], [w, h] = size(nm);
-        for (const p of D.cartFeet(V.side, nm, w, h, V, v)) { const d = offRail(p); if (d > worst[0]) worst = [d, s, nm]; }
-        const each = [[nmF, F.F, 1 - F.a], [nmS, F.S, F.a]].map(([n, U, a]) => { const [ww, hh] = size(n), P = D.cartPut(n, ww, hh, U, v), f = D.cartFeet(U.side, n, ww, hh, U, v),
+      for (let s = 0; s <= rest; s++) { const v = D.cartAt(pts, s), F = D.cartFade(pts, v.ds, swap), G = D.cartGrow(nmS, nmF, size, F.a), [nm, V, g] = F.a >= 0.5 ? [nmS, F.S, G] : [nmF, F.F, 1], [w, h] = size(nm);
+        for (const p of D.cartFeet(V.side, nm, w, h, V, v, g)) { const d = offRail(p); if (d > worst[0]) worst = [d, s, nm]; }
+        const each = [[nmF, F.F, 1 - F.a, 1], [nmS, F.S, F.a, G]].map(([n, U, a, gg]) => { const [ww, hh] = size(n), P = D.cartPut(n, ww, hh, U, v, gg), f = D.cartFeet(U.side, n, ww, hh, U, v, gg),
           mid = U.side ? [(f[0][0] + f[1][0]) / 2 - U.near[0], (f[0][1] + f[1][1]) / 2 - U.near[1]] : [(f[0][0] + f[1][0]) / 2, (f[0][1] + f[1][1]) / 2], t = P(0, -hh); return [mid, [t[0] - v.x, t[1] - v.y], a]; });
         const blend = (i) => [0, 1].map((j) => each[0][i][j] * each[0][2] + each[1][i][j] * each[1][2]), mid = blend(0), tp = blend(1);
         if (lastTop) { const d = Math.hypot(tp[0] - lastTop[0], tp[1] - lastTop[1]); if (d > top[0]) top = [d, s]; } lastTop = tp;
@@ -547,6 +578,7 @@
   SIMX.checks.add('deathModeCheck', deathModeCheck);
   SIMX.checks.add('folkHoldCheck', folkHoldCheck);
   SIMX.checks.add('cartCheck', cartCheck);
+  SIMX.checks.add('masonStopCheck', masonStopCheck);
   SIMX.checks.add('folkCheck', folkCheck);
   SIMX.checks.add('shopTownCheck', shopTownCheck);
   SIMX.checks.add('soulAltarCheck', soulAltarCheck);

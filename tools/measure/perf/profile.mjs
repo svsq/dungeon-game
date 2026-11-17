@@ -51,7 +51,11 @@ await page.evaluate(() => {
   const prep = (S, R) => { R.seen = R.seen.map(() => 1); if (R.rseen) R.rseen = R.rseen.map(() => 1); R.msg = null; S.ev = []; R.leaving = 0; R.hero.hp = 1e7; SCENE.state = S;
     const Z = R.zoom || DATA.ZOOM || 1, r = (R.map.rooms || []).filter((q) => q.type === 'combat').sort((a, b) => b.w * b.h - a.w * a.h)[0] || R.map.rooms[0];
     if (r) { R.hero.x = (r.x + r.w / 2) * T; R.hero.y = (r.y + r.h / 2) * T; } R.cam = [R.hero.x - VW / Z / 2, R.hero.y - VH / Z / 2]; };
-  const stepOnce = (S) => { const inp = SIM.scriptInput(S.t, S); SIM.step(S, inp); S.run.hero.hp = 1e7; };
+  // a fight's load: the hero swings at the nearest monster, the way a player stands his ground
+  const aim = (S) => { const R = S.run, h = R.hero, Z = R.zoom || DATA.ZOOM || 1; let tg = null, td = 1e9;
+    for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, e.y - h.y); if (d < td) { td = d; tg = e; } }
+    return tg ? { press: 1, px: (tg.x - R.cam[0]) * Z, py: (tg.y - 30 - R.cam[1]) * Z, keys: [] } : { keys: [] }; };
+  const stepOnce = (S) => { SIM.step(S, aim(S)); S.run.hero.hp = 1e7; };
   const frame = (S) => { stepOnce(S); stepOnce(S); SCENE.state = S; SCENE.render(S.t); };
   window.__P = {
     up, texMB,

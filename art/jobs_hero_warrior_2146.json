@@ -1,0 +1,89 @@
+[
+ {
+  "name": "hero_parts_warrior_new_1",
+  "prompt": "art/prompts/hero_parts_warrior_new.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior, large: face, age, hair, beard, armour, cape, materials and colours",
+   "art/char_refs/warrior_a_small_r4_x8.png=the same warrior at the game's real size (40 art pixels tall, shown 8x): proportions, big shapes and colour accents",
+   "art/gen/hero_parts_sheet.png=the previous rig part sheet: only its layout and the view of each part, not its face, head size or armour"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "00ff00",
+  "out_dir": "frames/hero_warrior_2146/gen"
+ },
+ {
+  "name": "hero_parts_warrior_new_2",
+  "prompt": "art/prompts/hero_parts_warrior_new.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior, large: face, age, hair, beard, armour, cape, materials and colours",
+   "art/char_refs/warrior_a_small_r4_x8.png=the same warrior at the game's real size (40 art pixels tall, shown 8x): proportions, big shapes and colour accents",
+   "art/gen/hero_parts_sheet.png=the previous rig part sheet: only its layout and the view of each part, not its face, head size or armour"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "00ff00",
+  "out_dir": "frames/hero_warrior_2146/gen"
+ },
+ {
+  "name": "hero_parts_warrior_new_3",
+  "prompt": "art/prompts/hero_parts_warrior_new.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior, large: face, age, hair, beard, armour, cape, materials and colours",
+   "art/char_refs/warrior_a_small_r4_x8.png=the same warrior at the game's real size (40 art pixels tall, shown 8x): proportions, big shapes and colour accents",
+   "art/gen/hero_parts_sheet.png=the previous rig part sheet: only its layout and the view of each part, not its face, head size or armour"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "00ff00",
+  "out_dir": "frames/hero_warrior_2146/gen"
+ },
+ {
+  "name": "hero_body_back_warrior_new_1",
+  "prompt": "art/prompts/hero_body_back_warrior_new.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior, large: hair, armour, cape and colours",
+   "art/char_refs/warrior_a_small_r4_x8.png=the same warrior at the game's real size (40 art pixels tall, shown 8x): proportions and accents",
+   "art/gen/hero_body_back.png=the previous back part: framing and what it shows only"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "00ff00",
+  "out_dir": "frames/hero_warrior_2146/gen"
+ },
+ {
+  "name": "hero_body_back_warrior_new_2",
+  "prompt": "art/prompts/hero_body_back_warrior_new.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior, large: hair, armour, cape and colours",
+   "art/char_refs/warrior_a_small_r4_x8.png=the same warrior at the game's real size (40 art pixels tall, shown 8x): proportions and accents",
+   "art/gen/hero_body_back.png=the previous back part: framing and what it shows only"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "00ff00",
+  "out_dir": "frames/hero_warrior_2146/gen"
+ },
+ {
+  "name": "portrait_warrior_new_1",
+  "prompt": "art/prompts/portrait_warrior_new.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior: the head close-up on the right",
+   "art/gen/portrait.png=the previous portrait: framing and pixel size only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "out_dir": "frames/hero_warrior_2146/gen"
+ },
+ {
+  "name": "portrait_warrior_new_2",
+  "prompt": "art/prompts/portrait_warrior_new.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of this warrior: the head close-up on the right",
+   "art/gen/portrait.png=the previous portrait: framing and pixel size only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "out_dir": "frames/hero_warrior_2146/gen"
+ }
+]

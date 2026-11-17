@@ -43,8 +43,8 @@
 | 2044–2379 | арены и боссы, колосс | 336 |
 | 2380–2429 | выпавший лут | 50 |
 | 2430–2585 | конец забега, спуск, `stepUI` (16 экранов в одной функции) | 156 |
-| 2586–2640 | контракт `create/step/spawn/respawn/outOfPlay`, `scriptInput` | 55 |
-| **2641–5170** | **`demoCheck`, `selfCheck` и ~40 проверок по темам (лут, этажи, магма, ближний бой, тайники, город, квесты…)** | **≈2530** |
+| 2586–2640 | контракт `create/step/spawn/respawn/outOfPlay` (`scriptInput` убран в 2147) | 55 |
+| **2641–5170** | **`selfCheck` и ~40 проверок по темам (лут, этажи, магма, ближний бой, тайники, город, квесты…)** | **≈2530** |
 | 5171–5176 | `persist`, экспорт `SIM` (≈150 имён: публичная поверхность для `bot.cjs`, `scene.js`, `hud.js`, `tools/`) | 6 |
 
 Половина файла — проверки. В браузере они не нужны, но там парсятся и попадают в каждый конфликт.
@@ -174,7 +174,7 @@
 | `sim_bosses.js` | 2044–2379 | арены, боссы, колосс |
 | `sim_town.js` | 1454–1799 | жители, камни, мастерские, квесты, разговоры, хранилище, алтари, торговец |
 | `sim_ui.js` | 2430–2585 | конец забега, спуск, `stepUI` (внутри — по функции на экран, вызываются из таблицы) |
-| `sim.js` | 2586–2640, 5171–5176 | контракт, `scriptInput`, `persist`, сборка публичного `SIM` |
+| `sim.js` | 2586–2640, 5171–5176 | контракт, `persist`, сборка публичного `SIM` |
 | `sim_checks.js` + `sim_checks_<домен>.js` | — | реестр `selfCheck` и проверки по доменам (раздел 4.5); **только Node**, в браузер не грузится |
 
 **Версия карты (2062)**: после сборки этажа карту пишут только функции `SIMX.mapw` из `sim_map.js` (`SIM.mapw` для QA): `setCell`, `fillCells`, `blockPush`, `blockOnce`, `blockDrop`, `addWater`, `dropWater`, `unlatch`, `put`, `touch`. Каждая двигает версию карты `rev(m)` (`SIM.Q.rev` для отрисовки), и ключи кешей берут только её: в симе `flow`, `homeFlow`, `reveal`, `secretMask`, `mapCut`, `lavaFlow`, `wideClear`, `inWater`, в отрисовке `mapKey`, `lavaField`, озёра лавы. Версия лежит в `WeakMap`, а не в карте: копия, сохранение и `JSON.stringify` карты (`samecheck`, `mapPrint`, разность этажа) её не видят, и номер не выдаётся дважды, так что две карты одного сида и этажа ключа не делят. Писать `m.cells`, `m.block`, `m.water` мимо `mapw` нельзя: `mapRevCheck` (`sim_checks_maprev.js`) ищет такие записи в исходниках. Поля `m.geometry` и `m.shut` убраны.
@@ -296,7 +296,7 @@
 
 - **Пишет только логика** (`sim_*`). Отрисовка, HUD и звук читают; `layercheck.cjs` (§8) держит отрисовку на `SIM.Q`.
 - **Отрисовка читает** (вне `scene_qa.js`) из `S`: `t`, `screen`, `run`, `ev`, `hover`, `meta`, `result`, `saved`, `talk`, `craft`,
-  `jsel`, `drag`, `demo`, `metaRun`, `resetT`, `resetM`, отладочные `debug`, `dbgLoot`; из забега `S.run`: `map`, `hero`, `en`,
+  `jsel`, `drag`, `metaRun`, `resetT`, `resetM`, отладочные `debug`, `dbgLoot`; из забега `S.run`: `map`, `hero`, `en`,
   `drops`, `chests`, `pots`, `proj`, `fires`, `pyres`, `rocks`, `eggs`, `cracks`, `scorches`, `lavaPending`, `folk`, `quests`, `ways`,
   `portal`, `shop`, `shrines`, `altar`, `donations`, `arena`, `bossDead`, `cam`, `zoom`, `trauma`, `seen`, `rseen`, `msg`, `keys`, `floor`,
   `mode`, `seed`, `town`, `viaTown`, `campaignWon`, `memo`, `grain`, `Hd`, `r`, `tx` (на 07.11.2026, `grep` по `R.` в файлах отрисовки).

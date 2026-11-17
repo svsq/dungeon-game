@@ -1,29 +1,22 @@
 // live/sim.js — deterministic dungeon-crawler simulation, fixed 120 Hz. Contract: create / step / at / spawn / respawn /
-// outOfPlay / scriptInput (engine.md §6). Everything that happens lives here: menus, the run (procedural floors), the hero
+// outOfPlay (engine.md §6). Everything that happens lives here: menus, the run (procedural floors), the hero
 // (stats, gear, abilities, levelling), monsters (FSM + flow-field chase), loot, traps, saves (S.saveN asks index.html to
 // persist S.meta and the run), camera, and the event bus S.ev that drives every FX in the scene.
 (function (root) {
   if (typeof module !== 'undefined') for (const f of require('./modules.js').parts.sim) require('./' + f);
   const SIMX = root.SIMX, {
-    overLava, ARROW_Y, CRUST, D, DEMO_SEED, DOOM, DT, ENEMIES, FOLK_OUCH, HINT, K, L, REWARD, RIG, TILE, UI, VIEW, viewFor, setView, uiDy, atBoard, atCounter, atCraft,
+    overLava, ARROW_Y, CRUST, D, DOOM, DT, FOLK_OUCH, K, REWARD, RIG, UI, VIEW, viewFor, setView, uiDy, atBoard, atCounter, atCraft,
     atExitGate, atGate, atSoulAltar, atStash, boardOffers, brinkOf, canDonate, cell, chasm, completionHints, craftCost, craftItem, crustAt,
     campaignDone, damageName, debugSecrets, dep, doorLock, exitKind, doorNear, enterFloor, ev, flightReach, flow, folkNear, fillStats, fstat, gateNear, gateWays,
     noteNear, captiveNear, shopShut, craftShut, giveQuest, hand, hidden, hitProps, isCons, itemIcon, itemMods, itemName, journalOf, killEnemy, leverNear,
     lootAudit, losClear, newRun, offersOf, openChest, openDoor, openSecret, pullLever, questIcon, questLine,
     questMark, questMarks, questTalk, rebalanceRun, rebuildArrival, rollItem, runCompletion, rwLine,
-    secretMask, serpentMouth, stashOf, stats, stepBossMove, stepLen, stepPlay, stepUI, stockShop, toPx,
+    secretMask, serpentMouth, stashOf, stats, stepBossMove, stepLen, stepPlay, stepUI, stockShop,
     tradeDepth, typeMods } = SIMX;
   // ---------------- top level ----------------
-  function create() {
-    // the attract demo: floor 1 of a fixed seed, a level-3 hero next to the first fight, driven by a scripted bot
-    const S = base(); SIMX.settleStash(S); S.demo = 1; S.screen = 'play'; S.run = newRun(S, 'campaign', DEMO_SEED);
-    const R = S.run, h = R.hero; h.lvl = 3; h.ab.fireball = 1; h.base.str += 4; const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
-    for (const e of R.en) e.hp = Math.min(e.hp, 40);
-    R.msg = null; S.ev = []; S.saveN = 0;
-    return S;
-  }
+  function create() { const S = base(); SIMX.settleStash(S); return S; }
   function base() { return { t: 0, steps: 0, wt0: 0, ev: [], screen: 'menu', hover: '', meta: { shards: 0, up: {}, runs: 0, wins: 0, best: 0 }, run: null, saved: null, saves: Array(D.SAVE_SLOTS).fill(null), slot: 0,
-    saveN: 0, result: null, demo: 0, seedBase: 1, prevKeys: {} }; }
+    saveN: 0, result: null, seedBase: 1, prevKeys: {} }; }
   // play start: the menu, with the persisted meta progress and the saved run (index.html reads localStorage)
   const spawn = (worldT, persist = {}) => { const S = base(); S.wt0 = worldT; S.seedBase = (Math.floor(worldT * 1000) % 100000) + 1;
     if (persist.meta) S.meta = Object.assign(S.meta, persist.meta, { up: Object.assign({}, persist.meta.up || {}) });
@@ -41,7 +34,7 @@
   function step(S, inp = {}) {
     if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
     S.pressWas = !!inp.press;
-    rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fillStats(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
+    rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run) S.run.at = inp.now; if (S.run && S.run.map) fillStats(S.run); if (S.run) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
     // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1877): a browser tab cannot, so «Выход» waits for its word
     if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
@@ -58,23 +51,23 @@
     // and once in the frame of the window it is over, for the window's hit tests and the HUD's notes alike
     S.uiPtr = [inp.px, inp.py - uiDy(S.screen)];
     // M mutes from any screen (TASKS 1863 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
-    if (keys.KeyM && !S.demo && !SIMX.typing(S)) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
+    if (keys.KeyM && !SIMX.typing(S)) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
     // the tracker's fold button (TASKS 1992): the page turns a click on it into this key, so the click swings at nothing
-    if (keys.TrkFold && S.run && !S.demo && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkFold = S.meta.trkFold ? 0 : 1; S.saveN++; }
+    if (keys.TrkFold && S.run && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkFold = S.meta.trkFold ? 0 : 1; S.saveN++; }
     // and its hide button and chip (TASKS 2110): the whole window folds to a chip with the count, the player's choice kept in the meta
-    if (keys.TrkHide && S.run && !S.demo && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkHide = S.meta.trkHide ? 0 : 1; S.saveN++; }
+    if (keys.TrkHide && S.run && (S.screen === 'play' || S.screen === 'pause')) { S.meta.trkHide = S.meta.trkHide ? 0 : 1; S.saveN++; }
     if (S.screen === 'play' && S.run) {
       // never a window's key (uiKey gives 'play:::'), so the first step of any window opened from play takes no pointer move
       S.uiWas = 'play'; S.uiKey = 'play'; SIMX.commitDraft(S);
-      if (keys.Backquote && !S.demo) S.debug = !S.debug;
-      const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
+      if (keys.Backquote) S.debug = !S.debug;
+      const dbg = S.debug ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
       // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for 5 s (the player's decision 11.11.2026, TASKS 1934) once a run for the floors and once for the
       // town (TASKS 1887 и: opening on every floor got in the way), on its first such entry (legKnown)
-      if (keys.KeyL && !S.demo) { const R = S.run, open = legShown(S, R); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
-      if ((keys.Escape || inp.away) && !S.demo) { S.screen = 'pause'; S.pauseAsk = 0; }
-      else if ((keys.KeyI || keys.KeyC || keys.Tab) && !S.demo) { S.screen = 'inv'; }
-      else if (keys.KeyJ && !S.demo) { S.screen = 'journal'; S.hover = ''; ev(S, { k: 'ui', x: inp.px, y: inp.py }); }
+      if (keys.KeyL) { const R = S.run, open = legShown(S, R); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
+      if (keys.Escape || inp.away) { S.screen = 'pause'; S.pauseAsk = 0; }
+      else if (keys.KeyI || keys.KeyC || keys.Tab) { S.screen = 'inv'; }
+      else if (keys.KeyJ) { S.screen = 'journal'; S.hover = ''; ev(S, { k: 'ui', x: inp.px, y: inp.py }); }
       else { stepPlay(S, inp, keys); if (S.run && !S.run.frozen) stepBossMove(S, S.run); }
     } else stepUI(S, inp, keys);
     // a window opened in this step draws its notes in its own frame at once (review of PR 57: play → inv put the tip uiDy px off)
@@ -83,48 +76,24 @@
     S.steps++; return S;
   }
 
-  // ---------------- attract bot: walk to the nearest monster through the flow field, swing, throw fire ----------------
-  function scriptInput(t, S) {
-    const inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, rclick: 0, px: 960, py: 540, keys: [], slot: 0 };
-    const R = S.run; if (!R) return inp; const h = R.hero, m = R.map;
-    let tg = null, td = 1e9; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, e.y - h.y); if (d < td) { td = d; tg = e; } }
-    if (!tg) return inp;
-    Object.assign(inp, toPx(R, tg.x, tg.y - 30));
-    const reach = 46 + ENEMIES[tg.type].r;
-    if (td > reach - 6) {
-      const F = flow(m, Math.floor(tg.x / TILE), Math.floor(tg.y / TILE), 1), tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE);
-      let gx = tg.x - h.x, gy = tg.y - h.y;
-      if (td > 120 || !losClear(m, h.x, h.y - 6, tg.x, tg.y - 6)) { let best = null;
-        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!best || v < best[0])) best = [v, ax, ay]; }
-        if (best) { gx = (tx + best[1]) * TILE + 16 - h.x; gy = (ty + best[2]) * TILE + 18 - h.y; } }
-      if (Math.abs(gx) > 5) inp[gx > 0 ? 'right' : 'left'] = 1; if (Math.abs(gy) > 5) inp[gy > 0 ? 'down' : 'up'] = 1;
-    } else inp.press = 1;
-    if (td < 330 && td > 140 && h.cd.fireball <= S.t && h.mp > 30) { const [hx, hy] = hand(h); if (losClear(m, hx, hy + 20, tg.x, tg.y - 10)) inp.slot = 2; }
-    if (h.hp < 40) inp.keys.push('KeyQ');
-    if (doorNear(R, 60)) inp.keys.push('KeyE');
-    return inp;
-  }
-  const demoCheck = (S) => S.run && S.run.kills >= 3 && S.run.hero.deadT < 0;
-  let cache = null;
-  function at(t) {
-    const loop = Math.floor(t / L), q = t - loop * L, n = Math.round(q / DT);
-    if (!cache || cache.loop !== loop || cache.S.steps > n) { const S0 = create(); S0.wt0 = loop * L; cache = { loop, S: S0 }; }
-    const S = cache.S; while (S.steps < n) { const inp = scriptInput(S.t, S); step(S, inp); }
-    return Object.assign({}, S, { loop, q });
-  }
+  // the render's own state when the page gave it none (render.mjs): the menu as a new game opens it
+  let idleS = null;
+  const idle = () => idleS || (idleS = spawn(0, {}));
+  // a class's hero as a new run starts him, for the menu's arch when no run is saved (TASKS 2146): built once, never stepped
+  const fresh = {}, freshHero = (cls) => fresh[cls] || (fresh[cls] = newRun(spawn(0, {}), 'campaign', 1, { cls }).hero);
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null, slot: S.slot, saves: S.saves });
 
-  root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, viewFor, setView, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, persist,
+  root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, K, VIEW, viewFor, setView, RIG, create, spawn, respawn, outOfPlay, step, persist,
     stepLen, stats, itemName, hitProps, secretMask, hidden, fstat, completionHints, damageName, canDonate, runCompletion, REWARD, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, offersOf, questMark, questTalk, giveQuest, questMarks, questLine, rwLine, journalOf, folkNear, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
   root.SIM.chooseFork = SIMX.chooseFork; root.SIM.uniqueItem = SIMX.uniqueItem; root.SIM.genApart = SIMX.genApart; root.SIM.migrateSecrets = SIMX.migrateSecrets; root.SIM.mapw = SIMX.mapw;
-  // what the render may ask the sim (ARCHITECTURE.md §8): reads of the state, never a change to it (at replays the attract demo
-  // into its own cache). The render takes nothing else from SIM but constants
+  // what the render may ask the sim (ARCHITECTURE.md §8): reads of the state, never a change to it. The render takes nothing else
+  // from SIM but constants
   root.SIM.Q = {
-    depOf: dep, at, campaignDone, cell, rev: SIMX.rev, waterSet: SIMX.waterSet, revKey: SIMX.revKey, cellsKey: SIMX.cellsKey, keyOf: SIMX.keyOf, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, doorTwin: SIMX.doorTwin, brinkOf, flightReach, atBoard, atCounter,
+    depOf: dep, idle, freshHero, campaignDone, cell, rev: SIMX.rev, waterSet: SIMX.waterSet, revKey: SIMX.revKey, cellsKey: SIMX.cellsKey, keyOf: SIMX.keyOf, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, doorTwin: SIMX.doorTwin, brinkOf, flightReach, atBoard, atCounter,
     noteNear, captiveNear, eventNear: SIMX.eventNear, eventSay: SIMX.eventSay, trialWaveOf: SIMX.trialWaveOf, darkMask: SIMX.darkMask, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear, giverFirst: SIMX.giverFirst,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, crackSpan: SIMX.crackSpan, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, typing: SIMX.typing, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot, talkWalk: SIMX.talkWalk, talkFirst: SIMX.talkFirst, boardRows: SIMX.boardRows, legShown };
   Object.assign(SIMX, {
-    spawn, step, scriptInput, persist });
+    spawn, step, persist });
   if (typeof module !== 'undefined') { require('./sim_checks.js'); module.exports = root.SIM; }
 })(typeof window !== 'undefined' ? window : globalThis);

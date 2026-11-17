@@ -1,13 +1,33 @@
 // live/sim_checks_kit.js — helpers that checks of more than one domain share. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    D, enterFloor, newRun, step, toPx } = SIMX;
+    D, doorNear, ENEMIES, enterFloor, flow, hand, losClear, newRun, step, TILE, toPx } = SIMX;
   // the checks that start a game from the menu for something else skip the Keeper's welcome (TASKS 1849), which holds the hero
   const noWelcome = (S) => { if (S.run && S.run.greet === 1) S.run.greet = 'done'; };
   const plainRun = (Z) => { for (let sd = 3; sd < 60; sd++) { Z.run = newRun(Z, 'magma', sd); for (let f = 2; f < D.RUNS.magma.floors; f++) { enterFloor(Z, Z.run, f); if (Z.run.map.ftype === 'plain') return Z.run; } } return Z.run; };
   // a run whose townsfolk have no quest business (no offers, the Keeper's chain in hand), for the checks of the talk and the workshops
   const noQuests = (R) => { R.offers = []; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; };
   const swing = (S, R, q) => { const h = R.hero; h.x = q.x; h.y = q.y + 34; h.vx = h.vy = 0; h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let j = 0; j < 40; j++) step(S, Object.assign({ keys: [] }, A)); };
+  // a plain player's input for a run in play: walk to the nearest monster through the flow field, swing, throw fire, drink low
+  const fight = (S) => {
+    const inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, rclick: 0, px: 960, py: 540, keys: [], slot: 0 };
+    const R = S.run; if (!R || S.screen !== 'play') return inp; const h = R.hero, m = R.map;
+    let tg = null, td = 1e9; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, e.y - h.y); if (d < td) { td = d; tg = e; } }
+    if (!tg) return inp;
+    Object.assign(inp, toPx(R, tg.x, tg.y - 30));
+    if (td > 40 + ENEMIES[tg.type].r) {
+      const F = flow(m, Math.floor(tg.x / TILE), Math.floor(tg.y / TILE), 1), tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE);
+      let gx = tg.x - h.x, gy = tg.y - h.y;
+      if (td > 120 || !losClear(m, h.x, h.y - 6, tg.x, tg.y - 6)) { let best = null;
+        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!best || v < best[0])) best = [v, ax, ay]; }
+        if (best) { gx = (tx + best[1]) * TILE + 16 - h.x; gy = (ty + best[2]) * TILE + 18 - h.y; } }
+      if (Math.abs(gx) > 5) inp[gx > 0 ? 'right' : 'left'] = 1; if (Math.abs(gy) > 5) inp[gy > 0 ? 'down' : 'up'] = 1;
+    } else inp.press = 1;
+    if (td < 330 && td > 140 && h.cd.fireball <= S.t && h.mp > 30) { const [hx, hy] = hand(h); if (losClear(m, hx, hy + 20, tg.x, tg.y - 10)) inp.slot = 2; }
+    if (h.hp < 40) inp.keys.push('KeyQ');
+    if (doorNear(R, 60)) inp.keys.push('KeyE');
+    return inp;
+  };
   // the state as tools/samecheck.mjs writes it, sets and typed arrays whole
   const stateJson = (v) => JSON.stringify(v, (k, x) => (x instanceof Set ? [...x] : x instanceof Map ? [...x.entries()] : ArrayBuffer.isView(x) ? [...x] : x));
   // a label's width as the page's canvas measures it: the face UI.kit.face picks, its advances read from the TTF in font_data.js (cmap
@@ -28,5 +48,5 @@
     return cs.reduce((w, ch) => w + T.adv(ch.codePointAt(0)) * f.px / T.upm, 0) + (bold ? f.unit * cs.length : 0); };
   // a label's size and text after the page's fit (lib.js L.fitText): steps down to 20, then the tail goes to «…»
   const fitW = (str, maxW, size, bold = false) => { let s = size; while (s > 20 && fontW(str, s, bold) > maxW) s -= 1; return { size: s, w: fontW(str, s, bold), cut: fontW(str, s, bold) > maxW }; };
-  Object.assign(SIMX.checks.kit, { noWelcome, plainRun, noQuests, swing, stateJson, fontW, fitW });
+  Object.assign(SIMX.checks.kit, { noWelcome, plainRun, noQuests, swing, fight, stateJson, fontW, fitW });
 })(typeof window !== 'undefined' ? window : globalThis);

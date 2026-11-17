@@ -555,7 +555,7 @@
     return (P && !(from === 'gate' && H.includes(P.f)) ? [{ k: 'portal', f: P.f, from }] : []).concat(H.map((f) => ({ k: 'boss', f }))); };
   // a boss slain in a campaign through the town opens its hall's portal for good (TASKS 2104), in either mode, as rewards are the same
   function openHall(S, R) { const P = S.meta.portals || [];
-    if (S.demo || R.test || !R.viaTown || RUN(R) !== D.RUNS.campaign || P.includes(R.floor)) return;
+    if (R.test || !R.viaTown || RUN(R) !== D.RUNS.campaign || P.includes(R.floor)) return;
     S.meta.portals = P.concat(R.floor).sort((a, b) => a - b); S.saveN++; }
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
     if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal' || (R.portal && R.portal.from === 'gate' && R.portal.f === o.f)) R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
