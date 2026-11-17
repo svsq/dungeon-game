@@ -1749,12 +1749,15 @@
     keysPlate('gt_help', TXT('hud.gate.6'), P.y + P.h + 34, '#a89880');
   }
   let endErr = null;
+  const END_SHADE = { x: 206, y: 230, w: 1508, h: 632, a: 0.88 };
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     backdrop(t);
     const quit = r.abandoned && r.test, title = win ? TXT('hud.end') : quit ? TXT('hud.end.test') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3');
     KIT.banner('e_t', W / 2, 18, Math.max(560, lw('e_t_m', title, { size: 52, bold: true }) + 300), title, { h: 108, size: 52 });
     KIT.light('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : quit ? TXT('hud.end.test.2') : r.abandoned ? TXT('hud.end.7a') : TXT('hud.end.7'), W / 2, 168, { size: 26, al: 0.5, col: '#d9c8a8' });
+    // a shade under both panels and the 30 px between them: the backdrop's lit column read there as an orange strip (TASKS 2175)
+    L.solid(END_SHADE.x, END_SHADE.y, END_SHADE.w, END_SHADE.h, [0.04, 0.025, 0.02], 0, 0, 0, END_SHADE.a);
     KIT.panel('e_story', 200, 220, 420, 650, 'leather', { pad: 0 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {
       const words = String(s).split(' '), lines = []; let line = '';
