@@ -28,6 +28,7 @@ node tools/measure/motion/evalq.mjs tools/measure/motion/gatet.js frames/critic_
 node tools/measure/motion/trace.mjs frames/critic_r15_motion/trace.json imp_claw,golem_crust_regrow
 node tools/measure/frame/shot.mjs tools/measure/frame/set1.js frames/critic_r15_frame/set1 > frames/critic_r15_frame/set1_log.txt
 python3 tools/measure/fidelity/mask14.py frames/critic_r15_fidelity/qa/
+node tools/measure/poseref2160/grab.mjs --out frames/pose_ref_2160/game && python3 tools/measure/poseref2160/measure.py game && python3 tools/measure/poseref2160/sheet.py game
 ```
 
 Браузерные скрипты берут playwright из `~/.claude/skills/ref2game/scripts`, поднимают свой сервер на случайном порту и закрывают его сами. Python: numpy, Pillow, scipy.

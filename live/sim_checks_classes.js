@@ -601,6 +601,35 @@
         if (m > GRIP) out.push(`hero turn: ${tag}: the bow is ${m.toFixed(1)} px from either hand at frame ${far.indexOf(m)}`); }
     }
   }
+  // (TASKS 2160) the standing hero of each class, either way round, in the world and in the arch: the cape-side arm's hand hangs in
+  // front of its elbow (the elbow does not bend backwards), the feet stand apart with a gap between the cape-side toe and the near heel,
+  // the other foot a little further back (toe to heel on one line they read as one leg behind the other), the knees near straight, the cape is drawn before every leg part, and the limbs of both
+  // sides are graded alike (the far ones were darker)
+  function heroPoseCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), TOE_GAP = 2, SPREAD = 0.16, DEPTH = 0.015, KNEE = 25, H = 84;
+    const KITS = [['warrior', 'sword'], ['mage', 'staff'], ['archer', 'shortbow']], seen = new Set();
+    for (const [cls, wb] of KITS) for (const face of [1, -1]) for (const menu of [0, 1]) for (const GT of [10, 11.3, 12.7]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
+      const J = {}, spr = [], tag = `${cls} face ${face}${menu ? ' in the arch' : ''} at ${GT}`, say = (m) => { if (!seen.has(cls + m)) { seen.add(cls + m); out.push(`hero pose: ${tag}: ${m}`); } };
+      L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+      drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
+      if ((J.handL[0] - J.elbowL[0]) * face < 0) say(`the cape-side hand hangs ${Math.abs(J.handL[0] - J.elbowL[0]).toFixed(1)} px behind its elbow`);
+      const gap = (J.heelR[0] - J.toeL[0]) * face, spread = Math.abs(J.ankleR[0] - J.ankleL[0]) / H;
+      if (gap < TOE_GAP) say(`the cape-side toe is ${gap.toFixed(1)} px from the near heel: the feet stand toe to heel on one line`);
+      if (spread < SPREAD) say(`the ankles are ${(spread * 100).toFixed(0)} % of the height apart`);
+      if (J.ankleL[1] - J.ankleR[1] < DEPTH * H) say(`the other foot stands ${(J.ankleL[1] - J.ankleR[1]).toFixed(1)} px behind the cape-side one: both on one line`);
+      for (const k of ['L', 'R']) { const a = Math.atan2(J['knee' + k][1] - J['hip' + k][1], J['knee' + k][0] - J['hip' + k][0]) - Math.atan2(J['ankle' + k][1] - J['knee' + k][1], J['ankle' + k][0] - J['knee' + k][0]), deg = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) * 180 / Math.PI;
+        if (deg > KNEE) say(`the ${k} knee is bent ${deg.toFixed(0)}° at ease`); }
+      const pn = D.CLASSES[cls].look.rig + '__', idx = (re) => spr.map((q, i) => (re.test(q.n.slice(pn.length)) && q.n.startsWith(pn) ? i : -1)).filter((i) => i >= 0);
+      const cape = idx(/^cape/), legs = idx(/^(thigh|shin|foot)[LR]/);
+      if (cape.length && legs.some((i) => i < Math.max(...cape))) say('the cape is drawn over a leg');
+      const grade = (re) => spr.filter((q) => q.n.startsWith(pn) && re.test(q.n.slice(pn.length))).map((q) => String(q.o.u.grade));
+      for (const k of ['uarm', 'farm', 'thigh', 'shin', 'foot']) { const l = grade(new RegExp('^' + k + 'L')), r = grade(new RegExp('^' + k + 'R'));
+        if (l.length && r.length && l[0] !== r[0]) say(`${k}L is graded ${l[0]}, ${k}R ${r[0]}`); }
+    }
+  }
+  SIMX.checks.add('heroPoseCheck', heroPoseCheck);
   SIMX.checks.add('classCheck', classCheck);
   SIMX.checks.add('heroGripCheck', heroGripCheck);
   SIMX.checks.add('heroTurnCheck', heroTurnCheck);
