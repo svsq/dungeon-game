@@ -143,6 +143,27 @@
         const n0 = ys.filter((y, i) => !i || y > ys[i - 1] + 1).length;
         if (n0 < STACKS) out.push(`hero arm: ${n}: ${n0} lines between finger stacks, not a closed fist`); } }
   }
+  // (TASKS 2157) a hero texture no outfit, pose, view or the arch asks for still loads at start: every class in every combination of
+  // the bases of each slot, with each weapon and offhand, in a few poses, front and back, world and arch; a texture neither drawn nor
+  // looked up (an existence test decides a pose: cuffR, head_<helm>, _w maps) is a dead file
+  function heroTexCheck(out) {
+    const HERO = /^(hero|mage|archer)__/, raw = SB0.assets(), used = new Set(), sizes = new Proxy(raw, { get: (t, k) => { if (typeof k === 'string') used.add(k); return t[k]; } });
+    const { drawHero, L } = SB0.heroBox(D, root.SIM, sizes), slot = (s) => [''].concat(Object.keys(D.BASES).filter((k) => D.BASES[k].slot === s));
+    L.sprite = (n) => { used.add(n); return { w: 10, h: 10 }; }; L.solid = () => {}; L.joint = () => {};
+    const item = (b) => (b ? { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6, def: 2 } : undefined), T = 10;
+    const base = { vx: 0, vy: 0, gp: 0, face: 1, aim: 0, atkA: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9 };
+    const ACTS = [{}, { vx: 150 }, { back: 1 }, { atkT: T - 0.15 }, { atkT: T - 0.15, aim: Math.PI, face: -1 }, { patkT: T - 0.1 }, { castT: T - 0.1 }];
+    const draw = (cls, eq, acts) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R;
+      for (const k of ['armor', 'helm', 'gloves', 'boots', 'weapon', 'offhand']) R.hero.eq[k] = item(eq[k]);
+      const st = heroSt(S); for (const a of acts) for (const o of [{}, { menu: 1 }]) if (!(o.menu && a.vx)) drawHero(Object.assign({}, R.hero, base, a), 300, 300, T, st, o); };
+    for (const cls of Object.keys(D.CLASSES)) {
+      for (const armor of slot('armor')) for (const helm of slot('helm')) for (const gloves of slot('gloves')) for (const boots of slot('boots')) draw(cls, { armor, helm, gloves, boots, weapon: 'sword' }, ACTS.slice(0, 3));
+      for (const weapon of slot('weapon')) for (const offhand of slot('offhand')) for (const gloves of slot('gloves')) draw(cls, { weapon, offhand, gloves }, ACTS);
+    }
+    for (const k of Object.keys(raw)) if (HERO.test(k) && !used.has(k)) out.push(`hero texture ${k}: no outfit, pose, view or the arch asks for it (a dead file loaded at start)`);
+  }
+  const SB0 = require('./sandbox.cjs');
+  SIMX.checks.add('heroTexCheck', heroTexCheck);
   SIMX.checks.add('heroArmCheck', heroArmCheck);
   SIMX.checks.add('warriorFistCheck', warriorFistCheck);
   SIMX.checks.add('archerFistCheck', archerFistCheck);

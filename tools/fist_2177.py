@@ -17,7 +17,8 @@ from PIL import Image
 TAG, CELLS, CUT = '20261117-2177', 42, 4
 OUT = os.environ.get('OUT', 'art/gen')
 # rig: the outfits' suffixes, the texture the palette comes from (and the box of its hand)
-KITS = {'hero': {'sfx': ['', '_pw', '_cl'], 'pal': lambda s: (f'hero__fistR{s}_menu', None)},
+# (TASKS 2157) no _cl: the gloves slot never takes the shirt's suffix
+KITS = {'hero': {'sfx': ['', '_pw'], 'pal': lambda s: (f'hero__fistR{s}_menu', None)},
         'archer': {'sfx': [''], 'pal': lambda s: ('archer__fistR_menu', None)},
         'mage': {'sfx': [''], 'pal': lambda s: ('mage__farmL_menu', (40, 170, 80, 212))}}
 TONES = 5

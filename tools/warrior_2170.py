@@ -20,8 +20,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.chdir(os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 TAG, GRID = '20261117-2170', '20261117-2155'
 DY = 21
-CUTS = {'': [(144, 147), (166, 184)], '_pw': [(145, 148), (166, 184)], '_cl': [(155, 176)]}
-FIST = {'': 175, '_pw': 175, '_cl': 172}
+# (TASKS 2157) no _cl: bare of gloves the warrior wears his look's gloves, the shirt's forearms were dead files (art/old/*-20261117-2157.png)
+CUTS = {'': [(144, 147), (166, 184)], '_pw': [(145, 148), (166, 184)]}
+FIST = {'': 175, '_pw': 175}
 FIST_WORLD = 180
 HEM, WIDEN, COLLAR = 302, 38, 90
 STEEL = ['body', 'body_nh', 'body_pw', 'body_pw_nh', 'uarmL', 'uarmR', 'uarmL_pw', 'uarmR_pw']
