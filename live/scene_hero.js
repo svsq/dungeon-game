@@ -155,6 +155,8 @@
   // torso, which only the shoulder cap of 2167 closed, and only at rest without NEAR_OUT: a copy of the upper arm stays under the body and
   // the arm, no further out than span rad behind the arm (the arm's own width covers that much) and turned in by in rad (2167 left the
   // torso's edge up to 2 rig px off the arm below the armpit)
+  // (TASKS 2191) the copy is the arm's _sock: no outline and darker, the shade in the gap rather than a second sleeve beside the arm; the
+  // forearm comes with it where the near arm is over the body (a charge flung the forearm out past the torso's side: 4.4 world px²)
   const NEAR_OUT = 0.2, RUN_BEND = 0.4, HOLD_RUN = 0.1, SOCK = { span: 0.35, in: 0.04 };
   const ARM_BEND = -0.06, STANCE = { half: 14, halfBy: { hero: 8.5 }, frontFoot: 0.62, nearFoot: 0.78, fold: { L: -0.4, R: 0 }, depth: 9, reach: 1, sink: 0, breath: 0.2, shift: 4 };
   const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1, headLift: 1 };
@@ -260,7 +262,7 @@
     const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: [0, 1, 2].map((i) => (u.tint ? 1 + (u.tint[i] - 1) * u.tint[3] : 1) * (1 + (t[i] - 1) * t[3])).concat(1) }) : u);   // a piece's rarity over the fire's tint
     // (TASKS 2155) the world parts are painted in cells of the world grid; the arch's ×3.2 shows them nearly 1:1, so it has the parts as drawn
     const fine = (t) => (o.menu && window.ASSETS[t + '_menu'] ? t + '_menu' : t);
-    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0, kx = 1) => { const g = GR.part(n); return L.sprite(fine(g.tex), 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX * kx, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };
+    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0, kx = 1, alt = '') => { const g = GR.part(n); return L.sprite(fine(window.ASSETS[g.tex + alt] ? g.tex + alt : g.tex), 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX * kx, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };
     const shade = (u, sat, lift) => (hurt || !(backV > 0) ? u : Object.assign({}, u, { grade: [u.grade[0] * (1 - (1 - sat) * backV), u.grade[1] * (1 - (1 - lift) * backV), u.grade[2], u.grade[3]] }));
     const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
     const dist2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -606,12 +608,18 @@
       // (TASKS 2146) the orb in the far palm is drawn after the body: under it the far arm's swing took it behind the torso on every stride
       const orbLate = orbInPalm && backK < 0.5;
       // (TASKS 2170) the forearm holding the orb comes forward across the waist: over the body, under the orb
-      // (TASKS 2181) the near arm's forearm and hand come over the body in the front view, its upper arm under the torso's shoulder cap
-      // (2167): under the body the hand lay behind the belt pouch, half of the forearm hidden. A shield on it keeps its old place under
-      // the torso, as the author's sides left it: over the body it would cover the chest
-      const nearOver = !castFront && !orbLate && !GR.shield && backK <= 0.5;
-      if (backK <= 0.5 && arms.L.r1 > 0) part('uarmL', arms.L.S0, R2U(arms.L.Sp[0], arms.L.Sp[1]), Math.max(0, arms.L.r1 - SOCK.span) - SOCK.in, shade(Ufar, 1, BACK_VIEW.armShade), 1, bodyR);
-      if (!castFront) { drawArm('L', Ufar, (orbLate && !behind) || nearOver ? 'u' : 'uf'); if (!orbLate && !nearOver) shield(Ufar); }
+      // (TASKS 2181) the near arm's forearm and hand come over the body in the front view: under the body the hand lay behind the belt
+      // pouch, half of the forearm hidden. A shield on it keeps its old place under the torso, as the author's sides left it: over the
+      // body it would cover the chest
+      // (TASKS 2191) and so does its upper arm, with a shield too, over the torso's side strip drawn under it: under the torso the torso's
+      // own edge, painted where the arm hung on the sheet, lay over the sleeve as a dark seam, and the arm turned out by NEAR_OUT and the
+      // breath slid out from under a cut-out
+      const nearArm = !castFront && !orbLate && backK <= 0.5, nearOver = nearArm && !GR.shield;
+      if (backK <= 0.5 && arms.L.r1 > 0) { const A = arms.L, sr = Math.max(0, A.r1 - SOCK.span) - SOCK.in, us = shade(Ufar, 1, BACK_VIEW.armShade), E = rotP([A.E0[0], A.E0[1] + shoulderDy], A.Sp, sr);
+        part('uarmL', A.S0, R2U(A.Sp[0], A.Sp[1]), sr, us, 1, bodyR, 1, '_sock');
+        if (nearOver && window.ASSETS[GR.part('farmL').tex + '_sock']) part('farmL', A.E0, R2U(E[0], E[1]), sr + A.r2 - A.r1, us, A.k2, bodyR, 1, '_sock'); }
+      if (!castFront && !nearArm) { drawArm('L', Ufar, orbLate && !behind ? 'u' : 'uf'); if (!orbLate) shield(Ufar); }
+      if (nearArm && !nearOver) { drawArm('L', Ufar, 'f'); shield(Ufar); }
       // (TASKS 2160) the cape hangs behind both legs, in the arch too: over the cape-side leg it cut that leg off at the knee
       drawLeg('L', Ufar);
       drawLeg('R', U);
@@ -630,7 +638,7 @@
       if (backK < 1 && GR.helm) L.sprite(helmTex, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
       if (backK > 0 && window.ASSETS[pn + 'body_back']) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, shade(U, BACK_VIEW.bodySat, BACK_VIEW.bodyLift), { alpha: alpha * backK, snap: 2 * L.SNAP }, soft(pn + 'body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, shade(tinted(U, GR.helmTint), 1, BACK_VIEW.headLift), { alpha: alpha * backK }) }, bodyAt));
-      if (nearOver) { drawArm('L', Ufar, 'f'); shield(Ufar); }
+      if (nearArm) drawArm('L', Ufar, nearOver ? 'uf' : 'u');
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); if (!orbLate) shield(backK > 0.5 ? Ufar : U); if (readE > 0.3) scroll(); }
       if (orbLate && behind) shield(castFront ? U : Ufar);
       // (TASKS 2170) a rig with its near fist cut out (fistR) draws it again over the held weapon: the hilt or haft passes under the

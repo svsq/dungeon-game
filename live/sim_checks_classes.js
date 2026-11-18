@@ -701,7 +701,7 @@
           continue; }
         if (ob === 'orb') { if (dx('L') < ORB.out || hh('L') < ORB.h[0] || hh('L') > ORB.h[1]) say(`the orb's palm is ${dx('L').toFixed(3)} out of the shoulder at ${hh('L').toFixed(3)} of the height (out ${ORB.out}, ${ORB.h.join('..')})`); }
         else { if (dx('L') < OUT) say(`the near hand hangs ${dx('L').toFixed(3)} of the height out of its shoulder (at least ${OUT})`);
-          const body = spr.findIndex((n) => n.startsWith(pn + 'body')), fa = spr.findIndex((n) => n.startsWith(pn + 'farmL'));
+          const body = spr.findIndex((n) => n.startsWith(pn + 'body')), fa = spr.findIndex((n) => n.startsWith(pn + 'farmL') && !n.includes('_sock'));
           if (!ob && fa < body) say('the near forearm is drawn under the body'); }
         if (hh('R') < FIST[cls][0] || hh('R') > FIST[cls][1]) say(`the weapon fist stands at ${hh('R').toFixed(3)} of the height (${FIST[cls].join('..')})`);
         const fore = Math.atan2(Math.abs(J.handR[0] - J.elbowR[0]), J.handR[1] - J.elbowR[1]) * 180 / Math.PI;
