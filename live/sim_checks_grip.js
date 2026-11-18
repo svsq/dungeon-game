@@ -69,9 +69,12 @@
   // (archer__fist{L,R}, drawn after it) lies over the weapon's own pixels, the weapon's axis (a bow's stave, parallel to its string, through
   // the grip; the crossbow's stock, grip → tip) runs within AXIS screen px of the fist's centre, and the weapon shows past the fist on both
   // sides, a bow's grip in the middle of its stave (MID: the tips' distances from the fist differ by at most this share of their sum); on
-  // the draw the string's two halves meet at the near fist. Frames with the weapon behind the body (under it) are skipped
+  // the draw the string's two halves meet at the near fist. Frames with the weapon behind the body (under it) are skipped. (TASKS 2189) The
+  // string is whole along its line, in the arch under its ×3.2 too: no length of it outside its drawn pieces past GAP px, and none
+  // covered by anything drawn after it but a fist
   function archerFistCheck(out) {
     const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, NOCK = 3, MID = 0.25, STRING_COL = '0.5,0.48,0.45', d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const ARCH_COL = '0.66,0.6,0.5', ARCH = [3.2, 0, 0, 3.2, -2.2 * 300, -2.2 * 300], GAP = 0.1, runs = [];
     const seen = new Set(); let counted = 0;
     for (const wb of ['shortbow', 'longbow', 'crossbow']) {
       const BT = D.SHOTS[D.BASES[wb].shot || 'bolt'].t, POSES = [['rest', 0, 10, -9], ['rest', 0, 11.3, -9], ['run', 150, 10, -9], ['run', 150, 10.4, -9], ['draw', 0, 10 + 0.6 * BT, 10], ['draw', 0, 10 + 0.95 * BT, 10], ['loose', 0, 10 + BT + 0.06, 10]];
@@ -79,11 +82,12 @@
         if (menu && act !== 'rest') continue;
         const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'archer' }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
         const h = Object.assign({}, R.hero, { vx, vy: 0, gp: GT * 4, face, aim: 0, atkA: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT, patkT: -9, castT: -9, whirlT: -9 });
-        const J = {}, spr = [], sol = [], tag = `archer ${wb} ${act} face ${face}${menu ? ' in the arch' : ''} at ${GT.toFixed(2)}`;
+        const J = {}, spr = [], sol = [], seq = [], tag = `archer ${wb} ${act} face ${face}${menu ? ' in the arch' : ''} at ${GT.toFixed(2)}`;
         const say = (m) => { const k = wb + act + m.replace(/[\d.]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`archer fist: ${tag}: ${m}`); } };
-        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; };
-        L.solid = (x, y, w, hh, col, a) => sol.push({ p: [x, y], q: [x + w * Math.cos(a), y + w * Math.sin(a)], col: String(col) });
-        drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
+        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); seq.push({ n, o }); return { w: 10, h: 10 }; };
+        L.solid = (x, y, w, hh, col, a = 0, px = 0, py = 0) => { const q = { x, y, w, hh, a, px, py, col: String(col) }; sol.push(q); seq.push({ solid: q }); };
+        L.pre = menu ? ARCH : null;
+        try { drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {}); } finally { L.pre = null; }
         const side = d(J.grip, J.handL) < d(J.grip, J.handR) ? 'L' : 'R', wi = spr.findIndex((q) => /^it_(bow_[sl]|crossbow)/.test(q.n)), body = spr.findIndex((q) => /^archer__body/.test(q.n));
         const fi = spr.findIndex((q) => q.n.startsWith('archer__fist' + side));
         if (wi < 0) { say('the weapon is not drawn'); continue; }
@@ -91,9 +95,12 @@
         if (fi < 0) { say(`no ${side} fist is drawn over the weapon`); continue; }
         if (fi < wi) say('the weapon is drawn over the fist');
         counted++;
-        const strs = sol.filter((q) => q.col === STRING_COL), g = J.grip, xb = wb === 'crossbow';
-        if (!xb && strs.length !== 2) { say(`the string is drawn in ${strs.length} pieces`); continue; }
-        const ax = xb ? [J.tip[0] - g[0], J.tip[1] - g[1]] : [strs[1].p[0] - strs[0].p[0], strs[1].p[1] - strs[0].p[1]], len = Math.hypot(...ax), u = [ax[0] / len, ax[1] / len];
+        const g = J.grip, xb = wb === 'crossbow', nocks = [J.nockA, J.nockB];
+        if (!xb && !(J.nockA && J.nockB)) { say('the string\'s nocks are not traced'); continue; }
+        if (!xb) { const r = Object.assign(stringRun(L, seq, nocks, J.stringMid, menu ? ARCH_COL : STRING_COL), { tag }); runs.push(r);
+          if (r.gap > GAP) say(`the string breaks: ${r.gap.toFixed(2)} px of its line nock → ${act === 'draw' ? 'hand' : 'nock'} → nock outside its drawn pieces`);
+          if (r.cut > GAP) say(`the string is cut ${r.cut.toFixed(2)} px by ${r.by} drawn over it`); }
+        const ax = xb ? [J.tip[0] - g[0], J.tip[1] - g[1]] : [nocks[1][0] - nocks[0][0], nocks[1][1] - nocks[0][1]], len = Math.hypot(...ax), u = [ax[0] / len, ax[1] / len];
         const fist = texelsOf(L, spr[fi]), wpn = texelsOf(L, spr[wi]), cell = (p) => Math.floor(p[0]) + ',' + Math.floor(p[1]), fc = new Set(fist.map(cell));
         const c = fist.reduce((a, p) => [a[0] + p[0] / fist.length, a[1] + p[1] / fist.length], [0, 0]), off = Math.abs((c[0] - g[0]) * u[1] - (c[1] - g[1]) * u[0]);
         if (off > AXIS) say(`the ${wb}'s axis passes ${off.toFixed(1)} px from the fist's centre`);
@@ -101,14 +108,36 @@
         if (over < OVER) say(`the fist lies over ${over} px of the ${wb}`);
         const along = (p) => (p[0] - c[0]) * u[0] + (p[1] - c[1]) * u[1], fa = fist.map(along), lo = Math.min(...fa), hi = Math.max(...fa), wa = wpn.filter((p) => !fc.has(cell(p))).map(along);
         if (!wa.some((a) => a > hi + PAST) || !wa.some((a) => a < lo - PAST)) say(`the ${wb} does not show on both sides of the fist (fist ${lo.toFixed(1)}..${hi.toFixed(1)} px along it)`);
-        if (!xb) { const n1 = d(c, strs[0].p), n2 = d(c, strs[1].p), mid = Math.abs(n1 - n2) / (n1 + n2);
+        if (!xb) { const n1 = d(c, nocks[0]), n2 = d(c, nocks[1]), mid = Math.abs(n1 - n2) / (n1 + n2);
           if (mid > MID) say(`the fist holds the stave ${n1.toFixed(0)} and ${n2.toFixed(0)} px from its tips, off the grip in its middle`); }
         if (act === 'draw' && !xb) { const fr = spr.find((q) => q.n.startsWith('archer__fistR')), cr = fr && texelsOf(L, fr).reduce((a, p, i, all) => [a[0] + p[0] / all.length, a[1] + p[1] / all.length], [0, 0]);
           if (!fr || spr.indexOf(fr) < wi) say('the string hand\'s fist is not drawn over the string');
-          else for (const q of strs) if (d(q.q, cr) > NOCK) say(`the string ends ${d(q.q, cr).toFixed(1)} px from the string hand's fist`); }
+          else if (d(J.stringMid, cr) > NOCK) say(`the string ends ${d(J.stringMid, cr).toFixed(1)} px from the string hand's fist`); }
       }
     }
     if (counted < 48) out.push(`archer fist: only ${counted} frames hold the weapon in front of the body`);
+    SIMX.stringRuns = runs;
+  }
+  // (TASKS 2189) the bow's string along its ideal line (nock → nock at rest, nock → string hand → nock on the draw), sampled every STEP
+  // px: gap, the length of it no string piece of the colour covers (a piece's quad turns about its pivot, placed at (x + px, y + py));
+  // cut, the length a sprite drawn after the string other than a fist covers with its opaque texels; pieces, the runs of it left in sight
+  const STEP = 0.05;
+  function stringRun(L, seq, nocks, mid, col) {
+    const path = [nocks[0], mid, nocks[1]], i0 = seq.findIndex((q) => q.solid && q.solid.col === col), later = seq.slice(i0 + 1).filter((q) => q.n && q.o && q.o.m && !(q.o.u && q.o.u.alpha < 0.5));
+    const inQuad = (p, q) => { const c = Math.cos(q.a), s = Math.sin(q.a), X = p[0] - q.x - q.px, Y = p[1] - q.y - q.py, lx = c * X + s * Y + q.px, ly = -s * X + c * Y + q.py;
+      return lx >= -1e-6 && lx <= q.w + 1e-6 && ly >= -1e-6 && ly <= q.hh + 1e-6; };
+    const opaque = (p, q) => { const t = TEX[q.n] || (TEX[q.n] = png(q.n)), [a, b, c, dd, e, f] = q.o.m, det = a * dd - b * c, X = p[0] - e, Y = p[1] - f;
+      const u = Math.floor(((dd * X - c * Y) / det + q.o.pivot[0]) / q.o.w * t.W), v = Math.floor(((-b * X + a * Y) / det + q.o.pivot[1]) / q.o.h * t.H);
+      return u >= 0 && v >= 0 && u < t.W && v < t.H && t.A[v * t.W + u] > 127; };
+    const pieces = seq.filter((q) => q.solid && q.solid.col === col).map((q) => q.solid);
+    let gap = 0, cut = 0, n = 0, seen = false, by = '';
+    for (let k = 0; k < 2; k++) { const A = path[k], B = path[k + 1], l = Math.hypot(B[0] - A[0], B[1] - A[1]), m = Math.max(1, Math.ceil(l / STEP));
+      for (let i = 0; i <= m; i++) { const p = [A[0] + (B[0] - A[0]) * i / m, A[1] + (B[1] - A[1]) * i / m], ds = l / m;
+        if (!pieces.some((q) => inQuad(p, q))) { gap += ds; seen = false; continue; }
+        const over = later.find((q) => opaque(p, q));
+        if (over && !/__fist/.test(over.n)) { cut += ds; by = over.n; }
+        if (!over) { if (!seen) n++; seen = true; } else seen = false; } }
+    return { gap, cut, by, pieces: n };
   }
   // (TASKS 2177) the weapon arm is the far arm of the 3/4 view: at ease and on the run each class draws its upper arm before the body
   // (under the torso), its forearm cut short of the hand (cuffR) and its own fist (fistR) after the weapon; while a blow, a shot or a

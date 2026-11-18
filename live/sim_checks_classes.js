@@ -575,8 +575,9 @@
       if (!ob && orbs.length) say(`the orb is drawn ${orbs.length} times with no orb worn`);
       // (TASKS 2170) the orb rests on the far palm beside the staff too, as on mage_a_v4 (it sat on the staff's head)
       if (ob === 'orb') { if (orbs.length !== 1) say(`the orb is drawn ${orbs.length} times`); else if (d([orbs[0].o.m[4], orbs[0].o.m[5]], J.handL) > PALM) say(`the orb sits ${d([orbs[0].o.m[4], orbs[0].o.m[5]], J.handL).toFixed(1)} px from the far palm`); }
-      if (wb.endsWith('bow')) { const ends = sol.filter((q) => q.col === STRING_COL).map((q) => q.p), g = J.grip;
-        if (ends.length !== 2) { say(`the string is drawn in ${ends.length} pieces`); continue; }
+      if (wb.endsWith('bow')) { const ends = [J.nockA, J.nockB].filter(Boolean), g = J.grip;
+        if (!sol.some((q) => q.col === STRING_COL)) { say('the string is not drawn'); continue; }
+        if (ends.length !== 2) { say('the string\'s nocks are not traced'); continue; }
         const [a, b] = ends, span = d(a, b), cross = (a[0] - g[0]) * (b[0] - g[0]) + (a[1] - g[1]) * (b[1] - g[1]), u = Math.max(0, Math.min(1, ((g[0] - a[0]) * (b[0] - a[0]) + (g[1] - a[1]) * (b[1] - a[1])) / (span * span)));
         const near = d(g, [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
         if (cross >= 0 || [a, b].some((e) => d(e, g) < STRING[0] || d(e, g) > STRING[1]) || near > SPAN * span) say(`the string does not span the bow about the grip (ends ${d(a, g).toFixed(0)} and ${d(b, g).toFixed(0)} px out, ${near.toFixed(0)} px off it)`); }
