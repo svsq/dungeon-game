@@ -7,16 +7,17 @@ canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-r
 canvas{cursor:crosshair}
 #dev{position:absolute;left:10px;bottom:8px;font:12px ui-monospace,Menlo,monospace;color:#fff;background:#0008;padding:5px 8px;border-radius:6px;opacity:.55;white-space:pre}
 #dev:hover{opacity:1}
-#boot{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b0806;color:#e8d3a8;font-family:Galmuri11,monospace;-webkit-font-smoothing:none;z-index:5;user-select:none}
+#boot{--cw:min(100vw,calc(100vh*var(--ar)));--ch:calc(var(--cw)/var(--ar));--u:calc(var(--cw)/1920);--top:calc((100vh - var(--ch))/2);position:absolute;inset:0;background:#0b0806;color:#e8d3a8;font-family:Galmuri11,monospace;-webkit-font-smoothing:none;z-index:5;user-select:none}
 #boot.fade{transition:opacity .45s ease-out;opacity:0;pointer-events:none}
 #boot .t,#boot .s{visibility:hidden}
 #boot.font .t,#boot.font .s{visibility:visible}
-#boot .t{font-size:72px;font-weight:bold;color:#f0d9a6;text-shadow:0 4px 0 #3a1a0c}
-#boot .s{font-size:36px;margin-top:.3em;color:#b89a6e}
-@media (max-width:800px){#boot .t{font-size:48px}#boot .s{font-size:24px}}
-#boot .bar{width:min(420px,60vw);height:8px;margin-top:2.4em;background:#2a1a10;border:1px solid #5a3a22;border-radius:2px;overflow:hidden}
+/* the title, the line under it and the bar stand where the menu's own are (hud.js menu: 150, 230 in a 1080-high view), so the fade shows one title */
+#boot .t,#boot .s,#boot .bar,#boot .n{position:absolute;left:50%;transform:translate(-50%,-50%);white-space:nowrap}
+#boot .t{top:calc(var(--top) + var(--ch)*150/1080);font-size:calc(var(--u)*109.5);font-weight:bold;color:#ffd76a;text-shadow:0 calc(var(--u)*4) 0 #2a0d06}
+#boot .s{top:calc(var(--top) + var(--ch)*230/1080);font-size:calc(var(--u)*36);color:#e8c890}
+#boot .bar{top:calc(var(--top) + var(--ch)*330/1080);width:min(420px,60vw);height:8px;background:#2a1a10;border:1px solid #5a3a22;border-radius:2px;overflow:hidden}
 #boot .bar i{display:block;height:100%;width:0;background:linear-gradient(#e0a24a,#a8601e)}
-#boot .n{margin-top:.8em;font-size:24px;color:#9c8462;font-variant-numeric:tabular-nums}
+#boot .n{top:calc(var(--top) + var(--ch)*375/1080);font-size:24px;color:#9c8462;font-variant-numeric:tabular-nums}
 #flash{position:absolute;right:12px;bottom:10px;font:600 13px -apple-system,sans-serif;color:#9f9;background:#000a;padding:4px 10px;border-radius:6px;opacity:0;transition:opacity .6s}
 </style>
 </head><body><canvas id="c"></canvas>
@@ -31,7 +32,7 @@ const V = Date.now(), STATIC = !!window.__STATIC__;          // STATIC: packed b
 // the start's screen and log (TASKS 2004): a title and a bar from the first paint, so the window is never a black one while the
 // scripts, the textures and the shaders load; every stage's time goes to the console and, in the desktop build, to boot.log
 const BOOT = { el: document.getElementById('boot'), done: 0, all: 1, t: performance.now() };
-const barTo = (el, f) => { el.querySelector('i').style.width = (f * 100).toFixed(1) + '%'; el.querySelector('.n').textContent = `Загрузка… ${Math.round(f * 100)} %`; };
+const barTo = (el, f) => { if (el.dataset.failed) return; el.querySelector('i').style.width = (f * 100).toFixed(1) + '%'; el.querySelector('.n').textContent = `Загрузка… ${Math.round(f * 100)} %`; };
 const bootStep = (n = 1) => { BOOT.done += n; if (BOOT.el) barTo(BOOT.el, Math.min(1, BOOT.done / BOOT.all)); };
 const bootLog = (s) => { console.info('[boot] ' + s); try { if (window.desktop && desktop.bootLog) desktop.bootLog(s); } catch (e) {} };
 const mark = (k, more = '') => { const now = performance.now(); bootLog(`${k.padEnd(9)} ${(now - BOOT.t).toFixed(0).padStart(6)} ms  (at ${now.toFixed(0)} ms)${more ? '  ' + more : ''}`); BOOT.t = now; };
@@ -39,13 +40,34 @@ const mark = (k, more = '') => { const now = performance.now(); bootLog(`${k.pad
 const LOADING = BOOT.el;
 // the screen fades out over the first frames (TASKS 2159: it went to the menu in one frame, brightness 9 → 67); a tool's render hides it at once
 const FADE_MS = 450;
-const fadeOut = (el, now) => { if (now) { el.style.display = 'none'; return; } el.classList.add('fade'); setTimeout(() => { if (el.classList.contains('fade')) el.style.display = 'none'; }, FADE_MS); };
+const fadeOut = (el, now) => { if (el.dataset.failed) return; if (now) { el.style.display = 'none'; return; } el.classList.add('fade'); setTimeout(() => { if (el.classList.contains('fade')) el.style.display = 'none'; }, FADE_MS); };
 const bootEnd = (now) => { if (BOOT.el) { fadeOut(BOOT.el, now); BOOT.el = null; } };
 const loadingShow = (f) => { if (BOOT.el) return; LOADING.classList.remove('fade'); LOADING.style.display = ''; barTo(LOADING, f); };
 const loadingHide = () => { if (!BOOT.el && LOADING.style.display !== 'none' && !LOADING.classList.contains('fade')) fadeOut(LOADING); };
-// the scripts download side by side and still run in the list's order (async = false); one after another, each waited for its own
-// round trip into the desktop build's archive
-const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V; s.async = false; s.onload = () => { bootStep(); res(); }; s.onerror = () => rej(new Error('failed ' + src)); document.head.appendChild(s); });
+// a local server drops connections under the start's burst of a hundred scripts and nine hundred textures (TASKS 2179: python's
+// http.server, backlog 5 and one answer per connection, failed a different file on every start): a texture is asked at most
+// NET.pool at a time, and any file is asked again after a failure with a fresh stamp. The scripts download side by side as
+// preloads and run one after another in the list's order, each tag put in once the one before it ran, so a script asked again never
+// runs after the ones that need it (async = false ran the rest without it)
+const NET = { tries: 4, wait: [300, 1000, 2500], pool: window.desktop ? 32 : 16 };
+window.__bootRetries = 0;
+class LoadError extends Error {}
+const retry = async (what, fn) => { for (let k = 0; ; k++) { try { return await fn(k ? '&r=' + k : ''); } catch (e) {
+  if (k + 1 >= NET.tries) throw new LoadError(what + ': ' + (e && e.message || e));
+  window.__bootRetries++; bootLog(`retry    ${what}: ${e && e.message || e}, again in ${NET.wait[k]} ms`); await new Promise((r) => setTimeout(r, NET.wait[k])); } } };
+const limit = (n) => { let busy = 0; const q = [];
+  const next = () => { if (busy >= n || !q.length) return; busy++; const [fn, res, rej] = q.shift(); fn().then(res, rej).finally(() => { busy--; next(); }); };
+  return (fn) => new Promise((res, rej) => { q.push([fn, res, rej]); next(); }); };
+const slot = limit(NET.pool);
+const run = (src, r) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V + r;
+  s.onload = () => { bootStep(); res(); }; s.onerror = () => { s.remove(); rej(new Error('failed ' + src)); }; document.head.appendChild(s); });
+const loadAll = async (list) => { for (const f of list) { const l = document.createElement('link'); l.rel = 'preload'; l.as = 'script'; l.href = f + '?v=' + V; document.head.appendChild(l); }
+  for (const f of list) await retry(f, (r) => run(f, r)); };
+// a file that never came or a lost GPU gets a screen that says so in words, with a button to try again
+const failScreen = (title, line) => { LOADING.classList.remove('fade'); LOADING.classList.add('font'); LOADING.style.display = ''; LOADING.style.zIndex = 6;
+  LOADING.dataset.failed = 1; LOADING.querySelector('.n').textContent = title;
+  if (!LOADING.querySelector('.why')) LOADING.insertAdjacentHTML('beforeend', '<div class="why" style="margin-top:.8em;font-size:20px;max-width:80vw;text-align:center"></div><button style="margin-top:1.2em;font:inherit;font-size:22px;color:#f0d9a6;background:#2a1a10;border:1px solid #5a3a22;padding:.3em 1.2em;cursor:pointer" onclick="location.reload()">Обновить</button>');
+  LOADING.querySelector('.why').textContent = line; };
 (async () => {
   mark('page', `${navigator.userAgent.match(/(Electron|Chrome)\/[\d.]+/g) || ''}`);
   // sizes.js: window.SIZES (display size per sprite in view px, engine.md §7); audio.js: sound synthesised from the event bus
@@ -53,11 +75,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // known once assets.js has run: 900 till then)
   const steps = (nTex) => MODULES.page.length + 20 + nTex + 40 + 20;
   // the game's pixel face first, so the loading screen's title is set in the menu's (TASKS 2159: it was a serif one till then)
-  await load('font_data.js');
+  await loadAll(['font_data.js']);
+  // a face the browser refuses leaves the page on its fallback one, it does not stop the start
   const fonts = Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))))
-    .then(() => { if (BOOT.el) BOOT.el.classList.add('font'); LOADING.classList.add('font'); });
-  await load('text_files.js'); await load('ui_files.js'); await load('modules.js'); BOOT.all = steps(900);
-  await Promise.all(MODULES.page.filter((f) => f !== 'font_data.js').map(load)); BOOT.all = steps(Object.keys(ASSETS).length);
+    .catch((e) => console.warn('font', e)).then(() => { if (BOOT.el) BOOT.el.classList.add('font'); LOADING.classList.add('font'); });
+  await loadAll(['text_files.js', 'ui_files.js', 'modules.js']); BOOT.all = steps(900);
+  await loadAll(MODULES.page.filter((f) => f !== 'font_data.js')); BOOT.all = steps(Object.keys(ASSETS).length);
   mark('scripts', `${MODULES.page.length} files`);
   const q = new URLSearchParams(location.search), render = q.has('render');
   // the view's height follows the window's aspect (TASKS 1861): the sim keeps the size, the page tells it the window's and lets the
@@ -66,12 +89,14 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   fitView(); addEventListener('resize', fitView);
   const VW = SIM.VIEW.W, VH = SIM.VIEW.H;
   G.init(document.getElementById('c'), VW, VH, { keep: !STATIC || !!navigator.webdriver });
+  document.getElementById('c').addEventListener('webglcontextlost', (e) => { e.preventDefault(); bootLog('gl       context lost');
+    failScreen('Видеокарта сбросила картинку игры', 'Обновите страницу. Если это повторяется, закройте другие тяжёлые вкладки и окна.'); });
   { const g = G.gl, dbg = g.getExtension('WEBGL_debug_renderer_info'); mark('gl', `${dbg ? g.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)}  parallel shaders ${G.parallel() ? 'yes' : 'no'}`); }
   await fonts;
   bootStep(20); mark('fonts');
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
   const px = Object.values(ASSETS).reduce((a, o) => a + o.w * o.h, 0);
-  await Promise.all(Object.keys(ASSETS).map((n) => G.load(n, 'assets/' + n + '.png?v=' + V, { repeat: rep.has(n), nearest: near(n) }).then((r) => { bootStep(); return r; })));
+  await Promise.all(Object.keys(ASSETS).map((n) => retry('assets/' + n + '.png', (r) => slot(() => G.load(n, 'assets/' + n + '.png?v=' + V + r, { repeat: rep.has(n), nearest: near(n) }))).then((r) => { bootStep(); return r; })));
   mark('textures', `${Object.keys(ASSETS).length} png, ${(px * 4 / 1048576).toFixed(0)} MB as RGBA, uploads ${G.upMs.toFixed(0)} ms of it`);
   // each program's line as it gets done, in that order, ms from its own compile's start (TASKS 2106)
   G.onReady = (name, ms, how) => bootLog(`shader   ${name.padEnd(10)} ${ms.toFixed(0).padStart(6)} ms  ${how}`);
@@ -80,7 +105,6 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const nSh = await G.settle(); bootStep(40); mark('shaders', `${nSh} programs, ${G.pending()} left for the background`);
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
   if (render) { bootEnd(true); window.__ready = true; return; }
-  window.__ready = true;
 
   const keys = {}, dev = document.getElementById('dev'), flash = document.getElementById('flash');
   const SPEEDS = [0.1, 0.25, 0.5, 1];
@@ -230,20 +254,23 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (devShown) { const raw = pad && pad.state.raw; dev.textContent = `LIVE  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (raw ? `\nPAD ${pad.state.n} «${raw.id}» ${pad.state.map}  ax ${raw.ax.join(' ')}  b[${raw.b.join(' ')}]  ${pad.state.mode}` : ''); }
     requestAnimationFrame(loop);
   };
-  loop(); bootStep(20); mark('frame', 'the first one'); bootLog(`ready in ${performance.now().toFixed(0)} ms`); bootEnd();
+  loop(); bootStep(20); mark('frame', 'the first one'); bootLog(`ready in ${performance.now().toFixed(0)} ms`); bootEnd(); window.__ready = true;
   if (STATIC) { dev.style.display = 'none'; return; }
-  const WATCH = ['index.html', 'modules.js', 'text_files.js', 'ui_files.js', ...MODULES.page], stamp = {};
+  // a change counts once two polls agree on it: another agent's half-written file or a 404 mid-rename reloaded into a broken start
+  const WATCH = ['index.html', 'modules.js', 'text_files.js', 'ui_files.js', ...MODULES.page], stamp = {}, seen = {};
   const poll = async () => {
     for (const f of WATCH) {
-      try { const r = await fetch(f + '?poll=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified') + r.headers.get('content-length');
-        if (stamp[f] && stamp[f] !== m) { save(); location.reload(); return; } stamp[f] = m; } catch (e) {}
+      try { const r = await fetch(f + '?poll=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); if (!r.ok) continue; const m = r.headers.get('last-modified') + r.headers.get('content-length');
+        if (stamp[f] && stamp[f] !== m) { if (seen[f] === m) { save(); location.reload(); return; } seen[f] = m; continue; } stamp[f] = m; seen[f] = null; } catch (e) {}
     }
     setTimeout(poll, 700);
   };
   poll();
-})().catch((e) => { console.error(e); bootLog('failed: ' + (e && e.stack || e)); if (BOOT.el) { BOOT.el.style.zIndex = 0; BOOT.el.querySelector('.n').textContent = 'Не удалось загрузить игру'; }
-  document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:absolute;top:0;left:0;background:#000c;padding:12px;font:13px monospace;white-space:pre-wrap">' + e.stack + '</pre>');
+})().catch((e) => { console.error(e); bootLog('failed: ' + (e && e.stack || e));
+  if (e instanceof LoadError) failScreen('Не удалось загрузить игру', `Файл ${e.message.split(':')[0]} не пришёл с сервера и после ${NET.tries} попыток. Проверьте, что сервер игры запущен (окно start.command или start.sh открыто), и обновите страницу.`);
+  else { if (BOOT.el) { BOOT.el.style.zIndex = 0; BOOT.el.querySelector('.n').textContent = 'Не удалось загрузить игру'; }
+  document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:absolute;top:0;left:0;background:#000c;padding:12px;font:13px monospace;white-space:pre-wrap">' + e.stack + '</pre>'); }
   const f = ['index.html', 'modules.js', 'text_files.js', 'ui_files.js', ...((window.MODULES && MODULES.page) || [])], st = {};               // keep polling: fixing the error reloads by itself
-  setInterval(async () => { for (const x of f) { try { const r = await fetch(x + '?p=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified');
+  setInterval(async () => { for (const x of f) { try { const r = await fetch(x + '?p=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); if (!r.ok) continue; const m = r.headers.get('last-modified');
     if (st[x] && st[x] !== m) location.reload(); st[x] = m; } catch (e) {} } }, 800); });
 </script></body></html>

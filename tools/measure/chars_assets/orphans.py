@@ -28,6 +28,13 @@ for rig, G in GEARS.items():
     for h in G['helm']:
         for k in (f'{rig}__head_{h}', f'{rig}__head_{h}_menu', f'{rig}__head_back_{h}'): used.add(k)
     used |= {f'{rig}__body_w', f'{rig}__body_back_w'}
+    # (r3) TASKS 2170/2177: a cape per armour suffix, the cut forearm (cuff), the drawn fist and the mage's fingertips, gloves slot
+    for a in G['armor']:
+        if f'{rig}__cape{sx(a)}' in A: used.add(f'{rig}__cape{sx(a)}')
+    for g in G['gloves']:
+        for p in ('fist', 'cuff'):
+            for s in 'LR': used.add(f'{rig}__{p}{s}{sx(g)}' if f'{rig}__{p}{s}{sx(g)}' in A else f'{rig}__{p}{s}')
+    for s in 'LR': used.add(f'{rig}__farm{s}_tips')
     # (r2) scene_hero.js fine(): in the arch every drawn part takes its _menu copy when one exists
     used |= {u + '_menu' for u in list(used)}
     for k in sorted(x for x in A if x.startswith(rig + '__')):

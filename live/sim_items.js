@@ -85,7 +85,7 @@
   const useless = (R, b) => D.clsOf(R.hero).dead.cons.includes(b);
   const potion = (b, n = 1) => ({ id: 0, b, n, rar: 0, lvl: 1, mods: {} });
   const isCons = (it) => !!CONSUMABLES[it.b];
-  const itemName = (it) => (isCons(it) ? CONSUMABLES[it.b].name : D.UNIQUES[it.u] ? D.UNIQUES[it.u].name : it.rar === 4 ? (D.LEGEND_NAMES[it.b] || D.LEGEND_NAMES[BASES[it.b].slot]) : BASES[it.b].name);
+  const itemName = (it) => (isCons(it) ? CONSUMABLES[it.b].name : D.UNIQUES[it.u] ? D.uniqueName(D.UNIQUES[it.u], it.b) : it.rar === 4 ? (D.LEGEND_NAMES[it.b] || D.LEGEND_NAMES[BASES[it.b].slot]) : BASES[it.b].name);
   const gearName = (it) => it ? TXT('sim_items.gearName', { p1: itemName(it), name: RARITY[it.rar].name, lvl: it.lvl }) : null;
   const itemIcon = (it) => (isCons(it) ? CONSUMABLES[it.b].icon : BASES[it.b].icon);
 

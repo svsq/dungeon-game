@@ -142,6 +142,37 @@
           if (k >= LINE) ys.push(y); }
         const n0 = ys.filter((y, i) => !i || y > ys[i - 1] + 1).length;
         if (n0 < STACKS) out.push(`hero arm: ${n}: ${n0} lines between finger stacks, not a closed fist`); } }
+    heroArmMotion(out, SB, drawHero, L);
+  }
+  // (TASKS 2180) the weapon arm through an action, frame by frame at 60 fps: the warrior's blow carries his fist at least PATH of the height
+  // in its first 0.35 s in every direction (the hold at ease, posed after the blow, kept the fist at the hip and the blade turned round it),
+  // keeps one layer and a fist on the hilt from wind-up to guard (the blade's own angle took it under the torso with an open hand for
+  // the frames it pointed away); in every action the arm's copy over the body gains at most STEP of its alpha a frame; the body's lean
+  // comes back to rest by the action's end (END s, a swing's and a cast's), not cut off there (the top of the head jumps at most JUMP px a frame round its end)
+  function heroArmMotion(out, SB, drawHero, L) {
+    const PATH = 0.3, STEP = 0.5, JUMP = 1, FPS = 60, T0 = 10, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), END = 0.5;
+    const ACTS = [['warrior', 'sword', 'blow', { atkT: T0 }], ['archer', 'shortbow', 'shot', { atkT: T0, patkT: T0 }], ['mage', 'staff', 'shot', { atkT: T0, patkT: T0 }],
+      ['mage', 'staff', 'fireball', { castT: T0, castK: 'fireball' }], ['mage', 'staff', 'frost', { castT: T0, castK: 'frost' }], ['archer', 'shortbow', 'volley', { castT: T0, castK: 'volley' }]];
+    const AIMS = [['right', 0], ['down', Math.PI / 2], ['up', -Math.PI / 2], ['left', Math.PI], ['up-left', -2.3]];
+    for (const [cls, wb, act, at] of ACTS) for (const [an, aim] of act === 'blow' ? AIMS : AIMS.slice(0, 1)) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const st = heroSt(S), pn = D.CLASSES[cls].look.rig + '__', tag = `${cls} ${act} aimed ${an}`, rows = [];
+      for (let k = 0; k <= 0.7 * FPS; k++) { const J = {}, spr = [];
+        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, a: o && o.u && o.u.alpha !== undefined ? o.u.alpha : 1 }); return { w: 10, h: 10 }; }; L.solid = () => {};
+        drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 40, face: Math.cos(aim) < -0.1 ? -1 : 1, aim, atkA: aim, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }, at), 300, 300, T0 + k / FPS, st, {});
+        const idx = (re) => spr.map((q, i) => (q.n.startsWith(pn) && re.test(q.n.slice(pn.length)) ? i : -1)).filter((i) => i >= 0), body = idx(/^body/)[0] ?? -1, ua = idx(/^uarmR/).filter((i) => i > body);
+        rows.push({ J, t: k / FPS, over: ua.length ? spr[ua[0]].a : 0, wpn: spr.findIndex((q) => /^it_/.test(q.n)) > body, farm: idx(/^farmR/).length > 0, fist: idx(/^fistR/).length > 0, back: body < 0 }); }
+      const H = rows[0].J.ground[1] - rows[0].J.top[1];
+      if (act === 'blow') { const path = rows.filter((r) => r.t > 0 && r.t <= 0.35 + 1e-9).reduce((a, r, i, all) => a + d(r.J.handR, (i ? all[i - 1] : rows[0]).J.handR), 0) / H;
+        if (path < PATH) out.push(`hero arm: ${tag}: the fist travels ${path.toFixed(2)} of the height in the blow's first 0.35 s (at least ${PATH})`);
+        const blow = rows.filter((r) => r.t < END && !r.back), lay = new Set(blow.map((r) => r.wpn));
+        if (lay.size > 1) out.push(`hero arm: ${tag}: the sword goes under the torso and over it within the blow`);
+        if (blow.some((r) => r.farm || !r.fist)) out.push(`hero arm: ${tag}: the fist on the hilt opens into a hand in ${blow.filter((r) => r.farm || !r.fist).length} frames of the blow`); }
+      const steps = rows.slice(1).map((r, i) => r.over - rows[i].over), up = Math.max(...steps);
+      if (up > STEP) out.push(`hero arm: ${tag}: the arm comes over the body by ${up.toFixed(2)} of its alpha in one frame (at most ${STEP})`);
+      const e = Math.round(END * FPS), jump = Math.max(...rows.slice(e - 4, e + 5).map((r, i) => d(r.J.top, rows[e - 5 + i].J.top)));
+      if (jump > JUMP) out.push(`hero arm: ${tag}: the body jumps ${jump.toFixed(1)} px in a frame as the action ends`);
+    }
   }
   // (TASKS 2157) a hero texture no outfit, pose, view or the arch asks for still loads at start: every class in every combination of
   // the bases of each slot, with each weapon and offhand, in a few poses, front and back, world and arch; a texture neither drawn nor
@@ -162,9 +193,25 @@
     }
     for (const k of Object.keys(raw)) if (HERO.test(k) && !used.has(k)) out.push(`hero texture ${k}: no outfit, pose, view or the arch asks for it (a dead file loaded at start)`);
   }
+  // (TASKS 2182) the warrior's cape shows on both sides of his legs, as on the sheet: the cape's texels no body part covers, at rest in
+  // the rig, in the bands 0.25-0.35 and 0.15-0.25 of the height above the soles, per side of the hips' middle, in ×1000 of the height squared.
+  // The far side (right of the middle) at least FAR_MIN in each band (it was 3.8 and 1.8, the sheet's 6.9 and 3.2 less the weapon and arm
+  // that hide part of it in the scene), and the cape side no more than RATIO times it (it was 4.4 and 3.8)
+  function heroCapeCheck(out) {
+    const FAR_MIN = [6, 4], RATIO = 2, BANDS = [[0.65, 0.75], [0.75, 0.85]], RG = SB0.rigs().hero, cape = png('hero__cape'), mid = (RG.hipL[0] + RG.hipR[0]) / 2;
+    const cover = ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR', 'body'].map((n) => png('hero__' + n));
+    BANDS.forEach(([f0, f1], b) => { let l = 0, r = 0;
+      for (let y = Math.round(f0 * cape.H); y < Math.round(f1 * cape.H); y++) for (let x = 0; x < cape.W; x++) {
+        if (cape.A[y * cape.W + x] < 128 || cover.some((c) => c.A[y * c.W + x] > 127)) continue;
+        if (x < mid) l++; else r++; }
+      const k = 1000 / cape.H / cape.H; l *= k; r *= k;
+      if (r < FAR_MIN[b]) out.push(`hero cape: ${r.toFixed(1)} on the far side of the legs in band ${b + 1} (at least ${FAR_MIN[b]})`);
+      if (l > RATIO * r) out.push(`hero cape: the cape side ${l.toFixed(1)} against ${r.toFixed(1)} on the far side in band ${b + 1} (at most ${RATIO} times)`); });
+  }
   const SB0 = require('./sandbox.cjs');
   SIMX.checks.add('heroTexCheck', heroTexCheck);
   SIMX.checks.add('heroArmCheck', heroArmCheck);
+  SIMX.checks.add('heroCapeCheck', heroCapeCheck);
   SIMX.checks.add('warriorFistCheck', warriorFistCheck);
   SIMX.checks.add('archerFistCheck', archerFistCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

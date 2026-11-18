@@ -113,7 +113,8 @@
     u_col_m: { id: 'u_col_m', boss: 'boss_colossus', cls: 'mage', b: 'cloak', power: 'rl_phalanx', name: TXT('UNIQUES.u_col_m.name'), lore: TXT('UNIQUES.u_col_m.lore') },
     u_col_a: { id: 'u_col_a', boss: 'boss_colossus', cls: 'archer', b: 'crossbow', power: 'f_leap_6b', name: TXT('UNIQUES.u_col_a.name'), lore: TXT('UNIQUES.u_col_a.lore') },
     // the floors' own (TASKS 358): one for each class in each slot, so any legendary a hero finds has its unique
-    u_w_weapon: { id: 'u_w_weapon', cls: 'warrior', b: 'sword', power: 'blow_cinder', name: TXT('UNIQUES.u_w_weapon.name'), lore: TXT('UNIQUES.u_w_weapon.lore') },
+    u_w_weapon: { id: 'u_w_weapon', cls: 'warrior', b: 'sword', power: 'blow_cinder', name: TXT('UNIQUES.u_w_weapon.name'), lore: TXT('UNIQUES.u_w_weapon.lore'),
+      names: { longsword: TXT('UNIQUES.u_w_weapon.names.longsword'), axe: TXT('UNIQUES.u_w_weapon.names.axe'), hammer: TXT('UNIQUES.u_w_weapon.names.hammer'), staff: TXT('UNIQUES.u_w_weapon.names.staff') } },
     u_w_offhand: { id: 'u_w_offhand', cls: 'warrior', b: 'shield', power: 'cry_mirror', name: TXT('UNIQUES.u_w_offhand.name'), lore: TXT('UNIQUES.u_w_offhand.lore') },
     u_w_helm: { id: 'u_w_helm', cls: 'warrior', b: 'leather_helm', power: 'cry_push', name: TXT('UNIQUES.u_w_helm.name'), lore: TXT('UNIQUES.u_w_helm.lore') },
     u_w_armor: { id: 'u_w_armor', cls: 'warrior', b: 'leather_armor', power: 'cry_call', name: TXT('UNIQUES.u_w_armor.name'), lore: TXT('UNIQUES.u_w_armor.lore') },
@@ -159,6 +160,9 @@
   };
   const bossUniques = (type, cls) => Object.values(UNIQUES).filter((u) => u.boss === type && u.cls === cls);
   const floorUnique = (b, cls) => Object.values(UNIQUES).find((u) => !u.boss && u.cls === cls && u.b === b);
+  // TASKS 2185: a unique's name is for its own base; on another one (a save from before 2029) it takes the unique's own name for that base
+  // where it has one (`names`), else the base's legendary name, so a legendary staff is never a sword
+  const uniqueName = (U, b) => (b === U.b ? U.name : (U.names && U.names[b]) || LEGEND_NAMES[b] || LEGEND_NAMES[BASES[b].slot]);
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)
@@ -205,5 +209,5 @@
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
-  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, floorUnique, reqLvl, SHOP, itemPrice, sellPrice });
+  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, UNIQUES, bossUniques, floorUnique, uniqueName, reqLvl, SHOP, itemPrice, sellPrice });
 })(typeof window !== 'undefined' ? window : globalThis);

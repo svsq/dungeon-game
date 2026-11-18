@@ -233,8 +233,15 @@
       if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || it0.b !== it1.b) out.push(`unique: a ${cl}'s legendary takes other draws than a plain one`); }
     // a save from before 2029 may hold a unique on another base than its own: it loads, is named and powers the hero as before
     { const c = stage('warrior'), old = JSON.parse(JSON.stringify(Object.assign(SIMX.uniqueItem(c.R, 'u_w_weapon', 5), { b: 'axe' })));
-      try { c.h.eq.weapon = old; delete c.R.itemBalance; SIMX.rebalanceRun(c.R); if (SIMX.itemName(old) !== D.UNIQUES.u_w_weapon.name || !(SIMX.heroPowers(c.h) || {})[D.UNIQUES.u_w_weapon.power]) out.push('unique: an old unique on another base loses its name or power'); }
+      try { c.h.eq.weapon = old; delete c.R.itemBalance; SIMX.rebalanceRun(c.R); if (SIMX.itemName(old) !== D.UNIQUES.u_w_weapon.names.axe || !(SIMX.heroPowers(c.h) || {})[D.UNIQUES.u_w_weapon.power]) out.push('unique: an old unique on another base loses its name or power'); }
       catch (e) { out.push(`unique: an old unique on another base breaks the load: ${e.message}`); } }
+    // TASKS 2185: a unique on a base of its slot that is not its own is named by that base, never by its own
+    for (const U of Object.values(D.UNIQUES)) { const slot = D.BASES[U.b].slot;
+      if (D.uniqueName(U, U.b) !== U.name) out.push(`unique ${U.id}: its own base does not keep its name`);
+      for (const b of Object.keys(D.BASES)) { if (b === U.b || D.BASES[b].slot !== slot) continue;
+        const nm = D.uniqueName(U, b), want = (U.names && U.names[b]) || D.LEGEND_NAMES[b] || D.LEGEND_NAMES[slot];
+        if (nm !== want || nm === U.name) out.push(`unique ${U.id}: on ${b} it is named ${nm}, not by its base`);
+        if (SIMX.itemName({ b, rar: 4, u: U.id, lvl: 1, mods: {} }) !== nm) out.push(`unique ${U.id}: itemName on ${b} differs from the name by base`); } }
   }
   // TASKS 359: a found epic may hold one weak power of its class's altar pool, likelier deeper, and never moves a roll after it
   function checkEpicPowers(out) {

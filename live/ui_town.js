@@ -64,6 +64,9 @@
       // it covered the keys' line)
       const by = Math.max(...r.filter((q) => q.id.startsWith('sell:')).map((q) => q.y + q.h)) + 40, card = { x: P.x + 700, y: by, w: P.w - 740, h: P.y + P.h - 20 - by };
       card.bot = card.y + card.h;
+      // 2185: the card's details stand in the middle of the bag's columns, as a pane of their own; a pane across the window's whole
+      // right half stood half empty
+      const sx = r.filter((q) => q.id.startsWith('sell:')); card.cx = (Math.min(...sx.map((q) => q.x)) + Math.max(...sx.map((q) => q.x + q.w))) / 2;
       return { P, r, card };
     },
     // a legendary's sale asks first (TASKS 1978): a sheet in the middle of the shop, clear of the merchant's button, «Оставить» on the right
