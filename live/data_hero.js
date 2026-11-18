@@ -78,9 +78,11 @@
   // the class screen of 1103 lists only those; `arm` (TASKS 2177): the weapon arm is the far one in the rig's 3/4 view, so at ease it hangs
   // `behind` the torso, only the forearm and fist past its edge, the fist at `hold` (arm lengths forward and down from the shoulder); `sat`: the paint's saturation under the light, the warrior's 0.8 kept his steel off the
   // fire's orange and greyed the mage's blue); `borrow`: the classes whose gear it wears while it has none of its own (1102). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
+  // `back` (TASKS 2202): the back view's own saturation (BACK_VIEW.bodySat without it) and its cape's swing with the stride, rad: the
+  // warrior's cape from behind is the front cape's red, dulled to 0.8 it read browner (ΔE 6-8), and stood still over the walking legs
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 5, sp: 1 },
-      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.2, 0.97] } } },
+      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.2, 0.97] }, back: { sat: 1, swing: 0.08 } } },
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 5, sp: 1 }, intK: { spell: 0, hp: 0 }, strK: { atk: 0.3, poise: 2 },

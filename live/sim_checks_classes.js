@@ -611,14 +611,16 @@
     }
     // (TASKS 2192) the warrior's lowered weapon stays in sight through a plain turn: at least SEEN px of it on top in every frame (pointed
     // away from the camera and shortened to a tenth it was gone under the back view for 3 frames)
+    // (TASKS 2202) from behind it counts under the cape too: the cape to the calves hides the blade hanging at his front as his body would,
+    // and this guards its drawn length (seen from behind only its tip below the hem shows, 3-10 px)
     const SEEN = 20;
     for (const wb of ['sword', 'longsword', 'axe', 'hammer']) {
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'warrior' }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       const st = heroSt(S), seen = [];
       for (let k = 0; k <= TURN_N; k++) { const J = {}, spr = []; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
         drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: -1, aim: 0, back: 0, backT: -9, faceT: T0, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), 300, 300, T0 + k / FPS, st, {});
-        const c = SIMX.heroLayers.compose(spr, [J.ground[0] - 50, J.ground[1] - 100, J.ground[0] + 50, J.ground[1] + 4]); let n = 0;
-        for (const i of c.top) if (i >= 0 && /^it_/.test(spr[i].n)) n++;
+        const box = [J.ground[0] - 50, J.ground[1] - 100, J.ground[0] + 50, J.ground[1] + 4], c = SIMX.heroLayers.compose(spr, box), w = SIMX.heroLayers.compose(spr.filter((q) => /^it_/.test(q.n)), box); let n = 0;
+        for (let i = 0; i < c.top.length; i++) if (w.top[i] >= 0 && c.top[i] >= 0 && (/^it_/.test(spr[c.top[i]].n) || /__body_back/.test(spr[c.top[i]].n))) n++;
         seen.push(n); }
       const m = Math.min(...seen);
       if (m < SEEN) out.push(`hero turn: warrior ${wb}, a plain turn: ${m} px of it in sight at frame ${seen.indexOf(m)} (at least ${SEEN})`);
