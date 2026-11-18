@@ -13,8 +13,8 @@ canvas{cursor:crosshair}
 #boot.font .t,#boot.font .s{visibility:visible}
 /* the title, the line under it and the bar stand where the menu's own are (hud.js menu: 150, 230 in a 1080-high view), so the fade shows one title */
 #boot .t,#boot .s,#boot .bar,#boot .n{position:absolute;left:50%;transform:translate(-50%,-50%);white-space:nowrap}
-#boot .t{top:calc(var(--top) + var(--ch)*150/1080);font-size:calc(var(--u)*109.5);font-weight:bold;color:#ffd76a;text-shadow:0 calc(var(--u)*4) 0 #2a0d06}
-#boot .s{top:calc(var(--top) + var(--ch)*230/1080);font-size:calc(var(--u)*36);color:#e8c890}
+#boot .t{top:calc(var(--top) + var(--ch)*150/1080);font-size:calc(var(--u)*109.5);font-weight:bold;color:#ffd76a;text-shadow:calc(var(--u)*-8) calc(var(--u)*-8) 0 #2a0d06,calc(var(--u)*0) calc(var(--u)*-8) 0 #2a0d06,calc(var(--u)*8) calc(var(--u)*-8) 0 #2a0d06,calc(var(--u)*-8) calc(var(--u)*0) 0 #2a0d06,calc(var(--u)*8) calc(var(--u)*0) 0 #2a0d06,calc(var(--u)*-8) calc(var(--u)*8) 0 #2a0d06,calc(var(--u)*0) calc(var(--u)*8) 0 #2a0d06,calc(var(--u)*8) calc(var(--u)*8) 0 #2a0d06,0 calc(var(--u)*16) 0 rgba(15,5,8,.6)}
+#boot .s{top:calc(var(--top) + var(--ch)*230/1080);font-size:calc(var(--u)*36);color:#e8c890;text-shadow:calc(var(--u)*-4) calc(var(--u)*-4) 0 #2a0d06,calc(var(--u)*0) calc(var(--u)*-4) 0 #2a0d06,calc(var(--u)*4) calc(var(--u)*-4) 0 #2a0d06,calc(var(--u)*-4) calc(var(--u)*0) 0 #2a0d06,calc(var(--u)*4) calc(var(--u)*0) 0 #2a0d06,calc(var(--u)*-4) calc(var(--u)*4) 0 #2a0d06,calc(var(--u)*0) calc(var(--u)*4) 0 #2a0d06,calc(var(--u)*4) calc(var(--u)*4) 0 #2a0d06,0 calc(var(--u)*8) 0 rgba(15,5,8,.6)}
 #boot .bar{top:calc(var(--top) + var(--ch)*330/1080);width:min(420px,60vw);height:8px;background:#2a1a10;border:1px solid #5a3a22;border-radius:2px;overflow:hidden}
 #boot .bar i{display:block;height:100%;width:0;background:linear-gradient(#e0a24a,#a8601e)}
 #boot .n{top:calc(var(--top) + var(--ch)*375/1080);font-size:24px;color:#9c8462;font-variant-numeric:tabular-nums}
