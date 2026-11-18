@@ -71,7 +71,7 @@
   // sides, a bow's grip in the middle of its stave (MID: the tips' distances from the fist differ by at most this share of their sum); on
   // the draw the string's two halves meet at the near fist. Frames with the weapon behind the body (under it) are skipped
   function archerFistCheck(out) {
-    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, NOCK = 3, MID = 0.25, STRING_COL = '0.66,0.6,0.5', d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, NOCK = 3, MID = 0.25, STRING_COL = '0.5,0.48,0.45', d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const seen = new Set(); let counted = 0;
     for (const wb of ['shortbow', 'longbow', 'crossbow']) {
       const BT = D.SHOTS[D.BASES[wb].shot || 'bolt'].t, POSES = [['rest', 0, 10, -9], ['rest', 0, 11.3, -9], ['run', 150, 10, -9], ['run', 150, 10.4, -9], ['draw', 0, 10 + 0.6 * BT, 10], ['draw', 0, 10 + 0.95 * BT, 10], ['loose', 0, 10 + BT + 0.06, 10]];
@@ -222,11 +222,29 @@
         if (lum > 60 && Math.max(r, g, b) - Math.min(r, g, b) < 45) { k++; rb += r - b; } }
       if (k && rb / k > 0) out.push(`mage hair: ${n} reads warm (red minus blue ${(rb / k).toFixed(1)}, at most 0)`); }
   }
+  // (TASKS 2184) the hooded outfit's face in the world is the plain outfit's head (the small ref's cells: eye, brow, nose, the mage's grey
+  // beard), laid into the hood's opening: of the pixels of each face block, at least SAME share equal the plain body's (the hood's own
+  // drawn face voted into a brown blot with no eye); and the mage's world robe is darker and duller than the small ref's tone read
+  // as too bright (mean luminance of its blue texels below the head at most BLUE_L and their spread of channels at most BLUE_S; it was 61 and 65)
+  function heroHoodCheck(out) {
+    const SAME = 0.9, BLUE_L = 52, BLUE_S = 60, FACE = { mage: [[2, 7, 9, 14], [8, 10, 10, 14]], archer: [[3, 8, 11, 15]], hero: [[3, 8, 10, 14]] };
+    for (const [rig, rects] of Object.entries(FACE)) { const hd = png(rig + '__body_hd'), body = png(rig + '__body'), cell = hd.H / 42; let n = 0, eq = 0;
+      for (const [r0, r1, c0, c1] of rects) for (let y = Math.round(r0 * cell); y < Math.round((r1 + 1) * cell); y++) for (let x = Math.round(c0 * cell); x < Math.round((c1 + 1) * cell); x++) {
+        const i = y * hd.W + x; if (hd.A[i] < 128 && body.A[i] < 128) continue; n++;
+        if (hd.A[i] >= 128 === body.A[i] >= 128 && hd.P[i * 4] === body.P[i * 4] && hd.P[i * 4 + 1] === body.P[i * 4 + 1] && hd.P[i * 4 + 2] === body.P[i * 4 + 2]) eq++; }
+      if (eq < SAME * n) out.push(`hood face: ${rig}__body_hd shares ${(100 * eq / n).toFixed(0)} % of its face block with ${rig}__body (at least ${SAME * 100})`); }
+    const t = png('mage__body'); let k = 0, lum = 0, sat = 0;
+    for (let i = 100 * t.W; i < t.W * t.H; i++) { if (t.A[i] < 128) continue; const r = t.P[i * 4], g = t.P[i * 4 + 1], b = t.P[i * 4 + 2];
+      if (b > r + 30 && b > g + 10) { k++; lum += 0.3 * r + 0.59 * g + 0.11 * b; sat += Math.max(r, g, b) - Math.min(r, g, b); } }
+    if (k && lum / k > BLUE_L) out.push(`mage robe: world blue luminance ${(lum / k).toFixed(1)} (at most ${BLUE_L})`);
+    if (k && sat / k > BLUE_S) out.push(`mage robe: world blue channel spread ${(sat / k).toFixed(1)} (at most ${BLUE_S})`);
+  }
   const SB0 = require('./sandbox.cjs');
   SIMX.checks.add('heroTexCheck', heroTexCheck);
   SIMX.checks.add('heroArmCheck', heroArmCheck);
   SIMX.checks.add('heroCapeCheck', heroCapeCheck);
   SIMX.checks.add('heroBackCheck', heroBackCheck);
+  SIMX.checks.add('heroHoodCheck', heroHoodCheck);
   SIMX.checks.add('warriorFistCheck', warriorFistCheck);
   SIMX.checks.add('archerFistCheck', archerFistCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

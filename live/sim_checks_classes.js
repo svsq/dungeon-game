@@ -559,7 +559,7 @@
     // (TASKS 2146) the orb only when worn: none on a bare staff, in the open far palm (its world texture is orb_held)
     const KITS = [['warrior', 'sword'], ['mage', 'staff', 'orb'], ['mage', 'staff'], ['mage', 'wand', 'orb'], ['archer', 'shortbow'], ['archer', 'longbow']], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const ORB = 'orb_held', PALM = 14;
-    const STRING_COL = '0.66,0.6,0.5', seen = new Set();
+    const STRING_COL = '0.5,0.48,0.45', seen = new Set();
     for (const [cls, wb, ob] of KITS) for (const face of [1, -1]) for (const vx of [0, 150]) for (const GT of [10, 11.3, 12.7]) {
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };

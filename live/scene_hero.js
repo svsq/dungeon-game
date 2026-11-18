@@ -524,7 +524,7 @@
         const quiver = atkT > BT && atkT < BT + 0.05 ? 2 * Math.sin(atkT * 190) : 0, Mid = drawE > 0.05 && atkT <= BT ? Hs : [(e1[0] + e2[0]) / 2 - Math.sin(sa) * quiver, (e1[1] + e2[1]) / 2 + Math.cos(sa) * quiver];
         // (TASKS 2146) under the arch's ×3.2 a 2 px string grew into a 6 px grey band: there it is drawn about 1.5 screen px thick
         const preK = L.pre ? Math.hypot(L.pre[0], L.pre[1]) : 1, sw = preK > 1 ? Math.max(0.5, 1.5 / preK) : 2;
-        for (const E of [e1, e2]) L.solid(E[0], E[1], Math.hypot(Mid[0] - E[0], Mid[1] - E[1]), sw, [0.66, 0.6, 0.5], Math.atan2(Mid[1] - E[1], Mid[0] - E[0]), 0, 1, alpha);
+        for (const E of [e1, e2]) L.solid(E[0], E[1], Math.hypot(Mid[0] - E[0], Mid[1] - E[1]), sw, preK > 1 ? [0.66, 0.6, 0.5] : [0.5, 0.48, 0.45], Math.atan2(Mid[1] - E[1], Mid[0] - E[0]), 0, 1, alpha);
         if (drawE > 0.05 && atkT < BT) {
         // the nocked arrow drawn in code, light on the dark bow and brick: a pale shaft from the string hand along the aim, a steel head,
         // cream fletching at the nock (the painted arrow sprite was lost against them)
