@@ -696,9 +696,12 @@
   // (TASKS 2165, 2170) the mage's hands hold what they hold, counted on the textures' own pixels: the staff's or the wand's axis runs
   // through the near fist's centre, the fist's pixels lie over the shaft (drawn after it) and the shaft shows on both sides of the fist;
   // the orb rests above the far palm, the forearm under it near level, standing and running, either way round, in the world and the arch
+  // (TASKS 2187) the fist closes on the crooked shaft itself: the staff's own pixels just above and below it sit on the fist's middle
+  // (on the hand it sat 2 px off, the shaft along the fist's edge as if tied to the wrist); the orb lies in the cup (mage__cupL) drawn over
+  // it: its centre over the palm, the palm's top at the orb's lower edge, fingertips on its lower outer rim, the forearm a cuff (cuffL)
   function heroFistCheck(out) {
     const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), fs = require('fs'), zlib = require('zlib'), path = require('path');
-    const AXIS = 2, OVER = 4, PAST = 2, GRIP = 0.5, ORB_UP = [3, 10], ORB_SIDE = 4, LEVEL = 50, HAND = 0.5, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const AXIS = 2, OVER = 4, PAST = 2, GRIP = 2.5, SHAFT = 0.75, BAND = 3, ORB_R = 7, PALM_X = 2.5, SEAT = [0.6, 1.1], TIPS = 6, LEVEL = 50, HAND = 0.5, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const alphaCache = {}, alpha = (n) => alphaCache[n] || (alphaCache[n] = (() => {
       const buf = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), W = buf.readUInt32BE(16), H = buf.readUInt32BE(20), ct = buf[25], bpp = { 6: 4, 2: 3, 4: 2, 0: 1 }[ct];
       if (buf[24] !== 8 || !bpp) throw new Error(n + ': only 8-bit PNGs are read');
@@ -734,13 +737,20 @@
       if (over < OVER) say(`the fist lies over ${over} px of the ${wb}`);
       const along = (p) => (p[0] - c[0]) * u[0] + (p[1] - c[1]) * u[1], fa = fist.map(along), lo = Math.min(...fa), hi = Math.max(...fa), wa = wpn.filter((p) => !fc.has(cell(p))).map(along);
       if (!wa.some((a) => a > hi + PAST) || !wa.some((a) => a < lo - PAST)) say(`the ${wb} does not show on both sides of the fist`);
+      const across = (p) => (p[0] - c[0]) * u[1] - (p[1] - c[1]) * u[0], mid = (b) => { const x = b.map(across); return x.length ? (Math.min(...x) + Math.max(...x)) / 2 : 0; };
+      if (wb === 'staff' && act === 'rest') for (const [nm, b] of [['above', wpn.filter((p) => along(p) > hi && along(p) < hi + BAND)], ['below', wpn.filter((p) => along(p) < lo && along(p) > lo - BAND)]])
+        if (Math.abs(mid(b)) > SHAFT) say(`the shaft ${nm} the fist runs ${mid(b).toFixed(2)} px off its middle`);
       if (!ob) continue;
       const orb = spr.find((q) => /^orb_held/.test(q.n)), oc = orb && [orb.o.m[4], orb.o.m[5]];
       if (!orb) { say('the orb is not drawn'); continue; }
-      const up = J.handL[1] - oc[1], side = Math.abs(oc[0] - J.handL[0]);
-      if (up < ORB_UP[0] || up > ORB_UP[1] || side > ORB_SIDE) say(`the orb's centre sits ${up.toFixed(1)} px over the far palm and ${side.toFixed(1)} px aside`);
-      if (spr.indexOf(orb) < spr.findIndex((q) => /^mage__farmL(_menu)?$/.test(q.n))) say('the orb is drawn under the hand holding it');
-      if (!spr.some((q) => /^mage__farmL_tips/.test(q.n) && spr.indexOf(q) > spr.indexOf(orb))) say('the fingertips are not drawn over the orb');
+      const ci = spr.findIndex((q) => /^mage__cupL/.test(q.n)), cuff = spr.findIndex((q) => /^mage__cuffL/.test(q.n));
+      if (ci < spr.indexOf(orb) || cuff < 0 || cuff > ci || spr.some((q) => /^mage__farmL/.test(q.n))) { say('the orb is not lying in the cup over the cuff'); continue; }
+      const cup = texels(spr[ci]), under = cup.filter((p) => Math.abs(p[0] - oc[0]) < 1 && p[1] > oc[1]), out1 = -face;
+      const xs = cup.filter((p) => p[1] > oc[1] + SEAT[0] * ORB_R).map((p) => p[0]), palm = (Math.min(...xs) + Math.max(...xs)) / 2, seat = under.length ? (Math.min(...under.map((p) => p[1])) - oc[1]) / ORB_R : 0;
+      if (Math.abs(palm - oc[0]) > PALM_X + ORB_R / 2) say(`the orb's centre sits ${(oc[0] - palm).toFixed(1)} px off the cup's middle`);
+      if (!under.length || seat < SEAT[0] || seat > SEAT[1]) say(`the palm under the orb's centre starts ${seat.toFixed(2)} of its radius below it`);
+      const tips = cup.filter((p) => d(p, oc) < ORB_R && (p[0] - oc[0]) * out1 > ORB_R / 2 && p[1] > oc[1] - ORB_R / 2).length;
+      if (tips < TIPS) say(`${tips} px of fingers lie on the orb's lower outer rim`);
       if (act !== 'cast') { const lv = Math.abs(Math.atan2(J.handL[1] - J.elbowL[1], Math.abs(J.handL[0] - J.elbowL[0]))) * 180 / Math.PI, hy = (J.ground[1] - J.handL[1]) / (J.ground[1] - J.top[1]);
         if (lv > LEVEL) say(`the forearm under the orb is ${lv.toFixed(0)}° off level`);
         if (hy < HAND) say(`the orb's palm is ${hy.toFixed(2)} of the height over the soles`); }
