@@ -80,15 +80,15 @@
   // fire's orange and greyed the mage's blue); `borrow`: the classes whose gear it wears while it has none of its own (1102). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 5, sp: 1 },
-      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.26, 0.84] } } },
+      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.2, 0.97] } } },
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 5, sp: 1 }, intK: { spell: 0, hp: 0 }, strK: { atk: 0.3, poise: 2 },
-      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1, eye: [12.5, 6.5], robe: 0.5, arm: { behind: 1, hold: [0.28, 0.78] } } },
+      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1, eye: [12.5, 6.5], robe: 0.5, arm: { behind: 1, hold: [0.28, 0.32] } } },
     // the archer's mana comes from his arrows (TASKS 1162: `hitMp` a hit, a crit; the pool held on potions); `slow` the share of his
     // shot's cycle he is slowed after it, so a quick bow does not keep him slow
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 5, sp: 1 },
-      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', strK: { atk: 0.4 }, hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, eye: [13.5, 5.5], sat: 0.85, cold: { sat: 0.8, lift: 0.8 }, arm: { behind: 1, hold: [0.26, 0.8] } } },
+      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', strK: { atk: 0.4 }, hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, eye: [13.5, 5.5], sat: 0.85, cold: { sat: 0.8, lift: 0.8 }, arm: { behind: 1, hold: [0.3, 0.9] } } },
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
   // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire

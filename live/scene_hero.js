@@ -6,7 +6,7 @@
     D, L, M, SC, SS } = SCX;
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
   // (TASKS 2146) the bows at the new archer's scale: the short bow shoulder to knee as on his reference, it stood head to foot at 48
-  const WEAPON = { sword: ['it_sword', 42], longsword: ['it_longsword', 46], axe: ['it_axe', 44], hammer: ['it_hammer', 44], staff: ['it_staff', 60], wand: ['it_wand', 26], shortbow: ['it_bow_s', 34], longbow: ['it_bow_l', 28], crossbow: ['it_crossbow', 46], fist: null };
+  const WEAPON = { sword: ['it_sword', 42], longsword: ['it_longsword', 46], axe: ['it_axe', 44], hammer: ['it_hammer', 44], staff: ['it_staff', 56], wand: ['it_wand', 26], shortbow: ['it_bow_s', 34], longbow: ['it_bow_l', 28], crossbow: ['it_crossbow', 46], fist: null };
   // (TASKS 2165) the wand a short rod about half his height, the staff taller than him; the arch draws <held>_menu (fine), on its own finer cell
   // (TASKS 2153) the hand holds its own picture of a weapon, <icon>_held (a bow's _h), in the new look on the body's cell; the bag keeps the
   // icon. HELD_HULL: the held art's outline cut to eight corners, in canvas fractions (tools/weapons_2153.py hull), for the rest below
@@ -27,7 +27,7 @@
   // (TASKS 2164) 56 px with a small head: the crystal stands over the head as on the mage's ref; gripped a third up, its foot stays on the floor
   // (TASKS 2164) the mage's hand hangs 0.14 H higher on the shorter arm: gripped nearer the middle, the foot stays on the floor
   // (TASKS 2177) 60 px gripped at its middle: the fist at the belt stood its foot 0.08 H off the floor at 56, crystal over the head as before
-  const POLE = { it_staff: { foot: [0.074, 0.973], head: [0.96, 0.054], grip: [0.5, 0.25], rest: -1.53, lean: 0.1 } };
+  const POLE = { it_staff: { foot: [0.074, 0.973], head: [0.96, 0.054], grip: [0.65, 0.25], rest: -1.53, lean: 0.1 } };
   // (TASKS 2145) a bow at rest is held out a little from the hip and stands near upright, its lower tip by the near foot: at the hip's
   // height and canted 33° the lower limb crossed both legs to the floor
   const BOW_REST = { ba: -1.8 }, BOW_MEET = 0.4;
@@ -38,7 +38,10 @@
   const POLE_SWING = 0.15;
   // (TASKS 2165, 2170) the orb rests on the far palm whatever the other hand holds, as on mage_a_v4: the forearm bent forward at the
   // waist, palm up; hand: its reach from the shoulder in arm lengths, swing: how much of the run's arm swing it keeps
-  const ORB_HOLD = { hand: [0.42, 0.74], swing: 0.15 };
+  // (TASKS 2181) held out beside the body at the chest, as on the sheet: the elbow hangs by the side (elbow: the upper arm's turn in from
+  // plumb, rad), the forearm comes out toward the camera, shortened to reach the hand; drawn forward across the waist the orb lay on the
+  // chest, 0.12 H inside the shoulder at 0.54 H against the sheet's 0.09 H outside at 0.63 H
+  const ORB_HOLD = { hand: [-0.24, 0.5], elbow: 0.15, swing: 0.15 };
   // (TASKS 2156) the fireball's staff held overhead: its rig angle (up, a little forward) and the hand's reach along it in arm lengths
   const FB_RAISE = { a: -1.35, reach: 0.62 };
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
@@ -128,6 +131,10 @@
   // refs' 0.12–0.13); the warrior stands narrower, as on his sheet (halfBy; 0.187 H between the ankles against 0.145); at ease the
   // cape-side knee gives outward and the near one stands straight, as on the refs (fold: a share of the run's forward sideways bend; bent
   // forward like a stride's, the cape-side shin leaned 14–17° toward the cape against the refs' 2–4°)
+  // (TASKS 2181) NEAR_OUT: the near (cape-side) arm's upper arm turned out from the body at ease, so its hand hangs outside the hip as on
+  // the sheets (it hung right under the shoulder, over the belt pouch); RUN_BEND: the elbows' forward bend the run adds, or at the bottom of
+  // the swing the arm hung straight, 0.337 H shoulder to hand against the rest's 0.318
+  const NEAR_OUT = 0.2, RUN_BEND = 0.4, HOLD_RUN = 0.1;
   const ARM_BEND = -0.06, STANCE = { half: 14, halfBy: { hero: 8.5 }, frontFoot: 0.62, nearFoot: 0.78, fold: { L: -0.4, R: 0 }, depth: 9, reach: 1, sink: 0, breath: 0.2, shift: 4 };
   const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1, headLift: 1 };
   // the slash crescent's half-span about the aim, and where its brightness centroid sits along it (the ARC shader's taper and tail fade)
@@ -306,27 +313,28 @@
     const armPose = (side, swingA) => {
       const S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side];
       const Sp = [S0[0], S0[1] + shoulderDy];
-      let r1 = swingA, r2 = swingA * 0.6 + ARM_BEND;
-      return { S0, E0, Hd0, Sp, r1, r2 };
+      let r1 = swingA + (side === 'L' ? NEAR_OUT * (1 - run) : 0), r2 = swingA * 0.6 + ARM_BEND - RUN_BEND * run;
+      return { S0, E0, Hd0, Sp, r1, r2, k2: 1 };
     };
     // a positive turn moves the hand (−dy, dx): the sign that carries it along the travel against its own leg
     const legSwing = Math.cos(P.p) * 0.42 * run, sg = (side) => ((RG['hand' + side][0] - RG['sh' + side][0]) * P.diry - (RG['hand' + side][1] - RG['sh' + side][1]) * P.dirx >= 0 ? 1 : -1);
     const arms = { L: armPose('L', -sg('L') * legSwing * 0.8 + breath * 0.06 - sway * 1.5), R: armPose('R', sg('R') * legSwing * 0.8 - breath * 0.05 - sway * 1.5) };
-    const pose = (A, dr1, bend, k) => { A.r1 += dr1 * k; A.r2 += (A.r1 + bend - A.r2) * k; };   // blended by the effect's strength: no elbow snap at its start
+    const pose = (A, dr1, bend, k) => { A.r1 += dr1 * k; A.r2 += (A.r1 + bend - A.r2) * k; A.k2 += (1 - A.k2) * k; };   // blended by the effect's strength: no elbow snap at its start
     // two-bone reach of an arm to a rig-space target (relative to its shoulder), the elbow bending down: blended by k
     const reach = (A, tx, ty, k) => { const l1 = dist2(A.S0, A.E0), l2 = dist2(A.E0, A.Hd0), d = Math.min(Math.hypot(tx, ty), l1 + l2 - 0.5), b = Math.atan2(ty, tx);
       const a1 = b + Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), E = [Math.cos(a1) * l1, Math.sin(a1) * l1];
       // (the elbow's bend is blended, not the forearm's own turn: an arm raised overhead is half a turn from its rest, and the
       // forearm's shortest way there flipped sides between frames, TASKS 1702)
       const r1 = a1 - ang(A.S0, A.E0), bend = wrapPi(Math.atan2(ty - E[1], tx - E[0]) - ang(A.E0, A.Hd0) - r1), bend0 = A.r2 - A.r1;
-      A.r1 += wrapPi(r1 - A.r1) * k; A.r2 = A.r1 + bend0 + wrapPi(bend - bend0) * k; };
+      A.r1 += wrapPi(r1 - A.r1) * k; A.r2 = A.r1 + bend0 + wrapPi(bend - bend0) * k; A.k2 += (1 - A.k2) * k; };
     const armLen = (A) => dist2(A.S0, A.E0) + dist2(A.E0, A.Hd0);
     // (the hand held out before him comes in as he turns: mirrored out there on a whirl's turn it jumped 12 px)
     const hold = (LK.arm || {}).hold;
     // (TASKS 2180) held before the blow is posed, so the blow lifts the fist out of it: after it, at full strength, it held the fist at the hip
     // through every blow and the blade turned round it
     // (TASKS 2156) the staff is heavy: its arm barely swings on the run, or on the back swing the upper arm covered the crystal in 4 of 12 frames
-    if (hold && W) reach(arms.R, hold[0] * (1 - tuckL) * armLen(arms.R), hold[1] * armLen(arms.R), 1 - (pole ? POLE_SWING : 0.5) * run);
+    // (TASKS 2181) and drawn up by HOLD_RUN of the arm on the run: from the near plumb hold the swing dropped the fist under 0.46 H
+    if (hold && W) reach(arms.R, hold[0] * (1 - tuckL) * armLen(arms.R), (hold[1] - HOLD_RUN * run) * armLen(arms.R), 1 - (pole ? POLE_SWING : 0.5) * run);
     if (swingK > 0) {
       armR = arms.R; const w = wrapPi(armA - Math.PI / 2), r1 = w - 0.15 * Math.sin(w);   // ≈0.85·w near rest, yet periodic: no spin at ±π
       armR.r2 = armR.r2 + wrapPi(r1 + bend - armR.r2) * swingK; armR.r1 = armR.r1 + wrapPi(r1 - armR.r1) * swingK;
@@ -338,7 +346,11 @@
     // (TASKS 2156) and the staff raised high over it the while, crystal up: kept low it read as the plain shot's forward thrust
     const mageG = shooter && !bowArm && castE > shootE ? h.castK : null, frostUp = mageG === 'frost' ? SS(0, 0.26, castT) * (1 - SS(0.28, 0.54, castT)) : 0, aimG = mageG === 'fireball' && pole ? FB_RAISE.a : aimS - 1.1 * frostUp, fbOpen = mageG === 'fireball' ? SS(0.14, 0.28, castT) : 1;
     const orbInPalm = !!(GR.shield && GR.shield[0] === SHIELD.orb[0]);
-    if (orbInPalm) reach(arms.L, ORB_HOLD.hand[0] * armLen(arms.L), ORB_HOLD.hand[1] * armLen(arms.L), 1 - ORB_HOLD.swing * run);
+    // the upper arm set by its turn, the forearm turned at the hand and shortened to it (k2), blended by k
+    const palm = (A, tx, ty, ea, k) => { const l1 = dist2(A.S0, A.E0), l2 = dist2(A.E0, A.Hd0), E = [Math.sin(ea) * l1, Math.cos(ea) * l1];
+      const r1 = Math.atan2(E[1], E[0]) - ang(A.S0, A.E0), r2 = Math.atan2(ty - E[1], tx - E[0]) - ang(A.E0, A.Hd0), k2 = Math.min(1, Math.hypot(tx - E[0], ty - E[1]) / l2), bend0 = A.r2 - A.r1;
+      A.r1 += wrapPi(r1 - A.r1) * k; A.r2 = A.r1 + bend0 + wrapPi(r2 - r1 - bend0) * k; A.k2 += (k2 - A.k2) * k; };
+    if (orbInPalm) palm(arms.L, ORB_HOLD.hand[0] * armLen(arms.L), ORB_HOLD.hand[1] * armLen(arms.L), ORB_HOLD.elbow, 1 - ORB_HOLD.swing * run);
     if (whirlE > 0 && swingK === 0) {   // the ellipse is centred behind the shoulder, toward the body's axis, inside the arm's reach
       const l = armLen(arms.R), wx = Math.cos(whirlTh) * face, c0 = -0.3 * l, cx = c0 + (gx - hipDx - arms.R.Sp[0] - c0) * tuckL, tx = cx + 0.4 * l * wx, ty = 0.6 * l + 0.25 * l * Math.sin(whirlTh);
       armR = arms.R; reach(arms.R, tx, ty, whirlE);
@@ -401,7 +413,7 @@
     const soft = (n, ...a) => window.ASSETS[n + '_w'] ? Object.assign({ wtex: G.tex(n + '_w'), wsz: [RG.w, RG.h] }, ...a.map((v, b) => ({ ['bone' + b]: [RIGS[n].bones[b][0] / RG.w, RIGS[n].bones[b][1] / RG.h, v, 1] }))) : {};
     // positions of the near arm's joints in rig px (for the weapon and the trace)
     const rotP = (p, c, a) => { const dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * Math.cos(a) - dy * Math.sin(a), c[1] + dx * Math.sin(a) + dy * Math.cos(a)]; };
-    const armJ = (A) => { const E = rotP([A.E0[0], A.E0[1] + shoulderDy], A.Sp, A.r1), Hd = rotP(rotP([A.Hd0[0], A.Hd0[1] + shoulderDy], A.Sp, A.r1), E, A.r2 - A.r1); return { E, Hd }; };
+    const armJ = (A) => { const E = rotP([A.E0[0], A.E0[1] + shoulderDy], A.Sp, A.r1), H0 = rotP(rotP([A.Hd0[0], A.Hd0[1] + shoulderDy], A.Sp, A.r1), E, A.r2 - A.r1), Hd = [E[0] + (H0[0] - E[0]) * A.k2, E[1] + (H0[1] - E[1]) * A.k2]; return { E, Hd }; };
     // (TASKS 2156) through a turn both hands come in to the body's axis as a turning body's would, nearest it at the mirror, under the
     // back view: mirrored where they were, the weapon, bow, shield and orb crossed the body in one frame
     // (TASKS 2156) the bow passes from hand to hand where the hands meet: as they near each other they close on the point between them,
@@ -429,8 +441,8 @@
     // bits: u the upper arm, f the forearm, t the far hand's fingertips alone (over the orb in its palm)
     const drawArm = (side, u0, bits = 'uf') => { const A = arms[side], J = side === 'L' ? jL : jR, u = shade(u0, 1, BACK_VIEW.armShade);
       if (bits.includes('u')) part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR);
-      if (bits.includes('f')) part((side === 'R' && gripFist && backK <= 0.5 ? 'cuff' : 'farm') + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR);
-      if (bits.includes('t') && window.ASSETS[pn + 'farm' + side + '_tips']) part('farm' + side + '_tips', A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
+      if (bits.includes('f')) part((side === 'R' && gripFist && backK <= 0.5 ? 'cuff' : 'farm') + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, A.k2, bodyR);
+      if (bits.includes('t') && window.ASSETS[pn + 'farm' + side + '_tips']) part('farm' + side + '_tips', A.E0, R2U(J.E[0], J.E[1]), A.r2, u, A.k2, bodyR); };
     // (TASKS 2170) the archer's fists close over his bow and crossbow as the warrior's over his hilt: the near one at rest and on the
     // string, the far one round the stave once the bow has passed to it on a shot
     // (TASKS 2177) a rig with a cuff (the forearm cut short of its hand) closes a fist of its own over the weapon, turned with the weapon's
@@ -542,7 +554,11 @@
       // (TASKS 2146) the orb in the far palm is drawn after the body: under it the far arm's swing took it behind the torso on every stride
       const orbLate = orbInPalm && backK < 0.5;
       // (TASKS 2170) the forearm holding the orb comes forward across the waist: over the body, under the orb
-      if (!castFront) { drawArm('L', Ufar, orbLate && !behind ? 'u' : 'uf'); if (!orbLate) shield(Ufar); }
+      // (TASKS 2181) the near arm's forearm and hand come over the body in the front view, its upper arm under the torso's shoulder cap
+      // (2167): under the body the hand lay behind the belt pouch, half of the forearm hidden. A shield on it keeps its old place under
+      // the torso, as the author's sides left it: over the body it would cover the chest
+      const nearOver = !castFront && !orbLate && !GR.shield && backK <= 0.5;
+      if (!castFront) { drawArm('L', Ufar, (orbLate && !behind) || nearOver ? 'u' : 'uf'); if (!orbLate && !nearOver) shield(Ufar); }
       // (TASKS 2160) the cape hangs behind both legs, in the arch too: over the cape-side leg it cut that leg off at the knee
       drawLeg('L', Ufar);
       drawLeg('R', U);
@@ -561,6 +577,7 @@
       if (backK < 1 && GR.helm) L.sprite(helmTex, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
       if (backK > 0 && window.ASSETS[pn + 'body_back']) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, shade(U, BACK_VIEW.bodySat, BACK_VIEW.bodyLift), { alpha: alpha * backK, snap: 2 * L.SNAP }, soft(pn + 'body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, shade(tinted(U, GR.helmTint), 1, BACK_VIEW.headLift), { alpha: alpha * backK }) }, bodyAt));
+      if (nearOver) { drawArm('L', Ufar, 'f'); shield(Ufar); }
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); if (!orbLate) shield(backK > 0.5 ? Ufar : U); if (readE > 0.3) scroll(); }
       if (orbLate && behind) shield(castFront ? U : Ufar);
       // (TASKS 2170) a rig with its near fist cut out (fistR) draws it again over the held weapon: the hilt or haft passes under the

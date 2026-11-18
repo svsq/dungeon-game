@@ -24,9 +24,9 @@ for (const [cls, wb, ob] of KITS) {
   const tag = cls + (ob ? '+' + ob : '');
   row(tag + ' arch', arms(draw(cls, wb, ob, {}, T0, { menu: 1 }).J));
   row(tag + ' world', arms(draw(cls, wb, ob, {}, T0).J));
-  const rate = SIM.K.RUN / SIM.Q.stepLen(1) * Math.PI; let worst = null;
-  for (let k = 0; k < 40; k++) { const gp = 1 + rate * k / FPS, a = arms(draw(cls, wb, ob, { vx: SIM.K.RUN, gp }, T0 + k / FPS).J); if (!worst || a.L.reach - a.L.h > worst.L.reach - worst.L.h) worst = a; }
-  row(tag + ' run worst L', worst);
+  const rate = SIM.K.RUN / SIM.Q.stepLen(1) * Math.PI, run = [];
+  for (let k = 0; k < 40; k++) run.push(arms(draw(cls, wb, ob, { vx: SIM.K.RUN, gp: 1 + rate * k / FPS }, T0 + k / FPS).J));
+  console.log((tag + ' run').padEnd(26), ['L', 'R'].map((s) => `${s} max reach ${f3(Math.max(...run.map((a) => a[s].reach)))} min h ${f3(Math.min(...run.map((a) => a[s].h)))} min bend ${Math.min(...run.map((a) => a[s].bend)).toFixed(0)}°`).join(' | '));
 }
 for (const [n, aim] of [['r', 0], ['d', Math.PI / 2], ['u', -Math.PI / 2], ['l', Math.PI], ['ul', -2.3]]) {
   const fr = []; for (let k = 0; k <= 30; k++) fr.push(draw('warrior', 'sword', '', { atkT: T0, aim, atkA: aim, face: Math.cos(aim) < -0.1 ? -1 : 1 }, T0 + k / FPS).J);
