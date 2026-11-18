@@ -586,7 +586,7 @@
   // (TASKS 2156) a shot, a cast or a frost loosed behind him, and a plain turn, go through the back view: the drawn facing flips only while
   // the back view is up, nothing held jumps across the body on the flip, and a bow is in one hand or the other in every frame
   function heroTurnCheck(out) {
-    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), BACK = 0.9, FLIP_JUMP = 10, GRIP = 3, T0 = 10, FPS = 60, N = 30;
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), BACK = 0.9, FLIP_JUMP = 10, GRIP = 3, T0 = 10, FPS = 60, N = 30, TURN_N = 12;
     // (TASKS 2162) UP: aimed up and back over the turn, the mirror of the up-left QA cases; the whirl's free hand jumped 31 px on that flip
     const UP = -0.84, KITS = [['archer', 'shortbow', '', 'shot'], ['archer', 'shortbow', '', 'turn'], ['mage', 'staff', '', 'shot'], ['mage', 'staff', '', 'fireball'], ['mage', 'staff', '', 'frost'],
       ['mage', 'wand', 'orb', 'shot'], ['mage', 'staff', 'orb', 'turn'], ['warrior', 'sword', 'shield', 'turn'],
@@ -608,6 +608,20 @@
       for (const p of ['grip', 'shield', 'orb', 'handL', 'handR']) if (a.J[p] && b.J[p] && d(a.J[p], b.J[p]) > FLIP_JUMP) out.push(`hero turn: ${tag}: the ${p} jumps ${d(a.J[p], b.J[p]).toFixed(1)} px on the flip`);
       if (wb.endsWith('bow')) { const far = rows.map((r) => Math.min(d(r.J.grip, r.J.handR), d(r.J.grip, r.J.handL))), m = Math.max(...far);
         if (m > GRIP) out.push(`hero turn: ${tag}: the bow is ${m.toFixed(1)} px from either hand at frame ${far.indexOf(m)}`); }
+    }
+    // (TASKS 2192) the warrior's lowered weapon stays in sight through a plain turn: at least SEEN px of it on top in every frame (pointed
+    // away from the camera and shortened to a tenth it was gone under the back view for 3 frames)
+    const SEEN = 20;
+    for (const wb of ['sword', 'longsword', 'axe', 'hammer']) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'warrior' }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const st = heroSt(S), seen = [];
+      for (let k = 0; k <= TURN_N; k++) { const J = {}, spr = []; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+        drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: -1, aim: 0, back: 0, backT: -9, faceT: T0, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), 300, 300, T0 + k / FPS, st, {});
+        const c = SIMX.heroLayers.compose(spr, [J.ground[0] - 50, J.ground[1] - 100, J.ground[0] + 50, J.ground[1] + 4]); let n = 0;
+        for (const i of c.top) if (i >= 0 && /^it_/.test(spr[i].n)) n++;
+        seen.push(n); }
+      const m = Math.min(...seen);
+      if (m < SEEN) out.push(`hero turn: warrior ${wb}, a plain turn: ${m} px of it in sight at frame ${seen.indexOf(m)} (at least ${SEEN})`);
     }
   }
   // (TASKS 2162) the held weapon on the run, in all four directions: from one frame to the next its tip moves no more than a step's
@@ -699,10 +713,16 @@
   // the orb rests above the far palm, the forearm under it near level, standing and running, either way round, in the world and the arch
   // (TASKS 2187) the fist closes on the crooked shaft itself: the staff's own pixels just above and below it sit on the fist's middle
   // (on the hand it sat 2 px off, the shaft along the fist's edge as if tied to the wrist); the orb lies in the cup (mage__cupL) drawn over
-  // it: its centre over the palm, the palm's top at the orb's lower edge, fingertips on its lower outer rim, the forearm a cuff (cuffL)
+  // it, the forearm a cuff (cuffL)
+  // (TASKS 2190) the cup's skin against mage_a_v4, counted in the cup's own frame (its up) in radii r of the orb's rim: none of it on the
+  // orb's face inside FACE r (the sheet has none; the 2187 cup had 44 ‰ of it there), its highest texel at least TIP_LOW r under the centre
+  // (2187: 0.08 r; the sheet's fingertips 0.77 r and more), at least TIPS texels of fingers round the lower outer rim, a palm under the
+  // centre, the wrist rising outward from the under-sleeve to the palm by WRIST degrees (2187: a level bar); and it turns with the forearm,
+  // its turn off rest the forearm's within TURN_TOL rad up to TURN (it stood upright while the forearm went down on a cast)
   function heroFistCheck(out) {
     const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), fs = require('fs'), zlib = require('zlib'), path = require('path');
-    const AXIS = 2, OVER = 4, PAST = 2, GRIP = 2.5, SHAFT = 0.75, BAND = 3, ORB_R = 7, PALM_X = 2.5, SEAT = [0.6, 1.1], TIPS = 6, LEVEL = 50, HAND = 0.5, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const AXIS = 2, OVER = 4, PAST = 2, GRIP = 2.5, SHAFT = 0.75, BAND = 3, LEVEL = 50, HAND = 0.5, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const RIM = 0.85, FACE = 0.85, TIP_LOW = 0.6, TIPS = 6, RIM_OUT = 1.35, PALM = [0.9, 2.2], WRIST = [5, 45], TURN = 0.44, TURN_TOL = 0.12;
     const alphaCache = {}, alpha = (n) => alphaCache[n] || (alphaCache[n] = (() => {
       const buf = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), W = buf.readUInt32BE(16), H = buf.readUInt32BE(20), ct = buf[25], bpp = { 6: 4, 2: 3, 4: 2, 0: 1 }[ct];
       if (buf[24] !== 8 || !bpp) throw new Error(n + ': only 8-bit PNGs are read');
@@ -711,7 +731,11 @@
       for (let y = 0; y < H; y++) { const f = raw[y * (st + 1)], r = raw.subarray(y * (st + 1) + 1, (y + 1) * (st + 1)), o = y * st;
         for (let x = 0; x < st; x++) { const a = x >= bpp ? px[o + x - bpp] : 0, b = y ? px[o - st + x] : 0, c = x >= bpp && y ? px[o - st + x - bpp] : 0, p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
           px[o + x] = (r[x] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][f]) & 255; } }
-      const A = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) A[i] = bpp === 4 ? px[i * 4 + 3] : bpp === 2 ? px[i * 2 + 1] : 255; return { W, H, A }; })());
+      const A = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) A[i] = bpp === 4 ? px[i * 4 + 3] : bpp === 2 ? px[i * 2 + 1] : 255; return { W, H, A, px, bpp }; })());
+    const rgb = (t, x, y) => { const i = (y * t.W + x) * t.bpp; return t.bpp >= 3 ? [t.px[i], t.px[i + 1], t.px[i + 2]] : [t.px[i], t.px[i], t.px[i]]; };
+    const skinTx = (x, y, t) => { const [r, g, b] = rgb(t, x, y); return r > g && g > b && r - b > 40; };
+    const creamTx = (x, y, t) => { const [r, g, b] = rgb(t, x, y); return r > 110 && b >= r - 10 && Math.abs(r - g) < 40; };
+    const rest = {}, wrapPi = (a) => a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
     // a drawn sprite's opaque texels on the screen: (u w − pivot) through its matrix, one point per texel
     const texels = (q, keep = () => true) => { const t = alpha(q.n), o = q.o, pts = [];
       for (let y = 0; y < t.H; y++) for (let x = 0; x < t.W; x++) if (t.A[y * t.W + x] > 127 && keep(x, y, t)) pts.push(L.M.ap(o.m, [(x + 0.5) / t.W * o.w - o.pivot[0], (y + 0.5) / t.H * o.h - o.pivot[1]]));
@@ -746,12 +770,24 @@
       if (!orb) { say('the orb is not drawn'); continue; }
       const ci = spr.findIndex((q) => /^mage__cupL/.test(q.n)), cuff = spr.findIndex((q) => /^mage__cuffL/.test(q.n));
       if (ci < spr.indexOf(orb) || cuff < 0 || cuff > ci || spr.some((q) => /^mage__farmL/.test(q.n))) { say('the orb is not lying in the cup over the cuff'); continue; }
-      const cup = texels(spr[ci]), under = cup.filter((p) => Math.abs(p[0] - oc[0]) < 1 && p[1] > oc[1]), out1 = -face;
-      const xs = cup.filter((p) => p[1] > oc[1] + SEAT[0] * ORB_R).map((p) => p[0]), palm = (Math.min(...xs) + Math.max(...xs)) / 2, seat = under.length ? (Math.min(...under.map((p) => p[1])) - oc[1]) / ORB_R : 0;
-      if (Math.abs(palm - oc[0]) > PALM_X + ORB_R / 2) say(`the orb's centre sits ${(oc[0] - palm).toFixed(1)} px off the cup's middle`);
-      if (!under.length || seat < SEAT[0] || seat > SEAT[1]) say(`the palm under the orb's centre starts ${seat.toFixed(2)} of its radius below it`);
-      const tips = cup.filter((p) => d(p, oc) < ORB_R && (p[0] - oc[0]) * out1 > ORB_R / 2 && p[1] > oc[1] - ORB_R / 2).length;
-      if (tips < TIPS) say(`${tips} px of fingers lie on the orb's lower outer rim`);
+      const Cq = spr[ci], up0 = L.M.ap(Cq.o.m, [0, -1]), c0 = L.M.ap(Cq.o.m, [0, 0]), ul = d(up0, c0), up = [(up0[0] - c0[0]) / ul, (up0[1] - c0[1]) / ul];
+      const r = orb.o.h / 2 * RIM, out1 = -face, sx = -up[1] * out1 > 0 ? 1 : -1, ox = [-up[1] * sx, up[0] * sx];
+      const loc = (p) => { const v = [p[0] - oc[0], p[1] - oc[1]]; return [v[0] * ox[0] + v[1] * ox[1], -(v[0] * up[0] + v[1] * up[1])]; };
+      const skin = texels(Cq, skinTx).map(loc), cream = texels(Cq, creamTx).map(loc), hyp = (q) => Math.hypot(q[0], q[1]);
+      const onFace = skin.filter((q) => hyp(q) < FACE * r).length, top = Math.min(...skin.map((q) => q[1])) / r;
+      if (onFace > 0) say(`${onFace} px of the cup's skin lie on the orb's face (inside ${FACE} of its radius)`);
+      if (top < TIP_LOW) say(`the cup's highest skin is ${top.toFixed(2)} of the orb's radius under its centre (at least ${TIP_LOW})`);
+      const tips = skin.filter((q) => hyp(q) >= FACE * r && hyp(q) < RIM_OUT * r && q[0] > 0 && q[1] > 0).length;
+      if (tips < TIPS) say(`${tips} px of fingers lie round the orb's lower outer rim`);
+      const palmQ = skin.filter((q) => Math.abs(q[0]) < r / 2 && q[1] > PALM[0] * r && q[1] < PALM[1] * r);
+      if (!palmQ.length) say('no palm under the orb\'s centre');
+      const mean = (a) => a.reduce((m, q) => [m[0] + q[0] / a.length, m[1] + q[1] / a.length], [0, 0]);
+      if (act === 'rest' && cream.length && palmQ.length) { const a = mean(cream), b = mean(skin.filter((q) => q[1] > PALM[0] * r)), w = Math.atan2(a[1] - b[1], b[0] - a[0]) * 180 / Math.PI;
+        if (w < WRIST[0] || w > WRIST[1]) say(`the wrist rises ${w.toFixed(0)}° from the under-sleeve to the palm (${WRIST.join('..')})`); }
+      const key = wb + face + menu, ang = Math.atan2(up[1], up[0]), fore = Math.atan2(J.handL[1] - J.elbowL[1], J.handL[0] - J.elbowL[0]);
+      if (act === 'rest' && !rest[key]) rest[key] = { ang, fore };
+      else if (act === 'cast' && rest[key]) { const df = wrapPi(fore - rest[key].fore), dc = wrapPi(ang - rest[key].ang), want = Math.max(-TURN, Math.min(TURN, df));
+        if (Math.abs(dc - want) > TURN_TOL) say(`the cup turns ${dc.toFixed(2)} rad while the forearm turns ${df.toFixed(2)} (it should follow up to ${TURN})`); }
       if (act !== 'cast') { const lv = Math.abs(Math.atan2(J.handL[1] - J.elbowL[1], Math.abs(J.handL[0] - J.elbowL[0]))) * 180 / Math.PI, hy = (J.ground[1] - J.handL[1]) / (J.ground[1] - J.top[1]);
         if (lv > LEVEL) say(`the forearm under the orb is ${lv.toFixed(0)}° off level`);
         if (hy < HAND) say(`the orb's palm is ${hy.toFixed(2)} of the height over the soles`); }

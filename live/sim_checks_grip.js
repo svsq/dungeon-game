@@ -15,6 +15,30 @@
   const TEX = {}, texelsOf = (L, q) => { const t = TEX[q.n] || (TEX[q.n] = png(q.n)), o = q.o, pts = [];
     for (let y = 0; y < t.H; y++) for (let x = 0; x < t.W; x++) if (t.A[y * t.W + x] > 127) pts.push(L.M.ap(o.m, [(x + 0.5) / t.W * o.w - o.pivot[0], (y + 0.5) / t.H * o.h - o.pivot[1]]));
     return pts; };
+  // (TASKS 2192) which sprite shows at each pixel of a screen box (Z samples a px): the index of the last one drawn with an opaque texel
+  // there, −1 for none; one drawn at under half its alpha does not count
+  function compose(spr, box, Z = 1) {
+    const [x0, y0, x1, y1] = box, W = Math.ceil((x1 - x0) * Z), H = Math.ceil((y1 - y0) * Z), top = new Int32Array(W * H).fill(-1);
+    spr.forEach((q, i) => { const o = q.o; if (!o || !o.m || (o.u && o.u.alpha !== undefined && o.u.alpha < 0.5)) return;
+      const t = TEX[q.n] || (TEX[q.n] = png(q.n)), [a, b, c, dd, e, f] = o.m, det = a * dd - b * c; if (!det) return;
+      for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) { const X = x0 + (px + 0.5) / Z - e, Y = y0 + (py + 0.5) / Z - f;
+        const u = Math.floor(((dd * X - c * Y) / det + o.pivot[0]) / o.w * t.W), v = Math.floor(((-b * X + a * Y) / det + o.pivot[1]) / o.h * t.H);
+        if (u >= 0 && v >= 0 && u < t.W && v < t.H && t.A[v * t.W + u] > 127) top[py * W + px] = i; } });
+    return { top, W, H };
+  }
+  // (TASKS 2192) px² of the mage's face (FACE_ROWS of body texture cells about look.eye, 3 cells either side: brow to mouth, or the beard
+  // under it) shown by a sprite drawn after the body whose name matches `by`, sampled at Z per px
+  const FACE_ROWS = { face: [-2.5, 2.5], beard: [2.5, 4.5] };
+  function faceCover(spr, L, rig, eye, rows, by, Z = 2) {
+    const RG = SB0.rigs()[rig], C = RG.h / 42, bi = spr.findIndex((q) => q.n.startsWith(rig + '__body') && !/back/.test(q.n)), b = spr[bi];
+    if (!b) return 0;
+    const at = (cx, cy) => L.M.ap(b.o.m, [cx * C / RG.w * b.o.w - b.o.pivot[0], cy * C / RG.h * b.o.h - b.o.pivot[1]]);
+    const pts = [-3, 3].flatMap((dx) => rows.map((dy) => at(eye[0] + dx, eye[1] + dy))), xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const c = compose(spr, [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], Z); let n = 0;
+    for (const k of c.top) if (k > bi && by.test(spr[k].n)) n++;
+    return n / Z / Z;
+  }
+  SIMX.heroLayers = { compose, faceCover, FACE_ROWS };
   // the warrior's fist closes round the hilt or the haft (TASKS 2170): at rest, on the run and through a blow, either way round, in the world
   // and in the arch, with each of his four weapons, the near fist (hero__fistR, drawn after the weapon) lies over the weapon's own pixels, the
   // weapon's axis (grip → tip) runs within AXIS screen px of the fist's centre, and the weapon shows past the fist on both sides of it.
@@ -143,8 +167,10 @@
   // (under the torso), its forearm cut short of the hand (cuffR) and its own fist (fistR) after the weapon; while a blow, a shot or a
   // cast raises it the arm is drawn after the body. Each fist texture (every outfit, the arch's and the world's) is a fist and not a
   // hand: in the arch's the dark lines between the finger stacks cross its middle in at least STACKS rows (four fingers, three lines)
+  // (TASKS 2190) a line is a row at least STEP darker than the finger rolled under it, not only the outline's darkest: the mage's fist
+  // parts its fingers with the skin's shade, as mage_a_v4 does, where the black lines read as a square mitten
   function heroArmCheck(out) {
-    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), STACKS = 3, LINE = 4, seen = new Set();
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), STACKS = 3, LINE = 4, STEP = 24, seen = new Set();
     const KITS = [['warrior', 'sword', 0.15], ['mage', 'staff', 0.15], ['archer', 'shortbow', 0.15]];
     for (const [cls, wb, act] of KITS) for (const face of [1, -1]) for (const menu of [0, 1]) for (const [pose, vx, atkT] of [['rest', 0, -9], ['run', 150, -9], ['act', 0, 10 - act]]) {
       if (menu && pose !== 'rest') continue;
@@ -164,10 +190,9 @@
     for (const cls of ['warrior', 'mage', 'archer']) { const pn = D.CLASSES[cls].look.rig + '__';
       for (const n of Object.keys(SB.assets()).filter((a) => a.startsWith(pn + 'fistR') && a.endsWith('_menu'))) {
         const t = png(n), lum = (i) => (t.A[i] > 127 ? t.P[i * 4] * 0.3 + t.P[i * 4 + 1] * 0.59 + t.P[i * 4 + 2] * 0.11 : -1);
-        let lo = 255; for (let i = 0; i < t.W * t.H; i++) if (t.A[i] > 127) lo = Math.min(lo, lum(i));
         const ys = [];
         for (let y = 1; y < t.H - 2; y++) { let k = 0;
-          for (let x = 0; x < t.W; x++) { const i = y * t.W + x, v = lum(i); if (v >= 0 && v <= lo + 24 && lum(i - t.W) > lo + 24 && Math.max(lum(i + t.W), lum(i + 2 * t.W)) > lo + 24) k++; }
+          for (let x = 0; x < t.W; x++) { const i = y * t.W + x, v = lum(i); if (v >= 0 && lum(i - t.W) >= v && Math.max(lum(i + t.W), lum(i + 2 * t.W)) >= v + STEP) k++; }
           if (k >= LINE) ys.push(y); }
         const n0 = ys.filter((y, i) => !i || y > ys[i - 1] + 1).length;
         if (n0 < STACKS) out.push(`hero arm: ${n}: ${n0} lines between finger stacks, not a closed fist`); } }
@@ -176,31 +201,59 @@
   // (TASKS 2180) the weapon arm through an action, frame by frame at 60 fps: the warrior's blow carries his fist at least PATH of the height
   // in its first 0.35 s in every direction (the hold at ease, posed after the blow, kept the fist at the hip and the blade turned round it),
   // keeps one layer and a fist on the hilt from wind-up to guard (the blade's own angle took it under the torso with an open hand for
-  // the frames it pointed away); in every action the arm's copy over the body gains at most STEP of its alpha a frame; the body's lean
+  // the frames it pointed away); in every action the arm's copy over the body gains or loses at most STEP of its alpha a frame; the body's lean
   // comes back to rest by the action's end (END s, a swing's and a cast's), not cut off there (the top of the head jumps at most JUMP px a frame round its end)
+  // (TASKS 2192) the whirl and the war cry hold the hilt in a fist in every frame (from behind the whirl drew the open hand farmR for 6
+  // frames), the whirl takes its arm and blade behind him cross-faded (they went under the torso and back in one frame, a step of 1.0);
+  // in no action does the arm under the body show for a single frame (the cry's two envelopes dipped under ARM_FRONT where they met);
+  // the mage's fireball with the orb in his free hand keeps his face open (FACE px² of brow to mouth under the orb or its cup; it passed
+  // over the mouth for 13 frames); a blow taken (HURT s) moves no grip more than HURT_STEP px a frame (the mage's straightened elbow, 7.6)
   function heroArmMotion(out, SB, drawHero, L) {
-    const PATH = 0.3, STEP = 0.5, JUMP = 1, FPS = 60, T0 = 10, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), END = 0.5;
+    const PATH = 0.3, STEP = 0.5, JUMP = 1, FPS = 60, T0 = 10, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), END = 0.5, FACE = 0, HURT = 0.4, HURT_STEP = 3;
     const ACTS = [['warrior', 'sword', 'blow', { atkT: T0 }], ['archer', 'shortbow', 'shot', { atkT: T0, patkT: T0 }], ['mage', 'staff', 'shot', { atkT: T0, patkT: T0 }],
-      ['mage', 'staff', 'fireball', { castT: T0, castK: 'fireball' }], ['mage', 'staff', 'frost', { castT: T0, castK: 'frost' }], ['archer', 'shortbow', 'volley', { castT: T0, castK: 'volley' }]];
-    const AIMS = [['right', 0], ['down', Math.PI / 2], ['up', -Math.PI / 2], ['left', Math.PI], ['up-left', -2.3]];
-    for (const [cls, wb, act, at] of ACTS) for (const [an, aim] of act === 'blow' ? AIMS : AIMS.slice(0, 1)) {
+      ['mage', 'staff', 'fireball', { castT: T0, castK: 'fireball' }], ['mage', 'staff', 'frost', { castT: T0, castK: 'frost' }], ['archer', 'shortbow', 'volley', { castT: T0, castK: 'volley' }],
+      ['warrior', 'sword', 'whirl', { whirlT: T0 }], ['warrior', 'sword', 'cry', { castT: T0, castK: 'cry' }]];
+    const AIMS = [['right', 0], ['down', Math.PI / 2], ['up', -Math.PI / 2], ['left', Math.PI], ['up-left', -2.3]], FIST = new Set(['blow', 'whirl', 'cry']);
+    for (const [cls, wb, act, at] of ACTS) for (const [an, aim] of act === 'blow' ? AIMS : act === 'whirl' ? [AIMS[0], AIMS[3]] : AIMS.slice(0, 1)) {
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       const st = heroSt(S), pn = D.CLASSES[cls].look.rig + '__', tag = `${cls} ${act} aimed ${an}`, rows = [];
       for (let k = 0; k <= 0.7 * FPS; k++) { const J = {}, spr = [];
         L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, a: o && o.u && o.u.alpha !== undefined ? o.u.alpha : 1 }); return { w: 10, h: 10 }; }; L.solid = () => {};
-        drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 40, face: Math.cos(aim) < -0.1 ? -1 : 1, aim, atkA: aim, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }, at), 300, 300, T0 + k / FPS, st, {});
+        drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 40, face: Math.cos(aim) < -0.1 ? -1 : 1, aim, atkA: aim, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9, whirlA: aim }, at), 300, 300, T0 + k / FPS, st, {});
         const idx = (re) => spr.map((q, i) => (q.n.startsWith(pn) && re.test(q.n.slice(pn.length)) ? i : -1)).filter((i) => i >= 0), body = idx(/^body/)[0] ?? -1, ua = idx(/^uarmR/).filter((i) => i > body);
-        rows.push({ J, t: k / FPS, over: ua.length ? spr[ua[0]].a : 0, wpn: spr.findIndex((q) => /^it_/.test(q.n)) > body, farm: idx(/^farmR/).length > 0, fist: idx(/^fistR/).length > 0, back: body < 0 }); }
+        rows.push({ J, t: k / FPS, over: ua.length ? spr[ua[0]].a : 0, under: idx(/^uarmR/).some((i) => i < body), wpn: spr.findIndex((q) => /^it_/.test(q.n)) > body, farm: idx(/^farmR/).length > 0, fist: idx(/^fistR/).length > 0, back: body < 0 }); }
       const H = rows[0].J.ground[1] - rows[0].J.top[1];
       if (act === 'blow') { const path = rows.filter((r) => r.t > 0 && r.t <= 0.35 + 1e-9).reduce((a, r, i, all) => a + d(r.J.handR, (i ? all[i - 1] : rows[0]).J.handR), 0) / H;
         if (path < PATH) out.push(`hero arm: ${tag}: the fist travels ${path.toFixed(2)} of the height in the blow's first 0.35 s (at least ${PATH})`);
         const blow = rows.filter((r) => r.t < END && !r.back), lay = new Set(blow.map((r) => r.wpn));
         if (lay.size > 1) out.push(`hero arm: ${tag}: the sword goes under the torso and over it within the blow`);
-        if (blow.some((r) => r.farm || !r.fist)) out.push(`hero arm: ${tag}: the fist on the hilt opens into a hand in ${blow.filter((r) => r.farm || !r.fist).length} frames of the blow`); }
-      const steps = rows.slice(1).map((r, i) => r.over - rows[i].over), up = Math.max(...steps);
-      if (up > STEP) out.push(`hero arm: ${tag}: the arm comes over the body by ${up.toFixed(2)} of its alpha in one frame (at most ${STEP})`);
+      }
+      const open = rows.filter((r) => (act === 'blow' ? r.t < END && !r.back : FIST.has(act)) && (r.farm || !r.fist)).length;
+      if (open) out.push(`hero arm: ${tag}: the fist on the hilt opens into a hand in ${open} frames of the ${act}`);
+      const steps = rows.slice(1).map((r, i) => Math.abs(r.over - rows[i].over)), up = Math.max(...steps);
+      if (up > STEP) out.push(`hero arm: ${tag}: the arm comes over the body or leaves it by ${up.toFixed(2)} of its alpha in one frame (at most ${STEP})`);
+      const blink = rows.filter((r, i) => i > 0 && i < rows.length - 1 && r.under && !rows[i - 1].under && !rows[i + 1].under).length;
+      if (blink) out.push(`hero arm: ${tag}: the arm under the body shows for a single frame ${blink} times`);
+      if (act === 'whirl' || act === 'cry') continue;
       const e = Math.round(END * FPS), jump = Math.max(...rows.slice(e - 4, e + 5).map((r, i) => d(r.J.top, rows[e - 5 + i].J.top)));
       if (jump > JUMP) out.push(`hero arm: ${tag}: the body jumps ${jump.toFixed(1)} px in a frame as the action ends`);
+    }
+    for (const [an, aim] of [AIMS[0], AIMS[1], AIMS[4]]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'mage' }); S.run = R; R.hero.eq.weapon = { id: 0, b: 'staff', rar: 0, lvl: 1, mods: {}, atk: 6 };
+      R.hero.eq.offhand = { id: 0, b: 'orb', rar: 0, lvl: 1, mods: {}, def: 2 };
+      const st = heroSt(S); let worst = [0, 0];
+      for (let k = 0; k <= 0.6 * FPS; k++) { const spr = []; L.joint = () => {}; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+        drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 40, face: Math.cos(aim) < -0.1 ? -1 : 1, aim, atkA: aim, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: T0, castK: 'fireball', whirlT: -9 }), 300, 300, T0 + k / FPS, st, {});
+        const v = faceCover(spr, L, 'mage', D.CLASSES.mage.look.eye, FACE_ROWS.face, /^(orb_held|mage__cupL)/); if (v > worst[0]) worst = [v, k]; }
+      if (worst[0] > FACE) out.push(`hero arm: mage fireball with the orb aimed ${an}: the orb covers ${worst[0].toFixed(1)} px² of his face at frame ${worst[1]} (at most ${FACE})`);
+    }
+    for (const [cls, eq] of [['warrior', { weapon: 'sword' }], ['archer', { weapon: 'shortbow' }], ['mage', { weapon: 'staff' }], ['mage', { weapon: 'wand', offhand: 'orb' }]]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; for (const [k, b] of Object.entries(eq)) R.hero.eq[k] = { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6, def: 2 };
+      const st = heroSt(S), g = [];
+      for (let k = 0; k <= HURT * FPS; k++) { const J = {}; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = () => ({ w: 10, h: 10 }); L.solid = () => {};
+        drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 40, face: 1, aim: 0, atkA: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: T0, hurtX: 1, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), 300, 300, T0 + k / FPS, st, {}); g.push(J.handR); }
+      const m = Math.max(...g.slice(1).map((p, i) => d(p, g[i])));
+      if (m > HURT_STEP) out.push(`hero arm: ${cls} ${Object.values(eq).join(' and ')} hurt: the grip jumps ${m.toFixed(1)} px in a frame (at most ${HURT_STEP})`);
     }
   }
   // (TASKS 2157) a hero texture no outfit, pose, view or the arch asks for still loads at start: every class in every combination of
