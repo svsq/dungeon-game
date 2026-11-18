@@ -22,7 +22,7 @@
     R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
     if (o.name) { R.hero.name = o.name; if (R.log) R.log.name = o.name; }
     if (o.deathMode) { R.deathMode = o.deathMode; if (R.log) R.log.deathMode = o.deathMode; }
-    const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
+    const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; h.look = D.LOOK_IDS.includes(o.look) ? o.look : D.lookPick(S.meta, C.id); if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
     const give = (it) => { it.id = R.nextId++; return it; };
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: W, rar: 0, mods: {}, atk: BASES[W].atk }));
     h.eq.armor = give({ b: A, rar: 0, lvl: 1, mods: {}, def: BASES[A].def });

@@ -559,7 +559,7 @@
     // (TASKS 2146) the orb only when worn: none on a bare staff, in the open far palm (its world texture is orb_held)
     const KITS = [['warrior', 'sword'], ['mage', 'staff', 'orb'], ['mage', 'staff'], ['mage', 'wand', 'orb'], ['archer', 'shortbow'], ['archer', 'longbow']], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const ORB = 'orb_held', PALM = 14;
-    const STRING_COL = '0.5,0.48,0.45', seen = new Set();
+    const STRING_COL = '0.36,0.34,0.31', seen = new Set();
     for (const [cls, wb, ob] of KITS) for (const face of [1, -1]) for (const vx of [0, 150]) for (const GT of [10, 11.3, 12.7]) {
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
@@ -624,6 +624,30 @@
       if (m < SEEN) out.push(`hero turn: warrior ${wb}, a plain turn: ${m} px of it in sight at frame ${seen.indexOf(m)} (at least ${SEEN})`);
     }
   }
+  // (TASKS 2198) the view follows the way he goes, whatever way he went before: in the sim, then drawn, after each of the 8 ways and walking
+  // each of them, at half speed and running, and standing once the keys are let go, with the class's weapon and with none. Down, its
+  // diagonals and straight sideways show the front (the 3/4 torso), up and its diagonals the back; the drawn facing is the way's side.
+  // Sideways after an up kept the back (h.back held its last value while iy was 0): every class walked left or right with his back to us
+  function heroViewCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), PREV = 30, WAY = 48, REST = 30, FULL = 0.98, NONE = 0.02;
+    const WAYS = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]], KIT = { warrior: 'sword', mage: 'staff', archer: 'shortbow' }, seen = new Set();
+    const go = (S, [dx, dy], n) => { const inp = { px: 480, py: 270, right: dx > 0, left: dx < 0, down: dy > 0, up: dy < 0 }; for (let i = 0; i < n; i++) step(S, inp); };
+    for (const cls of Object.keys(KIT)) for (const wb of [KIT[cls], '']) for (const prev of WAYS) for (const way of WAYS) {
+      const { S, h } = stage(cls); if (wb) h.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 }; else delete h.eq.weapon;
+      go(S, prev, PREV); go(S, way, WAY);
+      const up = way[1] < 0, name = (v) => `${v[1] < 0 ? 'up' : v[1] > 0 ? 'down' : ''}${v[0] && v[1] ? '-' : ''}${v[0] > 0 ? 'right' : v[0] < 0 ? 'left' : ''}`, pn = D.lookOf(h).rig + '__';
+      const look = (pace, over) => { const V = {}, spr = []; L.joint = (id, n, p) => { if (id === 'hero_view') V[n] = p; }; L.sprite = (n) => { spr.push(n); return { w: 10, h: 10 }; }; L.solid = () => {};
+        drawHero(Object.assign({}, h, over), 300, 300, S.t, heroSt(S), {});
+        const tag = `${cls}${wb ? ' with ' + wb : ' unarmed'} ${pace} ${name(way)} after ${name(prev)}`, say = (m) => { const k = cls + wb + pace + name(way) + m; if (!seen.has(k)) { seen.add(k); out.push(`hero view: ${tag}: ${m}`); } };
+        if ((h.back === 1) !== up) say(`the sim shows his ${h.back ? 'back' : 'front'}`);
+        if (up ? V.back[0] < FULL : V.back[0] > NONE) say(`drawn at back view ${V.back[0].toFixed(2)}`);
+        const front = spr.some((n) => n.startsWith(pn + 'body') && !n.includes('back')), back = spr.some((n) => n.startsWith(pn + 'body_back'));
+        if (up ? !back || front : back || !front) say(`the ${up ? 'back' : 'front'} torso is not the one drawn`);
+        if (way[0] && V.face[0] !== way[0]) say(`drawn facing ${V.face[0]}`); };
+      look('walking', { vx: h.vx / 2, vy: h.vy / 2 }); look('running', {});
+      go(S, [0, 0], REST); look('standing', {});
+    }
+  }
   // (TASKS 2162) the held weapon on the run, in all four directions: from one frame to the next its tip moves no more than a step's
   // swing (from behind the lowered sword tipped off the soles to one side or the other, 30 px a frame twice a stride)
   function heroRunCheck(out) {
@@ -650,10 +674,11 @@
     // (the cape-side one splayed out 14–17°, the near one leaned in up to 11°, the refs: both 2–8° out), SHIN: degrees out from the body
     const SPREAD = { warrior: 0.145 }, SPREAD0 = 0.16, SHIN = { L: [-6, 10], R: [-4, 12] };
     const KITS = [['warrior', 'sword'], ['mage', 'staff'], ['archer', 'shortbow']], seen = new Set();
-    for (const [cls, wb] of KITS) for (const face of [1, -1]) for (const menu of [0, 1]) for (const GT of [10, 11.3, 12.7]) {
-      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+    // (TASKS 2148) in each look with art of its own
+    for (const [cls, wb] of KITS) for (const look of D.LOOK_IDS.filter((l) => D.LOOKS[cls][l].art === l)) for (const face of [1, -1]) for (const menu of [0, 1]) for (const GT of [10, 11.3, 12.7]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls, look }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       const h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
-      const J = {}, spr = [], tag = `${cls} face ${face}${menu ? ' in the arch' : ''} at ${GT}`, say = (m) => { if (!seen.has(cls + m)) { seen.add(cls + m); out.push(`hero pose: ${tag}: ${m}`); } };
+      const J = {}, spr = [], tag = `${cls}${look === 'a' ? '' : ' «' + look + '»'} face ${face}${menu ? ' in the arch' : ''} at ${GT}`, say = (m) => { if (!seen.has(cls + look + m)) { seen.add(cls + look + m); out.push(`hero pose: ${tag}: ${m}`); } };
       L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
       drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
       if ((J.handL[0] - J.elbowL[0]) * face < 0) say(`the cape-side hand hangs ${Math.abs(J.handL[0] - J.elbowL[0]).toFixed(1)} px behind its elbow`);
@@ -666,7 +691,7 @@
       if (J.ankleL[1] - J.ankleR[1] < DEPTH * H) say(`the other foot stands ${(J.ankleL[1] - J.ankleR[1]).toFixed(1)} px behind the cape-side one: both on one line`);
       for (const k of ['L', 'R']) { const a = Math.atan2(J['knee' + k][1] - J['hip' + k][1], J['knee' + k][0] - J['hip' + k][0]) - Math.atan2(J['ankle' + k][1] - J['knee' + k][1], J['ankle' + k][0] - J['knee' + k][0]), deg = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) * 180 / Math.PI;
         if (deg > KNEE) say(`the ${k} knee is bent ${deg.toFixed(0)}° at ease`); }
-      const pn = D.CLASSES[cls].look.rig + '__', idx = (re) => spr.map((q, i) => (re.test(q.n.slice(pn.length)) && q.n.startsWith(pn) ? i : -1)).filter((i) => i >= 0);
+      const pn = D.LOOKS[cls][look].rig + '__', idx = (re) => spr.map((q, i) => (re.test(q.n.slice(pn.length)) && q.n.startsWith(pn) ? i : -1)).filter((i) => i >= 0);
       const cape = idx(/^cape/), legs = idx(/^(thigh|shin|foot)[LR]/);
       if (cape.length && legs.some((i) => i < Math.max(...cape))) say('the cape is drawn over a leg');
       const grade = (re) => spr.filter((q) => q.n.startsWith(pn) && re.test(q.n.slice(pn.length))).map((q) => String(q.o.u.grade));
@@ -792,6 +817,8 @@
         if (lv > LEVEL) say(`the forearm under the orb is ${lv.toFixed(0)}° off level`);
         if (hy < HAND) say(`the orb's palm is ${hy.toFixed(2)} of the height over the soles`); }
     }
+    // (TASKS 2200) the staff's and the wand's fist on the world grid (sim_checks_grip.js worldFist)
+    SIMX.heroLayers.fistsOnGrid(out, 'mage', ['staff', 'wand'], 'hero fist');
   }
   SIMX.checks.add('heroPoseCheck', heroPoseCheck);
   SIMX.checks.add('heroFistCheck', heroFistCheck);
@@ -799,6 +826,7 @@
   SIMX.checks.add('heroGripCheck', heroGripCheck);
   SIMX.checks.add('heroTurnCheck', heroTurnCheck);
   SIMX.checks.add('heroRunCheck', heroRunCheck);
+  SIMX.checks.add('heroViewCheck', heroViewCheck);
   SIMX.checks.add('powerCheck', checkPowers);
   SIMX.checks.add('dataLinkCheck', dataLinkCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

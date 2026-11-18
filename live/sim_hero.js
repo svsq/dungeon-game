@@ -233,7 +233,8 @@
     // a shooter faces the shot being loosed: turned by the live pointer in the wind-up he fired over his own shoulder (critic r3)
     const held0 = (D.clsOf(h).shoots || []).includes(st.wtype) && t - h.atkT < D.SHOTS[(BASES[st.wtype] || {}).shot || 'bolt'].t, aimF = held0 ? h.atkA : h.aim;
     if (busy) { h.face = Math.cos(aimF) >= 0 ? 1 : -1; h.back = Math.sin(aimF) < -0.5 ? 1 : 0; }
-    else if (ix || iy) { if (ix) h.face = ix; h.back = iy < 0 ? 1 : iy > 0 ? 0 : h.back; }
+    // (TASKS 2198) a sideways walk shows the front 3/4 view: the last up or an upward shot kept his back to the camera walking sideways
+    else if (ix || iy) { if (ix) h.face = ix; h.back = iy < 0 ? 1 : 0; }
     if (h.back !== wasBack) h.backT = t;
     if (h.face !== wasFace) h.faceT = t;
     // dash

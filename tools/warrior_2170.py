@@ -11,12 +11,14 @@
            dark and light share in each cell, the lowest steel cell of each column shaded; the cell mean was two flat tones
   caps     tools/fix_2167.py grid for the hero's bodies only (the gridded arm laid again over the gridded torso)
   fist     hero__fistR{,_pw,_cl}(_menu): the near forearm's fist alone, drawn over the held weapon so the fist closes round its grip
-  python3 tools/warrior_2170.py arms|cape|steel|caps|fist|rig"""
+  python3 tools/warrior_2170.py arms|cape|steel|caps|fist|rig [--rig R] [--fresh]
+--rig: a new warrior look (hero_b, hero_c); its rows (CUTS, FIST, HEM, …) from art/look_params.json, else the hero's (tools/rigarg.py)"""
 import json, os, re, shutil, sys
 import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rigarg
 os.chdir(os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 TAG, GRID = '20261117-2170', '20261117-2155'
 DY = 21
@@ -29,6 +31,8 @@ STEEL = ['body', 'body_nh', 'body_pw', 'body_pw_nh', 'uarmL', 'uarmR', 'uarmL_pw
 HEAD_ROW = 69
 SEAM = 0.15
 DARKEN = 0.06
+MOVED = 200
+RIG, FRESH = 'hero', False
 load = lambda p: np.array(Image.open(p).convert('RGBA'))
 save = lambda a, p: Image.fromarray(a).save(p)
 exists = os.path.exists
@@ -36,7 +40,7 @@ exists = os.path.exists
 def keep(n):
     for src, dst in ((f'art/gen/{n}.png', f'art/old/{n}-{TAG}.png'), (f'art/gen/{n}_menu.png', f'art/old/{n}_menu-{TAG}.png'),
                      (f'art/old/{n}-{GRID}.png', f'art/old/{n}_drawn-{TAG}.png')):
-        if exists(src) and not exists(dst): shutil.copyfile(src, dst)
+        if exists(src) and (FRESH or not exists(dst)): shutil.copyfile(src, dst)
     return load(f'art/old/{n}_drawn-{TAG}.png')
 
 def install(n, a):
@@ -54,20 +58,20 @@ def arms():
     for sfx, cuts in CUTS.items():
         assert sum(b - a for a, b in cuts) == DY
         for side in 'LR':
-            n = f'hero__farm{side}{sfx}'; install(n, shorten(keep(n), cuts)); names.append(n)
+            n = f'{RIG}__farm{side}{sfx}'; install(n, shorten(keep(n), cuts)); names.append(n)
     print('python3 tools/gridify_2155.py run ' + ' '.join(names))
 
 def rigs_load():
     return json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))
 
 def rig():
-    R = rigs_load(); g = R['hero']
-    if g['handR'][1] < 200: sys.exit('hero hands already moved')
+    R = rigs_load(); g = R[RIG]
+    if g['handR'][1] < MOVED: sys.exit(f'{RIG} hands already moved')
     for s in 'LR': g['hand' + s] = [g['hand' + s][0], g['hand' + s][1] - DY]
-    open('live/rigs.js', 'w').write('window.RIGS = ' + json.dumps(R) + ';\n'); print('hero hands', g['handL'], g['handR'])
+    open('live/rigs.js', 'w').write('window.RIGS = ' + json.dumps(R) + ';\n'); print(f'{RIG} hands', g['handL'], g['handR'])
 
 def cape():
-    n = 'hero__cape'; a = keep(n); h, w = a.shape[:2]; op = a[..., 3] > 0
+    n = f'{RIG}__cape'; a = keep(n); h, w = a.shape[:2]; op = a[..., 3] > 0
     ys = np.nonzero(op.any(1))[0]; top, bot = ys.min(), ys.max()
     out = np.zeros_like(a); out[:COLLAR] = a[:COLLAR]
     for y in range(COLLAR, HEM + 1):
@@ -77,7 +81,7 @@ def cape():
         xl, xr = xs.min(), xs.max(); xr2 = min(w - 2, int(round(xr + WIDEN * t ** 0.8)))
         for x in range(xl, xr2 + 1):
             sx = int(round(xl + (x - xl) * (xr - xl) / max(1, xr2 - xl))); out[y, x] = a[sy, sx]
-    install(n, out); print('python3 tools/gridify_2155.py run hero__cape')
+    install(n, out); print(f'python3 tools/gridify_2155.py run {RIG}__cape')
 
 def oklab(rgb):
     from gridify_2155 import oklab as f
@@ -121,15 +125,15 @@ def steel_pass(n):
 
 def steel():
     for p in STEEL:
-        n = 'hero__' + p
+        n = f'{RIG}__' + p
         if not exists(f'art/old/{n}-{GRID}.png'): print('skip', n); continue
         print(n, steel_pass(n))
 
 def caps():
-    from fix_2167 import BODIES, arm_names, cap, arm_at_rest, rigs
+    from fix_2167 import body_sets, arm_names, cap, arm_at_rest, rigs
     R = rigs(); names = []
-    for b in BODIES['hero']:
-        n = f'hero__{b}'; out, k = cap(load(f'art/gen/{n}.png'), arm_at_rest(arm_names('hero', b), False, lambda a: f'art/gen/{a}.png'), R['hero'])
+    for b in body_sets([RIG])[RIG]:
+        n = f'{RIG}__{b}'; out, k = cap(load(f'art/gen/{n}.png'), arm_at_rest(arm_names(RIG, b), False, lambda a: f'art/gen/{a}.png'), R[RIG])
         save(out, f'art/gen/{n}.png'); names += [n, n + '_menu']
     print('python3 tools/prep.py --only ' + ','.join(names))
 
@@ -137,10 +141,13 @@ def fist():
     names = []
     for sfx, y0 in FIST.items():
         for menu in (False, True):
-            src = f'art/gen/hero__farmR{sfx}{"_menu" if menu else ""}.png'; a = load(src); a[:y0 if menu else FIST_WORLD] = 0
-            n = f'hero__fistR{sfx}{"_menu" if menu else ""}'; save(a, f'art/gen/{n}.png'); names.append(n)
+            src = f'art/gen/{RIG}__farmR{sfx}{"_menu" if menu else ""}.png'; a = load(src); a[:y0 if menu else FIST_WORLD] = 0
+            n = f'{RIG}__fistR{sfx}{"_menu" if menu else ""}'; save(a, f'art/gen/{n}.png'); names.append(n)
     print('python3 tools/prep.py --only ' + ','.join(names))
 
 if __name__ == '__main__':
+    (RIG, *more), FRESH = rigarg.take([RIG])
+    if more or rigarg.base(RIG) != 'hero': sys.exit(f'one warrior rig, not {[RIG, *more]}')
+    for k in ('DY', 'CUTS', 'FIST', 'FIST_WORLD', 'HEM', 'WIDEN', 'COLLAR', 'HEAD_ROW', 'MOVED'): globals()[k] = rigarg.param(RIG, 'warrior_2170', k, globals()[k])
     cmd = sys.argv[1] if len(sys.argv) > 1 else ''
     {'arms': arms, 'rig': rig, 'cape': cape, 'steel': steel, 'caps': caps, 'fist': fist}.get(cmd, lambda: print(__doc__))()

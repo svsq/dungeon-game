@@ -8,7 +8,8 @@
           layer for the orb resting in that palm; then the 2155 grid step and the 2167 shoulder cap for the mage's torsos
   rig     the mage's elbows and hands in live/rigs.js moved with the cut rows
 Every source is the drawn one before this step (art/old/<name>-20261117-2170.png, kept on the first run), so a run can be repeated.
-OUT=<dir> writes there instead of art/gen (a dry run for frames)."""
+OUT=<dir> writes there instead of art/gen (a dry run for frames). --rig R: a new mage look (mage_b, mage_c), its rows (CUT_U, CUT_F,
+FIST, CLASP, the helm's and circlet's rows) from art/look_params.json, else the mage's; --fresh: the frozen 2170 copies made again."""
 import json, os, re, shutil, sys
 import numpy as np
 from PIL import Image
@@ -16,8 +17,10 @@ from PIL import Image
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')); os.chdir(ROOT); sys.path.insert(0, 'tools')
 import gridify_2155 as G
 import fix_2167 as F
+import rigarg
 
 TAG = '20261117-2170'
+RIG, FRESH = 'mage', False
 OUT = os.environ.get('OUT') or 'art/gen'
 CELL = 360 / 42
 PTS = 'frames/fix_mage_2170/arm_points.json'
@@ -26,7 +29,7 @@ load = lambda p: np.array(Image.open(p).convert('RGBA'))
 def keep(n, src=None):
     """the drawn source of a part before this step, saved once"""
     old = f'art/old/{n}-{TAG}.png'
-    if not os.path.exists(old): shutil.copyfile(src or f'art/gen/{n}.png', old)
+    if FRESH or not os.path.exists(old): shutil.copyfile(src or f'art/gen/{n}.png', old)
     return load(old)
 
 def save(n, a):
@@ -52,7 +55,7 @@ HAIR_ROWS = range(0, 8)
 DARKER = 0.06                # the back head shows less of its dark outline than the front: one tone down keeps the two caps alike
 def hair_tones():
     """the front world head's hair cells (grey, a few blue-grey): OKLab of each distinct tone"""
-    a = load('art/gen/mage__body.png'); seen = {}
+    a = load(f'art/gen/{RIG}__body.png'); seen = {}
     def fn(r, c, rgb):
         lab = G.oklab(rgb[None])[0]
         if np.hypot(lab[1], lab[2]) < 0.05: seen[tuple(np.round(lab, 3))] = lab
@@ -70,37 +73,37 @@ def back_hair(n, tones):
     return cells(src, HAIR_ROWS, range(0, 19), fn)
 
 BRONZE, RIVET, RIB = (45, 3, 9), (52, 3, 11), (36, 4, 6)
+DOME_ROWS, BAND_ROW, NASAL, CIRCLET_ROW = (1, 2, 3), 4, (5, 11), 3
 def helm_le():
     """the world leather helm: the band along the dome's rim in dark bronze (row 4), its two rivets a step lighter, the rib over the
     dome in the dome's own darker leather, one bronze cell of nasal over the nose's root"""
-    src = keep('mage__head_le')
+    src = keep(f'{RIG}__head_le')
     def fn(r, c, rgb):
         L = G.oklab(rgb[None])[0][0]
-        if r in (1, 2, 3) and L > 0.6: return lab_rgb(*RIB)
-        if r == 4 and L > 0.6: return lab_rgb(*(RIVET if L > 0.8 else BRONZE))
-        if r == 5 and c == 11: return lab_rgb(*BRONZE)
+        if r in DOME_ROWS and L > 0.6: return lab_rgb(*RIB)
+        if r == BAND_ROW and L > 0.6: return lab_rgb(*(RIVET if L > 0.8 else BRONZE))
+        if r == NASAL[0] and c == NASAL[1]: return lab_rgb(*BRONZE)
         return None
     return cells(src, range(0, 6), range(0, 19), fn)
 
 CIRCLET, GEM = (55, 3, 14), None
 def circlet():
     """the world circlet: its row over the grey hair in bronze-gold, darker and yellower than the skin it read as; the stone kept"""
-    src = keep('mage__head_ci')
+    src = keep(f'{RIG}__head_ci')
     def fn(r, c, rgb):
         lab = G.oklab(rgb[None])[0]
-        if r == 3 and lab[0] > 0.55 and lab[2] > 0.05: return lab_rgb(*CIRCLET)
+        if r == CIRCLET_ROW and lab[0] > 0.55 and lab[2] > 0.05: return lab_rgb(*CIRCLET)
         return None
-    return cells(src, [3], range(0, 19), fn)
+    return cells(src, [CIRCLET_ROW], range(0, 19), fn)
 
 def heads():
     tones = hair_tones(); names = []
-    for n in ('mage__body_back', 'mage__body_back_le'):
+    for n in (f'{RIG}__body_back', f'{RIG}__body_back_le'):
         save(n, back_hair(n, tones)); names.append(n)
-    save('mage__head_le', helm_le()); save('mage__head_ci', circlet()); names += ['mage__head_le', 'mage__head_ci']
+    save(f'{RIG}__head_le', helm_le()); save(f'{RIG}__head_ci', circlet()); names += [f'{RIG}__head_le', f'{RIG}__head_ci']
     print('python3 tools/prep.py --only ' + ','.join(names))
 
 # ---------------- 2164 (1), 2165 (1), 2170 ----------------
-RIG = 'mage'
 CUT_U = 18                  # rows out of the upper arm (71 → 53 px, 0.15 H as on mage_a_v4)
 CUT_F = ((1, 23, 14), (33, 46, 6))   # forearm bands below the elbow (sleeve, wraps) and the rows each loses: 73 → 53 px with the cuff and
                             # the hand whole; the hand then hangs 0.46 H over the soles, the shoulder to hand 0.30 H (refs 0.29–0.32)
@@ -114,7 +117,7 @@ def rigs():
 def drawn_src(n):
     """the part as drawn, before the 2155 grid and before this step"""
     old = f'art/old/{n}-{TAG}.png'
-    if os.path.exists(old): return load(old)
+    if os.path.exists(old) and not FRESH: return load(old)
     a = load(f'art/old/{n}-20261117-2155.png'); Image.fromarray(a).save(old); return a
 
 def cut_rows(a, bands):
@@ -194,7 +197,7 @@ def arms():
         if real and 'tips' not in n: Image.fromarray(a).save(f'art/old/{name}-20261117-2155.png')
     # the torsos: the arch robe's clasp gets its twin, then the 2167 shoulder cap is laid again with the shorter far arm
     src = lambda n: f'{OUT}/{n}_menu.png'
-    for b in F.BODIES[RIG]:
+    for b in F.body_sets([RIG])[RIG]:
         n = f'{RIG}__{b}'; arm = [f'{RIG}__{p}L' + (b[4:].replace('_nh', '') if os.path.exists(f'art/gen/{RIG}__{p}L{b[4:].replace("_nh", "")}.png') else '') for p in ('uarm', 'farm')]
         world0, menu0 = load(f'art/old/{n}_drawn-20261117-2167.png'), load(f'art/old/{n}_menu-20261117-2167.png')
         if b in ('body', 'body_nh'): menu0 = clasp(menu0)
@@ -208,11 +211,15 @@ def arms():
 def rig():
     """the mage's elbows and hands in live/rigs.js, as arms wrote them"""
     pts = json.load(open(PTS)); s = open('live/rigs.js').read()
-    i = s.index('"mage": {'); j = s.index('"parts"', i); seg = s[i:j]
+    i = s.index(f'"{RIG}": {{'); j = s.index('"parts"', i); seg = s[i:j]
     for k, v in pts.items(): seg = re.sub(rf'"{k}": \[[^\]]*\]', f'"{k}": [{v[0]}, {v[1]}]', seg, count=1)
-    open('live/rigs.js', 'w').write(s[:i] + seg + s[j:]); print('rigs.js mage', pts)
+    open('live/rigs.js', 'w').write(s[:i] + seg + s[j:]); print(f'rigs.js {RIG}', pts)
 
 if __name__ == '__main__':
+    (RIG, *more), FRESH = rigarg.take([RIG])
+    if more or rigarg.base(RIG) != 'mage': sys.exit(f'one mage rig, not {[RIG, *more]}')
+    if RIG != 'mage': PTS = PTS.replace('.json', f'_{RIG}.json')
+    for k in ('HAIR_ROWS', 'DARKER', 'DOME_ROWS', 'BAND_ROW', 'NASAL', 'CIRCLET_ROW', 'CUT_U', 'CUT_F', 'FIST', 'CLASP'): globals()[k] = rigarg.param(RIG, 'fix_mage_2170', k, globals()[k])
     cmd = sys.argv[1] if len(sys.argv) > 1 else ''
     if cmd == 'heads': heads()
     elif cmd == 'arms': arms()

@@ -15,8 +15,10 @@ one leg, left to right) cut onto the rig canvas, with the face of the class's sm
   python3 tools/regen_2146.py quiver RIG ICON [--out DIR] [--q-h 0.36] [--q-at dx,dy]
       the archer's quiver (the item icon, mirrored: fletchings up to the left) on the rig canvas as its own part RIG__quiver, slanted
       across the back, its top left of the head: its box's top-left at the far shoulder + dx·its width, the head's top + dy·H
-  python3 tools/regen_2146.py install RIG DIR
-      the old art/gen/RIG__<part>.png of every part DIR holds to art/old/RIG__<part>-20261117-2146.png, then DIR's in their place
+  python3 tools/regen_2146.py install RIG DIR [--tag 20261117-2146] [--rigs CUT_RIGS_JS]
+      the old art/gen/RIG__<part>.png of every part DIR holds to art/old/RIG__<part>-TAG.png, then DIR's in their place;
+      --rigs: RIGS.RIG of the cut's scratch rigs.js (the RIGS_JS the cut ran with) written into live/rigs.js (or $RIGS_JS)
+RIG is any hero rig: the accepted looks (hero, mage, archer) or a new one (hero_b, mage_c, archer_b: docs/LOOKS_2148.md §5)
 """
 import argparse, glob, json, os, re, shutil, subprocess, sys
 import numpy as np
@@ -34,6 +36,7 @@ ap.add_argument('--q-h', type=float, default=0.36); ap.add_argument('--q-at', de
 ap.add_argument('--cape-hem', type=float, default=0.8, help='the cape\'s hem as a share of the rig height (the reference: to the calves)')
 ap.add_argument('--skirt', action='store_true', help='a fifth part, the robe\'s skirt, at the sheet\'s right end: it becomes the thighs (the mage)')
 ap.add_argument('--skirt-hem', type=float, default=0.9); ap.add_argument('--skirt-split', type=float, default=0.55); ap.add_argument('--skirt-top', type=int, default=0)
+ap.add_argument('--tag', default='20261117-2146'); ap.add_argument('--rigs', default='')
 a = ap.parse_args()
 rigs_path = os.environ.get('RIGS_JS', 'live/rigs.js')   # a scratch copy while the cut is tried out of the tree
 read_rigs = lambda: json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open(rigs_path).read().strip()))
@@ -241,7 +244,10 @@ def install():
     src = a.sheet
     for f in sorted(glob.glob(os.path.join(src, f'{a.rig}__*.png'))):
         n = os.path.basename(f)[:-4]; g = f'art/gen/{n}.png'
-        if os.path.exists(g) and not os.path.exists(f'art/old/{n}-20261117-2146.png'): shutil.copy(g, f'art/old/{n}-20261117-2146.png')
+        if os.path.exists(g) and not os.path.exists(f'art/old/{n}-{a.tag}.png'): shutil.copy(g, f'art/old/{n}-{a.tag}.png')
         shutil.copy(f, g); print('installed', n)
+    if a.rigs:
+        cut = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open(a.rigs).read().strip()))[a.rig]; R = read_rigs(); R[a.rig] = cut
+        open(rigs_path, 'w').write('window.RIGS = ' + json.dumps(R) + ';\n'); print(f'RIGS.{a.rig} → {rigs_path}')
 
 {'front': front, 'back': back, 'quiver': quiver, 'install': install}[a.mode]()

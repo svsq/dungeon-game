@@ -88,8 +88,10 @@
   // width and as tall as the drawn rect's aspect asks from `top` down, so no place stretches it or leaves a band of the well under it
   // (the saves page's sat 5 px under the frame's top and 11 over its foot, the slots' rows stretched it 8 %). portCheck holds them to it
   const PORT = { art: 1, frames: { hud: { w: 112, h: 112, m: 2, fw: 0.84, top: 0.02 }, inv: { w: 242, h: 206, m: 6, fw: 0.92, top: 0 }, classes: { w: 236, h: 200, m: 8, fw: 0.92, top: 0 },
-    load: { w: 220, h: 190, m: 8, fw: 0.92, top: 0 }, row: { m: 6, fw: 0.78, top: 0 } } };
-  const portIn = (f, x, y, w = f.w, h = f.h) => { const iw = w - 2 * f.m, ih = h - 2 * f.m, fh = f.fw * ih / iw * PORT.art, u0 = (1 - f.fw) / 2;
+    load: { w: 220, h: 190, m: 8, fw: 0.92, top: 0 }, row: { m: 6, fw: 0.78, top: 0 }, talk: { w: 232, h: 342, m: 8, fw: 0.9, top: 0 } } };
+  // art: the art's width over its height. A townsman's whole figure is tall (TASKS 2176: the talk's frame shows him from the head
+  // down); a squat one would need more than its height at fw, so it takes a narrower share of its width instead and shows whole
+  const portIn = (f, x, y, w = f.w, h = f.h, art = PORT.art) => { const iw = w - 2 * f.m, ih = h - 2 * f.m, fw = Math.min(f.fw, (1 - f.top) * iw / (ih * art)), fh = fw * ih / iw * art, u0 = (1 - fw) / 2;
     return { x: x + f.m, y: y + f.m, w: iw, h: ih, src: [u0, f.top, 1 - u0, f.top + fh] }; };
   // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
   // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose

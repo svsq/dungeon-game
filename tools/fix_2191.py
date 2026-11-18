@@ -23,7 +23,9 @@ pixels in it (gridify_2155.dominant), snapped to the nearest tone the world part
          fills it reads as the arm's shade, not as a second sleeve
 Every source is kept once as art/old/<name>-20261118-2191.png and each run starts from it; gridify_2155.py run over these parts
 returns their old colours, so this step runs after it.
-  python3 tools/fix_2191.py run | sock      (then the printed prep line; with DRY=<dir> the canvases go there, art/ untouched)"""
+  python3 tools/fix_2191.py run | sock      (then the printed prep line; with DRY=<dir> the canvases go there, art/ untouched)
+  --rig R: a new look (its prepped parts in live/assets: foot.cjs draws it), its OUTFITS rows ({outfit: {top, belt, strip}}) from
+  art/look_params.json, else its class's; --fresh: the frozen copies made again"""
 import json, os, re, shutil, subprocess, sys, tempfile
 import numpy as np
 from PIL import Image
@@ -31,8 +33,10 @@ from PIL import Image
 os.chdir(os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, 'tools')
 import gridify_2155 as G
+import rigarg
 
 TAG = '20261118-2191'
+SCRIPT, RIGS, FRESH = 'fix_2191', None, False
 BODIES = {'hero': ['body', 'body_nh', 'body_cl', 'body_cl_nh', 'body_pw', 'body_pw_nh', 'body_hd', 'body_hd_nh'],
           'archer': ['body', 'body_nh', 'body_hd', 'body_hd_nh']}
 # per outfit: the first row worked on (just under the shoulder joint: the cap's pauldron rim beside the arm turned out doubled the
@@ -69,8 +73,8 @@ def dim(rgb, L):
 
 def keep(n):
     old = f'art/old/{n}-{TAG}.png'
-    if DRY: return load(old if os.path.exists(old) else f'art/gen/{n}.png')
-    if not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
+    if DRY: return load(old if os.path.exists(old) and not FRESH else f'art/gen/{n}.png')
+    if FRESH or not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
     return load(old)
 
 def outfit(b):
@@ -141,13 +145,27 @@ def revote(world, menu0, menu1, Y0, Y1):
         k = np.linalg.norm(plab - G.oklab(dom[0][None]), axis=-1).argmin(); out[o2, :3] = pal[k].astype(np.uint8)
     return out
 
+def body_sets():
+    """{rig: its torsos}: BODIES as they are, or the --rig looks with their class's torsos they have"""
+    if not RIGS: return BODIES
+    return {r: [b for b in BODIES[rigarg.base(r)] if os.path.exists(f'art/gen/{r}__{b}.png')] for r in RIGS}
+
+def outfit_of(rig, sfx):
+    """the outfit's row of OUTFITS: a new look's own from art/look_params.json, else its class's"""
+    if (rig, sfx) in OUTFITS: return OUTFITS[(rig, sfx)]
+    own = rigarg.param(rig, SCRIPT, 'OUTFITS', {})
+    return dict(OUTFITS[(rigarg.base(rig), sfx)], **own.get(sfx, {}))
+
+def outfit_keys():
+    return list(OUTFITS) if not RIGS else [(r, sfx) for r in RIGS for b, sfx in OUTFITS if b == rigarg.base(r)]
+
 def run():
     R = rigs(); names = []; feet = tempfile.mkdtemp(prefix='foot2191')
-    subprocess.run(['node', 'tools/measure/shoulders2191/foot.cjs', feet], check=True, stdout=subprocess.DEVNULL)
-    for rig, bodies in BODIES.items():
+    subprocess.run(['node', 'tools/measure/shoulders2191/foot.cjs', feet] + ([','.join(RIGS)] if RIGS else []), check=True, stdout=subprocess.DEVNULL)
+    for rig, bodies in body_sets().items():
         bottom = int(R[rig]['hipL'][1]) + 8
         for b in bodies:
-            n, sfx = f'{rig}__{b}', outfit(b); O = OUTFITS[(rig, sfx)]
+            n, sfx = f'{rig}__{b}', outfit(b); O = outfit_of(rig, sfx)
             m0, w0 = keep(n + '_menu'), keep(n); arm = arm_at_rest(rig, sfx)
             cap = (m0[..., 3] > 127) & (arm[..., 3] > 127) & (np.abs(m0[..., :3].astype(int) - arm[..., :3]).sum(-1) == 0)
             m1, k = side(m0, cap, reach(feet, rig, sfx), O, bottom)
@@ -174,7 +192,7 @@ def unline(a):
 
 def sock():
     names = []
-    for (rig, sfx), p in [(k, p) for k in OUTFITS for p in ('uarmL', 'farmL')]:
+    for (rig, sfx), p in [(k, p) for k in outfit_keys() for p in ('uarmL', 'farmL')]:
         n = f'{rig}__{p}' + (f'_{sfx}' if sfx and os.path.exists(f'art/gen/{rig}__{p}_{sfx}.png') else '')
         if n + '_sock' in names: continue
         for m in ('', '_menu'):
@@ -183,4 +201,5 @@ def sock():
     print('python3 tools/prep.py --only ' + ','.join(names))
 
 if __name__ == '__main__':
+    RIGS, FRESH = rigarg.take(())
     {'run': run, 'sock': sock}.get(sys.argv[1] if len(sys.argv) > 1 else '', lambda: print(__doc__))()

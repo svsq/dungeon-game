@@ -196,12 +196,16 @@
   const setCls = (S, c) => { if (S.meta.cls !== c) { S.meta.cls = c; S.saveN++; } };
   const stepKit = (S, cls, k) => { const list = D.kitsOf(cls, S.meta), i = list.indexOf(D.kitOf(S.meta, cls)); S.meta.kit = S.meta.kit || {};
     S.meta.kit[cls] = list[(i + k + list.length) % list.length].id; S.saveN++; };
+  // (TASKS 2148) the look the class's next hero wears, kept in the meta as the kit is; ←→ go along the offered ones (D.looksShown) without wrapping, as along the classes
+  const setLook = (S, cls, id) => { if (D.lookPick(S.meta, cls) !== id) { S.meta.look = Object.assign({}, S.meta.look, { [cls]: id }); S.saveN++; } };
+  const stepLook = (S, cls, k) => { const ids = D.looksShown(cls, S.qaLooks), i = ids.indexOf(D.lookPick(S.meta, cls)), id = ids[Math.max(0, Math.min(ids.length - 1, i + k))]; if (!id) return;
+    setLook(S, cls, id); setCls(S, cls); S.focus = `look:${cls}:${id}`; };
   // the name's field in focus is the mode of typing (review of PR 63): neither the pointer nor W, A, S and D move the focus into
   // it or out of it, so a typed name is never lost to a passing pointer or written over by a walk. A click or an arrow lets it in;
   // a click elsewhere, ↑↓, Enter (on to «В путь») or Escape let it out. Off the field the pointer over it takes the keyboard's
   // focus away, so the field is lit as the pointer's alone, as every other control under the pointer is
   SCREEN.classes = (S, inp, keys, x, y, click) => {
-    const U = UI.classes(S.meta), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    const U = UI.classes(S.meta, S.qaLooks), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     let typing = S.focus === 'name';
     if (typing && click && !(b && b.id === 'name')) { S.focus = ''; typing = false; }
     if (b && inp.moved && !typing) S.focus = b.id === 'name' ? '' : b.id;
@@ -222,24 +226,26 @@
       if ((click && b && b.id === 'dice') || (keys.Enter && S.focus === 'dice')) { rollName(S); S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
       if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
       if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+      if (click && b && b.lcls) { setLook(S, b.lcls, b.look); setCls(S, b.lcls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
       if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
       if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
     }
     const cls = clsNow(S), ids = D.classesReady(), dif = D.DIFF_ORDER, row = (S.focus || '').split(':')[0];
-    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn', 'hard']);
+    const lks = U.filter((q) => q.lcls === cls), rows = ['dif', 'cls'].concat(lks.length ? ['look'] : [], U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn', 'hard']);
     // the focus taken off the field stays on its row
     const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : row === 'name' || row === 'dice' || !row ? 'nm' : 'cls';
     const wasd = !typing, arV = keys.ArrowDown || keys.ArrowUp, arH = keys.ArrowLeft || keys.ArrowRight;
     const mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
-    const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'hard' ? 'hard' : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r + ':' + cls);
+    const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'hard' ? 'hard' : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r === 'look' ? (lks.find((q) => q.look === D.lookPick(S.meta, cls)) || lks[0]).id : r + ':' + cls);
     // a sound for a key that changed nothing told the player it had done something (TASKS 1905)
-    const was = () => JSON.stringify([S.focus, S.meta.diff, S.meta.deathMode, S.meta.cls, S.meta.kit]), w0 = was(), tick = () => { if (was() !== w0) ev(S, { k: 'ui', x, y }); };
+    const was = () => JSON.stringify([S.focus, S.meta.diff, S.meta.deathMode, S.meta.cls, S.meta.kit, S.meta.look]), w0 = was(), tick = () => { if (was() !== w0) ev(S, { k: 'ui', x, y }); };
     if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); tick(); return; }
     if (!st) return;
     if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
     if (r0 === 'hard') setHard(S, st > 0);
     if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
     if (r0 === 'kit') stepKit(S, cls, st);
+    if (r0 === 'look') { const lc = (S.focus || '').split(':')[1]; stepLook(S, D.classesReady().includes(lc) ? lc : cls, st); }
     if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
     if (r0 === 'nm') S.focus = st > 0 ? 'dice' : arH ? 'name' : S.focus;
     tick();
@@ -549,7 +555,7 @@
   };
   SCREEN.note = (S, inp, keys, x, y, click) => { if (keys.KeyE || keys.Escape || keys.Enter || keys.Space || click) { S.screen = 'play'; ev(S, { k: 'ui', x, y }); } };
   SCREEN.notes = (S, inp, keys, x, y, click) => { const L0 = S.meta.notes || [], pg = S.notesPage || 0, U = UI.notes(L0.length, pg), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'journal'; S.hover = ''; return; }
+    if (keys.Escape || keys.KeyJ || (click && b && (b.id === 'close' || b.id === 'journal'))) { S.screen = 'journal'; S.hover = ''; return; }
     if (click && b && b.id === 'prev' && b.on) S.notesPage = pg - 1; if (click && b && b.id === 'next' && b.on) S.notesPage = pg + 1;
     if (click && b && b.id.startsWith('n:')) S.noteSel = L0[b.i]; if (click && b) ev(S, { k: 'ui', x, y }); };
   // a press asked twice (TASKS 1863 в, г): true on the second within 3 s on the same piece, else it arms and the caller says why

@@ -15,6 +15,7 @@ The cuff (mage__cuffL) is the forearm (farmL) cut where its sleeve's orange rim 
 its end seen end-on (the forearm turned toward the camera), an upright grey block beside the orb; the cup carries them now.
 The staff fist (mage__fistR) is pixelled the same way on the body's cell in the face's tones: four finger rolls across the shaft,
 each lit on top and shaded under, the thumb across the top, the heel of the palm down the far side; the shaft shows above and below.
+  every mode takes --rig R (a new mage look: its maps and reference from art/look_params.json, else the mage's) and --fresh
   python3 tools/cup_2190.py run            art/gen/mage__{cupL,cuffL,fistR}{,_menu}.png, old ones in art/old/<name>-20261118-2190.png;
                                            prints ORB_CUP for scene_hero.js
   python3 tools/cup_2190.py pair out.png   the arch cup on the arch orb beside mage_a_v4's orb hand at the same orb, at the arch's scale
@@ -25,8 +26,10 @@ from PIL import Image, ImageDraw
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')); os.chdir(ROOT); sys.path.insert(0, 'tools')
 import fist_2177 as F
+import rigarg
 
 RIG, TAG, CELLS = 'mage', '20261118-2190', 42
+FRESH = False
 OUT = os.environ.get('OUT', 'art/gen')
 REF, REF_O, REF_R = 'art/char_refs/mage_a_v4.png', (598.0, 335.0), 52.0
 # the held orb (scene_hero.js SHIELD.orb, ORB_CUP.menuK): its height in the hero's 84 units, the arch's share of it, and its rim's radius
@@ -171,7 +174,7 @@ def fist(world_C):
 def backup(names):
     for n in names:
         src, dst = f'art/gen/{n}.png', f'art/old/{n}-{TAG}.png'
-        if OUT == 'art/gen' and os.path.exists(src) and not os.path.exists(dst): shutil.copyfile(src, dst)
+        if OUT == 'art/gen' and os.path.exists(src) and (FRESH or not os.path.exists(dst)): shutil.copyfile(src, dst)
 
 
 def build():
@@ -181,7 +184,7 @@ def build():
         tex, a = cup(R, world); Image.fromarray(tex).save(f'{OUT}/{RIG}__cupL{m}.png'); out['world' if world else 'menu'] = a
     d, L = trim_cut(R)
     for m in ('', '_menu'):
-        src = f'art/old/{RIG}__farmL{m}-{TAG}.png' if os.path.exists(f'art/old/{RIG}__farmL{m}-{TAG}.png') else f'art/gen/{RIG}__farmL{m}.png'
+        src = f'art/old/{RIG}__farmL{m}-{TAG}.png' if os.path.exists(f'art/old/{RIG}__farmL{m}-{TAG}.png') and not FRESH else f'art/gen/{RIG}__farmL{m}.png'
         Image.fromarray(cut_at(F.load(src), R, d)).save(f'{OUT}/{RIG}__cuffL{m}.png')
     menu, world = fist(R['h'] / CELLS)
     Image.fromarray(menu).save(f'{OUT}/{RIG}__fistR_menu.png'); Image.fromarray(world).save(f'{OUT}/{RIG}__fistR.png')
@@ -250,6 +253,10 @@ def refgrid(out, z=22):
 
 
 if __name__ == '__main__':
+    (RIG, *more), FRESH = rigarg.take([RIG])
+    if more or rigarg.base(RIG) != 'mage': sys.exit(f'one mage rig, not {[RIG, *more]}')
+    for k in ('REF', 'REF_O', 'REF_R', 'MENU_X0', 'MENU_Y0', 'MENU_ARM', 'MENU', 'WORLD_X0', 'WORLD_Y0', 'WORLD_ARM', 'WORLD', 'FIST', 'CREAM', 'CREAM_MID', 'FOLD'):
+        globals()[k] = rigarg.param(RIG, 'cup_2190', k, globals()[k])
     if sys.argv[1:2] == ['run']: build()
     elif sys.argv[1:2] == ['pair']: pair(sys.argv[2])
     elif sys.argv[1:2] == ['refgrid']: refgrid(sys.argv[2])

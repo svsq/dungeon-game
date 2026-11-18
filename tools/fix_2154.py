@@ -3,10 +3,12 @@
   2. steel cooled toward the small ref (art/char_refs/warrior_a_small_r4.png: steel L 49 a 1 b -3, highlight L 74 a 0 b 5; the
      parts had L 41 a 9 b 5 and cream-gold highlights L 76 a 14 b 35), the red cloth darkened and calmed toward the ref and
      art/style_bible.txt's #73140d (ref L 26 C 47; the parts had L 34 C 62). The head's rows (skin, hair) are not touched.
-  python3 tools/fix_2154.py OUT|install"""
+  python3 tools/fix_2154.py OUT|install [--rig R] [--fresh]   R: a new warrior look (its head rows from tools/rigarg.head, its
+  tones toward its own reference from art/look_params.json, else the warrior's)"""
 import os, sys
 import numpy as np
 sys.path.insert(0, 'tools')
+import labtone, rigarg
 from labtone import lab, rgb, lch, source, write
 
 STAMP = '20261117-2154'
@@ -14,12 +16,16 @@ HEAD, HEAD_BACK = 69, 60                  # tools/gear.py NEW_LOOK hero: rows ab
 STEEL_C = 18                              # steel is the low-chroma material; leather, red and skin all sit above C 25
 STEEL_L, RED_L, RED_C = 7, -7, 0.8
 SFX = ('', '_cl', '_pw', '_hd')
-PARTS = [p + s for s in SFX for p in ('body', 'body_menu', 'body_nh', 'body_back', 'body_back_nh', 'uarmL', 'uarmR', 'farmL', 'farmR',
-                                       'thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR')]
-PARTS += ['cape', 'head_le', 'head_back_le', 'head_kn', 'head_back_kn']
-PARTS = [p for p in dict.fromkeys(PARTS) if os.path.exists(f'art/gen/hero__{p}.png')]
-STEELY = {'body', 'body_menu', 'body_nh', 'body_back', 'body_back_nh', 'uarmL', 'uarmR', 'head_kn', 'head_back_kn'} | \
+RIG = 'hero'
+def parts(rig):
+    out = [p + s for s in SFX for p in ('body', 'body_menu', 'body_nh', 'body_back', 'body_back_nh', 'uarmL', 'uarmR', 'farmL', 'farmR',
+                                         'thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR')]
+    out += ['cape', 'head_le', 'head_back_le', 'head_kn', 'head_back_kn']
+    return [p for p in dict.fromkeys(out) if os.path.exists(f'art/gen/{rig}__{p}.png')]
+PARTS = parts(RIG)
+steely = lambda: {'body', 'body_menu', 'body_nh', 'body_back', 'body_back_nh', 'uarmL', 'uarmR', 'head_kn', 'head_back_kn'} | \
     {p for p in PARTS if p.endswith('_pw')}    # the shirt, hood, trousers and leather hold no steel: their greys are cloth
+STEELY = steely()
 
 
 def keygreen(a):
@@ -62,10 +68,15 @@ def tone(a, head_rows, metal, highlights):
 
 def main(out):
     for p in PARTS:
-        name = 'hero__' + p; a, keyed = unkey(source(name, STAMP))
+        name = f'{RIG}__' + p; a, keyed = unkey(source(name, STAMP))
         rows = 0 if p.startswith('head') else HEAD_BACK if p.startswith('body_back') else HEAD if p.startswith('body') else 0
         a, s, g, r = tone(a, rows, p in STEELY, not p.startswith('head'))
         write(name, a, STAMP, out); print(f'{name:24s} key {keyed:3d}  steel {s:6d}  glint {g:5d}  red {r:6d}')
 
 
+(RIG, *more), labtone.FRESH = rigarg.take([RIG])
+if more or rigarg.base(RIG) != 'hero': sys.exit(f'one warrior rig, not {[RIG, *more]}')
+if not rigarg.accepted(RIG):
+    HEAD, HEAD_BACK = rigarg.head(RIG)['body'], rigarg.head(RIG)['body_back']; PARTS = parts(RIG); STEELY = steely()
+    for k in ('STEEL_C', 'STEEL_L', 'RED_L', 'RED_C'): globals()[k] = rigarg.param(RIG, 'fix_2154', k, globals()[k])
 main(sys.argv[1])

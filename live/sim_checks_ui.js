@@ -154,7 +154,7 @@
       if (P.focus === 'name') out.push('name: a click off the field does not take its keyboard away');
       press(P, B(P, 'name')); put(P, ['Escape'], []); put(P, ['Enter'], []);
       if (!P.run || P.run.hero.name !== 'Ulfm') out.push(`name: Enter after Escape in the field does not start the run under the typed name (${P.screen}, ${P.run && P.run.hero.name})`); }
-    { const P = toStart(), rows = UI.classes(P.meta), cls = SIMX.clsNow(P), above = rows.some((q) => q.id === 'kit:' + cls) ? 'kit:' + cls : 'cls:' + cls;
+    { const P = toStart(), rows = UI.classes(P.meta), cls = SIMX.clsNow(P), lk = rows.find((q) => q.lcls === cls), above = rows.some((q) => q.id === 'kit:' + cls) ? 'kit:' + cls : lk ? lk.id : 'cls:' + cls;
       P.pendName = 'Ulf'; P.focus = above; put(P, ['KeyS'], ['s']);
       if (P.focus === 'name' || P.pendName !== 'Ulf') out.push(`name: S from the row above takes the field (${P.focus}, ${P.pendName})`);
       P.focus = 'dice'; put(P, ['KeyA'], ['a']);
@@ -450,7 +450,19 @@
       for (const s of [TXT('sim_ui.fell.msg', { xp }), TXT('sim_ui.fell.msg.none'), TXT('sim_ui.fell.way.first'), TXT('sim_ui.fell.way.portal', { f: C.floors }), TXT('sim_ui.fell.way.boss', { f: C.floors })]) fits('death toast', s, T.one, T.size2, T.size2); }
     // the quantity window's count with its top (town_game_r10 2), the widest a stack or a purse gives, between its − and +
     { const { fontW } = SIMX.checks.kit, N = D.UI.split().num, w = fontW('999', 40, true) + 10 + fontW(TXT('hud.split.of', { n: 999 }), 22); if (w > N.w) out.push(`quantity window: «999 ${TXT('hud.split.of', { n: 999 })}» is ${w.toFixed(0)} px, its room ${N.w}`); }
-    for (const k of D.DEATH_ORDER) fits('statistics', TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: '999', d: '99 999', b: C.floors }), U.modeW, 22, 20); }
+    for (const k of D.DEATH_ORDER) fits('statistics', TXT('hud.stats.mode', { name: D.DEATH_MODES[k].name, w: '999', d: '99 999', b: C.floors }), U.modeW, 22, 20);
+    // TASKS 2176: the kit B journal, notes, board and talk keep their lines inside their rows, tabs, cards and buttons at the font's floor
+    { const { fontW } = SIMX.checks.kit, folk = Object.values(D.FOLK).map((q) => q.name), quests = Object.values(D.QUESTS).map((q) => q.name).filter(Boolean), f = C.floors;
+      const J = UI.journal(14, true, 0), row = J.r.find((q) => q.id.startsWith('q:')), stW = Math.max(...['QST.done', 'QST.taken', 'QST.turned'].map((k) => fontW(TXT(k), 20)));
+      for (const name of quests) fits('journal row', TXT('hud.journal.row', { name, f }), row.w - 2 * row.pad - stW - 16, 24, 20);
+      for (const p1 of folk) fits('journal row', TXT('hud.journal.5', { p1, f }), row.w - 2 * row.pad, 20, 20);
+      const N = UI.notes(30, 0), nr = N.r.find((q) => q.id.startsWith('n:')); for (const q of D.NOTES.list) fits('notes row', q.title, nr.w - 2 * nr.pad, 22, 20);
+      for (const s of [TXT('hud.journal.notes', { n: D.NOTES.list.length }), TXT('hud.tracker'), TXT('hud.notes')]) fits('journal tab', s, J.tabs[0].w - 40, 24, 20);
+      const B = UI.board(6), c = B.cards[0], cw = B.text.x - B.gap - (c.x + 84);
+      for (const name of quests) fits('board card', name, cw, 24, 20);
+      for (const name of folk) fits('board card', TXT('hud.board.4', { name, f }), cw, 20, 20);
+      const T = UI.talk({ role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.keeper.topics, menu: 1 }), tb = T.r.find((q) => q.id.startsWith('topic:'));
+      for (const F of Object.values(D.FOLK)) { fits('talk banner', F.name, T.paper.w - 400, 32, 32); for (const q of F.topics || []) fits('talk topic', q.q, tb.w - 48, 26, 22); } } }
   // a test run is ended, not given up (TASKS 1916): the pause's end button says so, its question's «yes» too, and the result is marked a test
   function checkTestEnd(out) { const S = spawn(0, {}); SIMX.startRun(S, 'magma'); const R = S.run; S.screen = 'pause'; S.t = R.t = 10;
     const ab = UI.pause(S.meta.zoom, false, true).find((b) => b.id === 'abandon');
@@ -803,14 +815,48 @@
       if (!b || K.SIGN_OF[b.label] !== plus) out.push(`sign: the split window's ${id} label is not drawn as the ${plus ? '«+»' : '«−»'} sign`); } }
   // TASKS 2168: every hero portrait's frame leaves the same well on all four sides (to 2 px) and its crop keeps the art's aspect (to 1 %)
   // inside the art, so none sits high in its frame or comes out stretched
+  // TASKS 2176: the talk's likeness is a townsman's whole figure in the same kind of frame, for every townsman's art, tall or squat
   function checkPort(out) { const K = UI.kit; if (!K.portIn || !K.PORT) { out.push('port: no shared portrait layout (UI.kit.portIn)'); return; }
-    for (const [name, f] of Object.entries(K.PORT.frames)) for (const s of f.w ? [[f.w, f.h]] : [60, 81, 96, 120].map((v) => [v, v])) {
-      const [w, h] = s, x = 13, y = 7, P = K.portIn(f, x, y, w, h), m = [P.x - x, P.y - y, x + w - P.x - P.w, y + h - P.y - P.h];
-      if (Math.max(...m) - Math.min(...m) > 2) out.push(`port: the ${name} portrait (${w}×${h}) leaves ${m.join('/')} px of well left/top/right/bottom`);
-      const [u0, v0, u1, v1] = P.src, k = ((u1 - u0) / (v1 - v0)) * K.PORT.art / (P.w / P.h);
-      if (Math.abs(k - 1) > 0.01) out.push(`port: the ${name} portrait (${w}×${h}) is stretched ×${k.toFixed(3)}`);
-      if (Math.min(u0, v0) < 0 || Math.max(u1, v1) > 1) out.push(`port: the ${name} portrait's crop ${P.src.map((v) => v.toFixed(3)).join(',')} runs off the art`); } }
+    const AS = require('./sandbox.cjs').assets(), folk = Object.keys(D.FOLK).map((r) => AS[r === 'merchant' ? 'merchant' : 'town_' + r]).filter(Boolean).map((a) => a.w / a.h);
+    if (!folk.length) out.push('port: no townsman\'s art found for the talk\'s frame');
+    for (const [name, f] of Object.entries(K.PORT.frames)) for (const s of f.w ? [[f.w, f.h]] : [60, 81, 96, 120].map((v) => [v, v])) for (const art of name === 'talk' ? folk.concat([0.3, 1.6]) : [K.PORT.art]) {
+      const [w, h] = s, x = 13, y = 7, P = K.portIn(f, x, y, w, h, art), m = [P.x - x, P.y - y, x + w - P.x - P.w, y + h - P.y - P.h], tag = `the ${name} portrait (${w}×${h}${name === 'talk' ? `, art ${art.toFixed(2)}` : ''})`;
+      if (Math.max(...m) - Math.min(...m) > 2) out.push(`port: ${tag} leaves ${m.join('/')} px of well left/top/right/bottom`);
+      const [u0, v0, u1, v1] = P.src, k = ((u1 - u0) / (v1 - v0)) * art / (P.w / P.h);
+      if (Math.abs(k - 1) > 0.01) out.push(`port: ${tag} is stretched ×${k.toFixed(3)}`);
+      if (Math.min(u0, v0) < 0 || Math.max(u1, v1) > 1 + 1e-9) out.push(`port: ${tag}'s crop ${P.src.map((v) => v.toFixed(3)).join(',')} runs off the art`); } }
+  // TASKS 2176: the journal, the notes, a note, the notice board and the talk are drawn in kit B as the saves and the altar are: the
+  // window's own frame is one kit board at its corner (a leather book or panel, a torn sheet for a note; one, not a second frame under
+  // it), the old burnt parchment is gone, and no old dark plate (a rounded rect) lies inside the frame, in every state of each
+  function checkKitScreens(out) {
+    const page = require('./sandbox.cjs').hudBox(D, root.SIM, SIMX.checks.kit.fontW), L = page.L, log = [], sprite = L.sprite, rrect = L.rrect;
+    L.sprite = (tex, x, y) => { log.push({ k: 's', tex, x, y }); };
+    L.rrect = (x, y, w, h) => { log.push({ k: 'r', x, y, w, h }); };
+    const shot = (tag, S, F, tex = 'ui_b_leather_panel') => { log.length = 0; page.HUD.draw(S, S.t);
+      if (log.some((q) => q.k === 's' && /^ui_parchment/.test(q.tex))) out.push(`kit screens: ${tag} still draws the old burnt parchment`);
+      const at = log.map((q, i) => [q, i]).filter(([q]) => q.k === 's' && q.tex === tex && Math.round(q.x) === Math.round(F.x) && Math.round(q.y) === Math.round(F.y));
+      if (at.length !== 1) { out.push(`kit screens: ${tag} has ${at.length} kit boards (${tex}) at its frame's corner ${F.x},${F.y}, not one`); return; }
+      const plates = log.slice(at[0][1]).filter((q) => q.k === 'r' && q.x >= F.x && q.y >= F.y && q.x + q.w <= F.x + F.w && q.y + q.h <= F.y + F.h);
+      if (plates.length) out.push(`kit screens: ${tag} draws ${plates.length} old dark plate(s) inside its frame, the first at ${Math.round(plates[0].x)},${Math.round(plates[0].y)} ${Math.round(plates[0].w)}×${Math.round(plates[0].h)}`); };
+    try {
+      const S = townRun(), R = S.run; S.t = R.t = 10;
+      const quests = (n) => Array.from({ length: n }, (_, i) => ({ id: 950 + i, key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], f: 1 + i, need: 5, n: 0, st: ['taken', 'done', 'turned'][i % 3], from: D.QUEST_GIVE.from[i % D.QUEST_GIVE.from.length], rw: {} }));
+      for (const n of [0, 3, 14]) { R.quests = quests(n); S.jsel = n ? 951 : undefined; S.jtop = 0; S.screen = 'journal'; const L0 = SIMX.journalOf(R), sel = L0.find((q) => q.id === S.jsel) || L0[0];
+        shot(`the journal with ${n} quests`, S, UI.journal(L0.length, sel && sel.st === 'taken', UI.journalTop(L0.length, Math.max(0, L0.indexOf(sel)), 0)).B); }
+      for (const n of [0, 30]) { S.meta.notes = D.NOTES.list.slice(0, n).map((q) => q.id); S.notesPage = 0; S.screen = 'notes'; shot(`the notes with ${n}`, S, UI.notes(n, 0).B); }
+      S.note = { id: D.NOTES.list[0].id }; S.screen = 'note'; shot('a note', S, UI.note(), 'ui_b_parchment_torn');
+      R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); R.quests = [];
+      S.screen = 'board'; S.bdRows = SIMX.boardRows(R); S.bdTook = [];
+      if (!S.bdRows.length) out.push('kit screens: the check\'s board holds no offers');
+      shot('the board', S, UI.board(S.bdRows.length).P); S.bdTook = [0]; shot('the board with a quest taken', S, UI.board(S.bdRows.length).P);
+      S.bdRows = []; shot('the empty board', S, UI.board(0).P);
+      const tp = D.FOLK.keeper.topics, talks = [['a page', { role: 'keeper', i: 0, pages: ['a', 'b'], p: 0, act: null, topics: tp }],
+        ['an offer', { role: 'smith', i: 0, pages: ['a'], p: 0, act: { k: 'take', key: 'cull', rw: {} }, craft: 'forge' }], ['the topics', { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: tp, menu: 1 }],
+        ['the merchant', { role: 'merchant', i: 0, pages: ['a'], p: 0, act: null }]];
+      for (const [tag, T] of talks) { S.talk = T; S.screen = 'talk'; shot(`the talk, ${tag}`, S, UI.talk(T).P); }
+    } finally { L.sprite = sprite; L.rrect = rrect; } }
   SIMX.checks.add('portCheck', checkPort);
+  SIMX.checks.add('kitScreensCheck', checkKitScreens);
   SIMX.checks.add('signCheck', checkSign);
   SIMX.checks.add('menuCheck', menuCheck);
   SIMX.checks.add('uiCheck', checkReview57);

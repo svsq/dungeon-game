@@ -102,6 +102,24 @@
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run
   const classesReady = () => Object.keys(CLASSES).filter((k) => CLASSES[k].look.ready);
   const clsOf = (h) => CLASSES[(h && h.cls) || 'warrior'] || CLASSES.warrior;
+  // (TASKS 2148) three looks a class, all open from the first run (the author's call: none is won by play), picked on the class's card,
+  // kept in the meta for the next card and on the hero (`h.look`); a hero saved before the looks has none and is «a». «a» is the class's
+  // own rig and portrait, «b» and «c» are named `<rig>_<id>` (the warrior's «b»: hero_b__body, portrait_hero_b; docs/LOOKS_2148.md).
+  // A look's fields override the class's `look` (eye, fist, arm, sat, robe, cold: they follow the drawing); `art`: the look whose art it
+  // draws until its own is in, so a drop-in is the art files, rigs.js and this line without its `art`; `gear`: the outfit table (scene_hero GEARS)
+  const LOOK_IDS = ['a', 'b', 'c'];
+  CLASSES.warrior.looks = { a: {}, b: { art: 'a' }, c: { art: 'a' } };
+  CLASSES.mage.looks = { a: {}, b: { art: 'a' }, c: { art: 'a' } };
+  CLASSES.archer.looks = { a: {}, b: { art: 'a' }, c: { art: 'a' } };
+  const lookRig = (C, id) => (id === 'a' ? C.look.rig : C.look.rig + '_' + id), portOf = (rig) => (rig === 'hero' ? 'portrait' : 'portrait_' + rig);
+  const LOOKS = Object.fromEntries(Object.entries(CLASSES).map(([cls, C]) => [cls, Object.fromEntries(LOOK_IDS.map((id) => {
+    const own = C.looks[id], art = own.art || id, A = C.looks[art], rig = lookRig(C, art);
+    return [id, Object.assign({}, C.look, A, own, { id, cls, art, rig, gear: own.gear || A.gear || C.look.rig, port: portOf(rig) })]; }))]));
+  const lookPick = (meta, cls) => { const id = ((meta || {}).look || {})[cls]; return LOOK_IDS.includes(id) ? id : 'a'; };
+  const lookOf = (h) => LOOKS[clsOf(h).id][h && LOOK_IDS.includes(h.look) ? h.look : 'a'];
+  // the looks the card offers: those with art of their own, read from the table so a drop-in shows its cell; with fewer than two none,
+  // and the card has no selector, as before 2148 (the author's order, 19.11.2026). `all`: a QA frame of the selector while the art is not in
+  const looksShown = (cls, all) => { const ids = all ? LOOK_IDS : LOOK_IDS.filter((id) => { const a = CLASSES[cls].looks[id].art; return !a || a === id; }); return ids.length > 1 ? ids : []; };
   const liveFor = (h, kind, list, key = (q) => q.id) => { const no = clsOf(h).dead[kind]; return list.filter((q) => !no.includes(key(q))); };
   const metaFor = (cls) => liveFor({ cls }, 'meta', META);
   const statFull = (h, s) => (clsOf(h).statFull || {})[s.k] || s.full;
@@ -189,5 +207,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
+  Object.assign(D, { TIPS, CLASSES, clsOf, LOOK_IDS, LOOKS, lookPick, lookOf, looksShown, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
 })(typeof window !== 'undefined' ? window : globalThis);

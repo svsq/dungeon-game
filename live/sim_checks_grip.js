@@ -18,13 +18,13 @@
   // (TASKS 2192) which sprite shows at each pixel of a screen box (Z samples a px): the index of the last one drawn with an opaque texel
   // there, −1 for none; one drawn at under half its alpha does not count
   function compose(spr, box, Z = 1) {
-    const [x0, y0, x1, y1] = box, W = Math.ceil((x1 - x0) * Z), H = Math.ceil((y1 - y0) * Z), top = new Int32Array(W * H).fill(-1);
+    const [x0, y0, x1, y1] = box, W = Math.ceil((x1 - x0) * Z), H = Math.ceil((y1 - y0) * Z), top = new Int32Array(W * H).fill(-1), rgb = new Uint8Array(W * H * 3);
     spr.forEach((q, i) => { const o = q.o; if (!o || !o.m || (o.u && o.u.alpha !== undefined && o.u.alpha < 0.5)) return;
       const t = TEX[q.n] || (TEX[q.n] = png(q.n)), [a, b, c, dd, e, f] = o.m, det = a * dd - b * c; if (!det) return;
       for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) { const X = x0 + (px + 0.5) / Z - e, Y = y0 + (py + 0.5) / Z - f;
         const u = Math.floor(((dd * X - c * Y) / det + o.pivot[0]) / o.w * t.W), v = Math.floor(((-b * X + a * Y) / det + o.pivot[1]) / o.h * t.H);
-        if (u >= 0 && v >= 0 && u < t.W && v < t.H && t.A[v * t.W + u] > 127) top[py * W + px] = i; } });
-    return { top, W, H };
+        if (u >= 0 && v >= 0 && u < t.W && v < t.H && t.A[v * t.W + u] > 127) { const k = py * W + px; top[k] = i; for (let ch = 0; ch < 3; ch++) rgb[k * 3 + ch] = t.P[(v * t.W + u) * 4 + ch]; } } });
+    return { top, W, H, rgb };
   }
   // (TASKS 2192) px² of the mage's face (FACE_ROWS of body texture cells about look.eye, 3 cells either side: brow to mouth, or the beard
   // under it) shown by a sprite drawn after the body whose name matches `by`, sampled at Z per px
@@ -38,7 +38,40 @@
     for (const k of c.top) if (k > bi && by.test(spr[k].n)) n++;
     return n / Z / Z;
   }
-  SIMX.heroLayers = { compose, faceCover, FACE_ROWS };
+  // (TASKS 2200) a weapon fist drawn in the world, against its own cells (the world grid's, h / 42 rig px of its texture): drawn square on
+  // the grid (turned by quarter turns, its middle on a world px or between two as its cells across are odd or even: turned with the
+  // weapon or half a px off, its one-cell rows fell between two px and the vote lost them), at least one column where a lit cell, one
+  // darker by PART (OKLab L × 100) and a lit one follow along the weapon (two rows of fingers parted), and an empty corner beside the
+  // thumb (the notch: 2177's world fist was a full 3 × 4 block of one or two tones). Returns what fails; the parting count for the record
+  const PART = 12, okL = (p) => { const f = (v) => { v /= 255; return v > 0.04045 ? ((v + 0.055) / 1.055) ** 2.4 : v / 12.92; }, [r, g, b] = [p[0], p[1], p[2]].map(f);
+    return 100 * (0.2104542553 * Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) + 0.793617785 * Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) - 0.0040720468 * Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)); };
+  function worldFist(q, rig) {
+    const t = TEX[q.n] || (TEX[q.n] = png(q.n)), Cc = SB0.rigs()[rig].h / 42, nx = Math.round(t.W / Cc), ny = Math.round(t.H / Cc), o = q.o, bad = [];
+    const turn = Math.atan2(o.m[1], o.m[0]) / (Math.PI / 2), qt = Math.round(turn), wpx = Math.round(o.w / 2), hpx = Math.round(o.h / 2);
+    const grid = (v, n) => Math.abs(v - (n % 2 ? 2 * Math.round((v - 1) / 2) + 1 : 2 * Math.round(v / 2))) < 1e-6;
+    if (Math.abs(turn - qt) > 1e-6) bad.push(`turned ${(turn * 90).toFixed(0)}° off the grid`);
+    else if (!grid(o.m[4], qt % 2 ? hpx : wpx) || !grid(o.m[5], qt % 2 ? wpx : hpx)) bad.push(`its middle ${o.m[4].toFixed(2)}, ${o.m[5].toFixed(2)} off the grid`);
+    const cell = (i, j) => { const x = Math.min(t.W - 1, Math.floor((i + 0.5) * Cc)), y = Math.min(t.H - 1, Math.floor((j + 0.5) * Cc)), k = (y * t.W + x) * 4; return t.P[k + 3] > 127 ? okL([t.P[k], t.P[k + 1], t.P[k + 2]]) : null; };
+    let parts = 0, notch = false;
+    for (let i = 0; i < nx; i++) for (let j = 1; j + 1 < ny; j++) { const a = cell(i, j - 1), b = cell(i, j), c = cell(i, j + 1); if (a !== null && b !== null && c !== null && a - b >= PART && c - b >= PART) parts++; }
+    for (const j of [0, ny - 1]) for (const i of [0, nx - 1]) if (cell(i, j) === null && Array.from({ length: nx }, (_, k) => cell(k, j)).some((v) => v !== null)) notch = true;
+    if (!parts) bad.push(`no row of fingers parted from the next by a darker one (by ${PART} L)`);
+    if (!notch) bad.push('no notch beside the thumb (a full block)');
+    return { bad, parts };
+  }
+  // each weapon of a class at rest and on the run, either way round, drawn in the world as the game does (L.SNAP on): worldFist on its fist
+  function fistsOnGrid(out, cls, weapons, label) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), rig = D.CLASSES[cls].look.rig, seen = new Set();
+    for (const wb of weapons) for (const face of [1, -1]) for (const [act, vx, GT] of [['rest', 0, 10], ['rest', 0, 11.3], ['run', 150, 10], ['run', 150, 10.4]]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const h = Object.assign({}, R.hero, { vx, vy: 0, gp: GT * 4, face, aim: 0, atkA: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
+      const spr = []; L.joint = () => {}; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+      L.SNAP = 1; try { drawHero(h, 301.3, 300.7, GT, heroSt(S), {}); } finally { L.SNAP = 0; }
+      const f = spr.find((q) => q.n === rig + '__fistR' || q.n.startsWith(rig + '__fistR_')); if (!f) continue;
+      for (const m of worldFist(f, rig).bad) { const k = wb + m.replace(/[\d.-]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`${label}: ${cls} ${wb} ${act} face ${face} in the world: the fist ${m}`); } }
+    }
+  }
+  SIMX.heroLayers = { compose, faceCover, FACE_ROWS, worldFist, fistsOnGrid };
   // the warrior's fist closes round the hilt or the haft (TASKS 2170): at rest, on the run and through a blow, either way round, in the world
   // and in the arch, with each of his four weapons, the near fist (hero__fistR, drawn after the weapon) lies over the weapon's own pixels, the
   // weapon's axis (grip → tip) runs within AXIS screen px of the fist's centre, and the weapon shows past the fist on both sides of it.
@@ -87,6 +120,7 @@
       if (si < ai || r > SHIELD_GRIP) out.push(`warrior fist: ${tag}: the far hand is ${r.toFixed(2)} of the shield's height from its middle${si < ai ? ', drawn over it' : ''}`);
     }
     if (counted < 64) out.push(`warrior fist: only ${counted} frames hold the weapon in front of the body`);
+    fistsOnGrid(out, 'warrior', ['sword', 'longsword', 'axe', 'hammer'], 'warrior fist');
   }
   // the archer's fists close round the short bow's and the long bow's wrapped grip and the crossbow's stock (TASKS 2170): at rest, on the run,
   // on the draw and after the loose, either way round, in the world and in the arch, the fist of the hand that holds the weapon
@@ -97,9 +131,18 @@
   // string is whole along its line, in the arch under its ×3.2 too: no length of it outside its drawn pieces past GAP px, and none
   // covered by anything drawn after it but a fist
   function archerFistCheck(out) {
-    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, NOCK = 3, MID = 0.25, STRING_COL = '0.5,0.48,0.45', d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, NOCK = 3, MID = 0.25, STRING_COL = '0.36,0.34,0.31', d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const ARCH_COL = '0.66,0.6,0.5', ARCH = [3.2, 0, 0, 3.2, -2.2 * 300, -2.2 * 300], GAP = 0.1, runs = [];
     const seen = new Set(); let counted = 0;
+    // (TASKS 2199) under a torch the hero is lit about ×1.8: the world string's luminance at most STRING_Y keeps it under his face's
+    // (it was 0.48, L 83 on screen over the face's 80); in the occluders' mask it goes in the actor's ink, lit as the figure is
+    const STRING_Y = 0.4, INK = [1, 0.5, 0], sy = STRING_COL.split(',').map(Number).reduce((a, v, i) => a + v * [0.3, 0.59, 0.11][i], 0);
+    if (sy > STRING_Y) out.push(`archer fist: the world string's luminance ${sy.toFixed(2)} (at most ${STRING_Y})`);
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'archer' }); S.run = R; R.hero.eq.weapon = { id: 0, b: 'shortbow', rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 40, face: 1, aim: 0, atkA: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), cols = [];
+      L.joint = () => {}; L.sprite = () => ({ w: 10, h: 10 }); L.solid = (x, y, w, hh, col) => { cols.push(String(col)); }; L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: INK };
+      try { drawHero(h, 300, 300, 10, heroSt(S), { id: 'occ' }); } finally { L.sp = null; }
+      if (!cols.includes(String(INK)) || cols.includes(STRING_COL)) out.push(`archer fist: in the occluders' mask the string is drawn in ${cols.join(' | ')}, not the actor's ink`); }
     for (const wb of ['shortbow', 'longbow', 'crossbow']) {
       const BT = D.SHOTS[D.BASES[wb].shot || 'bolt'].t, POSES = [['rest', 0, 10, -9], ['rest', 0, 11.3, -9], ['run', 150, 10, -9], ['run', 150, 10.4, -9], ['draw', 0, 10 + 0.6 * BT, 10], ['draw', 0, 10 + 0.95 * BT, 10], ['loose', 0, 10 + BT + 0.06, 10]];
       for (const face of [1, -1]) for (const menu of [0, 1]) for (const [act, vx, GT, atkT] of POSES) {
@@ -140,6 +183,7 @@
       }
     }
     if (counted < 48) out.push(`archer fist: only ${counted} frames hold the weapon in front of the body`);
+    fistsOnGrid(out, 'archer', ['shortbow', 'longbow', 'crossbow'], 'archer fist');
     SIMX.stringRuns = runs;
   }
   // (TASKS 2189) the bow's string along its ideal line (nock → nock at rest, nock → string hand → nock on the draw), sampled every STEP
@@ -206,10 +250,13 @@
   // (TASKS 2192) the whirl and the war cry hold the hilt in a fist in every frame (from behind the whirl drew the open hand farmR for 6
   // frames), the whirl takes its arm and blade behind him cross-faded (they went under the torso and back in one frame, a step of 1.0);
   // in no action does the arm under the body show for a single frame (the cry's two envelopes dipped under ARM_FRONT where they met);
+  // (TASKS 2201) the warrior's blow, whirl and cry draw the arm and the weapon once a frame (cross-faded, the arm showed through the
+  // chest at its share for 5–14 frames), and a switch of layer outside a change of view flips at most LAP px of them against the torso;
+  // a shooter's arm keeps its fade, at most STEP of its alpha a frame;
   // the mage's fireball with the orb in his free hand keeps his face open (FACE px² of brow to mouth under the orb or its cup; it passed
   // over the mouth for 13 frames); a blow taken (HURT s) moves no grip more than HURT_STEP px a frame (the mage's straightened elbow, 7.6)
   function heroArmMotion(out, SB, drawHero, L) {
-    const PATH = 0.3, STEP = 0.5, JUMP = 1, FPS = 60, T0 = 10, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), END = 0.5, FACE = 0, HURT = 0.4, HURT_STEP = 3;
+    const PATH = 0.3, STEP = 0.5, LAP = 140, RG = /^(\w+__(uarmR|farmR|cuffR|fistR)|it_)/, JUMP = 1, FPS = 60, T0 = 10, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), END = 0.5, FACE = 0, HURT = 0.4, HURT_STEP = 3;
     const ACTS = [['warrior', 'sword', 'blow', { atkT: T0 }], ['archer', 'shortbow', 'shot', { atkT: T0, patkT: T0 }], ['mage', 'staff', 'shot', { atkT: T0, patkT: T0 }],
       ['mage', 'staff', 'fireball', { castT: T0, castK: 'fireball' }], ['mage', 'staff', 'frost', { castT: T0, castK: 'frost' }], ['archer', 'shortbow', 'volley', { castT: T0, castK: 'volley' }],
       ['warrior', 'sword', 'whirl', { whirlT: T0 }], ['warrior', 'sword', 'cry', { castT: T0, castK: 'cry' }]];
@@ -218,10 +265,16 @@
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       const st = heroSt(S), pn = D.CLASSES[cls].look.rig + '__', tag = `${cls} ${act} aimed ${an}`, rows = [];
       for (let k = 0; k <= 0.7 * FPS; k++) { const J = {}, spr = [];
-        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, a: o && o.u && o.u.alpha !== undefined ? o.u.alpha : 1 }); return { w: 10, h: 10 }; }; L.solid = () => {};
+        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o, a: o && o.u && o.u.alpha !== undefined ? o.u.alpha : 1 }); return { w: 10, h: 10 }; }; L.solid = () => {};
         drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 40, face: Math.cos(aim) < -0.1 ? -1 : 1, aim, atkA: aim, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9, whirlA: aim }, at), 300, 300, T0 + k / FPS, st, {});
         const idx = (re) => spr.map((q, i) => (q.n.startsWith(pn) && re.test(q.n.slice(pn.length)) ? i : -1)).filter((i) => i >= 0), body = idx(/^body/)[0] ?? -1, ua = idx(/^uarmR/).filter((i) => i > body);
-        rows.push({ J, t: k / FPS, over: ua.length ? spr[ua[0]].a : 0, under: idx(/^uarmR/).some((i) => i < body), wpn: spr.findIndex((q) => /^it_/.test(q.n)) > body, farm: idx(/^farmR/).length > 0, fist: idx(/^fistR/).length > 0, back: body < 0 }); }
+        const lay = (re) => { const ix = spr.map((q, i) => (re.test(q.n) ? i : -1)).filter((i) => i >= 0); return (ix.some((i) => i < body) ? 'u' : '') + (ix.some((i) => i > body) ? 'o' : ''); };
+        const armL = lay(new RegExp(`^${pn}(uarmR|farmR|cuffR)`)), wpnL = lay(new RegExp(`^(it_|${pn}fistR)`)), part = (q) => (q.o && q.o.u ? Object.assign({}, q, { o: Object.assign({}, q.o, { u: Object.assign({}, q.o.u, { alpha: 1 }) }) }) : q);
+        const fo = spr.findIndex((q, i) => i > body && RG.test(q.n)), occ = spr.filter((q, i) => i >= body && i < (fo < 0 ? spr.length : fo) && !RG.test(q.n) && q.o);
+        const box = [J.ground[0] - 60, J.ground[1] - 110, J.ground[0] + 60, J.ground[1] + 6], rs = spr.filter((q) => RG.test(q.n) && q.o).map(part), cr = compose(rs, box), co = compose(occ, box), laps = { arm: 0, wpn: 0 };
+        for (let i = 0; i < cr.top.length; i++) if (cr.top[i] >= 0 && co.top[i] >= 0) laps[/^it_|__fistR/.test(rs[cr.top[i]].n) ? 'wpn' : 'arm']++;
+        rows.push({ armL, wpnL, laps, view: spr.some((q) => q.n.startsWith(pn + 'body_back')) + ':' + spr.some((q) => q.n.startsWith(pn + 'body') && !/back/.test(q.n)), twice: ua.length > 0 && spr[ua[0]].a > 0 && spr[ua[0]].a < 1 && idx(/^uarmR/).some((i) => i < body) });
+        Object.assign(rows[rows.length - 1], { J, t: k / FPS, over: ua.length ? spr[ua[0]].a : 0, under: idx(/^uarmR/).some((i) => i < body), wpn: spr.findIndex((q) => /^it_/.test(q.n)) > body, farm: idx(/^farmR/).length > 0, fist: idx(/^fistR/).length > 0, back: body < 0 }); }
       const H = rows[0].J.ground[1] - rows[0].J.top[1];
       if (act === 'blow') { const path = rows.filter((r) => r.t > 0 && r.t <= 0.35 + 1e-9).reduce((a, r, i, all) => a + d(r.J.handR, (i ? all[i - 1] : rows[0]).J.handR), 0) / H;
         if (path < PATH) out.push(`hero arm: ${tag}: the fist travels ${path.toFixed(2)} of the height in the blow's first 0.35 s (at least ${PATH})`);
@@ -230,8 +283,12 @@
       }
       const open = rows.filter((r) => (act === 'blow' ? r.t < END && !r.back : FIST.has(act)) && (r.farm || !r.fist)).length;
       if (open) out.push(`hero arm: ${tag}: the fist on the hilt opens into a hand in ${open} frames of the ${act}`);
+      if (FIST.has(act)) { const twice = rows.filter((r) => r.twice || r.armL.length > 1 && r.over > 0 && r.over < 1).length;
+        if (twice) out.push(`hero arm: ${tag}: the arm is drawn under the body and over it at a share in ${twice} frames`);
+        for (let i = 1; i < rows.length; i++) for (const g of ['arm', 'wpn']) { const r = rows[i], p = rows[i - 1];
+          if (r[g + 'L'] !== p[g + 'L'] && r.view === p.view && r.laps[g] > LAP) out.push(`hero arm: ${tag}: the ${g === 'arm' ? 'arm' : 'weapon'} switches layer at frame ${i} across ${r.laps[g]} px of the torso (at most ${LAP})`); } }
       const steps = rows.slice(1).map((r, i) => Math.abs(r.over - rows[i].over)), up = Math.max(...steps);
-      if (up > STEP) out.push(`hero arm: ${tag}: the arm comes over the body or leaves it by ${up.toFixed(2)} of its alpha in one frame (at most ${STEP})`);
+      if (!FIST.has(act) && up > STEP) out.push(`hero arm: ${tag}: the arm comes over the body or leaves it by ${up.toFixed(2)} of its alpha in one frame (at most ${STEP})`);
       const blink = rows.filter((r, i) => i > 0 && i < rows.length - 1 && r.under && !rows[i - 1].under && !rows[i + 1].under).length;
       if (blink) out.push(`hero arm: ${tag}: the arm under the body shows for a single frame ${blink} times`);
       if (act === 'whirl' || act === 'cry') continue;
@@ -260,18 +317,21 @@
   // the bases of each slot, with each weapon and offhand, in a few poses, front and back, world and arch; a texture neither drawn nor
   // looked up (an existence test decides a pose: cuffR, head_<helm>, _w maps) is a dead file
   function heroTexCheck(out) {
-    const HERO = /^(hero|mage|archer)__/, raw = SB0.assets(), used = new Set(), sizes = new Proxy(raw, { get: (t, k) => { if (typeof k === 'string') used.add(k); return t[k]; } });
+    const RIGN = [...new Set(Object.values(D.LOOKS).flatMap((q) => Object.values(q).map((LK) => LK.rig)))], HERO = new RegExp(`^(${RIGN.join('|')})__`), raw = SB0.assets(), used = new Set(), sizes = new Proxy(raw, { get: (t, k) => { if (typeof k === 'string') used.add(k); return t[k]; } });
     const { drawHero, L } = SB0.heroBox(D, root.SIM, sizes), slot = (s) => [''].concat(Object.keys(D.BASES).filter((k) => D.BASES[k].slot === s));
     L.sprite = (n) => { used.add(n); return { w: 10, h: 10 }; }; L.solid = () => {}; L.joint = () => {};
     const item = (b) => (b ? { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6, def: 2 } : undefined), T = 10;
     const base = { vx: 0, vy: 0, gp: 0, face: 1, aim: 0, atkA: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9 };
     const ACTS = [{}, { vx: 150 }, { back: 1 }, { atkT: T - 0.15 }, { atkT: T - 0.15, aim: Math.PI, face: -1 }, { patkT: T - 0.1 }, { castT: T - 0.1 }];
-    const draw = (cls, eq, acts) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R;
+    const draw = (cls, eq, acts, look) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls, look }); S.run = R;
       for (const k of ['armor', 'helm', 'gloves', 'boots', 'weapon', 'offhand']) R.hero.eq[k] = item(eq[k]);
       const st = heroSt(S); for (const a of acts) for (const o of [{}, { menu: 1 }]) if (!(o.menu && a.vx)) drawHero(Object.assign({}, R.hero, base, a), 300, 300, T, st, o); };
-    for (const cls of Object.keys(D.CLASSES)) {
-      for (const armor of slot('armor')) for (const helm of slot('helm')) for (const gloves of slot('gloves')) for (const boots of slot('boots')) draw(cls, { armor, helm, gloves, boots, weapon: 'sword' }, ACTS.slice(0, 3));
-      for (const weapon of slot('weapon')) for (const offhand of slot('offhand')) for (const gloves of slot('gloves')) draw(cls, { weapon, offhand, gloves }, ACTS);
+    // (TASKS 2148) each look with art of its own; one drawing another's art draws nothing new
+    for (const cls of Object.keys(D.CLASSES)) for (const look of D.LOOK_IDS.filter((l) => D.LOOKS[cls][l].art === l)) {
+      for (const armor of slot('armor')) for (const helm of slot('helm')) for (const gloves of slot('gloves')) for (const boots of slot('boots')) draw(cls, { armor, helm, gloves, boots, weapon: 'sword' }, ACTS.slice(0, 3), look);
+      for (const weapon of slot('weapon')) for (const offhand of slot('offhand')) for (const gloves of slot('gloves')) draw(cls, { weapon, offhand, gloves }, ACTS, look);
+      // (TASKS 2194) an outfit's sleeve can hang on what the offhand holds (the mage's bell over the orb in the arch)
+      for (const armor of slot('armor')) for (const offhand of slot('offhand')) draw(cls, { armor, offhand, weapon: 'staff' }, ACTS.slice(0, 1));
     }
     for (const k of Object.keys(raw)) if (HERO.test(k) && !used.has(k)) out.push(`hero texture ${k}: no outfit, pose, view or the arch asks for it (a dead file loaded at start)`);
   }
@@ -303,16 +363,142 @@
       for (let i = 0; i < rows * t.W; i++) { if (t.A[i] < 128) continue; const r = t.P[i * 4], g = t.P[i * 4 + 1], b = t.P[i * 4 + 2], lum = 0.3 * r + 0.59 * g + 0.11 * b;
         if (lum > 60 && Math.max(r, g, b) - Math.min(r, g, b) < 45) { k++; rb += r - b; } }
       if (k && rb / k > 0) out.push(`mage hair: ${n} reads warm (red minus blue ${(rb / k).toFixed(1)}, at most 0)`); }
+    // (TASKS 2199) the hair under the circlet from behind is the bare head's grey: the light hair px (OKLab L over 0.52) of the top 40 rows,
+    // off the circlet's band (chroma 0.075 and over) and a px round it, differ from the bare back's in mean OKLab a, b by at most HAIR_AB ×0.01
+    // (measured with the band's gold counted it read ΔE 8.9; by the hair alone 0.7 in a, b, now 0.3)
+    const HAIR_AB = 1, hairAB = (t) => { const C = (i) => { const o = OKL(t.P[i * 4], t.P[i * 4 + 1], t.P[i * 4 + 2]); return [o, Math.hypot(o[1], o[2])]; }, m = [0, 0]; let k = 0;
+      for (let y = 0; y < 40; y++) for (let x = 1; x < t.W - 1; x++) { const i = y * t.W + x; if (t.A[i] < 128) continue; const [o, c] = C(i); if (o[0] <= 0.52 || c >= 0.075) continue;
+        if ([i - 1, i + 1, i - t.W, i + t.W].some((j) => j >= 0 && t.A[j] >= 128 && C(j)[1] >= 0.075)) continue; k++; m[0] += o[1]; m[1] += o[2]; }
+      return m.map((v) => v / Math.max(1, k)); };
+    { const a = hairAB(png('mage__head_back_ci')), b = hairAB(png('mage__body_back')), d = 100 * Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (d > HAIR_AB) out.push(`mage hair: under the circlet from behind ${d.toFixed(2)} off the bare head's grey in OKLab a, b ×0.01 (at most ${HAIR_AB})`); }
+    mageBackRobe(out);
+  }
+  // (TASKS 2195) the mage from behind wears one robe, at rest and running up, in every outfit and helm: the front skirt (his thighs) shows
+  // under the back's hem by at most SKIRT world px in any column (a short cloak ended at the belt over a long robe of another tone: 9.5);
+  // the robe's blue in the LOW world px over its hem is the cloth's above the hip (OKLab ΔE×100 of the shown, graded blue at most DE); and below the hip there is one trim
+  // band, at the hem (within HEM world px of the cloth's bottom), across at least TRIM of the cloth's width (it had the cloak's and the skirt's; ΔE was 6.0, now 2.6)
+  const OKL = (r, g, b) => { const f = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }, R = f(r), G = f(g), B = f(b);
+    const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B), m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B), s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+    return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s]; };
+  function mageBackRobe(out) {
+    const SKIRT = 2, DE = 4, LOW = 4, HEM = 1.5, TRIM = 0.75, T0 = 10, FPS = 60, RUN = root.SIM.K.RUN, SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets());
+    const it = (b, slot) => ({ id: 0, b, rar: 0, lvl: 1, mods: {}, [slot === 'weapon' ? 'atk' : 'def']: 3 }), cloth = /^mage__(body_back|thigh)/;
+    const blue = (r, g, b) => b > r + 20 && b > g + 10, orange = (r, g, b) => r > b + 40 && r > g + 15, worst = { skirt: [0], de: [0], bands: [1], hem: [0], trim: [1] };
+    const graded = (p, u) => { const g = (u && u.grade) || [1, 1, 0, 1], l = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]; return p.map((v) => Math.min(255, Math.max(0, ((l + (v - l) * g[0]) * g[1] - 127.5) * g[3] + 127.5))); };
+    const bad = (k, v, tag, more) => { if (more ? v > worst[k][0] : v < worst[k][0]) worst[k] = [v, tag]; };
+    for (const armor of ['robe', 'leather_armor', 'cloak']) for (const helm of ['', 'circlet', 'leather_helm']) for (const run of [0, 1]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'mage' }); S.run = R; Object.assign(R.hero.eq, { weapon: it('staff', 'weapon'), armor: it(armor, 'armor') });
+      if (helm) R.hero.eq.helm = it(helm, 'helm'); else delete R.hero.eq.helm;
+      const h = Object.assign({}, R.hero, { vx: 0, vy: -RUN * run, face: 1, aim: -Math.PI / 2, back: 1, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = heroSt(S);
+      const rate = RUN / root.SIM.Q.stepLen(0) * Math.PI;
+      for (let k = 0; k < (run ? 12 : 1); k++) {
+        const J = {}, spr = [], tag = `${armor}${helm ? ' and ' + helm : ''}${run ? ' running up, frame ' + k : ' at rest'}`; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; };
+        L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+        h.gp = 1 + rate * k / 2 / FPS; drawHero(h, 300, 300, T0 + k / 2 / FPS, st, {});
+        const bk = spr.find((q) => /^mage__body_back/.test(q.n)); if (!bk) { out.push(`mage back: ${tag}: no back view drawn`); continue; }
+        const cell = bk.o.h / 42, x0 = J.ground[0] - 40, y0 = J.ground[1] - 100, c = compose(spr, [x0, y0, J.ground[0] + 40, J.ground[1] + 4]), at = (i) => [c.rgb[i * 3], c.rgb[i * 3 + 1], c.rgb[i * 3 + 2]];
+        const hipY = Math.round(J.hip[1] - y0), shY = Math.round((J.shL[1] + J.shR[1]) / 2 - y0);
+        let skirt = 0;
+        for (let x = 0; x < c.W; x++) { let n = 0; for (let y = 0; y < c.H; y++) { const i = c.top[y * c.W + x]; if (i >= 0 && /^mage__thigh/.test(spr[i].n)) n++; } skirt = Math.max(skirt, n / cell); }
+        bad('skirt', skirt, tag, 1);
+        const lab = [], rows = []; let bottom = -1;
+        for (let y = shY; y < c.H; y++) { let n = 0, nb = 0, no = 0;
+          for (let x = 0; x < c.W; x++) { const k = y * c.W + x, i = c.top[k]; if (i < 0 || !cloth.test(spr[i].n)) continue; n++; const p = at(k);
+            if (blue(...p)) { nb++; lab.push([y, OKL(...graded(p, spr[i].o.u))]); }
+            if (orange(...p)) no++; }
+          if (n) bottom = y; if (y >= hipY) rows.push({ y, n, nb, no }); }
+        const band = [[0, 0, 0, 0], [0, 0, 0, 0]];
+        for (const [y, q] of lab) { const B = y < hipY ? band[0] : y > bottom - LOW * cell ? band[1] : null; if (B) { B[0] += q[0]; B[1] += q[1]; B[2] += q[2]; B[3]++; } }
+        if (band[0][3] > 20 && band[1][3] > 20) { const m = band.map((B) => B.slice(0, 3).map((v) => v / B[3])); bad('de', 100 * Math.hypot(m[0][0] - m[1][0], m[0][1] - m[1][1], m[0][2] - m[1][2]), tag, 1); }
+        const from = rows.findIndex((r) => r.n && r.nb >= 0.5 * r.n), bands = [];
+        for (const r of rows.slice(Math.max(0, from))) { if (!(r.n && r.no >= 0.5 * r.n)) continue; const B = bands[bands.length - 1];
+          if (B && r.y - B.y1 <= cell) { B.y1 = r.y; B.share = Math.max(B.share, r.no / r.n); } else bands.push({ y0: r.y, y1: r.y, share: r.no / r.n }); }
+        bad('bands', bands.length === 1 ? 1 : 99 + bands.length, tag, 1);
+        if (bands.length) { const B = bands[bands.length - 1]; bad('hem', (bottom - B.y1) / cell, tag, 1); bad('trim', B.share, tag, 0); }
+      } }
+    if (worst.skirt[0] > SKIRT) out.push(`mage back: the front skirt shows ${worst.skirt[0].toFixed(1)} world px under the back's hem, ${worst.skirt[1]} (at most ${SKIRT})`);
+    if (worst.de[0] > DE) out.push(`mage back: the robe's blue below the hip by the hem is ΔE ${worst.de[0].toFixed(1)} from the cloth above the hip, ${worst.de[1]} (at most ${DE})`);
+    if (worst.bands[0] !== 1) out.push(`mage back: ${worst.bands[0] - 99} trim bands below the hip, ${worst.bands[1]} (one, at the hem)`);
+    if (worst.hem[0] > HEM) out.push(`mage back: the trim ends ${worst.hem[0].toFixed(1)} world px above the cloth's bottom, ${worst.hem[1]} (at most ${HEM})`);
+    if (worst.trim[0] < TRIM) out.push(`mage back: the hem's trim covers ${(100 * worst.trim[0]).toFixed(0)} % of the cloth's width, ${worst.trim[1]} (at least ${TRIM * 100})`);
+  }
+  // (TASKS 2201) px² of shin and boot standing out past the robe above its hem: in a column with no cloth, higher than the lowest cloth
+  // row of the nearest column that has some (the trailing boot of a sideways stride kicked up past the skirt's back edge)
+  function robeKick(spr, J) {
+    const rig = D.CLASSES.mage.look.rig, cloth = new RegExp(`^${rig}__(body|thigh)`), boot = new RegExp(`^${rig}__(shin|foot)`);
+    const c = compose(spr, [J.ground[0] - 44, Math.round(J.hip[1]), J.ground[0] + 44, J.ground[1] + 4], 1), low = new Int32Array(c.W).fill(-1), on = (i, re) => c.top[i] >= 0 && re.test(spr[c.top[i]].n);
+    for (let x = 0; x < c.W; x++) for (let y = c.H - 1; y >= 0; y--) if (on(y * c.W + x, cloth)) { low[x] = y; break; }
+    let n = 0;
+    for (let x = 0; x < c.W; x++) { if (low[x] >= 0) continue; let near = -1; for (let d = 1; d < c.W && near < 0; d++) near = x - d >= 0 && low[x - d] >= 0 ? x - d : x + d < c.W && low[x + d] >= 0 ? x + d : -1;
+      if (near < 0) continue; for (let y = 0; y < low[near]; y++) if (on(y * c.W + x, boot)) n++; }
+    return n;
+  }
+  SIMX.robeKick = robeKick;
+  // (TASKS 2196, 2197) the mage from the front wears one robe, in the arch and the world, at rest and in every frame of the walk and the run
+  // down (toward the camera) and sideways, in every outfit and helm: below the hip no cloak shows (the author: the cloak is not drawn with
+  // the robe; mage__cape hung to the knee with its own zigzag hem: CLOAK px²); one trim band crosses the cloth below the hip, at the hem
+  // (the cloak's and the robe's: 2); the front trim is one line, at most TRIM px wide in any row above the hem (the slit's two trims and the
+  // near half's edge in the arch, a two-cell brown band like a leg in the world); no shin shows over the cloth (the near shin over the far
+  // half of the skirt, its navy top a knee block torn off under the robe: LEG px²; sideways the shin's own kick past the skirt's back edge is KICK, TASKS 2201) and no navy of a shin's top shows at all (KNEE px²).
+  // (TASKS 2201) the world's front trim at most TRIM.world: a half cell, the whole one read 3 px where the skirt's swing took it off the grid
+  // Sizes in screen px of the sandbox's world scale, the arch counted at its texel density (ARCH_Z)
+  function mageFrontRobe(out) {
+    const CLOAK = 0, SHARE = 0.5, GAP = 2, UPPER = 0.75, TRIM = { world: 2, arch: 3 }, KICK = 3, LEG = 2, KNEE = 1, ARCH_Z = 3.2, T0 = 10, FPS = 60, RUN = root.SIM.K.RUN, SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets());
+    const it = (b, slot) => ({ id: 0, b, rar: 0, lvl: 1, mods: {}, [slot === 'weapon' ? 'atk' : 'def']: 3 }), rig = D.CLASSES.mage.look.rig, nm = (re) => new RegExp(`^${rig}__(${re})`);
+    const cloth = nm('body|thigh|cape'), hems = nm('thigh|cape'), skirt = nm('thigh'), shin = nm('shin|foot'), cloak = nm('cape'), orange = (p) => p[0] > 90 && p[0] > p[2] + 30, navy = (p) => p[2] > p[0] + 8 && p[2] > p[1] + 5;
+    const worst = { cloak: [0], bands: [1], trim: [0], trimA: [0], leg: [0], knee: [0], kick: [0] }, bad = (k, v, tag) => { if (v > worst[k][0]) worst[k] = [v, tag]; };
+    for (const armor of ['robe', 'leather_armor', 'cloak']) for (const helm of ['', 'circlet', 'leather_helm']) for (const [way, dx, dy, pace, n] of [['arch', 0, 0, 0, 1], ['rest', 0, 0, 0, 1], ['down', 0, 1, 0.5, 12], ['down', 0, 1, 1, 12], ['right', 1, 0, 1, 12]]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'mage' }); S.run = R; Object.assign(R.hero.eq, { weapon: it('staff', 'weapon'), armor: it(armor, 'armor') });
+      if (helm) R.hero.eq.helm = it(helm, 'helm'); else delete R.hero.eq.helm;
+      const h = Object.assign({}, R.hero, { vx: dx * RUN * pace, vy: dy * RUN * pace, face: 1, aim: 0, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = heroSt(S);
+      const Z = way === 'arch' ? ARCH_Z : 1, Z2 = Z * Z;
+      for (let k = 0; k < n; k++) {
+        const J = {}, spr = [], tag = `${armor}${helm ? ' and ' + helm : ''}, ${way === 'arch' || way === 'rest' ? way : (pace < 1 ? 'walking ' : 'running ') + way + ', frame ' + k}`;
+        L.joint = (id, q, p) => { if (id === 'hero') J[q] = p; }; L.sprite = (q, x, y, o) => { spr.push({ n: q, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+        h.gp = k * 2 * Math.PI / n; drawHero(h, 300, 300, T0 + k / FPS, st, way === 'arch' ? { menu: 1 } : {});
+        const x0 = J.ground[0] - 44, y0 = Math.round(J.hip[1]), c = compose(spr, [x0, y0, J.ground[0] + 44, J.ground[1] + 4], Z), at = (i) => [c.rgb[i * 3], c.rgb[i * 3 + 1], c.rgb[i * 3 + 2]];
+        const is = (i, re) => i >= 0 && re.test(spr[i].n);
+        let cl = 0, knee = 0, leg = 0;
+        for (let i = 0; i < c.W * c.H; i++) { const s = c.top[i]; if (is(s, cloak)) cl++; if (is(s, shin) && navy(at(i))) knee++; }
+        for (let x = 0; x < c.W; x++) { let low = -1, high = c.H; for (let y = c.H - 1; y >= 0; y--) if (is(c.top[y * c.W + x], cloth)) { low = y; break; }
+          for (let y = 0; y < c.H; y++) if (is(c.top[y * c.W + x], cloth)) { high = y; break; }
+          for (let y = high; y < low; y++) if (is(c.top[y * c.W + x], shin)) leg++; }
+        bad('cloak', cl / Z2, tag); bad('knee', knee / Z2, tag); if (!dx) bad('leg', leg / Z2, tag); else bad('kick', robeKick(spr, J), tag);
+        const rows = []; for (let y = 0; y < c.H; y++) { let m = 0, o = 0; for (let x = 0; x < c.W; x++) { const i = y * c.W + x; if (!is(c.top[i], cloth)) continue; m++; if (orange(at(i))) o++; } rows.push({ m, o }); }
+        const bands = []; for (let y = 0; y < c.H; y++) { let m = 0, o = 0; for (let x = 0; x < c.W; x++) { const q = y * c.W + x; if (!is(c.top[q], hems)) continue; m++; if (orange(at(q))) o++; }
+          if (!(m && o >= SHARE * m)) continue; const B = bands[bands.length - 1]; if (B && y - B[1] <= GAP * Z) B[1] = y; else bands.push([y, y]); }
+        bad('bands', bands.length, tag);
+        const hem = rows.findIndex((r) => r.m && r.o >= 0.5 * r.m), top = Math.round((hem < 0 ? c.H : hem) * UPPER); let tw = 0; for (let y = 0; y < top; y++) { let o = 0; for (let x = 0; x < c.W; x++) { const i = y * c.W + x; if (is(c.top[i], skirt) && orange(at(i))) o++; } tw = Math.max(tw, o / Z); }
+        bad(way === 'arch' ? 'trimA' : 'trim', tw, tag);
+      } }
+    if (worst.cloak[0] > CLOAK) out.push(`mage front: a cloak shows ${worst.cloak[0].toFixed(1)} px² below the hip, ${worst.cloak[1]} (the robe alone)`);
+    if (worst.bands[0] > 1) out.push(`mage front: ${worst.bands[0]} trim bands below the hip, ${worst.bands[1]} (one, at the hem)`);
+    for (const [k, lim] of [['trim', TRIM.world], ['trimA', TRIM.arch]]) if (worst[k][0] > lim) out.push(`mage front: the skirt's front trim is ${worst[k][0].toFixed(1)} px wide, ${worst[k][1]} (one line, at most ${lim})`);
+    if (worst.leg[0] > LEG) out.push(`mage front: a shin shows over the robe by ${worst.leg[0].toFixed(1)} px², ${worst.leg[1]} (at most ${LEG})`);
+    if (worst.kick[0] > KICK) out.push(`mage front: the trailing boot stands ${worst.kick[0].toFixed(1)} px² out of the robe above its hem, ${worst.kick[1]} (at most ${KICK})`);
+    if (worst.knee[0] > KNEE) out.push(`mage front: a shin's navy top shows ${worst.knee[0].toFixed(1)} px², ${worst.knee[1]} (at most ${KNEE})`);
   }
   // (TASKS 2184) the hooded outfit's face in the world is the plain outfit's head (the small ref's cells: eye, brow, nose, the mage's grey
   // beard), laid into the hood's opening: of the pixels of each face block, at least SAME share equal the plain body's (the hood's own
   // drawn face voted into a brown blot with no eye); and the mage's world robe is darker and duller than the small ref's tone read
   // as too bright (mean luminance of its blue texels below the head at most BLUE_L and their spread of channels at most BLUE_S; it was 61 and 65)
+  // (TASKS 2199) the mage's hood face read at 36 px: SHADE's cells (row, first and last column) are his own, not the plain head's: the hair
+  // under the rim in the hood's shadow (mean luminance at most RIM_Y) and a grey brow over the near eye (between BROW_Y, neither skin
+  // nor an outline's black)
   function heroHoodCheck(out) {
     const SAME = 0.9, BLUE_L = 52, BLUE_S = 60, FACE = { mage: [[2, 7, 9, 14], [8, 10, 10, 14]], archer: [[3, 8, 11, 15]], hero: [[3, 8, 10, 14]] };
+    const SHADE = { mage: { rim: [2, 9, 13], brow: [5, 12, 13] } }, RIM_Y = 45, BROW_Y = [45, 80];
+    const luma = (t, i) => 0.3 * t.P[i * 4] + 0.59 * t.P[i * 4 + 1] + 0.11 * t.P[i * 4 + 2];
     for (const [rig, rects] of Object.entries(FACE)) { const hd = png(rig + '__body_hd'), body = png(rig + '__body'), cell = hd.H / 42; let n = 0, eq = 0;
+      const own = Object.values(SHADE[rig] || {}), mine = (x, y) => own.some(([r, c0, c1]) => Math.floor(y / cell) === r && Math.floor(x / cell) >= c0 && Math.floor(x / cell) <= c1);
+      for (const [k, [r, c0, c1]] of Object.entries(SHADE[rig] || {})) { let m = 0, l = 0;
+        for (let y = Math.ceil(r * cell); y < Math.ceil((r + 1) * cell); y++) for (let x = Math.ceil(c0 * cell); x < Math.ceil((c1 + 1) * cell); x++) { const i = y * hd.W + x; if (hd.A[i] >= 128) { m++; l += luma(hd, i); } }
+        const v = m ? l / m : 0;
+        if (k === 'rim' && !(m && v <= RIM_Y)) out.push(`hood face: ${rig}__body_hd hair under the rim luminance ${v.toFixed(0)} (the hood's shadow, at most ${RIM_Y})`);
+        if (k === 'brow' && !(m && v >= BROW_Y[0] && v <= BROW_Y[1])) out.push(`hood face: ${rig}__body_hd brow luminance ${v.toFixed(0)} (${BROW_Y.join('..')})`); }
       for (const [r0, r1, c0, c1] of rects) for (let y = Math.round(r0 * cell); y < Math.round((r1 + 1) * cell); y++) for (let x = Math.round(c0 * cell); x < Math.round((c1 + 1) * cell); x++) {
-        const i = y * hd.W + x; if (hd.A[i] < 128 && body.A[i] < 128) continue; n++;
+        const i = y * hd.W + x; if (hd.A[i] < 128 && body.A[i] < 128 || mine(x, y)) continue; n++;
         if (hd.A[i] >= 128 === body.A[i] >= 128 && hd.P[i * 4] === body.P[i * 4] && hd.P[i * 4 + 1] === body.P[i * 4 + 1] && hd.P[i * 4 + 2] === body.P[i * 4 + 2]) eq++; }
       if (eq < SAME * n) out.push(`hood face: ${rig}__body_hd shares ${(100 * eq / n).toFixed(0)} % of its face block with ${rig}__body (at least ${SAME * 100})`); }
     const t = png('mage__body'); let k = 0, lum = 0, sat = 0;
@@ -327,6 +513,7 @@
   SIMX.checks.add('heroCapeCheck', heroCapeCheck);
   SIMX.checks.add('heroBackCheck', heroBackCheck);
   SIMX.checks.add('heroHoodCheck', heroHoodCheck);
+  SIMX.checks.add('heroRobeCheck', mageFrontRobe);
   SIMX.checks.add('warriorFistCheck', warriorFistCheck);
   SIMX.checks.add('archerFistCheck', archerFistCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

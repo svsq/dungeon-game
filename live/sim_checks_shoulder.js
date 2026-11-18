@@ -64,7 +64,7 @@
     drawHero(Object.assign({}, R.hero, p.h), 300, 300, p.GT, heroSt(S), p.o);
     const rig = D.CLASSES[p.cls].look.rig + '__', H = J.ground[1] - J.top[1], sh = J.shL, el = J.elbowL, up = Math.hypot(el[0] - sh[0], el[1] - sh[1]);
     const x0 = Math.floor((sh[0] - SIDE * H) * Z), x1 = Math.ceil((sh[0] + SIDE * H) * Z), y0 = Math.floor((sh[1] - ABOVE * H) * Z), y1 = Math.ceil((sh[1] + upper * up + LOW * H) * Z);
-    const W = x1 - x0, Hh = y1 - y0, fig = new Uint8Array(W * Hh), kind = new Uint8Array(W * Hh), dk = new Uint8Array(W * Hh), rgba = img ? new Uint8Array(W * Hh * 4) : null;
+    const W = x1 - x0, Hh = y1 - y0, fig = new Uint8Array(W * Hh), fig0 = new Uint8Array(W * Hh), kind = new Uint8Array(W * Hh), dk = new Uint8Array(W * Hh), rgba = img ? new Uint8Array(W * Hh * 4) : null;
     if (rgba) for (let i = 0; i < W * Hh; i++) { rgba[i * 4] = 24; rgba[i * 4 + 1] = 40; rgba[i * 4 + 2] = 24; rgba[i * 4 + 3] = 255; }
     const uarms = spr.filter((q) => q.n.startsWith(rig + 'uarmL')), sockQ = uarms.length > 1 ? uarms[0] : null;
     for (const q of spr) {
@@ -77,17 +77,19 @@
         const X = (x0 + px + 0.5) / Z - e, Y = (y0 + py + 0.5) / Z - f, lx = (d * X - c * Y) / det + o.pivot[0], ly = (-b * X + a * Y) / det + o.pivot[1];
         const u = Math.floor(lx / o.w * t.W), v = Math.floor(ly / o.h * t.H); if (u < 0 || v < 0 || u >= t.W || v >= t.H) continue;
         const k = (v * t.W + u) * 4; if (t.P[k + 3] < 128) continue;
-        const i = py * W + px; if (own) fig[i] = 1;
+        const i = py * W + px; if (own) fig[i] = 1; if (own && k0 !== 4) fig0[i] = 1;
         kind[i] = k0; dk[i] = lstar(t.P[k], t.P[k + 1], t.P[k + 2]) < INK ? 1 : 0;
         if (rgba) for (let ch = 0; ch < 3; ch++) rgba[i * 4 + ch] = t.P[k + ch]; }
     }
     const rx = Math.round(REACH[0] * H * Z), ry = Math.round(REACH[1] * H * Z), has = (x, y) => fig[y * W + x], ax = (el[0] - sh[0]) / up, ay = (el[1] - sh[1]) / up;
     const RG = RIGS()[D.CLASSES[p.cls].look.rig], bq = spr.find((q) => q.n.startsWith(rig + 'body')), m = bq.o.m, fX = Math.sign(m[0] * m[3] - m[1] * m[2]);
-    let n = 0, nd = 0, ns = 0; const pts = [], sx = Math.round(SEAM * Z), rl = Math.round(LINE * Z);
+    const shut = (F, x, y) => { let l = 0, rr = 0, u = 0, dn = 0; for (let k = 1; k <= rx && !(l && rr); k++) { l = l || (x - k >= 0 && F[y * W + x - k]); rr = rr || (x + k < W && F[y * W + x + k]); }
+      for (let k = 1; k <= ry && !(u && dn); k++) { u = u || (y - k >= 0 && F[(y - k) * W + x]); dn = dn || (y + k < Hh && F[(y + k) * W + x]); } return l && rr && u && dn; };
+    let n = 0, nd = 0, ns = 0, no = 0; const pts = [], sx = Math.round(SEAM * Z), rl = Math.round(LINE * Z);
     for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) { const i = y * W + x;
       const qx = (x0 + x + 0.5) / Z - sh[0], qy = (y0 + y + 0.5) / Z - sh[1], along = qx * ax + qy * ay, off = Math.abs(qx * ay - qy * ax);
       if (along < -ABOVE * H || along > upper * up || off > NEAR * H) continue;
-      if (kind[i] === 4) ns++;
+      if (kind[i] === 4) { ns++; const out = !shut(fig0, x, y); if (out) no++; if (rgba) { rgba[i * 4] = 255; rgba[i * 4 + 1] = out ? 120 : 230; rgba[i * 4 + 2] = 0; } }
       if (kind[i] === 2 && dk[i] && along <= up) { let arm = false, run = 0; for (let k = 1; k <= sx; k++) { const xx = x - fX * k; if (xx < 0 || xx >= W) break; const kk = kind[i - fX * k];
           if (kk === 3 || kk === 4) { arm = true; break; } if (kk !== 2 || !dk[i - fX * k]) break; }
         for (let xx = x; xx >= 0 && xx < W && kind[y * W + xx] === 2 && dk[y * W + xx] && run <= rl; xx += fX) run++;
@@ -101,7 +103,9 @@
     const turn = fX * (((va - ra) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
     const bi = (q) => { const [a, b, c, d, e, f] = m, det = a * d - b * c, X = q[0] - e, Y = q[1] - f; return [(d * X - c * Y) / det + bq.o.pivot[0], (-b * X + a * Y) / det + bq.o.pivot[1]].map((v, k) => v / (k ? bq.o.h : bq.o.w) * (k ? RG.h : RG.w)); };
     const back = spr.some((q) => q.n.startsWith(rig + 'body_back') && !(q.o.u && q.o.u.alpha < 0.5));
-    return { gap: n / Z / Z, dark: nd / Z / Z, sock: ns / Z / Z, n, z: Z, turn, back, rigPts: pts.map(bi), img: rgba ? { W, H: Hh, rgba } : null };
+    const fc = SIMX.heroLayers.compose(spr, [J.ground[0] - 60, J.ground[1] - 1.3 * H, J.ground[0] + 60, J.ground[1] + 6], WZ); let nw = 0;
+    for (const t of fc.top) if (t >= 0 && spr[t].n.includes('_sock')) nw++;
+    return { gap: n / Z / Z, dark: nd / Z / Z, sock: ns / Z / Z, sockOut: no / Z / Z, sockAll: nw / WZ / WZ, n, z: Z, turn, back, rigPts: pts.map(bi), img: rgba ? { W, H: Hh, rgba } : null };
   }
   // (TASKS 2191) the torso textures' near side under the arm: per row from the armpit (ARMPIT of the upper arm under the shoulder) to the
   // hip, the transparent px between the near arm where it lies in every moment of the rest (arch and world, both facings: the rightmost px
@@ -110,7 +114,7 @@
   const ARMPIT = 0.25, HOLE = 150;
   function torsoHoles(drawHero, L) {
     const out = [];
-    for (const cls of ['warrior', 'archer']) for (const kit of KITS[cls].filter((k) => !k.offhand)) {
+    for (const cls of Object.keys(KITS)) for (const kit of KITS[cls].filter((k) => !k.offhand)) {
       const reach = {}, rigN = D.CLASSES[cls].look.rig, RG = RIGS()[rigN];
       for (const p of poses(cls, false).map((p) => Object.assign({}, p, { kit }))) {
         const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R;
@@ -136,18 +140,20 @@
   // Every pose of poses() for every class seen from the front: the gap at most MAX world px² in the world (a corner where an arm folded to
   // the chest meets it) and ARCH in the arch, measured at the arch's own density (a texel, Z per world px: its ×3.2 shows a wedge of 0.3
   // world px² as 3 px²); at rest no more than DARK world px² of dark torso by the arm (a clean one-px outline is 1.3) and SOCK of the
-  // 2188 copy showing, warrior and archer. The mage keeps 2188's window and limit (MAGE): his robe hangs past the torso's edge, and his
-  // gaps by the hand at the orb (0.3-1.8 world px² in the arch, up to 6.6 in a dash) are TASKS 2194's. The back view's frames of a turn
-  // or a whirl are counted by tools/measure/shoulders2188/sweep.cjs, not here
-  const MAX = 2, ARCH = 0.3, ZA = 360 / 84, DARK = 1.5, SOCK = 1, MAGE = { upper: 0.85, max: 2 };
+  // 2188 copy showing, every class (TASKS 2194: the mage too). The back view's frames of a turn or a whirl are counted by
+  // tools/measure/shoulders2188/sweep.cjs, not here
+  // (TASKS 2201) and in every other pose the copy, upper arm and forearm, shows over at most SOCK_ACT world px² of the whole figure
+  // (sampled WZ per px): in a dash, a charge, the whirl and the cry the forearm's copy hung from the trailing elbow under the arm flung
+  // out, 100–130 px², and the upper arm's filled the open armpit, 35–40; the charge's first frames need ~20 of it to close a slot of 8
+  const MAX = 2, ARCH = 0.3, ZA = 360 / 84, DARK = 1.5, SOCK = 1, SOCK_ACT = 25, WZ = 1;
   function heroShoulderCheck(out) {
     const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, SIM, SB.assets()), seen = new Set();
     const say = (p, s) => { const k = p.tag.replace(/[\d./+-]+/g, '') + s.replace(/[\d.]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`hero shoulder: ${p.tag}: ${s}`); } };
-    for (const cls of Object.keys(KITS)) for (const p of poses(cls)) { const arch = !!p.o.menu, mage = cls === 'mage';
-      const r = shoulderGap(drawHero, L, p, arch ? ZA : 4, false, mage ? MAGE.upper : UPPER), lim = mage ? MAGE.max : arch ? ARCH : MAX;
+    for (const cls of Object.keys(KITS)) for (const p of poses(cls)) { const arch = !!p.o.menu;
+      const r = shoulderGap(drawHero, L, p, arch ? ZA : 4), lim = arch ? ARCH : MAX;
       if (r.back) continue;
       if (r.gap > lim) say(p, `a gap of ${r.gap.toFixed(2)} world px² at the near shoulder (at most ${lim})`);
-      if (mage || !/rest/.test(p.tag)) continue;
+      if (!/rest/.test(p.tag)) { if (r.sockAll > SOCK_ACT) say(p, `the copy of the near arm shows over ${r.sockAll.toFixed(1)} world px² of the figure (at most ${SOCK_ACT})`); continue; }
       if (r.dark > DARK) say(p, `${r.dark.toFixed(2)} world px² of dark torso beside the near sleeve (at most ${DARK})`);
       if (r.sock > SOCK) say(p, `the copy of the upper arm shows over ${r.sock.toFixed(2)} world px² (at most ${SOCK})`); }
     out.push(...torsoHoles(drawHero, L));

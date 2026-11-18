@@ -1,12 +1,13 @@
 """CIELab (D65) round trip for part post-fixes, the same space as the critics' measures (tools/measure/fidelity/labc.py), and the
 source/install bookkeeping the *_2152.py / *_2154.py fixes share: every fix reads the frozen copy art/old/<name>-<STAMP>.png when it
-exists, so running it again starts from the same pixels instead of fixing a fix."""
+exists, so running it again starts from the same pixels instead of fixing a fix (FRESH: art/gen is the source and is frozen again)."""
 import os, shutil
 import numpy as np
 from PIL import Image
 
 M = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]])
 WP = np.array([0.95047, 1.0, 1.08883])
+FRESH = False
 
 
 def lab(rgb):
@@ -28,7 +29,7 @@ def lch(L, A, B):
 
 def source(name, stamp):
     old = f'art/old/{name}-{stamp}.png'
-    return np.array(Image.open(old if os.path.exists(old) else f'art/gen/{name}.png').convert('RGBA'))
+    return np.array(Image.open(old if os.path.exists(old) and not FRESH else f'art/gen/{name}.png').convert('RGBA'))
 
 
 def write(name, arr, stamp, out):
@@ -36,5 +37,5 @@ def write(name, arr, stamp, out):
     if out != 'install':
         os.makedirs(out, exist_ok=True); Image.fromarray(arr.astype(np.uint8)).save(os.path.join(out, name + '.png')); return
     old = f'art/old/{name}-{stamp}.png'
-    if not os.path.exists(old): shutil.copy(f'art/gen/{name}.png', old)
+    if FRESH or not os.path.exists(old): shutil.copy(f'art/gen/{name}.png', old)
     Image.fromarray(arr.astype(np.uint8)).save(f'art/gen/{name}.png')

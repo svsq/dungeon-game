@@ -20,12 +20,13 @@ function heroBox(D, SIM, sizes) { const { box, L, calls } = stage(D, SIM, sizes)
 function monsterBox(D) { const { box } = stage(D, null); vm.runInContext(src('monsters.js'), box); return box.MONSTERS; }
 // rigs() → window.RIGS as the page has it once live/rigs.js has run: the file is run, not parsed, so all it assigns counts
 // hudBox(D, SIM, fontW) → HUD as hud.js leaves it, over stub drawing: its geometry (HUD.markZones) measures text by fontW, the
-// TTF's advances, as the page's canvas does; KIT is the kit it draws with, for a check to watch its buttons and inks
+// TTF's advances, as the page's canvas does; KIT is the kit it draws with, for a check to watch its buttons and inks; L and the page's
+// globals (page) for a check to watch its sprites or stand in a scene (SCENE.menuHero)
 function hudBox(D, SIM, fontW) { const size = { w: 10, h: 10 }, L = new Proxy({ labelW: (id, s, o = {}) => fontW(s, o.size || 26, !!o.bold), SS: (e0, e1, x) => { const q = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return q * q * (3 - 2 * q); }, UI: [] },
     { get: (t, k) => (k in t ? t[k] : () => size) });
   const box = { Math, Object, Array, JSON, Number, String, Set, Map, WeakMap, Float32Array, Float64Array, Infinity, console, SIM, DATA: D, TEXT: globalThis.TEXT, TXT: globalThis.TXT, LIB: L, G: new Proxy({ w: 1920, h: 1080, oy: 0, tex: () => size }, { get: (t, k) => (k in t ? t[k] : () => size) }), ASSETS: new Proxy({}, { get: () => size }) };
   box.window = box; box.globalThis = box; vm.createContext(box); for (const f of ['sizes.js', 'hud_kit.js', 'hud.js']) vm.runInContext(src(f), box, { filename: f });
-  return { HUD: box.HUD, SIZES: box.SIZES, KIT: box.KIT }; }
+  return { HUD: box.HUD, SIZES: box.SIZES, KIT: box.KIT, L, page: box }; }
 function rigs() { const page = {}; page.window = page; vm.createContext(page); vm.runInContext(src('rigs.js'), page); return page.RIGS; }
 // assets() → window.ASSETS as assets.js leaves it: each texture's size, for a sandbox that places sprites by their real proportions
 function assets() { const page = {}; page.window = page; vm.createContext(page); vm.runInContext(src('assets.js'), page); return page.ASSETS; }

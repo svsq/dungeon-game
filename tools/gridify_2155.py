@@ -18,10 +18,14 @@ The alpha is not touched: the silhouette, the joints and the ink outline are as 
 nearly 1:1, so every front part without a drawn _menu copy gets one, the source as drawn (drawHero's fine() picks it in the arch). The first run keeps each source in
 art/old/<name>-20261117-2155.png and every later run starts from it, so the step can be tuned and run again.
   python3 tools/gridify_2155.py preview OUT.png <name…>    before/after on the world grid ×8, with the numbers
-  python3 tools/gridify_2155.py run [<rig|name>…]          write art/gen (then tools/prep.py --only the printed names)"""
+  python3 tools/gridify_2155.py run [<rig|name>…] [--rig R] [--fresh]   write art/gen (then tools/prep.py --only the printed names)
+A rig or a part of a new look (hero_b, mage_c__body) is worked on when named (tools/rigarg.py); --fresh takes art/gen as the drawn
+source again (a new cut) instead of the frozen 2155 copy."""
 import glob, json, os, re, sys
 import numpy as np
 from PIL import Image
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rigarg
 
 ROWS = 42
 TAG = '20261117-2155'
@@ -199,13 +203,14 @@ def meanlab(a):
     op = a[..., 3] >= 128; return oklab(a[..., :3][op].astype(float)).mean(0) * 100
 
 drawn = lambda n: '__head_' in n or '_hd' in n
-src_of = lambda n: f'art/old/{n}-{TAG}.png' if os.path.exists(f'art/old/{n}-{TAG}.png') else f'art/gen/{n}.png'
+FRESH = False
+src_of = lambda n: f'art/old/{n}-{TAG}.png' if os.path.exists(f'art/old/{n}-{TAG}.png') and not FRESH else f'art/gen/{n}.png'
 load = lambda p: np.array(Image.open(p).convert('RGBA'))
 
 def parts(sel):
     R = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))
     out = []
-    for rig in RIGS:
+    for rig in RIGS + tuple(dict.fromkeys(s.split('__')[0] for s in sel if s.split('__')[0] not in RIGS)):
         for p in sorted(glob.glob(f'art/gen/{rig}__*.png')):
             n = os.path.basename(p)[:-4]
             if n.endswith('_menu') or n.endswith('_w'): continue
@@ -242,7 +247,7 @@ def run(sel):
     done = []
     for n in parts(sel):
         old = f'art/old/{n}-{TAG}.png'
-        if not os.path.exists(old): Image.open(f'art/gen/{n}.png').save(old)
+        if FRESH or not os.path.exists(old): Image.open(f'art/gen/{n}.png').save(old)
         a = load(old); b = gridify(a, drawn(n))[0]; Image.fromarray(b).save(f'art/gen/{n}.png')
         if '_back' not in n and not os.path.exists(f'art/gen/{n}_menu.png'):
             Image.open(old).save(f'art/gen/{n}_menu.png'); done.append(n + '_menu')
@@ -253,7 +258,8 @@ def run(sel):
 
 if __name__ == '__main__':
     os.chdir(os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    rigs, FRESH = rigarg.take(())
     cmd = sys.argv[1] if len(sys.argv) > 1 else ''
     if cmd == 'preview': preview(sys.argv[2], sys.argv[3:])
-    elif cmd == 'run': run(set(sys.argv[2:]))
+    elif cmd == 'run': run(set(sys.argv[2:]) | set(rigs))
     else: print(__doc__)

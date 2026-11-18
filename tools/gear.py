@@ -9,11 +9,17 @@ searched for the best alpha overlap), so its pivots stay the rig's. The red cape
 pixels come back from the original. Outfits that keep the head get the original head back; near (R) limbs are built from the far
 ones and lit as nearer the camera, as herofix.py does for the plain hero. A helmet is a whole head: the body under it is drawn
 without its own head (hero__body*_nh, written here for every armour), so no hair pokes out of the helmet.
+
+  python3 tools/gear.py make|cut --rig R [SET..]   a new look (TASKS 2148, docs/LOOKS_2148.md §5): its class's sets on its own parts,
+      named <rig>_<set> (hero_b_shirt, mage_c_leather: gear_<that>_tpl.png, gear_<that>.png, art/gear.json); its head rows are
+      NEW_LOOK's row of the rig, or art/look_params.json {rig: {gear: {NEW_LOOK: {body, body_back}}}}
 """
-import colorsys, json, re, sys
+import colorsys, json, os, re, sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage as nd
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rigarg
 
 W, H = 1536, 1024
 GEN = 'art/gen'
@@ -49,6 +55,20 @@ SETS = {
     'archer_helm_le': ('hle', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]], {'src': 'archer', 'out': 'archer'}),
 }
 opt = lambda name: (SETS[name][3] if len(SETS[name]) > 3 else {})
+
+def look_sets(rig, names):
+    """a new look's sets: each set its class paints on its own parts (src the class's rig, not a base set) copied as <rig>_<set>
+    with src and out the look's rig; names picks among them by the class's set names (shirt, mage_leather) or the new ones"""
+    b = rigarg.base(rig)
+    NEW_LOOK[rig] = rigarg.head(rig)
+    made = []
+    for name in list(SETS):
+        o = opt(name)
+        if o.get('src', 'hero') != b or o.get('base'): continue
+        new = rig + name[len(b):] if name.startswith(b + '_') else f'{rig}_{name}'
+        SETS[new] = SETS[name][:3] + (dict(o, src=rig, out=rig),)
+        if not names or name in names or new in names: made.append(new)
+    return made
 BG = (58, 58, 68, 255)
 
 load = lambda p: np.array(Image.open(p).convert('RGBA')).astype(float)
@@ -178,8 +198,8 @@ def cut(names):
             bgd = np.abs(out[..., :3] - np.array(BG[:3])).sum(-1) < 30
             lab, _ = nd.label(bgd | (out[..., 3] < 24)); edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
             out[np.isin(lab, list(edge)), 3] = 0
-            skip = None; iou, a = fit(out, orig); a = clean(a, one=out_ != 'hero'); piece = it['piece']
-            if piece == 'body': a = clean(armless(a, out_), one=out_ != 'hero')
+            skip = None; iou, a = fit(out, orig); a = clean(a, one=rigarg.base(out_) != 'hero'); piece = it['piece']
+            if piece == 'body': a = clean(armless(a, out_), one=rigarg.base(out_) != 'hero')
             if piece in ('body', 'body_back') and not base:
                 full = load(f'{GEN}/{who}__{piece}.png'); keep = red(full) & ((np.arange(full.shape[0])[:, None] > 110) if sfx == 'hd' else True)
                 if who in NEW_LOOK: keep[:] = False
@@ -195,10 +215,17 @@ def cut(names):
             if piece.endswith('L'): put(near(a, piece[:-1], who), nm(piece[:-1] + 'R', sfx))
             if piece in ('body', 'body_back'):
                 nh = a.copy(); nh[:head_of(who, piece)] = 0; put(nh, nm(piece, (sfx + '_nh') if sfx else 'nh'))
-    if all(opt(n).get('out', 'hero') == 'hero' for n in names):   # (a class's sets leave the hero's parts alone)
+    outs = {opt(n).get('out', 'hero') for n in names}
+    # (TASKS 2148) a new look's sets leave its plain parts' headless copies to be made here too: no base set paints it
+    who = 'hero' if outs <= {'hero'} else next(iter(outs)) if len(outs) == 1 and not rigarg.accepted(next(iter(outs))) else None
+    if who:   # (a class's sets leave the hero's parts alone)
         for v in ('body', 'body_back'):   # the plate armour (the hero as drawn) without its head, under a helmet
-            nh = load(f'{GEN}/hero__{v}.png'); nh[:head_of('hero', v)] = 0; save(nh, f'hero__{v}_nh')
+            nh = load(f'{GEN}/{who}__{v}.png'); nh[:head_of(who, v)] = 0; save(nh, f'{who}__{v}_nh')
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'make': make(sys.argv[2:] or None)
-    else: cut(sys.argv[2:] or [n for n in SETS])
+    rigs, _ = rigarg.take(())
+    if rigs:
+        sel = [n for r in rigs for n in look_sets(r, sys.argv[2:])]
+        if not sel: sys.exit(f'no set of {rigs} among {sys.argv[2:]}')
+    if sys.argv[1] == 'make': make((sel if rigs else sys.argv[2:]) or None)
+    else: cut(sel if rigs else sys.argv[2:] or [n for n in SETS])

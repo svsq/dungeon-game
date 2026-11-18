@@ -32,6 +32,8 @@
   // the start screen's difficulty tabs over the cards; the hardcore checkbox under the name field with its label, the hit rect
   // covering both (TASKS 2108: a tab is one view of a group, an on-or-off mode is a checkbox)
   const CLS_TABS = { y: 44, h: 60, w: 300, gap: 16 }, CLS_HARD = { gap: 10, w: 220, h: 44 };
+  // (TASKS 2148) a card's looks with art of their own (two at least, D.looksShown): square cells down the left of its portrait (x, y from the card's corner), as tall together as it is
+  const CLS_LOOK = { x: 64, y: 38, s: 64, gap: 4 };
   // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
   const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
   // five save slots: five rows of a portrait and four columns fill the left page at a readable size, as on ref_ui_saves_b
@@ -60,10 +62,11 @@
     // the start screen (TASKS 1103, 1304): the difficulty's tabs over the class cards, a card a ready class, side by side, the start
     // and back buttons under them
     // with no kit to choose (a first hero) the cards lose the kit button's row, or about 70 px of each stay empty (TASKS 1757)
-    classes: (meta) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2, T = CLS_TABS, dl = D.DIFF_ORDER, Hc = CLS_HARD;
+    classes: (meta, allLooks) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2, T = CLS_TABS, dl = D.DIFF_ORDER, Hc = CLS_HARD;
       const tx = 960 - (dl.length * T.w + (dl.length - 1) * T.gap) / 2, NM = { x: 660, w: 520, h: 68 };
       const CH = ids.some((id) => D.kitsOf(id, meta).length > 1) ? 696 : 650, by = 182 + CH + 18;
-      return ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 60, y: 762, w: W - 120, h: 44 }))
+      const LK = CLS_LOOK, looks = ids.flatMap((id, i) => D.looksShown(id, allLooks).map((look, j) => ({ id: `look:${id}:${look}`, lcls: id, look, on: true, x: x0 + i * (W + gap) + LK.x, y: 182 + LK.y + j * (LK.s + LK.gap), w: LK.s, h: LK.s })));
+      return looks.concat(ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 60, y: 762, w: W - 120, h: 44 })))
         .concat(dl.map((d, i) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: tx + i * (T.w + T.gap), y: T.y, w: T.w, h: T.h })))
         .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 182, w: W, h: CH })))
         // the hero's name between «Назад» and «В путь» (TASKS 1879): the field, and the die that throws a name into it

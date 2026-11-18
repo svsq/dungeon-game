@@ -3,10 +3,19 @@
 (function (root) {
   const D = root.DATA || (root.DATA = {}), { UI } = D;
   const { SHOP, SLOTS, STASH } = D;
-  const { CELL, STEP, grid, sortCol, paperClose, bagGrid, tabRow } = UI.kit;
+  const { CELL, STEP, grid, sortCol, paperClose, bagGrid, tabRow, portIn, PORT } = UI.kit;
   const CARD_PAD = 16;
   // the ring's window: a row's step and the gap under it, and the height the rows may take at most (a campaign's halls and two ways more)
   const GATE = { y: 190, top: 40, bottom: 1000, head: 200, foot: 90, row: 84, gap: 12, text: 108, end: 40 };
+  // the journal and the notes are one book (TASKS 2176): its pages' writing areas as KIT.book lays them out, the tabs over the right
+  // page, «Закрыть» under the book as the saves' «Назад»
+  const JOURNAL_BOOK = { x: 160, y: 64, w: 1600, h: 880 }, TAB = { w: 280, gap: 10, y: 92, h: 52 };
+  const JOURNAL = { max: 10, top: 100, step: 72, h: 66, pad: 30, bar: 24 }, NOTES_LIST = { per: 12, top: 100, step: 54, h: 48, pad: 30, foot: 110, btn: 190 };
+  const BOARD = { rows: 6, top: 136, step: 104, h: 96, side: 40, btn: 200, btnR: 30, foot: 92, base: 248, w: 1660, wNone: 1200, none: 190 };
+  const bookPages = (B) => ({ lx: B.x + 62, lw: B.w / 2 - 110, rx: B.x + B.w / 2 + 48, rw: B.w / 2 - 110 });
+  const bookTabs = (B, G, list) => { const x0 = G.rx + (G.rw - (list.length * TAB.w + (list.length - 1) * TAB.gap)) / 2;
+    return list.map(([id, label], i) => ({ id, label, on: true, tab: 1, x: x0 + i * (TAB.w + TAB.gap), y: B.y + TAB.y, w: TAB.w, h: TAB.h })); };
+  const bookClose = (B) => ({ id: 'close', label: TXT('UI.paper.close'), on: true, x: 960 - 150, y: B.y + B.h + 6, w: 300, h: 60 });
   UI.add('town', {
     // a town workshop (TASKS 1013): the worn gear in a row and the bag under it on the left, the chosen piece, its affixes, the price
     // and the work's button on the right
@@ -23,28 +32,44 @@
       const gap = 20, w = Math.min(290, Math.floor((P.w - 340 - gap * (ids.length - 1)) / ids.length)), label = { craft: TXT('UI.talk.label'), talk: TXT('UI.talk.talk') };
       const r = ids.map((id, i) => ({ id, label: label[id] || '', on: true, x: P.x + P.w - 40 - w - i * (w + gap), y: P.y + P.h - 92, w, h: 64 }));
       if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 }));
-      // placed by its own size alone, a likeness ran out of its frame at the feet, and a wide one at the side (TASKS 1994)
-      const F = { x: P.x + 34, y: P.y + 44, w: 232, h: P.h - 88 }, pad = 10,
-        face = (sw, sh) => { const k = Math.min(230 / sh, (F.w - 2 * pad) / sw, (F.h - 2 * pad) / sh), w = sw * k, h = sh * k; return { x: F.x + F.w / 2 - w / 2, y: F.y + F.h - pad - h, w, h }; };
-      return { P, r, F, face }; },
+      // the likeness fills its frame's well from the head down at one margin (TASKS 2176, UI.kit.portIn): placed by its own size
+      // alone it ran out of its frame at the feet, and a wide one at the side (TASKS 1994)
+      const F = { x: P.x + 34, y: P.y + 44, w: PORT.frames.talk.w, h: PORT.frames.talk.h }, face = (sw, sh) => portIn(PORT.frames.talk, F.x, F.y, F.w, F.h, sw / sh);
+      return { P, r, F, face, paper: { x: P.x + 284, y: P.y + 24, w: P.w - 308, h: P.h - 48 } }; },
+    // a note picked up from the floor: a loose sheet in the middle of the view
+    note: () => ({ x: 460, y: 240, w: 1000, h: 500 }),
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
     // six rows, one per giver, leave the bottom to the close button
-    board: (n) => { const P = { x: 130, y: 60, w: 1660, h: 900 }, r = [];
-      for (let i = 0; i < Math.min(n, 6); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
-      r.push(paperClose(P)); return { P, r, text: { x: P.x + 700, w: P.w - 970 }, gap: 24 }; },
+    // TASKS 2176: a leather board of kit B, its banner over the top edge, each quest a torn parchment card pinned on it with its icon
+    // in a cell, its words in the middle and the wax «Взять» on the right; the board is as tall as its cards, and with none a narrow
+    // one holds the sheet that says so, so no bare leather is left round them
+    board: (n) => { const C = BOARD, k = Math.min(n, C.rows), w = n ? C.w : C.wNone, h = n ? C.base + k * C.step : C.top + C.none + 24 + C.foot,
+      P = { x: 960 - w / 2, y: Math.round((1080 - h) / 4) * 2, w, h }, r = [], cards = [];
+      for (let i = 0; i < Math.min(n, C.rows); i++) { const y = P.y + C.top + i * C.step;
+        cards.push({ i, x: P.x + C.side, y, w: P.w - 2 * C.side, h: C.h });
+        r.push({ id: 'take:' + i, i, x: P.x + P.w - C.side - C.btnR - C.btn, y: y + (C.h - 56) / 2, w: C.btn, h: 56 }); }
+      r.push({ id: 'close', label: TXT('UI.paper.close'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - C.foot, w: 300, h: 60 });
+      return { P, r, cards, none: { x: P.x + 60, y: P.y + C.top, w: P.w - 120, h: C.none }, text: { x: P.x + 700, w: P.w - 970 }, gap: 24 }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // past ten quests the list scrolls (TASKS 1884): nine rows from top, the tenth slot says how many more lie above and below
-    journal: (n, canDrop, top = 0) => { const P = { x: 330, y: 80, w: 1260, h: 880 }, r = [], many = n > 10, rows = many ? 9 : Math.min(n, 10), t = many ? Math.max(0, Math.min(n - 9, top | 0)) : 0;
-      for (let k = 0; k < rows; k++) r.push({ id: 'q:' + (t + k), i: t + k, x: P.x + 30, y: P.y + 110 + k * 68, w: 470, h: 60, pad: CARD_PAD });
-      if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
-      r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 290, y: P.y + 16, w: 230, h: 48 }, paperClose(P));
-      return { P, r, top: t, rows, more: many ? { above: t, below: n - t - rows, x: P.x + 30, y: P.y + 110 + 9 * 68, w: 470, h: 60 } : null }; },
+    // TASKS 2176: a book with its spine as the saves' (kit B), the list ruled on the left page, the chosen quest on the
+    // right under the tabs that switch to the notes; its banner over the top edge, «Закрыть» under the book
+    journal: (n, canDrop, top = 0) => { const B = JOURNAL_BOOK, G = bookPages(B), J = JOURNAL, r = [], many = n > J.max, rows = many ? J.max - 1 : Math.min(n, J.max), t = many ? Math.max(0, Math.min(n - rows, top | 0)) : 0;
+      const rw = G.lw - (many ? J.bar : 0);
+      for (let k = 0; k < rows; k++) r.push({ id: 'q:' + (t + k), i: t + k, x: G.lx, y: B.y + J.top + k * J.step, w: rw, h: J.h, pad: J.pad });
+      if (canDrop) r.push({ id: 'drop', on: true, label: '', x: G.rx + G.rw / 2 - 200, y: B.y + B.h - 130, w: 400, h: 58 });
+      const tabs = bookTabs(B, G, [['tab:quests', TXT('hud.tracker')], ['notes', '']]);
+      r.push(tabs[1], bookClose(B));
+      return { P: B, B, G, r, tabs, top: t, rows, text: { x: G.rx, y: B.y + 214, w: G.rw }, more: many ? { above: t, below: n - t - rows, x: G.lx, y: B.y + J.top + rows * J.step, w: rw, h: J.h } : null }; },
     // the first row shown: the one asked, moved just enough to keep the chosen quest (index si) in sight
-    journalTop: (n, si, top = 0) => (n <= 10 ? 0 : Math.max(0, Math.min(n - 9, Math.max(si - 8, Math.min(si, top | 0))))),
-    notes: (n, page) => { const P = { x: 330, y: 80, w: 1260, h: 880 }, r = [], per = 12, on = Math.min(per, Math.max(0, n - page * per));
-      for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: P.x + 30, y: P.y + 110 + i * 52, w: 470, h: 46, pad: CARD_PAD });
-      r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 130, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 130, w: 150, h: 52 });
-      r.push(paperClose(P)); return { P, r, per }; },
+    journalTop: (n, si, top = 0) => (n <= JOURNAL.max ? 0 : Math.max(0, Math.min(n - JOURNAL.max + 1, Math.max(si - JOURNAL.max + 2, Math.min(si, top | 0))))),
+    // the notes (TASKS 2176): the journal's book turned to its other tab, the titles on the left page, the chosen note on the right
+    notes: (n, page) => { const B = JOURNAL_BOOK, G = bookPages(B), N = NOTES_LIST, r = [], per = N.per, on = Math.min(per, Math.max(0, n - page * per));
+      for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: G.lx, y: B.y + N.top + i * N.step, w: G.lw, h: N.h, pad: N.pad });
+      const py = B.y + B.h - N.foot;
+      r.push({ id: 'prev', on: page > 0, label: '', x: G.lx, y: py, w: N.btn, h: 54 }, { id: 'next', on: (page + 1) * per < n, label: '', x: G.lx + G.lw - N.btn, y: py, w: N.btn, h: 54 });
+      const tabs = bookTabs(B, G, [['journal', TXT('hud.tracker')], ['tab:notes', TXT('hud.notes')]]);
+      r.push(tabs[0], bookClose(B)); return { P: B, B, G, r, tabs, per, page: { x: G.lx + G.lw / 2, y: py + 27 }, text: { x: G.rx, y: B.y + 214, w: G.rw } }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: (len, tab) => { const P = { x: 420, y: 90, w: 1080, h: 900 }, x0 = P.x + 80, sx = P.x + P.w - 300;
       const r = grid('stash', STASH.cells, x0, P.y + 190).concat(bagGrid(x0, P.y + 560, 'bag', undefined, len, tab), tabRow(x0, P.y + 504, len, 190));

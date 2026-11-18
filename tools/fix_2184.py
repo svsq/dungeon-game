@@ -7,7 +7,9 @@
          L -0.03), the plank down the chest (one cell wide already, so not narrower) a further notch duller: no bright orange cross of plank and belt under the brazier. The _menu copies stay
   olive  the archer's world mantle one cell row longer (body, body_nh, uarmL, uarmR), the olive the hood outfit does not wear
 Every source is kept once as art/old/<name>-20261118-2184.png and each run starts from it.
-  python3 tools/fix_2184.py hood|mage|olive   (then the printed prep line)"""
+  python3 tools/fix_2184.py hood|mage|olive   (then the printed prep line)
+  --rig R: hood on those rigs (a new look's FACE cells from art/look_params.json, else its class's), mage on a mage rig, olive on an
+  archer rig; --fresh: the frozen 2184 copies made again"""
 import os, shutil, sys
 import numpy as np
 from PIL import Image
@@ -15,14 +17,16 @@ from PIL import Image
 os.chdir(os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, 'tools')
 import gridify_2155 as G
+import rigarg
 
 TAG = '20261118-2184'
+RIGS, FRESH = None, False
 load = lambda p: np.array(Image.open(p).convert('RGBA'))
 save = lambda a, p: Image.fromarray(a).save(p)
 
 def keep(n):
     old = f'art/old/{n}-{TAG}.png'
-    if not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
+    if FRESH or not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
     return load(old)
 
 def cellmap(a):
@@ -33,7 +37,8 @@ HOOD_ROWS = 12
 SHADE = 0.27
 def hood():
     names = []
-    for rig, rects in FACE.items():
+    for rig in RIGS or FACE:
+        rects = rigarg.param(rig, 'fix_2184', 'FACE', FACE[rigarg.base(rig)])
         body, hd = load(f'art/gen/{rig}__body.png'), keep(f'{rig}__body_hd'); cid, W = cellmap(hd); out = hd.copy()
         cy, cx = cid // W, cid % W
         box = lambda r0, r1, c0, c1: (cy >= r0) & (cy <= r1) & (cx >= c0) & (cx <= c1)
@@ -63,7 +68,7 @@ CHEST = 13
 def mage():
     names = []
     for part in MAGE:
-        n = f'mage__{part}'; a = keep(n); cid, W = cellmap(a); cy, cx = cid // W, cid % W
+        n = f'{RIG}__{part}'; a = keep(n); cid, W = cellmap(a); cy, cx = cid // W, cid % W
         lab = G.oklab(a[..., :3].astype(float)); op = a[..., 3] >= 128
         C = np.hypot(lab[..., 1], lab[..., 2]); hue = np.degrees(np.arctan2(lab[..., 2], lab[..., 1])) % 360
         blue = op & (C > 0.04) & (hue > 250) & (hue < 310)
@@ -82,7 +87,7 @@ ARCHER = ['body', 'body_nh', 'uarmL', 'uarmR']
 def olive():
     names = []
     for part in ARCHER:
-        n = f'archer__{part}'; a = keep(n); cid, W = cellmap(a); cy, cx = cid // W, cid % W
+        n = f'{RIG}__{part}'; a = keep(n); cid, W = cellmap(a); cy, cx = cid // W, cid % W
         lab = G.oklab(a[..., :3].astype(float)); op = a[..., 3] >= 128
         C = np.hypot(lab[..., 1], lab[..., 2]); hue = np.degrees(np.arctan2(lab[..., 2], lab[..., 1])) % 360
         grn = op & (C > 0.04) & (hue > 100) & (hue < 140) & (lab[..., 0] < 0.6)
@@ -100,4 +105,10 @@ def olive():
     print('python3 tools/prep.py --only ' + ','.join(names))
 
 if __name__ == '__main__':
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ''; cls = {'mage': 'mage', 'olive': 'archer'}.get(cmd)
+    RIGS, FRESH = rigarg.take(())
+    if cls:
+        (RIG, *more) = RIGS or [cls]
+        if more or rigarg.base(RIG) != cls: sys.exit(f'one {cls} rig, not {RIGS}')
+        for k in ('MAGE', 'BLUE_L', 'BLUE_C', 'TRIM_L', 'TRIM_C', 'PLANK', 'PLANK_L', 'PLANK_C', 'CHEST', 'ARCHER'): globals()[k] = rigarg.param(RIG, 'fix_2184', k, globals()[k])
     {'hood': hood, 'mage': mage, 'olive': olive}.get(sys.argv[1] if len(sys.argv) > 1 else '', lambda: print(__doc__))()

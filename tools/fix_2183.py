@@ -10,7 +10,8 @@
   fist   mage__farmR and mage__cuffR: the world cells that stand out from 3-4 neighbours (speckle.py) repainted in a neighbour's
          tone, one at a time while the part's stray count drops
 Every source is kept once as art/old/<name>-20261118-2183.png and each run starts from it.
-  python3 tools/fix_2183.py backs|hair|fist   (then the printed gridify / prep lines)"""
+  python3 tools/fix_2183.py backs|hair|fist   (then the printed gridify / prep lines)
+  --rig R: a new look of the step's class (backs: a warrior's, hair and fist: a mage's), its HEAD from tools/rigarg.head; --fresh"""
 import os, shutil, sys
 import numpy as np
 from PIL import Image
@@ -18,21 +19,23 @@ from PIL import Image
 os.chdir(os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, 'tools')
 import gridify_2155 as G
+import rigarg
 
 TAG = '20261118-2183'
 HEAD = 60
+RIG, FRESH = None, False
 load = lambda p: np.array(Image.open(p).convert('RGBA'))
 save = lambda a, p: Image.fromarray(a).save(p)
 
 def keep(n):
     old = f'art/old/{n}-{TAG}.png'
-    if not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
+    if FRESH or not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
     return load(old)
 
 def backs():
     names = []
     for s in ('cl', 'pw', 'hd'):
-        pair, nh = f'hero__body_back_{s}', f'hero__body_back_{s}_nh'
+        pair, nh = f'{RIG}__body_back_{s}', f'{RIG}__body_back_{s}_nh'
         keep(nh)
         for src, dst in ((f'art/gen/{pair}.png', f'art/gen/{nh}.png'), (f'art/old/{pair}-{G.TAG}.png', f'art/old/{nh}-{G.TAG}.png')):
             a = load(src); a[:HEAD] = 0; save(a, dst)
@@ -56,12 +59,13 @@ HAIR = {'mage__head_back_ci': (BACK_LIFT, None, BACK_LO, BACK_C), 'mage__body_ba
         'mage__head_ci_menu': (0.0, None, HAIR_L, HAIR_C), 'mage__body_menu': (0.0, 48, HAIR_L, HAIR_C), 'mage__body_le_menu': (0.0, 48, HAIR_L, HAIR_C)}
 def hair():
     for n, (lift, rows, lo, cmax) in HAIR.items():
+        n = n.replace('mage__', f'{RIG}__', 1)
         a, k = cool(keep(n), lift, rows, lo, cmax); save(a, f'art/gen/{n}.png'); print(f'{n}: {k} hair px')
-    print('python3 tools/prep.py --only ' + ','.join(HAIR))
+    print('python3 tools/prep.py --only ' + ','.join(n.replace('mage__', f'{RIG}__', 1) for n in HAIR))
 
 def fist():
     C = 360 / G.ROWS
-    for n in ('mage__farmR', 'mage__cuffR'):
+    for n in (f'{RIG}__farmR', f'{RIG}__cuffR'):
         a = keep(n); h, w = a.shape[:2]; cur = G.strays(G.snapvote(a)).sum()
         for _ in range(6):
             v = G.snapvote(a); s = G.strays(v); cur = s.sum()
@@ -79,7 +83,13 @@ def fist():
             if best is None or best[0] >= cur: break
             a = best[1]
         print(f'{n}: strays {G.strays(G.snapvote(keep(n))).sum()} → {G.strays(G.snapvote(a)).sum()}'); save(a, f'art/gen/{n}.png')
-    print('python3 tools/prep.py --only mage__farmR,mage__cuffR')
+    print(f'python3 tools/prep.py --only {RIG}__farmR,{RIG}__cuffR')
 
 if __name__ == '__main__':
+    cls = {'backs': 'hero', 'hair': 'mage', 'fist': 'mage'}.get(sys.argv[1] if len(sys.argv) > 1 else '', 'hero')
+    (RIG, *more), FRESH = rigarg.take([cls])
+    if more or rigarg.base(RIG) != cls: sys.exit(f'one {cls} rig, not {[RIG, *more]}')
+    if not rigarg.accepted(RIG):
+        HEAD = rigarg.head(RIG)['body_back']; rows = rigarg.param(RIG, 'fix_2183', 'HAIR_ROWS', 48)
+        HAIR = {k: (lift, None if r is None else rows, lo, c) for k, (lift, r, lo, c) in HAIR.items()}
     {'backs': backs, 'hair': hair, 'fist': fist}.get(sys.argv[1] if len(sys.argv) > 1 else '', lambda: print(__doc__))()

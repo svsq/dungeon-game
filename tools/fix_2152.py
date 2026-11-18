@@ -5,14 +5,18 @@
   3. olive and leather lifted off the brown floor: olive lighter and greener than the ref's (L 43, a -8, b 32):
      the brazier light warms it, and only a greener texture still reads olive in the world, leather a step
      lighter; skin, hair (the head's rows) and the cream sleeves stay.
-  python3 tools/fix_2152.py OUT|install"""
+  python3 tools/fix_2152.py OUT|install [--rig R] [--fresh]
+--rig: a new archer look (archer_b): its head rows from tools/rigarg.head, the rest from art/look_params.json or the archer's;
+tools/archer_2170.py calls use() for it"""
 import json, re, sys
 import numpy as np
 sys.path.insert(0, 'tools')
+import labtone, rigarg
 from labtone import lab, rgb, lch, source, write
 
 STAMP = '20261117-2152'
-RIG = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))['archer']
+NAME = 'archer'
+RIG = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))[NAME]
 NECK, NECK_BACK = 77, 58                  # tools/gear.py NEW_LOOK archer: the cell head and beard above, kept as drawn
 CAP_R = 20                                # caps_2146 laid 16 px round sh; the rest catches its antialiased rim
 SLEEVE_TOP = 22                           # the mantle hangs this far below sh on the upper arm, the cream sleeve shows under it
@@ -91,13 +95,13 @@ def main(out):
     near = {s: np.hypot(xx - RIG['sh' + s][0], yy - RIG['sh' + s][1]) < CAP_R for s in 'LR'}
     caps = near['L'] | near['R']
     for n in BODIES + BACKS + LIMBS:
-        name = 'archer__' + n; a = source(name, STAMP)
+        name = f'{NAME}__' + n; a = source(name, STAMP)
         if n in CAPPED: a = mantle(a, caps)
         if n in ('uarmL', 'uarmR'):
             a = mantle(a, yy < RIG['sh' + n[-1]][1] + SLEEVE_TOP)
-        a = lift(a, NECK if n in BODIES else NECK_BACK if n in BACKS else 0)
+        a = lift(a, NECK if n in BODIES else NECK_BACK if n in BACKS else 0, LIFT)
         write(name, a, STAMP, out); print(name)
-    write('archer__quiver', quiver(source('archer__quiver', STAMP)), STAMP, out); print('archer__quiver')
+    write(f'{NAME}__quiver', quiver(source(f'{NAME}__quiver', STAMP)), STAMP, out); print(f'{NAME}__quiver')
 
 
 def colour(n, world):
@@ -105,13 +109,28 @@ def colour(n, world):
     yy, xx = np.mgrid[:360, :RIG['w']]
     caps = np.zeros(yy.shape, bool)
     for s in 'LR': caps |= np.hypot(xx - RIG['sh' + s][0], yy - RIG['sh' + s][1]) < CAP_R
-    if n == 'quiver': return quiver(source('archer__quiver', STAMP), world)
+    if n == 'quiver': return quiver(source(f'{NAME}__quiver', STAMP), world)
     if n == 'cape_hd': return cape_hd(colour('cape', world))
-    a = source('archer__' + n, STAMP)
+    a = source(f'{NAME}__' + n, STAMP)
     if n in CAPPED: a = mantle(a, caps)
     if n in ('uarmL', 'uarmR'): a = mantle(a, yy < RIG['sh' + n[-1]][1] + (SLEEVE_WORLD if world else SLEEVE_TOP))
     return lift(a, NECK if n in BODIES else NECK_BACK if n in BACKS else 0, WORLD if world else LIFT)
 
 
+def use(rig, fresh=False):
+    """the module's parts and numbers for rig: a new archer look's own, the archer's where it sets none"""
+    global NAME, RIG, NECK, NECK_BACK
+    if rigarg.base(rig) != 'archer': sys.exit(f'{rig}: not an archer rig')
+    labtone.FRESH = fresh
+    if rig == NAME: return
+    R = rigarg.read_rigs()
+    if rig not in R: sys.exit(f'{rig}: no RIGS.{rig} in live/rigs.js')
+    NAME, RIG = rig, R[rig]
+    hd = rigarg.head(rig); NECK, NECK_BACK = hd['body'], hd['body_back']
+    for k in ('CAP_R', 'SLEEVE_TOP', 'SLEEVE_WORLD', 'Q_SHIFT', 'LIFT', 'WORLD', 'Q_WORLD', 'HD_CLOAK'): globals()[k] = rigarg.param(rig, 'fix_2152', k, globals()[k])
+
+
 if __name__ == '__main__':
-    main(sys.argv[1])
+    (rig, *more), fresh = rigarg.take([NAME])
+    if more: sys.exit('one archer rig')
+    use(rig, fresh); main(sys.argv[1])

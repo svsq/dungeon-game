@@ -20,6 +20,9 @@
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
       // TASKS 1815: the menu shows the saved run's hero, a mage or an archer, not the painted warrior
       ...['mage', 'archer'].map((c) => ['menu_continue_' + c, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: c }); })]),
+      // TASKS 2148: the saved hero in his look «b» or «c» stands in the arch; a save from before the looks (no `look`) is in «a»
+      ...D.LOOK_IDS.filter((l) => l !== 'a').flatMap((l) => ['warrior', 'mage', 'archer'].map((c) => ['menu_look_' + (c === 'warrior' ? '' : c + '_') + l, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: c, look: l }); })])),
+      ['menu_look_old', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage', look: 'c' }); delete S.saved.hero.look; })],
       ['menu_continue_mage_orb', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); S.saved.hero.eq.offhand = Object.assign(SIM.rollItem(S.saved, 1, 0, 'offhand'), { b: 'orb', id: S.saved.nextId++ }); })],
       // TASKS 2153: every weapon kind in the arch and at rest in the world, in its class's hands
       ...HELD_KINDS.flatMap(([b, cls]) => [['menu_weapon_' + b, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls }); const R = S.saved; R.hero.eq.weapon = Object.assign(SIM.rollItem(R, 1, 0, 'weapon'), { b, id: R.nextId++ }); })],
@@ -120,6 +123,7 @@
           ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
           ['load_test', mk((S) => { fill(S, 5); S.saved.test = 1; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
+          ['load_looks', mk((S) => { fill(S, 5); S.saves.forEach((R, i) => { if (R) R.hero.look = D.LOOK_IDS[i % 3]; }); S.saved.hero.look = 'c'; S.loadSel = 1; S.focus = 'slot:1'; })],
           ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'yes'; S.hover = 'yes'; })],
           ['load_ask_rest', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })],
           ['load_ask_focus', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = ''; })]]; })(),
@@ -1704,6 +1708,11 @@
     states.push(...MAGE_KITS.map(([n, armor, helm]) => ['mage_' + n, mageS((S, R, h, gear) => { if (armor) h.eq.armor = gear(armor, 'armor'); else delete h.eq.armor; if (helm) h.eq.helm = gear(helm, 'helm'); else delete h.eq.helm; })]));
     // the class screen (TASKS 1103): the mage picked, the pointer on the warrior's card
     states.push(['classes_kit', mk((S) => { S.meta.cls = 'archer'; S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'kit:archer'; })]);
+    // the looks (TASKS 2148): each class in another, the pointer on the warrior's «c»; the keyboard on the mage's row; a card chosen by its look's cell.
+    // The card hides the selector until two looks have art of their own, so these frames force it (S.qaLooks)
+    states.push(['classes_looks', mk((S) => { S.meta.cls = 'warrior'; S.meta.look = { warrior: 'b', mage: 'c', archer: 'a' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'look:warrior:c'; S.qaLooks = 1; })]);
+    states.push(['classes_look_focus', mk((S) => { S.meta.cls = 'mage'; S.meta.look = { mage: 'c' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'look:mage:c'; S.qaLooks = 1; })]);
+    states.push(['classes_look_kit', mk((S) => { S.meta.cls = 'archer'; S.meta.look = { warrior: 'c', mage: 'b', archer: 'b' }; S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'look:archer:b'; S.qaLooks = 1; })]);
     // the hero's name (TASKS 1879): the field typed into at its longest, and the die lit
     states.push(['classes_name', mk((S) => { S.meta.cls = 'archer'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.pendName = TXT('QA.states.heroName'); S.focus = 'name'; })]);
     states.push(['classes_dice', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.pendName = TXT('QA.states.heroName'); S.focus = 'dice'; S.hover = 'dice'; })]);

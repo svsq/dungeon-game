@@ -13,7 +13,9 @@ def vote(a, rows=42):
             if on.sum() < 8: continue
             c = s[on, :3]; d = np.linalg.norm(c[:, None] - c[None], axis=-1) <= 0.13; k = d.sum(1).argmax(); out[y, x, :3] = c[d[k]].mean(0); out[y, x, 3] = 1
     return out
-for f in sorted(glob.glob('live/assets/hero__*.png') + glob.glob('live/assets/archer__*.png') + glob.glob('live/assets/mage__*.png')):
+# (TASKS 2148) and the looks' own rigs (hero_b__*, mage_c__*, …) once they are in
+for f in sorted(glob.glob('live/assets/hero__*.png') + glob.glob('live/assets/archer__*.png') + glob.glob('live/assets/mage__*.png')
+                + [g for p in ('hero', 'archer', 'mage') for g in glob.glob(f'live/assets/{p}_*__*.png')]):
     n = os.path.basename(f)[:-4]
     if n.endswith('_w') or n.endswith('_menu'): continue
     a = np.array(Image.open(f).convert('RGBA')).astype(float); al = a[..., 3]

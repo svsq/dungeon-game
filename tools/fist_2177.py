@@ -9,26 +9,31 @@ of the world grid (RIGS.<rig>.h / 42 px, as gridify_2155 paints the parts), the 
 The cuff (<rig>__cuffR<sfx>) is the forearm (farmR<sfx>, world and _menu) cut CUT px short of the fist's centre along the forearm, so
 its hand does not show round the fist turned to the weapon.
   python3 tools/fist_2177.py run       art/gen/<rig>__fistR<sfx>(_menu).png, <rig>__cuffR<sfx>(_menu).png; old fists in art/old/<name>-20261117-2177.png
-  python3 tools/fist_2177.py sheet out.png    the fists ×6 with a shaft under them, menu and world, to judge by eye"""
+  python3 tools/fist_2177.py sheet out.png    the fists ×6 with a shaft under them, menu and world, to judge by eye
+  both take --rig R (a new look: its class's kit; the mage's hand box from art/look_params.json) and run takes --fresh"""
 import json, os, re, shutil, sys
 import numpy as np
 from PIL import Image
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rigarg
 
 TAG, CELLS, CUT = '20261117-2177', 42, 4
 OUT = os.environ.get('OUT', 'art/gen')
 # rig: the outfits' suffixes, the texture the palette comes from (and the box of its hand)
 # (TASKS 2157) no _cl: the gloves slot never takes the shirt's suffix
-KITS = {'hero': {'sfx': ['', '_pw'], 'pal': lambda s: (f'hero__fistR{s}_menu', None)},
-        'archer': {'sfx': [''], 'pal': lambda s: ('archer__fistR_menu', None)},
-        'mage': {'sfx': [''], 'pal': lambda s: ('mage__farmL_menu', (40, 170, 80, 212))}}
+KITS = {'hero': {'sfx': ['', '_pw'], 'pal': lambda r, s: (f'{r}__fistR{s}_menu', None)},
+        'archer': {'sfx': [''], 'pal': lambda r, s: (f'{r}__fistR_menu', None)},
+        'mage': {'sfx': [''], 'pal': lambda r, s: (f'{r}__farmL_menu', tuple(rigarg.param(r, 'fist_2177', 'hand_box', (40, 170, 80, 212))))}}
 TONES = 5
+FRESH = False
+kits = lambda rigs: [(r, KITS[rigarg.base(r)]) for r in rigs]
 
 rigs = lambda: json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))
 load = lambda p: np.array(Image.open(p).convert('RGBA'))
 
 def palette(name, box):
     """TONES colours of the hand, darkest (its outline) to lightest, by k-means on its opaque pixels"""
-    src = f'art/old/{name}-{TAG}.png' if os.path.exists(f'art/old/{name}-{TAG}.png') else f'art/gen/{name}.png'
+    src = f'art/old/{name}-{TAG}.png' if os.path.exists(f'art/old/{name}-{TAG}.png') and not FRESH else f'art/gen/{name}.png'
     a = load(src)
     if box: a = a[box[1]:box[3], box[0]:box[2]]
     px = a[a[..., 3] > 200][:, :3].astype(float); px = px[px[:, 0] >= px[:, 2]]
@@ -89,14 +94,14 @@ def cuff(farm, g):
     far = (xx - E[0]) * u[0] + (yy - E[1]) * u[1] > np.linalg.norm(Hd - E) - CUT
     out = farm.copy(); out[far] = 0; return out
 
-def build():
+def build(sel=KITS):
     R = rigs(); names = []
-    for rig, kit in KITS.items():
+    for rig, kit in kits(sel):
         C = R[rig]['h'] / CELLS
         for sfx in kit['sfx']:
             for n in (f'{rig}__fistR{sfx}', f'{rig}__fistR{sfx}_menu'):
-                if OUT == 'art/gen' and os.path.exists(f'art/gen/{n}.png') and not os.path.exists(f'art/old/{n}-{TAG}.png'): shutil.copyfile(f'art/gen/{n}.png', f'art/old/{n}-{TAG}.png')
-            menu = paint(fist_tones(), palette(*kit['pal'](sfx)))
+                if OUT == 'art/gen' and os.path.exists(f'art/gen/{n}.png') and (FRESH or not os.path.exists(f'art/old/{n}-{TAG}.png')): shutil.copyfile(f'art/gen/{n}.png', f'art/old/{n}-{TAG}.png')
+            menu = paint(fist_tones(), palette(*kit['pal'](rig, sfx)))
             Image.fromarray(menu).save(f'{OUT}/{rig}__fistR{sfx}_menu.png'); Image.fromarray(cells(menu, C)).save(f'{OUT}/{rig}__fistR{sfx}.png')
             for m in ('', '_menu'):
                 src = f'art/gen/{rig}__farmR{sfx}{m}.png'
@@ -104,9 +109,9 @@ def build():
             names += [f'{rig}__fistR{sfx}', f'{rig}__fistR{sfx}_menu']
     return names
 
-def sheet(out):
+def sheet(out, sel=KITS):
     tiles = []
-    for rig, kit in KITS.items():
+    for rig, kit in kits(sel):
         for sfx in kit['sfx']:
             for m in ('_menu', ''):
                 f = Image.open(f'{OUT}/{rig}__fistR{sfx}{m}.png').convert('RGBA'); W, H = f.size
@@ -118,5 +123,6 @@ def sheet(out):
 
 if __name__ == '__main__':
     os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    if sys.argv[1:2] == ['run']: print('python3 tools/prep.py --only ' + ','.join(build()))
-    elif sys.argv[1:2] == ['sheet']: sheet(sys.argv[2])
+    sel, FRESH = rigarg.take(KITS)
+    if sys.argv[1:2] == ['run']: print('python3 tools/prep.py --only ' + ','.join(build(sel)))
+    elif sys.argv[1:2] == ['sheet']: sheet(sys.argv[2], sel)

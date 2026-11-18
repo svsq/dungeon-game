@@ -29,7 +29,6 @@ node tools/measure/motion/trace.mjs frames/critic_r15_motion/trace.json imp_claw
 node tools/measure/frame/shot.mjs tools/measure/frame/set1.js frames/critic_r15_frame/set1 > frames/critic_r15_frame/set1_log.txt
 python3 tools/measure/fidelity/mask14.py frames/critic_r15_fidelity/qa/
 node tools/measure/poseref2160/grab.mjs --out frames/pose_ref_2160/game && python3 tools/measure/poseref2160/measure.py game && python3 tools/measure/poseref2160/sheet.py game
-python3 tools/measure/shoulders2167/socket.py                  # вырез гнезда плеча перед рукой L в покое, цель 0 (2167)
 ```
 
 Серия загрузок страницы (2179) лежит в `tools/loadseries.mjs`: страница без `?render=1` грузится N раз в свежих контекстах до меню, порог 0 ошибок и 100 % стартов, при промахе код выхода 1. Условия: `cold`, `warm`, `cpu4`, `cpu6` (замедление CPU), `fast3g`, `slow4g`, `blips` (короткие обрывы сети), `flaky` (свой сервер с задержками 0–300 мс, обрывами и обрезанными ответами), `python`/`python4` (`python3 -m http.server`, тот, что был в `start.command`), `serve`/`serve4` (`tools/serve.py`).

@@ -3,13 +3,17 @@
 that turned the palm out, away from the body. Here each near forearm, as drawn, is mirrored about its own elbow → hand line (one
 whole-px shift per row, so no holes), which keeps the elbow and the hand's rig points where they were. The drawn source then goes
 through the 2155 grid step again.
-  python3 tools/fix_2160.py mirror      write art/gen/<name>.png (old ones to art/old/<name>-20261117-2160.png), then:
-  python3 tools/gridify_2155.py run <names printed>; python3 tools/prep.py --only <names printed by gridify>"""
-import json, os, re, shutil, sys
+  python3 tools/fix_2160.py mirror [--rig R]   write art/gen/<name>.png (old ones to art/old/<name>-20261117-2160.png), then:
+  python3 tools/gridify_2155.py run <names printed>; python3 tools/prep.py --only <names printed by gridify>
+--rig: that rig's near forearms of every outfit (<rig>__farmR, <rig>__farmR_<outfit>) instead of the accepted looks' list"""
+import glob, json, os, re, shutil, sys
 import numpy as np
 from PIL import Image
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rigarg
 
 NAMES = ['hero__farmR', 'hero__farmR_cl', 'hero__farmR_pw', 'archer__farmR', 'mage__farmR']
+near_arms = lambda rig: sorted(n for n in (os.path.basename(p)[:-4] for p in glob.glob(f'art/gen/{rig}__farmR*.png')) if re.fullmatch(rf'{rig}__farmR(_[a-z]{{2}})?', n))
 TAG, GRID = '20261117-2160', '20261117-2155'
 
 def mirror(a, E, H):
@@ -21,6 +25,8 @@ def mirror(a, E, H):
     return out
 
 if __name__ == '__main__' and sys.argv[1:2] == ['mirror']:
+    sel = rigarg.take(())[0]
+    if sel: NAMES = [n for r in sel for n in near_arms(r)]
     R = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))
     for n in NAMES:
         rig = n.split('__')[0]; drawn = f'art/old/{n}-{GRID}.png'

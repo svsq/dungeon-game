@@ -6,16 +6,18 @@ The zone is the cap: the torso's pixels within CAP of shR (not further in than I
 them. A pixel there that is a hole or not the arm's colour (OKLab ΔE > 0.05) is a socket cut in front of the shoulder.
   python3 tools/fix_2177.py run       lays the turned arm into the zone of every body (world from art/gen, arch from _menu; old ones in
                                       art/old/<name>-20261117-2177.png) where the count is not 0, and prints the prep line
-  python3 tools/measure/shoulders2167/socket.py    counts both sides"""
+  heroShoulderCheck holds the shoulders now (TASKS 2201: socket.py is gone, its L zone predates the arm drawn over the torso and its R count never reached 0)
+  run takes --rig R (a new look: its own look.arm.hold from live/data_hero.js) and --fresh (art/gen frozen again as the 2177 copy)"""
 import json, math, os, re, shutil, sys
 import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fix_2167 import BODIES, rigs, load, exists
+from fix_2167 import BODIES, body_sets, rigs, load, exists
+import rigarg
 
 TAG, CAP, INNER, CELLS = '20261117-2177', 16, 8, 42
-HOLD = lambda rig: {c['look']['rig']: c['look']['arm']['hold'] for c in classes()}[rig]
+HOLD = lambda rig: {c['look']['rig']: c['look']['arm']['hold'] for c in classes()}[rig] if rigarg.accepted(rig) else rigarg.look(rig)['arm']['hold']
 
 def classes():
     src = open('live/data_hero.js').read()
@@ -66,14 +68,15 @@ def body_path(rig, b, menu):
 
 if __name__ == '__main__' and sys.argv[1:2] == ['run']:
     os.chdir(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    sel, fresh = rigarg.take(())
     R = rigs(); names = []
-    for rig, bodies in BODIES.items():
+    for rig, bodies in body_sets(sel or None).items():
         for b in bodies:
             for menu in (False, True):
                 p = body_path(rig, b, menu); body = load(p); arm = turned_arm(rig, b, menu, R[rig]); c, z = count(body, arm, R[rig], menu)
                 if not c: continue
                 n = os.path.basename(p)[:-4]
-                if not exists(f'art/old/{n}-{TAG}.png'): shutil.copyfile(p, f'art/old/{n}-{TAG}.png')
+                if fresh or not exists(f'art/old/{n}-{TAG}.png'): shutil.copyfile(p, f'art/old/{n}-{TAG}.png')
                 m = zone(body, arm, R[rig], menu); body[m] = arm[m]; Image.fromarray(body).save(p); names.append(n)
                 print(f'{n:26s} capped {c:4d} of {z:4d} px')
     print('python3 tools/prep.py --only ' + ','.join(names) if names else 'nothing to cap')

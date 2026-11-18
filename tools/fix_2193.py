@@ -6,7 +6,8 @@ Here the hair px of each (low chroma, not dark: HAIR) move in OKLab a and b by t
 the mean of the same px of the bare head (from behind) or a cool grey (the arch), lightness kept. Every source is kept once as
 art/old/<name>-20261118-2193.png and each run starts from it; fix_2183.py hair and fix_mage_2170.py heads over these parts undo it,
 so this step runs after them.
-  python3 tools/fix_2193.py hair      (then the printed prep line; python3 tools/measure/fix2193/hair.py measures)"""
+  python3 tools/fix_2193.py hair      (then the printed prep line; python3 tools/measure/fix2193/hair.py measures)
+  --rig R: a new mage look (its HAIR rows from art/look_params.json, else the mage's); --fresh: the frozen 2193 copies made again"""
 import os, shutil, sys
 import numpy as np
 from PIL import Image
@@ -14,6 +15,7 @@ from PIL import Image
 os.chdir(os.environ.get('ROOT') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, 'tools')
 import gridify_2155 as G
+import rigarg
 
 TAG = '20261118-2193'
 # part: (the bare head it matches, or the OKLab a, b its light hair is set to, head rows of each, the hair's chroma under and OKLab
@@ -23,11 +25,12 @@ HAIR = {'mage__head_back_ci': ('mage__body_back', None, 48, 0.075, 0.26), 'mage_
 # the means are taken over the light hair (OKLab L over LIGHT, CIELab about 45): the tone the eye reads as the hair's, where the dark
 # strands at the roots would pull it to the shade
 LIGHT = 0.5
+RIG, FRESH = 'mage', False
 load = lambda p: np.array(Image.open(p).convert('RGBA'))
 
 def keep(n):
     old = f'art/old/{n}-{TAG}.png'
-    if not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
+    if FRESH or not os.path.exists(old): shutil.copyfile(f'art/gen/{n}.png', old)
     return load(old)
 
 def mask(a, rows, cmax, lo):
@@ -37,13 +40,17 @@ def mask(a, rows, cmax, lo):
 
 def hair():
     for n, (ref, rows, rrows, cmax, lo) in HAIR.items():
+        n = n.replace('mage__', f'{RIG}__', 1); ref = ref.replace('mage__', f'{RIG}__', 1) if isinstance(ref, str) else ref
         a = keep(n); lab, m = mask(a, rows, cmax, lo); lt = m & (lab[..., 0] > LIGHT)
         if isinstance(ref, str): rl, rm = mask(load(f'art/gen/{ref}.png'), rrows, cmax, lo); goal = rl[rm & (rl[..., 0] > LIGHT)][:, 1:].mean(0)
         else: goal = np.array(ref)
         d = goal - lab[lt][:, 1:].mean(0); new = lab.copy(); new[..., 1:] += d
         out = a.copy(); out[..., :3] = np.where(m[..., None], np.round(G.srgb(new)), a[..., :3]).astype(np.uint8)
         Image.fromarray(out).save(f'art/gen/{n}.png'); print(f'{n}: {int(m.sum())} hair px, a/b moved by {d.round(4)}')
-    print('python3 tools/prep.py --only ' + ','.join(HAIR))
+    print('python3 tools/prep.py --only ' + ','.join(n.replace('mage__', f'{RIG}__', 1) for n in HAIR))
 
 if __name__ == '__main__':
+    (RIG, *more), FRESH = rigarg.take([RIG])
+    if more or rigarg.base(RIG) != 'mage': sys.exit(f'one mage rig, not {[RIG, *more]}')
+    HAIR = rigarg.param(RIG, 'fix_2193', 'HAIR', HAIR)
     {'hair': hair}.get(sys.argv[1] if len(sys.argv) > 1 else '', lambda: print(__doc__))()
