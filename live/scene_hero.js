@@ -141,7 +141,11 @@
   // (TASKS 2181) NEAR_OUT: the near (cape-side) arm's upper arm turned out from the body at ease, so its hand hangs outside the hip as on
   // the sheets (it hung right under the shoulder, over the belt pouch); RUN_BEND: the elbows' forward bend the run adds, or at the bottom of
   // the swing the arm hung straight, 0.337 H shoulder to hand against the rest's 0.318
-  const NEAR_OUT = 0.2, RUN_BEND = 0.4, HOLD_RUN = 0.1;
+  // (TASKS 2188) SOCK: the near upper arm turned out (NEAR_OUT, the run's back swing, a dash) opens a wedge between its sleeve and the
+  // torso, which only the shoulder cap of 2167 closed, and only at rest without NEAR_OUT: a copy of the upper arm stays under the body and
+  // the arm, no further out than span rad behind the arm (the arm's own width covers that much) and turned in by in rad (2167 left the
+  // torso's edge up to 2 rig px off the arm below the armpit)
+  const NEAR_OUT = 0.2, RUN_BEND = 0.4, HOLD_RUN = 0.1, SOCK = { span: 0.35, in: 0.04 };
   const ARM_BEND = -0.06, STANCE = { half: 14, halfBy: { hero: 8.5 }, frontFoot: 0.62, nearFoot: 0.78, fold: { L: -0.4, R: 0 }, depth: 9, reach: 1, sink: 0, breath: 0.2, shift: 4 };
   const BLADE_REST = -0.95, BACK_VIEW = { blade: -1.25, bladeFs: 0.8, armShade: 0.55, footFs: 0.6, bodySat: 0.8, bodyLift: 1, headLift: 1 };
   // the slash crescent's half-span about the aim, and where its brightness centroid sits along it (the ARC shader's taper and tail fade)
@@ -571,6 +575,7 @@
       // (2167): under the body the hand lay behind the belt pouch, half of the forearm hidden. A shield on it keeps its old place under
       // the torso, as the author's sides left it: over the body it would cover the chest
       const nearOver = !castFront && !orbLate && !GR.shield && backK <= 0.5;
+      if (backK <= 0.5 && arms.L.r1 > 0) part('uarmL', arms.L.S0, R2U(arms.L.Sp[0], arms.L.Sp[1]), Math.max(0, arms.L.r1 - SOCK.span) - SOCK.in, shade(Ufar, 1, BACK_VIEW.armShade), 1, bodyR);
       if (!castFront) { drawArm('L', Ufar, (orbLate && !behind) || nearOver ? 'u' : 'uf'); if (!orbLate && !nearOver) shield(Ufar); }
       // (TASKS 2160) the cape hangs behind both legs, in the arch too: over the cape-side leg it cut that leg off at the knee
       drawLeg('L', Ufar);
