@@ -208,10 +208,25 @@
       if (r < FAR_MIN[b]) out.push(`hero cape: ${r.toFixed(1)} on the far side of the legs in band ${b + 1} (at least ${FAR_MIN[b]})`);
       if (l > RATIO * r) out.push(`hero cape: the cape side ${l.toFixed(1)} against ${r.toFixed(1)} on the far side in band ${b + 1} (at most ${RATIO} times)`); });
   }
+  // (TASKS 2183) the warrior's back view under a helm is the cape of its pair without one (the _nh copies were left out of a recolour:
+  // mean RGB of the opaque texels below the shoulders differed by 8-10), and the mage's grey hair is cool, never mauve: of the low-chroma
+  // light texels in the head rows of the back heads and the arch's drawn head, the mean of red minus blue is at most 0 (it was +34)
+  function heroBackCheck(out) {
+    const SAME = 3, ROWS = [120, 340], HAIR = { mage__head_back_ci: 45, mage__body_back: 45, mage__head_ci_menu: 50 }, mean = (t, y0, y1) => { const m = [0, 0, 0]; let k = 0;
+      for (let i = y0 * t.W; i < y1 * t.W; i++) if (t.A[i] >= 128) { k++; for (let c = 0; c < 3; c++) m[c] += t.P[i * 4 + c]; }
+      return m.map((v) => v / Math.max(1, k)); };
+    for (const s of ['', '_cl', '_pw', '_hd']) { const a = mean(png('hero__body_back' + s), ...ROWS), b = mean(png('hero__body_back' + s + '_nh'), ...ROWS), d = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+      if (d > SAME) out.push(`hero back: hero__body_back${s}_nh differs from its pair without a helm by ${d.toFixed(1)} RGB (at most ${SAME})`); }
+    for (const [n, rows] of Object.entries(HAIR)) { const t = png(n); let k = 0, rb = 0;
+      for (let i = 0; i < rows * t.W; i++) { if (t.A[i] < 128) continue; const r = t.P[i * 4], g = t.P[i * 4 + 1], b = t.P[i * 4 + 2], lum = 0.3 * r + 0.59 * g + 0.11 * b;
+        if (lum > 60 && Math.max(r, g, b) - Math.min(r, g, b) < 45) { k++; rb += r - b; } }
+      if (k && rb / k > 0) out.push(`mage hair: ${n} reads warm (red minus blue ${(rb / k).toFixed(1)}, at most 0)`); }
+  }
   const SB0 = require('./sandbox.cjs');
   SIMX.checks.add('heroTexCheck', heroTexCheck);
   SIMX.checks.add('heroArmCheck', heroArmCheck);
   SIMX.checks.add('heroCapeCheck', heroCapeCheck);
+  SIMX.checks.add('heroBackCheck', heroBackCheck);
   SIMX.checks.add('warriorFistCheck', warriorFistCheck);
   SIMX.checks.add('archerFistCheck', archerFistCheck);
 })(typeof window !== 'undefined' ? window : globalThis);
