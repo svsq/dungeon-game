@@ -357,20 +357,24 @@
   // the hip's bob and the whirl's crouch move both capes alike) against the front's at the same pace (a turn's or a whirl's against its
   // own frames drawn from the front), and ΔE76 of the cape's mean graded colour against the front's; per pace, the cape-tip joint's
   // travel over a stride walking up against the front's walking right. rows: one per frame, for the check and tools/measure/fix2202/cape.cjs
-  const CAPE_CLOTH = { hero: (q) => q[1] > 12, archer: (q) => q[1] < -1 && q[2] > 6 };
+  // (TASKS 2205) the archer's cloak outfit wears a brown cape front and back (archer__cape_hd), not the olive
+  // (TASKS 2205) TEX_REF: the archer's front cape hangs behind him, only its shaded edges show (151 px, L* 14 against the back's lit 27): its
+  // colour is the whole front sprite's cloth texels, graded as drawn
+  const TEX_REF = { archer: 1 }, TEXLAB = {};
+  const CAPE_CLOTH = { hero: () => (q) => q[1] > 12, archer: (armor) => (armor === 'cloak' ? (q) => q[1] > 4 && q[2] > q[1] : (q) => q[1] < -1 && q[2] > 6) };
   const LAB76 = (r, g, b) => { const f = (c) => { c /= 255; return c > 0.04045 ? ((c + 0.055) / 1.055) ** 2.4 : c / 12.92; }, R = f(r), G = f(g), B = f(b);
     const X = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047, Y = R * 0.2126 + G * 0.7152 + B * 0.0722, Z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
     const h = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116); return [116 * h(Y) - 16, 500 * (h(X) - h(Y)), 200 * (h(Y) - h(Z))]; };
   const GRADED = (p, u) => { const g = (u && u.grade) || [1, 1, 0, 1], l = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]; return p.map((v) => Math.min(255, Math.max(0, ((l + (v - l) * g[0]) * g[1] - 127.5) * g[3] + 127.5))); };
   function capeBack(cls, outfits) {
-    const T0 = 10, FPS = 60, RUN = root.SIM.K.RUN, SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), rig = D.CLASSES[cls].look.rig, cloth = CAPE_CLOTH[rig];
+    const T0 = 10, FPS = 60, RUN = root.SIM.K.RUN, SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), rig = D.CLASSES[cls].look.rig;
     const front = new RegExp(`^${rig}__cape`), back = new RegExp(`^${rig}__body_back`), rows = [], it = (b, slot) => ({ id: 0, b, rar: 0, lvl: 1, mods: {}, [slot === 'weapon' ? 'atk' : 'def']: 3 });
     const WAYS = { down: [0, 1], 'down-right': [1, 1], right: [1, 0], 'up-right': [1, -1], up: [0, -1], 'up-left': [-1, -1], left: [-1, 0], 'down-left': [-1, 1] };
     const base = { back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, dashX: 0, atkT: -9, patkT: -9, castT: -9, whirlT: -9 };
     for (const [armor, helm] of outfits) {
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; const kit = { warrior: 'sword', archer: 'shortbow', mage: 'staff' }[cls];
       Object.assign(R.hero.eq, { weapon: it(kit, 'weapon') }); if (armor) R.hero.eq.armor = it(armor, 'armor'); else delete R.hero.eq.armor; if (helm) R.hero.eq.helm = it(helm, 'helm'); else delete R.hero.eq.helm;
-      const st = heroSt(S), tag0 = `${armor || 'no armour'}${helm ? ' and ' + helm : ''}`;
+      const st = heroSt(S), tag0 = `${armor || 'no armour'}${helm ? ' and ' + helm : ''}`, cloth = CAPE_CLOTH[rig](armor);
       const shot = (over, t, more) => { const J = {}, V = {}, spr = []; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; if (id === 'hero_view') V[n] = p; };
         L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
         drawHero(Object.assign({}, R.hero, base, over), 300, 300, t, st, {});
@@ -379,7 +383,11 @@
         for (let i = 0; i < c.W * c.H; i++) { const k = c.top[i]; if (k < 0) continue; const q = spr[k], y = Math.floor(i / c.W), isF = front.test(q.n), isB = back.test(q.n); if (!isF && !isB) continue;
           const lab = LAB76(...GRADED([c.rgb[i * 3], c.rgb[i * 3 + 1], c.rgb[i * 3 + 2]], q.o.u)); if (isB && (y < sh || !cloth(lab))) continue;
           n++; lo = Math.max(lo, y); for (let j = 0; j < 3; j++) m[j] += lab[j]; }
-        const view = V.back ? V.back[0] : 0, tip = view >= 0.5 ? J.capeBack : J.cape;
+        const view = V.back ? V.back[0] : 0, tip = view >= 0.5 ? J.capeBack : J.cape, fq = TEX_REF[rig] && spr.find((q) => front.test(q.n)), key = fq && fq.n + JSON.stringify(fq.o.u && fq.o.u.grade);
+        if (fq && !TEXLAB[key]) { const t = png(fq.n), s = [0, 0, 0]; let k = 0;
+          for (let i = 0; i < t.W * t.H; i++) { if (t.A[i] < 128) continue; const q = LAB76(...GRADED([t.P[i * 4], t.P[i * 4 + 1], t.P[i * 4 + 2]], fq.o.u)); if (!cloth(q)) continue; k++; for (let j = 0; j < 3; j++) s[j] += q[j]; }
+          TEXLAB[key] = s.map((v) => v / Math.max(1, k)); }
+        if (fq) more = Object.assign({ labTex: TEXLAB[key] }, more);
         rows.push(Object.assign({ outfit: tag0, view: view >= 0.5 ? 'back' : 'front', n, hem: n ? (J.ground[1] - (lo + y0 + 1)) / H : null, drop: n ? (lo + y0 + 1 - J.hip[1]) / H : null, lab: m.map((v) => v / Math.max(1, n)), tip }, more)); };
       shot({ vx: 0, vy: 0, gp: 0, face: 1, aim: 0 }, T0, { act: 'rest', pace: 'rest' });
       shot({ vx: 0, vy: 0, gp: 0, face: 1, aim: -Math.PI / 2, back: 1 }, T0, { act: 'rest', pace: 'rest', way: 'up' });
@@ -388,7 +396,7 @@
         for (let f = 0; f < 12; f++) shot({ vx: dx * sp, vy: dy * sp, gp: f * 2 * Math.PI / 12, face, aim: Math.atan2(dy, dx), back: bk }, T0 + f / FPS, { act: 'move', pace, way, frame: f }); }
       for (const [pace, vx] of [['rest', 0], ['run', -RUN]]) for (let f = 0; f <= 0.2 * FPS; f++)
         shot({ vx, vy: 0, gp: f, face: -1, faceT: T0, aim: Math.PI }, T0 + f / FPS, { act: 'turn', pace, frame: f });
-      for (let f = 0; f <= 0.55 * FPS; f++) shot({ vx: 0, vy: 0, gp: 0, face: 1, aim: 0, whirlT: T0, whirlA: 0, castK: 'whirl', castT: T0 }, T0 + f / FPS, { act: 'whirl', pace: 'rest', frame: f });
+      if (cls === 'warrior') for (let f = 0; f <= 0.55 * FPS; f++) shot({ vx: 0, vy: 0, gp: 0, face: 1, aim: 0, whirlT: T0, whirlA: 0, castK: 'whirl', castT: T0 }, T0 + f / FPS, { act: 'whirl', pace: 'rest', frame: f });
     }
     return rows;
   }
@@ -396,9 +404,9 @@
   function capeStats(rows) {
     const ref = {}, mean = (rs, f) => rs.reduce((a, r) => a + f(r), 0) / Math.max(1, rs.length), out = [];
     for (const o of new Set(rows.map((r) => r.outfit))) for (const pace of ['rest', 'walk', 'run']) { const fr = rows.filter((r) => r.outfit === o && r.pace === pace && r.view === 'front' && r.act !== 'turn' && r.act !== 'whirl' && r.n);
-      ref[o + pace] = { hem: mean(fr, (r) => r.hem), drop: mean(fr, (r) => r.drop), lab: [0, 1, 2].map((j) => mean(fr, (r) => r.lab[j])) };
+      ref[o + pace] = { hem: mean(fr, (r) => r.hem), drop: mean(fr, (r) => r.drop), lab: [0, 1, 2].map((j) => mean(fr, (r) => (r.labTex || r.lab)[j])) };
       for (const act of ['turn', 'whirl']) { const fa = rows.filter((r) => r.outfit === o && r.pace === pace && r.act === act && r.view === 'front' && r.n);
-        if (fa.length) ref[o + act + pace] = { hem: mean(fa, (r) => r.hem), drop: mean(fa, (r) => r.drop), lab: [0, 1, 2].map((j) => mean(fa, (r) => r.lab[j])) }; } }
+        if (fa.length) ref[o + act + pace] = { hem: mean(fa, (r) => r.hem), drop: mean(fa, (r) => r.drop), lab: [0, 1, 2].map((j) => mean(fa, (r) => (r.labTex || r.lab)[j])) }; } }
     const travel = (rs) => { const p = rs.map((r) => r.tip).filter(Boolean); if (p.length < 2) return 0; const c = [mean(p, (q) => q[0]), mean(p, (q) => q[1])]; return 2 * Math.max(...p.map((q) => Math.hypot(q[0] - c[0], q[1] - c[1]))); };
     for (const r of rows) { if (r.view !== 'back') continue; const R = ref[r.outfit + r.act + r.pace] || ref[r.outfit + r.pace];
       out.push({ r, dHem: r.n ? R.drop - r.drop : 1, dE: r.n ? Math.hypot(...r.lab.map((v, j) => v - R.lab[j])) : 99 }); }
@@ -410,14 +418,18 @@
   SIMX.capeStats = capeStats;
   // the warrior's cape from behind ends within HEM of the height where the front's does (it ended 0.19-0.2 H higher, at the knee), within
   // ΔE76 DE of its colour (the back view's bodySat dulled it to ΔE 4-7), and its tip travels at least SWING of the front's over a stride
+  // (TASKS 2205) the archer too, hem and colour (its cape ended 0.05 H over the front's and the cloak's brown was looked for as olive);
+  // its tip's swing is the front's stride swing alone, not counted
   function heroCapeBackCheck(out) {
-    const HEM = 0.02, DE = 4, SWING = 0.5, outfits = [['leather_armor', ''], ['', ''], ['plate_armor', ''], ['cloak', ''], ['leather_armor', 'knight_helm'], ['plate_armor', 'knight_helm'], ['cloak', 'leather_helm']];
-    const { out: rs, swing } = capeStats(capeBack('warrior', outfits)), worst = (f) => rs.reduce((a, q) => (f(q) > f(a) ? q : a), rs[0]), tag = (q) => `${q.r.outfit}, ${q.r.act}${q.r.way ? ' ' + q.r.way : ''} ${q.r.pace}${q.r.frame !== undefined ? ' frame ' + q.r.frame : ''}`;
-    if (!rs.length) { out.push('hero cape back: no frame drawn from behind'); return; }
-    const h = worst((q) => Math.abs(q.dHem)), e = worst((q) => q.dE);
-    if (Math.abs(h.dHem) > HEM) out.push(`hero cape back: the hem from behind is ${h.dHem.toFixed(3)} H off the front's, ${tag(h)} (at most ${HEM})`);
-    if (e.dE > DE) out.push(`hero cape back: the cape from behind is ΔE76 ${e.dE.toFixed(1)} off the front's, ${tag(e)} (at most ${DE})`);
-    for (const [k, v] of Object.entries(swing)) if (!(v.back >= SWING * v.front && v.back > 0)) out.push(`hero cape back: ${k} up, the cape's tip travels ${v.back.toFixed(1)} px a stride against ${v.front.toFixed(1)} from the front (at least ${SWING} of it)`);
+    const HEM = 0.02, DE = 4, SWING = 0.5, OUTFITS = { warrior: [['leather_armor', ''], ['', ''], ['plate_armor', ''], ['cloak', ''], ['leather_armor', 'knight_helm'], ['plate_armor', 'knight_helm'], ['cloak', 'leather_helm']],
+      archer: [['leather_armor', ''], ['', ''], ['cloak', ''], ['leather_armor', 'leather_helm'], ['cloak', 'leather_helm']] };
+    for (const [cls, outfits] of Object.entries(OUTFITS)) {
+      const { out: rs, swing } = capeStats(capeBack(cls, outfits)), worst = (f) => rs.reduce((a, q) => (f(q) > f(a) ? q : a), rs[0]), tag = (q) => `${cls} ${q.r.outfit}, ${q.r.act}${q.r.way ? ' ' + q.r.way : ''} ${q.r.pace}${q.r.frame !== undefined ? ' frame ' + q.r.frame : ''}`;
+      if (!rs.length) { out.push(`hero cape back: ${cls}: no frame drawn from behind`); continue; }
+      const h = worst((q) => Math.abs(q.dHem)), e = worst((q) => q.dE);
+      if (Math.abs(h.dHem) > HEM) out.push(`hero cape back: the hem from behind is ${h.dHem.toFixed(3)} H off the front's, ${tag(h)} (at most ${HEM})`);
+      if (e.dE > DE) out.push(`hero cape back: the cape from behind is ΔE76 ${e.dE.toFixed(1)} off the front's, ${tag(e)} (at most ${DE})`);
+      if (cls === 'warrior') for (const [k, v] of Object.entries(swing)) if (!(v.back >= SWING * v.front && v.back > 0)) out.push(`hero cape back: ${k} up, the cape's tip travels ${v.back.toFixed(1)} px a stride against ${v.front.toFixed(1)} from the front (at least ${SWING} of it)`); }
   }
   // (TASKS 2183) the warrior's back view under a helm is the cape of its pair without one (the _nh copies were left out of a recolour:
   // mean RGB of the opaque texels below the shoulders differed by 8-10), and the mage's grey hair is cool, never mauve: of the low-chroma

@@ -50,7 +50,10 @@
   // chest, 0.12 H inside the shoulder at 0.54 H against the sheet's 0.09 H outside at 0.63 H
   // (TASKS 2190) menu: the arch's own hold, the hand a little lower and further out, the elbow nearer plumb: the orb overlapped the
   // shoulder's edge there (the sheet's orb clears the sleeve)
-  const ORB_HOLD = { hand: [-0.24, 0.5], elbow: 0.15, menu: { hand: [-0.3, 0.56], elbow: 0.08 }, swing: 0.15 };
+  // (TASKS 2205) swing: the share of the run's arm swing the held arm turns by at the shoulder, whole: blending the hold's joints with the
+  // swing's (0.15) unfolded the elbow and lengthened the forearm, a 1 px slot opened between the orb and the sleeve (2.13 world px², 54 of
+  // 72 run frames over 1.5); 0.25 keeps the orb's span of about 1 px
+  const ORB_HOLD = { hand: [-0.24, 0.5], elbow: 0.15, menu: { hand: [-0.3, 0.56], elbow: 0.08 }, swing: 0.25 };
   // (TASKS 2187) the hand under the orb is its own sprite (<rig>__cupL, tools/cup_2187.py), palm up with the fingers curled round the
   // orb's rim, held upright at the sleeve's end; the forearm turned the drawn hand with it, its fingers pointing down beside the orb
   // (TASKS 2190) the cup carries the sleeve's bell, the under-sleeve, the wrist and the hand pixelled after mage_a_v4 (tools/cup_2190.py);
@@ -393,7 +396,7 @@
     // (TASKS 2202) the orb's hand comes in to the body's axis through a turn inside its own hold, the elbow and the shortened forearm kept:
     // the turn's reach blended the hold's joint angles with its own and lifted the orb 13 px toward the shoulder for a frame at each end
     const palmX = (k) => oh.hand[0] * armLen(arms.L) + (gx - hipDx - arms.L.Sp[0] - oh.hand[0] * armLen(arms.L)) * k;
-    if (orbInPalm) palm(arms.L, palmX(tuckL), oh.hand[1] * armLen(arms.L), oh.elbow, 1 - ORB_HOLD.swing * run);
+    if (orbInPalm) { const r10 = arms.L.r1; palm(arms.L, palmX(tuckL), oh.hand[1] * armLen(arms.L), oh.elbow, 1); const d = wrapPi(r10 - arms.L.r1) * ORB_HOLD.swing * run; arms.L.r1 += d; arms.L.r2 += d; }
     const palmed = orbInPalm ? [arms.L.r1, arms.L.r2, arms.L.k2] : null;
     if (whirlE > 0 && swingK === 0) {   // the ellipse is centred behind the shoulder, toward the body's axis, inside the arm's reach
       const l = armLen(arms.R), wx = Math.cos(whirlTh) * face, c0 = -0.3 * l, cx = c0 + (gx - hipDx - arms.R.Sp[0] - c0) * tuckL, tx = cx + 0.4 * l * wx, ty = 0.6 * l + 0.25 * l * Math.sin(whirlTh);

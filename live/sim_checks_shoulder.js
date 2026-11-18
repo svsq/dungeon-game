@@ -187,7 +187,9 @@
   // (TASKS 2203) CAPE, FLAT: world px² of the side strip in the cape's colour and flat (sideFill) at rest, every outfit and, with the
   // HELMS, the bodies drawn without a head, for the classes with a cape (SIDE_CLS; the mage's side under the bell sleeve is the robe's
   // own blue by 2194). FLAT: the warrior's hood (cloak outfit) has up to 1.0 of its own flat shade in the band
-  const MAX = 2, ARCH = 0.3, ZA = 360 / 84, DARK = 1.5, SOCK = 1, SOCK_ACT = 25, WZ = 1, CAPE = 0.3, FLAT = 1.5, SIDE_CLS = ['warrior', 'archer'];
+  // (TASKS 2205) FLAT for the mage too (FLAT_CLS): 2194's strip of one robe tone was 4.9-13 world px² of it in the arch; mage_a_v4 draws
+  // folds to the sleeve and the rest of the robe torso has 0.9 % of its px in a flat 3×3 (the strip 57 %); repainted, at most 1.1
+  const MAX = 2, ARCH = 0.3, ZA = 360 / 84, DARK = 1.5, SOCK = 1, SOCK_ACT = 25, WZ = 1, CAPE = 0.3, FLAT = 1.5, SIDE_CLS = ['warrior', 'archer'], FLAT_CLS = ['warrior', 'archer', 'mage'];
   const HELMS = { warrior: [{ weapon: 'sword', helm: 'knight_helm' }, { weapon: 'sword', armor: 'cloak', helm: 'leather_helm' }], archer: [{ weapon: 'shortbow', helm: 'leather_helm' }, { weapon: 'shortbow', armor: 'cloak', helm: 'leather_helm' }], mage: [] };
   const restPoses = (cls) => poses(cls).concat(...HELMS[cls].map((kit) => poses(cls, false).map((p) => Object.assign({}, p, { kit, tag: p.tag.replace(/^(\S+) \S+/, `$1 ${kit.weapon} ${kit.armor ? 'armor:' + kit.armor + ' ' : ''}helm:${kit.helm}`) }))));
   function heroShoulderCheck(out) {
@@ -200,7 +202,7 @@
       if (!/rest/.test(p.tag)) { if (r.sockAll > SOCK_ACT) say(p, `the copy of the near arm shows over ${r.sockAll.toFixed(1)} world px² of the figure (at most ${SOCK_ACT})`); continue; }
       if (r.dark > DARK) say(p, `${r.dark.toFixed(2)} world px² of dark torso beside the near sleeve (at most ${DARK})`);
       if (SIDE_CLS.includes(cls) && r.capeFill > CAPE) say(p, `${r.capeFill.toFixed(2)} world px² of the torso's side under the near arm in the cape's colour (at most ${CAPE})`);
-      if (SIDE_CLS.includes(cls) && r.flat > FLAT) say(p, `${r.flat.toFixed(2)} world px² of flat fill on the torso's side under the near arm (at most ${FLAT})`);
+      if (FLAT_CLS.includes(cls) && r.flat > FLAT) say(p, `${r.flat.toFixed(2)} world px² of flat fill on the torso's side under the near arm (at most ${FLAT})`);
       if (r.sock > SOCK) say(p, `the copy of the upper arm shows over ${r.sock.toFixed(2)} world px² (at most ${SOCK})`); }
     out.push(...torsoHoles(drawHero, L));
   }
