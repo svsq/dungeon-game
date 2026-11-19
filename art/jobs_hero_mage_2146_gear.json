@@ -1,0 +1,74 @@
+[
+ {
+  "name": "gear_mage_leather_1",
+  "prompt": "art/prompts/gear_mage_leather_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_leather_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2146/gear"
+ },
+ {
+  "name": "gear_mage_leather_2",
+  "prompt": "art/prompts/gear_mage_leather_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_leather_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2146/gear"
+ },
+ {
+  "name": "gear_mage_hood_1",
+  "prompt": "art/prompts/gear_mage_hood_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_hood_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2146/gear"
+ },
+ {
+  "name": "gear_mage_hood_2",
+  "prompt": "art/prompts/gear_mage_hood_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_hood_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2146/gear"
+ },
+ {
+  "name": "gear_mage_circlet_1",
+  "prompt": "art/prompts/gear_mage_circlet_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_circlet_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/it_circlet.png=the circlet item icon",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2146/gear"
+ },
+ {
+  "name": "gear_mage_circlet_2",
+  "prompt": "art/prompts/gear_mage_circlet_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_circlet_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/it_circlet.png=the circlet item icon",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2146/gear"
+ }
+]

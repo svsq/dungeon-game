@@ -1,0 +1,68 @@
+[
+ {
+  "name": "ab_charge_2146_1",
+  "prompt": "art/prompts/ab_charge_2146.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, framing, outline, palette and shading to match",
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: face, hair, beard, clothes and colours",
+   "art/gen/ab_charge.png=the old icon: composition and crop only"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/hero_anim_2146/icons"
+ },
+ {
+  "name": "ab_charge_2146_2",
+  "prompt": "art/prompts/ab_charge_2146.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, framing, outline, palette and shading to match",
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: face, hair, beard, clothes and colours",
+   "art/gen/ab_charge.png=the old icon: composition and crop only"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/hero_anim_2146/icons"
+ },
+ {
+  "name": "ab_cry_2146_1",
+  "prompt": "art/prompts/ab_cry_2146.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, framing, outline, palette and shading to match",
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: face, hair, beard, clothes and colours",
+   "art/gen/ab_cry.png=the old icon: composition and crop only"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/hero_anim_2146/icons"
+ },
+ {
+  "name": "ab_cry_2146_2",
+  "prompt": "art/prompts/ab_cry_2146.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, framing, outline, palette and shading to match",
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: face, hair, beard, clothes and colours",
+   "art/gen/ab_cry.png=the old icon: composition and crop only"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/hero_anim_2146/icons"
+ },
+ {
+  "name": "ab_leap_2146_1",
+  "prompt": "art/prompts/ab_leap_2146.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, framing, outline, palette and shading to match",
+   "art/char_refs/archer_a.png=the approved design of the archer: face, hair, beard, clothes and colours",
+   "art/gen/ab_leap.png=the old icon: composition and crop only"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/hero_anim_2146/icons"
+ },
+ {
+  "name": "ab_leap_2146_2",
+  "prompt": "art/prompts/ab_leap_2146.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, framing, outline, palette and shading to match",
+   "art/char_refs/archer_a.png=the approved design of the archer: face, hair, beard, clothes and colours",
+   "art/gen/ab_leap.png=the old icon: composition and crop only"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/hero_anim_2146/icons"
+ }
+]

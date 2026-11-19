@@ -17,16 +17,23 @@
   const updShown = (u) => !!u && (!!u.can || (!!u.web && u.st === 'web'));
   const updMark = (u) => (!u || u.web ? '' : u.st === 'avail' ? TXT('hud.menu.upd.avail', { v: u.v }) : u.st === 'down' ? TXT('hud.menu.upd.down', { pct: Math.floor(u.pct || 0) }) : u.st === 'ready' ? TXT('hud.menu.upd.ready') : '');
   // the settings screen's rows, in order (TASKS 1302): each a slider over its stops, its value kept in S.meta[key]
-  const SETTINGS_BOOK = { x: 380, w: 1160, top: 236, row: 100, foot: 160 };
+  const SETTINGS_BOOK = { x: 380, w: 1160, top: 220, row: 100, foot: 125 };
   // the brightness (TASKS 1303): a gamma on the frame's final grade, the HUD drawn after it untouched
   const VOLS = [0, 0.25, 0.5, 0.75, 1], BRIGHTS = [0.7, 0.85, 1, 1.2, 1.4], stepName = (v) => { const i = BRIGHTS.indexOf(v) - 2; return i > 0 ? '+' + i : i < 0 ? '\u2212' + -i : '0'; };
   const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName },
     { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] },
+    // the sound's two volumes: the effects (vol, the key an older save already holds) and the background, the drone, the water and the drips (amb)
     { id: 'vol', key: 'vol', name: () => TXT('UI.settings.vol'), stops: VOLS, def: 1, fmt: (v) => Math.round(v * 100) + ' %', ends: () => [TXT('UI.settings.vol.lo'), TXT('UI.settings.vol.hi')] },
+    { id: 'amb', key: 'amb', name: () => TXT('UI.settings.amb'), stops: VOLS, def: 1, fmt: (v) => Math.round(v * 100) + ' %', ends: () => [TXT('UI.settings.vol.lo'), TXT('UI.settings.vol.hi')] },
     // the graphics (TASKS 1372): 2 the full picture, 1 and 0 drop the costliest passes for the Steam Deck and weak PCs (scene reads S.meta.gfx)
     { id: 'gfx', key: 'gfx', name: () => TXT('UI.settings.gfx'), stops: [0, 1, 2], def: 2, fmt: (v) => (v === 0 ? TXT('UI.settings.gfx.0') : v === 1 ? TXT('UI.settings.gfx.1') : TXT('UI.settings.gfx.2')), ends: () => [TXT('UI.settings.gfx.lo'), TXT('UI.settings.gfx.hi')] },
     // the fullscreen (TASKS 1864): a checkbox, as on ref_ui_settings_b; the sim keeps the wish, the page applies it and reports it back
     { id: 'full', key: 'full', name: () => TXT('UI.settings.full'), stops: [0, 1], def: 0, check: true }];
+  // the start screen's difficulty tabs over the cards; the hardcore checkbox under the name field with its label, the hit rect
+  // covering both (TASKS 2108: a tab is one view of a group, an on-or-off mode is a checkbox)
+  const CLS_TABS = { y: 44, h: 60, w: 300, gap: 16 }, CLS_HARD = { gap: 10, w: 220, h: 44 };
+  // (TASKS 2148) a card's looks with art of their own (two at least, D.looksShown): square cells down the left of its portrait (x, y from the card's corner), as tall together as it is
+  const CLS_LOOK = { x: 64, y: 38, s: 64, gap: 4 };
   // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
   const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
   // five save slots: five rows of a portrait and four columns fill the left page at a readable size, as on ref_ui_saves_b
@@ -55,14 +62,17 @@
     // the start screen (TASKS 1103, 1304): the difficulty's tabs over the class cards, a card a ready class, side by side, the start
     // and back buttons under them
     // with no kit to choose (a first hero) the cards lose the kit button's row, or about 70 px of each stay empty (TASKS 1757)
-    classes: (meta) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2, TW = 300, tg = 16;
+    classes: (meta, allLooks) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2, T = CLS_TABS, dl = D.DIFF_ORDER, Hc = CLS_HARD;
+      const tx = 960 - (dl.length * T.w + (dl.length - 1) * T.gap) / 2, NM = { x: 660, w: 520, h: 68 };
       const CH = ids.some((id) => D.kitsOf(id, meta).length > 1) ? 696 : 650, by = 182 + CH + 18;
-      return ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 60, y: 762, w: W - 120, h: 44 }))
-        .concat(D.DIFF_ORDER.map((d, i, a) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: 960 - (a.length * TW + (a.length - 1) * tg) / 2 + i * (TW + tg), y: 44, w: TW, h: 60 })))
+      const LK = CLS_LOOK, looks = ids.flatMap((id, i) => D.looksShown(id, allLooks).map((look, j) => ({ id: `look:${id}:${look}`, lcls: id, look, on: true, x: x0 + i * (W + gap) + LK.x, y: 182 + LK.y + j * (LK.s + LK.gap), w: LK.s, h: LK.s })));
+      return looks.concat(ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 60, y: 762, w: W - 120, h: 44 })))
+        .concat(dl.map((d, i) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: tx + i * (T.w + T.gap), y: T.y, w: T.w, h: T.h })))
         .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 182, w: W, h: CH })))
         // the hero's name between «Назад» and «В путь» (TASKS 1879): the field, and the die that throws a name into it
         .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 1284, y: by, w: 300, h: 68 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 336, y: by, w: 300, h: 68 },
-          { id: 'name', on: true, x: 660, y: by, w: 520, h: 68 }, { id: 'dice', on: true, x: 1192, y: by, w: 68, h: 68 }]); },
+          { id: 'name', on: true, x: NM.x, y: by, w: NM.w, h: NM.h }, { id: 'dice', on: true, x: 1192, y: by, w: 68, h: 68 },
+          { id: 'hard', check: 1, on: true, x: NM.x, y: by + NM.h + Hc.gap, w: Hc.w, h: Hc.h }]); },
     // the test runs (TASKS 417, 1878): a screen of their own behind ` on the main menu, in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
     tests: (hasRun, full = hasRun) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !full ? fresh : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
@@ -78,12 +88,13 @@
     // right page with its chart, «Назад» at the right page's foot
     stats: () => { const B = STATS_BOOK, tabs = ['all'].concat(D.classesReady()), TW = 138, tg = 8, rx = B.x + B.w / 2 + 48, rw = B.w / 2 - 110;
       const x0 = rx + (rw - (tabs.length * TW + (tabs.length - 1) * tg)) / 2;
-      return { B, tabs, rows: STAT_ROWS.map((k, i) => ({ k, y: B.y + 212 + i * 62 })), chart: { x: rx + 40, y: B.y + 280, w: rw - 80, h: 230 },
+      return { B, tabs, rows: STAT_ROWS.map((k, i) => ({ k, y: B.y + 212 + i * 62 })), chart: { x: rx + 40, y: B.y + 280, w: rw - 80, h: 230 }, modeW: rw - 48,
         r: tabs.map((c, i) => ({ id: 'tab:' + c, tab: c, label: c === 'all' ? TXT('UI.stats.all') : D.CLASSES[c].name, on: true, x: x0 + i * (TW + tg), y: B.y + 92, w: TW, h: 52 }))
           .concat([{ id: 'back', label: TXT('UI.stats.back'), on: true, x: rx + rw / 2 - 150, y: B.y + B.h - 150, w: 300, h: 64 }]) }; },
     // the saved games (TASKS 1311): an open book, a row a slot on the left page, the chosen slot's page on the right with «Загрузить»
-    // and «Удалить»; a delete asks first on a loose sheet laid over the right page, its «Нет» the default
-    load: () => { const B = LOAD_BOOK, lx = B.x + 62, lw = B.w / 2 - 110, rx = B.x + B.w / 2 + 48, rw = B.w / 2 - 110, ask = { x: rx + 40, y: B.y + 590, w: rw - 80, h: 240 };
+    // and «Удалить»; a delete asks first on a loose sheet laid over the right page, its «Нет» the default, its seal under the page's last
+    // row (TASKS 2168: at 590 the sheet and its seal hid half of «Сохранено»)
+    load: () => { const B = LOAD_BOOK, lx = B.x + 62, lw = B.w / 2 - 110, rx = B.x + B.w / 2 + 48, rw = B.w / 2 - 110, ask = { x: rx + 40, y: B.y + 626, w: rw - 80, h: 240 };
       return { B, ask, rows: Array.from({ length: SAVE_SLOTS }, (_, i) => ({ id: 'slot:' + i, i, on: true, x: lx, y: B.y + 150 + i * 132, w: lw, h: 118 })),
         btn: [{ id: 'go', label: TXT('UI.load.go'), x: rx + rw / 2 - 170, y: B.y + 610, w: 340, h: 70 }, { id: 'del', label: TXT('UI.load.del'), x: rx + rw / 2 - 130, y: B.y + 700, w: 260, h: 58 },
           { id: 'back', label: TXT('UI.load.back'), x: 960 - 150, y: B.y + B.h + 6, w: 300, h: 60 }],
@@ -98,7 +109,8 @@
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 404 + i * 88, w: 480, h: 72 }))
       .concat([done ? { id: 'finish', label: TXT('UI.pause.5') } : { id: 'abandon', label: test ? TXT('UI.pause.test') : TXT('UI.pause.4') }].map((b) => Object.assign(b, { on: true, x: 780, y: 714, w: 360, h: 56, size: 22 }))),
     // a new run over five taken slots (TASKS 1785): the question in the middle of the menu, «Нет» on the right as in the pause's
-    newAsk: () => { const A = { x: 680, y: 390, w: 560, h: 380 };
+    // 640×400: a long run's line takes two rows (TASKS 2172: on one row of 560 it was cut to «эт…»)
+    newAsk: () => { const A = { x: 640, y: 380, w: 640, h: 400 };
       return { A, r: [{ id: 'yes', label: TXT('UI.menu.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
     pauseAsk: (done, test) => { const A = { x: 680, y: 480, w: 560, h: 300 };
       return { A, r: [{ id: 'yes', label: done || test ? TXT('UI.pause.ask.yesDone') : TXT('UI.pause.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
@@ -108,5 +120,7 @@
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
   const uiAt = (scr, meta) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes(meta));
-  UI.share('menu', { updShown, updMark, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen });
+  // the class cards' right edge, where the start screen's lines under them end (TASKS 2127)
+  const classesRight = (U) => Math.max(...U.filter((q) => q.cls).map((q) => q.x + q.w));
+  UI.share('menu', { updShown, updMark, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, classesRight });
 })(typeof window !== 'undefined' ? window : globalThis);

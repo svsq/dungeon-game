@@ -247,11 +247,19 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
   // in W×H view px) that finish upscales with nearest: crisp pixel art (pair with SCENE.NEAREST, positions snapped to k px)
-  L.init = (w, h, extra = {}, { pixel = 1, view = [w, h] } = {}) => {
+  // eager: the names compiled now (all when not given); the rest wait in G.define's queue and an L.P.<name> asked first starts its own
+  // order: the queue's order, names left out of it after it
+  L.init = (w, h, extra = {}, { pixel = 1, view = [w, h], eager = null, order = [] } = {}) => {
     W = L.W = w; H = L.H = h; P = L.P = {}; L.PIXEL = Math.max(1, pixel);
-    for (const k in SH) if (k !== 'SOLIDN') P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
-    P.spriten = G.program('spriten', SPRITE, 'off'); P.solidn = G.program('solidn', SOLIDN, 'rect');   // the batched (TASKS 2031, 2032)
-    for (const k in extra) P[k] = G.program(k, extra[k]);
+    const src = {};
+    for (const k in SH) if (k !== 'SOLIDN') src[k.toLowerCase()] = [SH[k], 'one'];
+    src.spriten = [SPRITE, 'off']; src.solidn = [SOLIDN, 'rect'];   // the batched (TASKS 2031, 2032)
+    for (const k in extra) src[k] = [extra[k], 'one'];
+    for (const k of [...new Set([...order.filter((n) => n in src), ...Object.keys(src)])]) {
+      G.define(k, src[k][0], src[k][1]);
+      if (!eager || eager.has(k)) { P[k] = G.make(k); continue; }
+      Object.defineProperty(P, k, { configurable: true, enumerable: true, get: () => { const p = G.make(k); Object.defineProperty(P, k, { value: p, enumerable: true }); return p; } });
+    }
     const px = L.PIXEL, lo = { view, nearest: px > 1 };
     for (const k in T) G.free(T[k]);
     T.bg = G.target(Math.round(w / px), Math.round(h / px), true, lo); T.comp = G.target(Math.round(w / px), Math.round(h / px), true, lo);
@@ -388,7 +396,9 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
-  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (rot || G.rec || !L.SOLIDS ? G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
+  // under a pre-transform (the menu's arch hero, TASKS 2145) a solid goes through it as a sprite does: unscaled, a bowstring hung by the feet
+  const solidPre = (x, y, w, h, col, rot, px, py, a) => { const X = G.xf(x, y, w, h, rot, px, py), F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); return G.draw(P.solid, { u_col: col, u_a: a }, [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]); };
+  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (L.pre ? solidPre(x, y, w, h, col, rot, px, py, a) : rot || G.rec || !L.SOLIDS ?G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
   L.rrect = (x, y, w, h, r, c0, c1 = c0, a = 1) => G.draw(P.rrect, { u_sz: [w, h], u_r: r, u_a: a, u_c0: c0, u_c1: c1 }, G.xf(x, y, w, h));
   L.puff = (x, y, r, col, amt, seed) => G.draw(P.puff, { u_col: col, u_amt: amt, u_seed: seed, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r));
   L.star = (x, y, r, col, amt) => { G.blend('add'); G.draw(P.star, { u_col: col, u_amt: amt, u_fxpx: L.FXPX, u_fxq: [x - r, y - r, 2 * r, 2 * r] }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
@@ -417,14 +427,9 @@ void main(){ if (at(vec2(0.0)) < 0.5 || at(vec2(0.0, 2.0)) < 0.5 || at(u_dir * 2
   // label(slot, str, x, y, { size, col, out, al, a }) draws at 1:1 with a one-grid-pixel ink outline and a hard drop shadow;
   // the texture is re-rendered only when the string or style changes. Returns the text width.
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
-  // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
-  // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
-  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1861):
-  // one-pixel stems blur away when the 1920×1080 canvas is shown at 1280×720
-  const FACES = [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], TREBUCHET_W = 0.547, FIT = new Map();
-  const fit = (size, bold) => { const n = Math.round(size), k = bold ? 'b' + n : n; let r = FIT.get(k); if (r) return r; let best = Infinity;
-    for (const [font, em, adv] of bold ? FACES.slice(1) : FACES) for (let unit = 2; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
-    FIT.set(k, r); return r; };
+  // a requested size is a width target, not a pixel size: UI.kit.face picks the face and its grid step (ui_kit.js), so the Node checks
+  // measure a label with the same face the page draws it in
+  const fit = (size, bold) => DATA.UI.kit.face(size, bold);
   const AROUND = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
   const LBL = {};
   // bold (window titles, TASKS 1752): the font has no Cyrillic bold, so every glyph is stamped twice one grid pixel apart and

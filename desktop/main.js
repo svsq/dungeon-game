@@ -18,8 +18,12 @@ if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 // the start's log (TASKS 2004): the window's and the page's stages with their times, rewritten at every launch, so a player whose
 // game takes long to open can send boot.log from the save folder
 const LOG = path.join(app.getPath('userData'), 'boot.log');
+// the launch before stays as boot.prev.log (TASKS 2106): a second start shows whether the shader cache cut the first one's wait
+const PREV_LOG = path.join(app.getPath('userData'), 'boot.prev.log');
 const log = (s) => { try { fs.appendFileSync(LOG, `${String(Date.now() - T0).padStart(6)} ms  ${s}\n`); } catch (e) {} };
-try { fs.mkdirSync(path.dirname(LOG), { recursive: true }); fs.writeFileSync(LOG, `${new Date().toISOString()}  ${process.platform} ${process.arch} ${process.getSystemVersion()}  electron ${process.versions.electron}  app ${app.getVersion()}\n`); } catch (e) {}
+try { fs.mkdirSync(path.dirname(LOG), { recursive: true }); } catch (e) {}
+try { if (fs.existsSync(LOG)) fs.renameSync(LOG, PREV_LOG); } catch (e) {}
+try { fs.writeFileSync(LOG, `${new Date().toISOString()}  ${process.platform} ${process.arch} ${process.getSystemVersion()}  electron ${process.versions.electron}  app ${app.getVersion()}\n`); } catch (e) {}
 log('main: started');
 
 const toggleFullscreen = (win) => win.setFullScreen(!win.isFullScreen());

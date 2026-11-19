@@ -12,8 +12,8 @@
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
-  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch); selfCheck holds the generator's print to its version
-  const GEN_VERSION = 35;
+  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch; 36: the town's rails end on the diagonal, TASKS 2090, the sweeper's round and the niches, 2094, 2100; 37: the skull door's waves on its record and its room big enough for its last wave, TASKS 2132; 38: the mason's stops in front of the cart and the bin, TASKS 2141); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 38;
   // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
   const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
@@ -189,13 +189,13 @@
   }
 
   // the event rooms (TASKS 361, data.js EVENTS): marked once the floor is laid and checked, so they never move a wall or a way.
-  // EVENT_PLACE[id](m, r, rnd) → [x, y, more?] (world px; more joins the event's record) or null puts an event's own things in its room; with none, its spot is the open
+  // EVENT_PLACE[id](m, r, rnd, seed) → [x, y, more?] (world px; more joins the event's record) or null puts an event's own things in its room; with none, its spot is the open
   // cell nearest the room's middle
   const EVENT_PLACE = {
     // the skull door's grates (TASKS 362): one in each run of open cells just past the room's box, the way the boss's arena takes its
     // doors, so they shut every way in whatever its width (a cave's mouths are seldom two cells). Not a room a secret opens into,
     // nor one whose ways in are another room's floor or a door's
-    trial: (m, r) => { if (r.wings) return null;
+    trial: (m, r, rnd, seed) => { if (r.wings) return null;
       const W = m.W, inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, mouth = new Map();
       if ((m.secrets || []).some((q) => q.host === r.id || q.wall.concat(q.front || []).some(([x, y]) => inRm(r, x, y, 1)))) return null;
       const doorC = new Set((m.doors || []).flatMap((d) => d.cells.map(([x, y]) => y * W + x)));
@@ -208,7 +208,10 @@
         for (; mouth.has(k) && mouth.get(k).dir === p.dir && !took.has(k); k += st) { took.add(k); run.push([k % W, Math.floor(k / W)]); }
         const a = run[0], n = run.length, ex = p.dir === 'l' ? r.x : p.dir === 'r' ? r.x + r.w : 0, ey = p.dir === 'u' ? r.y : p.dir === 'd' ? r.y + r.h : 0;
         gates.push({ dir: p.dir, cells: run, x: side ? ex * TILE : (a[0] + n / 2) * TILE, y: side ? (a[1] + n / 2) * TILE : ey * TILE }); }
-      const at = gates.length && eventSpot(m, r); return at ? [at[0], at[1], { gates }] : null; },
+      // (TASKS 2132) its number of waves on a stream of its own, so the other events' draws and rooms stay as they were
+      const at = gates.length && eventSpot(m, r); if (!at) return null;
+      const [lo, hi] = D.EVENTS.pool.trial.waves, waves = lo + Math.floor(mul32((seed ^ 0x2132 ^ (r.id << 16)) >>> 0)() * (hi - lo + 1));
+      return [at[0], at[1], { gates, waves }]; },
     // the dark room (TASKS 365): a room with a pack to fight in the dark. Its wall torches and loose candles are put out (`dark`: the
     // render neither draws nor lights them; the lists keep their order, as a prop's knock key is its place in its list); a room with a fire
     // on its floor (a brazier, a crystal, a forge), a secret's sconce or candles, or a zone's own light is not one
@@ -274,14 +277,15 @@
       let roll = Er() * left.reduce((a, [, E]) => a + E.w, 0), pk = left[0][0]; for (const [id, E] of left) if ((roll -= E.w) < 0) { pk = id; break; } ids.push(pk); }
     const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx);
     const rooms = m.rooms.filter((r) => r.type === 'combat' && !r.hall && !r.locked && !r.pocket && !r.isle && !r.event && r.w * r.h >= EV.area && !way.has(r.id));
-    const big = (r, E) => r.w * r.h >= (E.area || EV.area);
+    // (TASKS 2132) the skull door's room holds its biggest wave uncrowded at the floor's depth
+    const big = (r, E) => r.w * r.h >= (E === pool.trial ? EV.trialArea(ST.depth) : E.area || EV.area);
     shuffleBy(rooms, Er);
     const out = [];
     for (const id of ids) { const E = pool[id];
       for (const r of rooms) { if (r.event || !big(r, E)) continue;
         // (an elite is a room's reward, TASKS 433: a dead end off the way would be left with none, and a lair floor short of its own)
         if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit || e.elite))) continue;
-        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er) : eventSpot(m, r); if (!at) continue;
+        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er, seed) : eventSpot(m, r); if (!at) continue;
         r.event = id; if (E.room === 'treasure') { m.enemies = m.enemies.filter((e) => e.room !== r.id); if (m.webs) m.webs = m.webs.filter((w) => roomAt(m, w.x, w.y) !== r.id); }
         out.push(Object.assign({ id, room: r.id, x: at[0], y: at[1] }, at[2])); break; } }
     if (out.length) m.events = out;
@@ -369,13 +373,16 @@
     // the workshop niches on the left with a work table, sacks, a crate and burning candles
     props: [['logs_tw', 44, 11], ['stall_tw', 47, 13], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['stoneyard_tw', 36.6, 30], ['blocks_tw', 47.2, 29.5], ['ore_tw', 48.5, 31],
       ['table_candles', 6, 14], ['shop_sacks', 5, 21], ['shop_crate', 7, 24], ['candles', 5, 24]],
-    rails: [[47, 22], [47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], [41, 30], [40, 30]],
+    rails: [[47, 22], [47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], [41, 30]],
     yardSolid: [[27, 30], [28, 30], [29, 30], [30, 30], [31, 30], [27, 31], [28, 31], [29, 31], [30, 31], [31, 31], [35, 29], [36, 29], [37, 29], [38, 29], [39, 29], [35, 30], [36, 30], [38, 30], [39, 30]],
     // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it; the cast is the player's (6 Nov 2026: no miner or gardener; 8 Nov 2026: a mason at the rails' end)
     // the rounds of those who walk (TASKS 1015): stops in cells, 'take' / 'drop' where the porter lifts and sets down his crate (from the
     // canvas stall to the merchant), the others pause at each stop to sweep or to scatter grain; the round loops back to the start
-    routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]], mason: [[41.3, 30, 'take'], [45.7, 30.4, 'drop']] },
-    npcs: [['smith', 37, 11.4], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 32, 12], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.7, 30.4]],
+    // (the mason's two stand on the near side of the cart's halt and of the bin, else he was drawn behind them, his stone taken and put away out of sight, TASKS 2141)
+    routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[11, 25], [15, 25], [20, 25]], child: [[13, 18], [17, 18], [11, 16]], mason: [[42.4, 30.3, 'take'], [45.9, 31.4, 'drop']] },
+    // how far, in cells, the sweeper's round keeps from the hero's straight lines (spawn to each service, the stairs to the gate): he stands 7 s at each stop (TASKS 2100)
+    routeClear: 2.5,
+    npcs: [['smith', 37, 11.4], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 32, 12], ['porter', 32, 14], ['sweeper', 11, 25], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.9, 31.4]],
     // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1609)
     rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
     // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1611, 1609)
@@ -386,7 +393,10 @@
       ['crate', 49, 11], ['barrel', 12, 30], ['wheel_tw', 47, 27], ['beam_tw', 35, 25], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
       ['crate', 50, 12], ['barrel', 50, 16]],
     // what a niche keeps: its stores, and a small fire at the back
-    store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
+    store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'],
+    // the north niches (TASKS 2094): their groups of candles and a barrel stood at an equal step, a stamp. `dress` gives a niche (by its index in
+    // `niches`) hay and a basket in place of the group, `mirror` turns a niche's group about its middle, so neighbours do not face one way
+    northNiches: { dress: { 1: ['hay_tw', 'basket_tw'], 5: ['basket_tw', 'hay_tw'] }, mirror: [2, 4, 7] } };
   // a portal's ring of stones (TASKS 1037): the town's and a chapter boss's are one ring, eight stones round 240° with the gap
   // facing the angle open (radians), where the way in comes from
   const portalRing = (x, y, open) => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => { const a = open + (60 + i * 240 / 7) * Math.PI / 180;
@@ -438,7 +448,9 @@
         const fire = Math.floor(R() * spots.length);
         spots.forEach(([x, y], i) => { if (i === fire) out.push({ x: wx(x), y: wy(y) + 4, n: 'candles', role: 'niche_fire', solid: 1 });
           else if (R() < 0.85) out.push({ x: wx(x) + Math.round((R() - 0.5) * 8), y: wy(y) + Math.round((R() - 0.5) * 4), n: T.store[Math.floor(R() * T.store.length)], solid: 1 }); });
-        return out; })];
+        const dress = T.northNiches.dress[k];
+        if (dress) return dress.map((n, i) => { const [x, y] = spots[i * (spots.length - 1)]; return { x: wx(x), y: wy(y) + 4, n, solid: 1 }; });
+        return T.northNiches.mirror.includes(k) ? out.map((d) => ({ ...d, x: (2 * x0 + w) * TILE - d.x, mir: 1 })) : out; })];
     const rails = T.rails.map(([x, y]) => y * W + x);
     // the square: an ellipse round the fire; each path leaves its edge and winds (a half-wave and a smaller full one, the seed's
     // phase and side) to where its service is used, two or three cells wide

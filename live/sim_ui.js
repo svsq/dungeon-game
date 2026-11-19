@@ -5,7 +5,7 @@
   const {
     BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
-    sortItems, throwAway, useItem, isCons, tally } = SIMX;
+    sortItems, throwAway, useItem, isCons, tally, deathOf, hardcore } = SIMX;
   // ---------------- run end / menus ----------------
   function endRun(S, how) {
     const R = S.run; if (!R) return;
@@ -21,13 +21,26 @@
     tally(S, R, 'runs'); tally(S, R, 'shards', bonus); if (how === 'win' && !R.campaignWon) tally(S, R, 'wins'); if (how === 'dead' && !(R.log && R.log.abandon)) tally(S, R, 'deaths');
     // the endless descent's record depth (TASKS 348)
     const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless && !test) S.meta.bestEndless = Math.max(deepBest, deep);
-    S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
+    S.result = { how, mode: R.mode, deathMode: deathOf(R), floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' && !R.campaignWon ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
       damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), test: test ? 1 : 0, record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
-    if (R.log && !test) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
+    if (R.log && !test) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, deathMode: deathOf(R), cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; pickLatest(S); S.screen = how; S.saveN++;
   }
+  // a death (TASKS 2104): hardcore's ends the run, as every death did before the modes. The normal mode's wakes the hero in the town,
+  // by the way a scroll of return takes him (its portal left as it was), his floors and quests kept, his gear and gold with him; a
+  // share of his level's experience goes, never the level, and the death is counted as one
+  function heroFell(S) { const R = S.run, h = R.hero; if (hardcore(R)) { endRun(S, 'dead'); return; }
+    SIMX.callOff(S, R);
+    const lost = Math.min(h.xp, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss)), st = heroSt(S);
+    h.xp -= lost; h.deadT = -1; h.deadRun = null; h.hp = st.maxHp; h.mp = D.clsOf(h).res === 'rage' ? 0 : st.maxMp; h.poison = 0; h.burn = 0; h.sunk = null; h.stag = null;
+    if (!R.test) S.meta.deaths = (S.meta.deaths || 0) + 1; tally(S, R, 'deaths'); if (R.log) R.log.falls = (R.log.falls || 0) + 1; R.fellN = (R.fellN || 0) + 1;
+    if (enterFloor(S, R, 0, undefined, 'portal')) R.msg = { s: (lost ? TXT('sim_ui.fell.msg', { xp: lost }) : TXT('sim_ui.fell.msg.none')) + '\n' + fellWay(S, R), t: S.t, d: 5 }; }
+  // the toast's second line names the deepest way the ring opens, or the mine from the first floor (town_game_r9 2: it named only
+  // the experience, while the real price may be four floors walked again)
+  function fellWay(S, R) { const w = SIMX.gateWays(R, S).reduce((a, q) => (!a || q.f > a.f ? q : a), null);
+    return !w ? TXT('sim_ui.fell.way.first') : (w.k === 'boss' ? TXT('sim_ui.fell.way.boss', { f: w.f }) : TXT('sim_ui.fell.way.portal', { f: w.f })); }
   // the run ended alive past the campaign's last boss (TASKS 1148): a win, the campaign's if not won yet at the stairs on
   function finishRun(S) { S.talk = null; S.screen = 'play'; endRun(S, 'win'); }
   // a hero who starts above level 1 opens on the hero screen, his points still to lay out
@@ -82,7 +95,7 @@
   // the run in play put aside under «Продолжить» (the pause's «Сохранить и выйти в меню», the menu's «Выход»)
   function saveRun(S) { S.saved = S.run; S.run = null; S.saveN++; S.savedT = S.t; }
   // a run of the tests' screen is marked a test (TASKS 1878): it leaves no trace in the statistics or the run journals
-  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S) }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
+  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S), deathMode: town ? D.deathPick(S.meta) : undefined }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in
@@ -118,6 +131,8 @@
   // the update's window (TASKS 1870): its buttons ask the page (S.updReq, a count and a kind), the page asks the main process and
   // sends the new state back through the input; ←→ walk the buttons, Enter presses the lit one, Escape closes the window
   const updAsk = (S, k) => { S.updReq = { n: ((S.updReq && S.updReq.n) || 0) + 1, k }; };
+  // the restart: a run still in play is saved as «Выход» saves it, and the page writes the save before it asks for the restart
+  const updRestart = (S) => { S.updGo = 0; if (S.run) saveRun(S); S.saveN++; updAsk(S, 'run'); };
   const updClose = (S) => { S.updOpen = 0; S.focus = 'update'; S.hover = ''; };
   const updWin = (S, inp, keys, x, y, click) => { const U = UI.upd(S.upd), ids = U.r.map((q) => q.id), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (b && inp.moved) S.focus = b.id;
@@ -127,14 +142,16 @@
     if (keys.Escape) { updClose(S); ev(S, { k: 'ui', x, y }); return; }
     const id = click ? (b && b.id) : keys.Enter ? S.focus : null; if (!id) return;
     ev(S, { k: 'ui', x, y });
-    if (id === 'get') updAsk(S, 'get');
+    if (id === 'get') { S.updGo = 1; updAsk(S, 'get'); }
     else if (id === 'open') updAsk(S, 'open');
-    else if (id === 'retry') updAsk(S, S.upd && S.upd.err === 'down' ? 'get' : 'check');
-    // the restart: a run still in play is saved as «Выход» saves it, and the page writes the save before it asks for the restart
-    else if (id === 'run') { if (S.run) saveRun(S); S.saveN++; updAsk(S, 'run'); }
+    else if (id === 'retry') { if (S.upd && S.upd.err === 'down') S.updGo = 1; updAsk(S, S.upd && S.upd.err === 'down' ? 'get' : 'check'); }
+    else if (id === 'run') updRestart(S);
     else updClose(S); };
   SCREEN.menu = (S, inp, keys, x, y, click) => {
     if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
+    // «Обновить» pressed (TASKS 2089): the download that ends while the main menu is up restarts the game at once; one that ends in a
+    // run or the town waits here, and the restart comes with the first step on the menu
+    if (S.updGo && S.upd && S.upd.st === 'ready') { updRestart(S); return; }
     if (S.updOpen) { updWin(S, inp, keys, x, y, click); return; }
     const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit, S.upd), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     const order = U.map((q) => q.id);
@@ -169,19 +186,26 @@
     if (click && b && b.on) { pressRun(S, b.id); ev(S, { k: 'ui', x, y }); }
     return;
   };
-  // the start screen (TASKS 1103, 1304): a tab picks the difficulty, a card the class, its kit button the kit (all kept in the meta
-  // for the next time); «В путь» or Enter start the run the menu asked for, «Назад» or Escape go back to the menu. The keyboard
-  // walks the rows with ↑↓ (difficulty, class, kit, buttons) and changes the focused row's choice with ←→
+  // the start screen (TASKS 1103, 1304): a tab picks the difficulty, a card the class, its kit button the kit, the checkbox under the
+  // name hardcore (TASKS 2108; all kept in the meta for the next time); «В путь» or Enter start the run the menu asked for, «Назад» or
+  // Escape go back to the menu. The keyboard walks the rows with ↑↓ (difficulty, class, kit, buttons, hardcore) and changes the
+  // focused row's choice with ←→; Enter or Space on the checkbox turn it over, as in the settings
   const setDiff = (S, d) => { if ((S.meta.diff || 'normal') !== d) { S.meta.diff = d; S.saveN++; } };
+  const setDeath = (S, d) => { if (D.deathPick(S.meta) !== d) { S.meta.deathMode = d; S.saveN++; } };
+  const setHard = (S, on) => setDeath(S, on ? 'hard' : 'normal'), isHard = (S) => D.deathPick(S.meta) === 'hard';
   const setCls = (S, c) => { if (S.meta.cls !== c) { S.meta.cls = c; S.saveN++; } };
   const stepKit = (S, cls, k) => { const list = D.kitsOf(cls, S.meta), i = list.indexOf(D.kitOf(S.meta, cls)); S.meta.kit = S.meta.kit || {};
     S.meta.kit[cls] = list[(i + k + list.length) % list.length].id; S.saveN++; };
+  // (TASKS 2148) the look the class's next hero wears, kept in the meta as the kit is; ←→ go along the offered ones (D.looksShown) without wrapping, as along the classes
+  const setLook = (S, cls, id) => { if (D.lookPick(S.meta, cls) !== id) { S.meta.look = Object.assign({}, S.meta.look, { [cls]: id }); S.saveN++; } };
+  const stepLook = (S, cls, k) => { const ids = D.looksShown(cls, S.qaLooks), i = ids.indexOf(D.lookPick(S.meta, cls)), id = ids[Math.max(0, Math.min(ids.length - 1, i + k))]; if (!id) return;
+    setLook(S, cls, id); setCls(S, cls); S.focus = `look:${cls}:${id}`; };
   // the name's field in focus is the mode of typing (review of PR 63): neither the pointer nor W, A, S and D move the focus into
   // it or out of it, so a typed name is never lost to a passing pointer or written over by a walk. A click or an arrow lets it in;
   // a click elsewhere, ↑↓, Enter (on to «В путь») or Escape let it out. Off the field the pointer over it takes the keyboard's
   // focus away, so the field is lit as the pointer's alone, as every other control under the pointer is
   SCREEN.classes = (S, inp, keys, x, y, click) => {
-    const U = UI.classes(S.meta), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    const U = UI.classes(S.meta, S.qaLooks), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     let typing = S.focus === 'name';
     if (typing && click && !(b && b.id === 'name')) { S.focus = ''; typing = false; }
     if (b && inp.moved && !typing) S.focus = b.id === 'name' ? '' : b.id;
@@ -198,26 +222,30 @@
       // nothing lit Enter lights «В путь» before it starts anything
       if ((click && b && b.id === 'name') || (keys.Enter && !S.focus && S.hover === 'name')) { S.focus = 'name'; ev(S, { k: 'ui', x, y }); return; }
       if (keys.Enter && !S.focus && !click) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; }
+      if ((click && b && b.check) || ((keys.Enter || keys.Space) && S.focus === 'hard')) { setHard(S, !isHard(S)); S.focus = 'hard'; ev(S, { k: 'ui', x, y }); return; }
       if ((click && b && b.id === 'dice') || (keys.Enter && S.focus === 'dice')) { rollName(S); S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
       if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
       if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+      if (click && b && b.lcls) { setLook(S, b.lcls, b.look); setCls(S, b.lcls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
       if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
       if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
     }
     const cls = clsNow(S), ids = D.classesReady(), dif = D.DIFF_ORDER, row = (S.focus || '').split(':')[0];
-    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn']);
+    const lks = U.filter((q) => q.lcls === cls), rows = ['dif', 'cls'].concat(lks.length ? ['look'] : [], U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn', 'hard']);
     // the focus taken off the field stays on its row
     const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : row === 'name' || row === 'dice' || !row ? 'nm' : 'cls';
     const wasd = !typing, arV = keys.ArrowDown || keys.ArrowUp, arH = keys.ArrowLeft || keys.ArrowRight;
     const mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
-    const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r + ':' + cls);
+    const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'hard' ? 'hard' : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r === 'look' ? (lks.find((q) => q.look === D.lookPick(S.meta, cls)) || lks[0]).id : r + ':' + cls);
     // a sound for a key that changed nothing told the player it had done something (TASKS 1905)
-    const was = () => JSON.stringify([S.focus, S.meta.diff, S.meta.cls, S.meta.kit]), w0 = was(), tick = () => { if (was() !== w0) ev(S, { k: 'ui', x, y }); };
+    const was = () => JSON.stringify([S.focus, S.meta.diff, S.meta.deathMode, S.meta.cls, S.meta.kit, S.meta.look]), w0 = was(), tick = () => { if (was() !== w0) ev(S, { k: 'ui', x, y }); };
     if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); tick(); return; }
     if (!st) return;
     if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
+    if (r0 === 'hard') setHard(S, st > 0);
     if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
     if (r0 === 'kit') stepKit(S, cls, st);
+    if (r0 === 'look') { const lc = (S.focus || '').split(':')[1]; stepLook(S, D.classesReady().includes(lc) ? lc : cls, st); }
     if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
     if (r0 === 'nm') S.focus = st > 0 ? 'dice' : arH ? 'name' : S.focus;
     tick();
@@ -374,7 +402,7 @@
       byE = keys.KeyE && T.act && (T.act.k === 'turn' || (T.act.k === 'take' && T.act.first && settled)),
       byEnter = enter === 'act' && T.act && T.act.k !== 'finish';
     if (T.act && last && ((click && b && b.id === 'act') || byE || byEnter)) { talkAct(S, S.run, T); if (S.screen !== 'talk') S.focus = ''; return; }
-    if (quest && (keys.KeyE || keys.Space)) return;
+    if (quest && (keys.KeyE || keys.Space)) { S.focus = 'act'; ev(S, { k: 'ui', x, y }); return; }
     if (((click && b && b.id === 'talk') || enter === 'talk') && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; ev(S, { k: 'ui', x, y }); return; }
     // a master's last page with no quest on it: E goes on into the workshop, so E, E still reaches the forge (TASKS 1635)
     if (T.craft && last && !T.act && !T.inTopic && keys.KeyE) { SIMX.openCraft(S, S.run, T.craft); return; }
@@ -407,7 +435,8 @@
     if (!it || it.id !== A.key) { S.split = null; S.focus = ''; return true; }
     const U = UI.split(), b = D.hitUI(U.r, x, y), P = U.A; S.hover = b ? b.id : '';
     const d = (b && click && b.id === 'spPlus' ? 1 : 0) - (b && click && b.id === 'spMinus' ? 1 : 0) - (inp.wheel || 0) + (keys.ArrowRight || keys.ArrowUp ? 1 : 0) - (keys.ArrowLeft || keys.ArrowDown ? 1 : 0);
-    if (d) { const n = Math.max(1, Math.min(A.hi, A.n + d)); if (n !== A.n) { A.n = n; ev(S, { k: 'ui', x, y }); } }
+    // a step past an end answers (town_game_r10 2: it was silent): the refusal's sound, and the count shakes (A.bump, the time and the side)
+    if (d) { const n = Math.max(1, Math.min(A.hi, A.n + d)); if (n !== A.n) { A.n = n; ev(S, { k: 'ui', x, y }); } else { A.bump = { t: S.t, d: Math.sign(d) }; ev(S, { k: 'nope', x, y }); } }
     const out = click && !(x >= P.x && x < P.x + P.w && y >= P.y && y < P.y + P.h);
     if (keys.Escape || out || (click && b && b.id === 'spNo')) { S.split = null; S.focus = ''; ev(S, { k: 'ui', x, y }); return true; }
     if (keys.Enter || (click && b && b.id === 'spOk')) { S.split = null; S.focus = '';
@@ -453,7 +482,7 @@
     return;
   };
   SCREEN.gate = (S, inp, keys, x, y, click) => {
-    const R = S.run, o = gateWays(R), U = UI.gate(o.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, o = gateWays(R, S), U = UI.gate(o.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!o.length || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }
     if (click && b && b.id.startsWith('go:') && o[b.i]) gateGo(S, R, o[b.i]);
     return;
@@ -526,7 +555,7 @@
   };
   SCREEN.note = (S, inp, keys, x, y, click) => { if (keys.KeyE || keys.Escape || keys.Enter || keys.Space || click) { S.screen = 'play'; ev(S, { k: 'ui', x, y }); } };
   SCREEN.notes = (S, inp, keys, x, y, click) => { const L0 = S.meta.notes || [], pg = S.notesPage || 0, U = UI.notes(L0.length, pg), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'journal'; S.hover = ''; return; }
+    if (keys.Escape || keys.KeyJ || (click && b && (b.id === 'close' || b.id === 'journal'))) { S.screen = 'journal'; S.hover = ''; return; }
     if (click && b && b.id === 'prev' && b.on) S.notesPage = pg - 1; if (click && b && b.id === 'next' && b.on) S.notesPage = pg + 1;
     if (click && b && b.id.startsWith('n:')) S.noteSel = L0[b.i]; if (click && b) ev(S, { k: 'ui', x, y }); };
   // a press asked twice (TASKS 1863 в, г): true on the second within 3 s on the same piece, else it arms and the caller says why
@@ -608,5 +637,5 @@
   }
 
   Object.assign(SIMX, { talkWalk, talkFirst, boardRows,
-    endRun, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
+    endRun, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

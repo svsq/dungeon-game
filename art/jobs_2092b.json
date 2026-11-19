@@ -1,0 +1,46 @@
+[
+ {
+  "name": "hero_head_back_c1",
+  "prompt": "art/prompts/hero_head_back.txt",
+  "ref": [
+   "art/raw/ref_head_back_2092b.png=the approved back of the hero's head and collar: framing, silhouette and size to keep",
+   "art/raw/ref_head_front_2092b.png=the same hero's head from the front: hair colours, chunky locks and top-left highlight"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "seed": 1
+ },
+ {
+  "name": "hero_head_back_c2",
+  "prompt": "art/prompts/hero_head_back.txt",
+  "ref": [
+   "art/raw/ref_head_back_2092b.png=the approved back of the hero's head and collar: framing, silhouette and size to keep",
+   "art/raw/ref_head_front_2092b.png=the same hero's head from the front: hair colours, chunky locks and top-left highlight"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "seed": 2
+ },
+ {
+  "name": "hero_head_back_c3",
+  "prompt": "art/prompts/hero_head_back.txt",
+  "ref": [
+   "art/raw/ref_head_back_2092b.png=the approved back of the hero's head and collar: framing, silhouette and size to keep",
+   "art/raw/ref_head_front_2092b.png=the same hero's head from the front: hair colours, chunky locks and top-left highlight"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "seed": 3
+ },
+ {
+  "name": "hero_head_back_c4",
+  "prompt": "art/prompts/hero_head_back.txt",
+  "ref": [
+   "art/raw/ref_head_back_2092b.png=the approved back of the hero's head and collar: framing, silhouette and size to keep",
+   "art/raw/ref_head_front_2092b.png=the same hero's head from the front: hair colours, chunky locks and top-left highlight"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "seed": 4
+ }
+]

@@ -36,17 +36,21 @@ try {
     if (!ok) { console.log('no state', name); continue; }
     const off = await page.evaluate(() => (window.__UI || []).filter((q) => q.k === 'text' && (q.x < 0 || q.y < 0 || q.x + q.w > SIM.VIEW.W || q.y + q.h > SIM.VIEW.H)).map((q) => q.s));
     const wide = await page.evaluate(() => { const ui = (window.__UI || []).map((u, i) => Object.assign({ i }, u)), hits = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y);
-      const covers = ui.filter((u) => u.k === 'cover'), boxes = ui.filter((u) => u.k === 'box'), out = [];
+      const covers = ui.filter((u) => u.k === 'cover'), boxes = ui.filter((u) => u.k === 'box'), out = [], bare = [];
       for (const t of ui.filter((u) => u.k === 'text' && !covers.some((c) => c.i > u.i && hits(u, c)))) { const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
         const b = boxes.filter((b) => cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h && !covers.some((c) => c.i > b.i && c.i < t.i && hits(b, c))).sort((a, c) => a.w * a.h - c.w * c.h)[0];
-        const px = b ? Math.max(b.x + b.pad - t.x, t.x + t.w - (b.x + b.w - b.pad), 0) : 0; if (px > 1) out.push(`"${t.s}" over ${b.id} by ${Math.round(px)} px`); }
-      return out; });
-    over += wide.length;
+        const px = b ? Math.max(b.x + b.pad - t.x, t.x + t.w - (b.x + b.w - b.pad), 0) : 0; if (px > 1) out.push(`"${t.s}" over ${b.id} by ${Math.round(px)} px`);
+        // a text whose middle is in no container is not measured by any: it is a violation when it crosses a container's edge (it ran out
+        // of its own, TASKS 2086), and otherwise a warning that nothing frames it
+        if (!b) { const x = boxes.find((q) => hits(t, q) && !covers.some((c) => c.i > q.i && c.i < t.i && hits(q, c)) && (t.x < q.x || t.x + t.w > q.x + q.w || t.y < q.y || t.y + t.h > q.y + q.h));
+          if (x) out.push(`"${t.s}" crosses the edge of ${x.id}`); else bare.push(t.s); } }
+      return { out, bare }; });
+    over += wide.out.length;
     if (FOCUS) { const url = await page.evaluate(([id, BOX, Z]) => { LIB.TRACE = {}; SCENE.render(SCENE.state.t + 0.01); const j = LIB.TRACE[id], c = j && j.ground ? j.ground : [960, 540], cv = document.createElement('canvas'); cv.width = cv.height = BOX * Z;
       const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(document.getElementById('c'), c[0] - BOX / 2, c[1] - BOX * 0.7, BOX, BOX, 0, 0, BOX * Z, BOX * Z); return cv.toDataURL('image/png'); }, [FOCUS, BOX, ZOOM]);
       fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(url.split(',')[1], 'base64')); }
     else await page.locator('#c').screenshot({ path: path.join(out, name + '.png') });
-    console.log('state', name, off.length ? 'OFF VIEW: ' + off.slice(0, 3).join(' | ') : '', wide.length ? 'WIDER THAN ITS BOX: ' + wide.join(' | ') : '');
+    console.log('state', name, off.length ? 'OFF VIEW: ' + off.slice(0, 3).join(' | ') : '', wide.out.length ? 'WIDER THAN ITS BOX: ' + wide.out.join(' | ') : '', wide.bare.length ? 'no box: ' + wide.bare.slice(0, 3).join(' | ') + (wide.bare.length > 3 ? ' (+' + (wide.bare.length - 3) + ')' : '') : '');
   }
   for (const name of sheets) {
     const url = await page.evaluate(([name, N, BOX, F0, F1, Z]) => {

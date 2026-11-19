@@ -79,6 +79,13 @@
     if (SIMX.revKey(a, 1) === SIMX.revKey(b, 1)) out.push('maprev: two maps of one seed and floor share a cache key');
     const r = SIMX.revKey(a, 1); mapw.touch(a); if (SIMX.revKey(a, 1) === r) out.push('maprev: a map\'s cache key stays put over a write');
     for (const at of scan(SEED_KEY)) out.push(`maprev: ${at} keys a cache by the seed`);
+    // TASKS 2087: the minimap's key follows the cells only; a flood, a block or a lock moves the revision but not that key
+    if (SIMX.cellsKey(a, 1) === SIMX.cellsKey(b, 1)) out.push('maprev: two maps of one seed and floor share a cells key');
+    const c0 = SIMX.cellsKey(a, 1), k = a.cells.findIndex((c, i) => c === 1 && !a.water.includes(i));
+    mapw.addWater(a, [k]); mapw.blockPush(a, k); mapw.unlatch(a, {}, 0); mapw.put(a, 'block', a.block); mapw.touch(a);
+    if (SIMX.cellsKey(a, 1) !== c0) out.push('maprev: water, block and lock writes move the minimap\'s key');
+    for (const [name, op] of [['setCell', () => mapw.setCell(a, 0, a.cells[0])], ['fillCells', () => mapw.fillCells(a, [[0, 0]], a.cells[0])], ['put cells', () => mapw.put(a, 'cells', a.cells)]]) {
+      const w = SIMX.cellsKey(a, 1); op(); if (SIMX.cellsKey(a, 1) === w) out.push(`maprev: ${name} leaves the minimap's key where it was`); }
   }
   SIMX.checks.add('mapRevCheck', mapRevCheck);
   SIMX.checks.add('mapWaterCheck', waterCheck);

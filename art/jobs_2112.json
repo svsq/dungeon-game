@@ -1,0 +1,94 @@
+[
+ {
+  "name": "cart_tw_f_c1",
+  "prompt": "art/prompts/cart_tw_f.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw.png=the three-quarter design of this game's mine cart",
+   "live/assets/cart_tw_f.png=current head-on mine cart, its wheels are wrong"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_f_c2",
+  "prompt": "art/prompts/cart_tw_f.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw.png=the three-quarter design of this game's mine cart",
+   "live/assets/cart_tw_f.png=current head-on mine cart, its wheels are wrong"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_f_c3",
+  "prompt": "art/prompts/cart_tw_f.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw.png=the three-quarter design of this game's mine cart",
+   "live/assets/cart_tw_f.png=current head-on mine cart, its wheels are wrong"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_f_c4",
+  "prompt": "art/prompts/cart_tw_f.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw.png=the three-quarter design of this game's mine cart",
+   "live/assets/cart_tw_f.png=current head-on mine cart, its wheels are wrong"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_f_half_c1",
+  "prompt": "art/prompts/cart_tw_f_half.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw_f.png=this game's head-on mine cart, redraw it exactly"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_f_half_c2",
+  "prompt": "art/prompts/cart_tw_f_half.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw_f.png=this game's head-on mine cart, redraw it exactly"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_f_empty_c1",
+  "prompt": "art/prompts/cart_tw_f_empty.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw_f.png=this game's head-on mine cart, redraw it exactly"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ },
+ {
+  "name": "cart_tw_f_empty_c2",
+  "prompt": "art/prompts/cart_tw_f_empty.txt",
+  "ref": [
+   "study/refcrops/town_unload_yard.png=the approved town concept's yard crop",
+   "live/assets/cart_tw_f.png=this game's head-on mine cart, redraw it exactly"
+  ],
+  "size": "1024x1024",
+  "pixel": true,
+  "alpha": "auto"
+ }
+]

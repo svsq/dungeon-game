@@ -17,11 +17,12 @@
     return h;
   }
   function newRun(S, mode, seed, o = {}) {
-    const R = { mode, seed, diff: S.demo ? 'normal' : S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta, o.cls || S.meta.cls || 'warrior'), cam: [0, 0], camV: [0, 0],
+    const R = { mode, seed, diff: S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta, o.cls || S.meta.cls || 'warrior'), cam: [0, 0], camV: [0, 0],
       freeze: 0, trauma: 0, map: null, en: [], proj: [], drops: [], chests: [], pots: [], shrines: [], seen: [], rseen: [], bossDead: 0, won: 0, saveT: 0, msg: null };
-    if (!S.demo) R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
+    R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
     if (o.name) { R.hero.name = o.name; if (R.log) R.log.name = o.name; }
-    const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.demo ? {} : S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
+    if (o.deathMode) { R.deathMode = o.deathMode; if (R.log) R.log.deathMode = o.deathMode; }
+    const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; h.look = D.LOOK_IDS.includes(o.look) ? o.look : D.lookPick(S.meta, C.id); if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
     const give = (it) => { it.id = R.nextId++; return it; };
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: W, rar: 0, mods: {}, atk: BASES[W].atk }));
     h.eq.armor = give({ b: A, rar: 0, lvl: 1, mods: {}, def: BASES[A].def });
@@ -34,7 +35,7 @@
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = C.res === 'rage' ? 0 : st.maxMp;
     if (o.town && mode === 'campaign' && !o.allFree) R.captives = { merchant: { who: 'merchant' }, smith: { who: 'smith' }, enchanter: { who: 'enchanter' } };
     if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
-    enterFloor(S, R, o.town ? 0 : 1);
+    if (!o.bare) enterFloor(S, R, o.town ? 0 : 1);   // bare (2214): the hero alone, no floor made (the menu's arch)
     return R;
   }
 
@@ -181,10 +182,10 @@
   // a save made in that half-made state (TASKS 1993): back to the town with its portal to the floor, and every kept floor whose diff
   // holds the town's map built anew, with its dead as an old generator's floor keeps them. The map in hand is already the town's, so
   // the portal is put back even if the town's own arrival fails; it has no spot on the floor, and the hero comes out by the stairs up
-  function mendRun(S, R) { if (!R || !R.viaTown || !(R.floor > 0) || !R.map || !R.map.town) return false; const f = R.floor;
+  function mendRun(S, R) { if (!R || !R.viaTown || !(R.floor > 0) || !R.map || !R.map.town) return false; const f = R.floor, from = R.portal && R.portal.from;
     for (const M of Object.values(R.memo || {})) { const p = M.d && M.d.p && M.d.p.map && M.d.p.map.p; if (!p || !p.town) continue; M.gv = -1; M.d = { p: { en: { p: {}, n: 0 } } }; M.drops = []; M.seen = null; M.rseen = null; }
     R.floor = 0; R.town = 1; R.portal = null;
-    const ok = enterFloor(S, R, 0, undefined, 'portal'); R.portal = { f };
+    const ok = enterFloor(S, R, 0, undefined, 'portal'); R.portal = from ? { f, from } : { f };
     if (ok) R.msg = { s: TXT('sim_floor.mended', { floor: f }), t: S.t, d: 5 }; return ok; }
   function goFloor(S, R, f, gen, how) {
     if (R.map && R.events) SIMX.eventsLeave(S, R);
@@ -220,11 +221,13 @@
     if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     // (in the magma wall he steps out a cell lower and aside, TASKS 1930: straight below the opening he hid its steps)
     else if (how === 'down' && m.up) [hx, hy] = standNear(R, ...DG.arrivalAt(m.up, m.biome));
+    // through the town's ring to a boss's hall (TASKS 2104): out by the hall's portal home, whether its boss is slain yet or not
+    else if (how === 'boss') { const g = SIMX.hallGate(R) || m.up || m.spawn; [hx, hy] = standNear(R, g.x, g.y + 40); }
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal && R.portal.x !== undefined ? R.portal : m.up || m.spawn; [hx, hy] = standNear(R, P.x, P.y + (m.town || P !== R.portal ? 40 : 0)); }
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; SIMX.eventsArrive(R); h.pull = null; h.read = null; h.volleyT = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
-    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; snapCam(R);
+    R.zoom = S.meta.zoom; snapCam(R);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
     reveal(R, 1); R.msg = R.town && R.newOffers ? { s: TXT('sim_floor.newOffers'), t: S.t, d: 3.5 } : { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 }; R.newOffers = 0;
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);

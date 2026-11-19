@@ -17,7 +17,7 @@ const verify = (rel, src) => {
 };
 Module._load = function (request, parent, isMain) {
   const file = parent && request.startsWith('.') ? path.resolve(path.dirname(parent.filename), request) : '';
-  const rel = file.startsWith(LIVE) ? path.relative(LIVE, file.endsWith('.js') ? file : file + '.js') : '';
+  const rel = file.startsWith(LIVE) ? path.relative(LIVE, path.extname(file) ? file : file + '.js') : '';
   if (!rel || loaded.includes(rel)) return load.call(this, request, parent, isMain);
   loaded.push(rel);
   const raw = fs.readFileSync(path.join(LIVE, rel), 'utf8'), src = code(raw, true);
@@ -32,7 +32,8 @@ Module._load = function (request, parent, isMain) {
 for (const f of ['data.js', 'dungeon.js', 'sim.js']) require('../live/' + f);
 Module._load = load;
 const M = require('../live/modules.js'), PAGE = new Set(M.page);
-for (const f of loaded) if (!PAGE.has(f) && f !== 'modules.js' && !/^sim_checks/.test(f) && !/^(text|ui)_files\.js$/.test(f)) fails.push(`${f}: loaded by Node but not in modules.js page`);
+// a .cjs file of live/ is Node's own (sandbox.cjs runs page code for the checks), the page never loads it
+for (const f of loaded) if (!PAGE.has(f) && f !== 'modules.js' && path.extname(f) !== '.cjs' && !/^sim_checks/.test(f) && !/^(text|ui)_files\.js$/.test(f)) fails.push(`${f}: loaded by Node but not in modules.js page`);
 for (const f of fails) console.log('FAIL', f);
 console.log(`scopecheck: ${loaded.length} files, ${fails.length ? fails.length + ' failure(s)' : 'ok'}`);
 process.exitCode = fails.length ? 2 : 0;

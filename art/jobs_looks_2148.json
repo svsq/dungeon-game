@@ -1,0 +1,740 @@
+[
+ {
+  "name": "looks_warrior_b_small_1",
+  "prompt": "art/prompts/charref_looks_warrior_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_b_small_2",
+  "prompt": "art/prompts/charref_looks_warrior_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_b_small_3",
+  "prompt": "art/prompts/charref_looks_warrior_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_b_small_4",
+  "prompt": "art/prompts/charref_looks_warrior_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_c_small_1",
+  "prompt": "art/prompts/charref_looks_warrior_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_c_small_2",
+  "prompt": "art/prompts/charref_looks_warrior_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_c_small_3",
+  "prompt": "art/prompts/charref_looks_warrior_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_c_small_4",
+  "prompt": "art/prompts/charref_looks_warrior_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_b_small_1",
+  "prompt": "art/prompts/charref_looks_mage_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_b_small_2",
+  "prompt": "art/prompts/charref_looks_mage_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_b_small_3",
+  "prompt": "art/prompts/charref_looks_mage_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_b_small_4",
+  "prompt": "art/prompts/charref_looks_mage_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_1",
+  "prompt": "art/prompts/charref_looks_mage_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_2",
+  "prompt": "art/prompts/charref_looks_mage_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_3",
+  "prompt": "art/prompts/charref_looks_mage_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_4",
+  "prompt": "art/prompts/charref_looks_mage_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_small_1",
+  "prompt": "art/prompts/charref_looks_archer_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_b_v2.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_small_2",
+  "prompt": "art/prompts/charref_looks_archer_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_b_v2.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_small_3",
+  "prompt": "art/prompts/charref_looks_archer_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_b_v2.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_small_4",
+  "prompt": "art/prompts/charref_looks_archer_b_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_b.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_b_v2.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_1",
+  "prompt": "art/prompts/charref_looks_archer_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_2",
+  "prompt": "art/prompts/charref_looks_archer_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_3",
+  "prompt": "art/prompts/charref_looks_archer_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_4",
+  "prompt": "art/prompts/charref_looks_archer_c_small.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_v3_1",
+  "prompt": "art/prompts/charref_looks_archer_b_v3.txt",
+  "ref": [
+   "art/char_refs/archer_b_v2.png=edit target: keep everything, only make the bow a sensible size and keep the quiver on the back",
+   "art/char_refs/archer_a.png=another approved archer: only the bow size relative to the body and the back quiver"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "seed": 1,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_v3_2",
+  "prompt": "art/prompts/charref_looks_archer_b_v3.txt",
+  "ref": [
+   "art/char_refs/archer_b_v2.png=edit target: keep everything, only make the bow a sensible size and keep the quiver on the back",
+   "art/char_refs/archer_a.png=another approved archer: only the bow size relative to the body and the back quiver"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "seed": 2,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_b_small_5",
+  "prompt": "art/prompts/charref_looks_warrior_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_b_small_6",
+  "prompt": "art/prompts/charref_looks_warrior_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_c_small_5",
+  "prompt": "art/prompts/charref_looks_warrior_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_c_small_6",
+  "prompt": "art/prompts/charref_looks_warrior_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_warrior_c_small_7",
+  "prompt": "art/prompts/charref_looks_warrior_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_warrior_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_warrior_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/warrior_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 7,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_b_small_5",
+  "prompt": "art/prompts/charref_looks_mage_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_b_small_6",
+  "prompt": "art/prompts/charref_looks_mage_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_b_small_7",
+  "prompt": "art/prompts/charref_looks_mage_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_b.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 7,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_5",
+  "prompt": "art/prompts/charref_looks_mage_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_6",
+  "prompt": "art/prompts/charref_looks_mage_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_7",
+  "prompt": "art/prompts/charref_looks_mage_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 7,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_small_5",
+  "prompt": "art/prompts/charref_looks_archer_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_b_v3.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_small_6",
+  "prompt": "art/prompts/charref_looks_archer_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_b_v3.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_b_small_7",
+  "prompt": "art/prompts/charref_looks_archer_b_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_b_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_b_v3.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 7,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_5",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_6",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_7",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_b.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 7,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_8",
+  "prompt": "art/prompts/charref_looks_mage_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c_c.png=an earlier attempt on the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 8,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_mage_c_small_9",
+  "prompt": "art/prompts/charref_looks_mage_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_mage_c_c.png=an earlier attempt on the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_mage_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/mage_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 9,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_8",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_c.png=an earlier attempt on the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 8,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_9",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_c.png=an earlier attempt on the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 9,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_10",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_c.png=an earlier attempt on the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 10,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_11",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_c.png=an earlier attempt on the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_a.png=another approved look of this hero class on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 11,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_12",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_d.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_b7.png=another archer of this game on the same grid with a cloak and a bow: exactly this tall (40 art pixels), these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 12,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_13",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_d.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_b7.png=another archer of this game on the same grid with a cloak and a bow: exactly this tall (40 art pixels), these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 13,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_14",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_d.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_b7.png=another archer of this game on the same grid with a cloak and a bow: exactly this tall (40 art pixels), these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 14,
+  "out_dir": "frames/char_refs_looks/gen"
+ },
+ {
+  "name": "looks_archer_c_small_15",
+  "prompt": "art/prompts/charref_looks_archer_c_small_b.txt",
+  "ref": [
+   "frames/char_refs_looks/gen/guide_archer_c_d.png=an earlier attempt resampled onto the exact target grid: keep its body, pose, height and colours, redraw every shape and the face cleanly on this grid",
+   "frames/char_refs_looks/gen/scale_archer_b7.png=another archer of this game on the same grid with a cloak and a bow: exactly this tall (40 art pixels), these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_c.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 15,
+  "out_dir": "frames/char_refs_looks/gen"
+ }
+]

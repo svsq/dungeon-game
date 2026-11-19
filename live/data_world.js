@@ -10,6 +10,10 @@
   // candle: the warm light of the wall torches in a room without a hearth (TASKS 1787: the concept's side rooms, the biome's colour in its
   // braziers' pools only); hearth: how much wider and brighter a brazier's cold pool is [r, amt]; sconce: the reach of a wall torch in its colour;
   // candleR: a candle's pool against a torch's (the halls keep 1: 1787's floor between the hearths, L 18–20, was tuned on full pools); ambK, ambLvl: its neutral stone between them
+  // flick: how a fire's light breathes, base + Σ amp·sin(2π·hz·t + ph·i), i the source's index or place so neighbours never beat in
+  // step (TASKS 2149: a tester found the fires shimmering each on its own tiring, the town's most: its swing now a third of the old ±19 %, slow; the halls' half of it);
+  // fireball: the rate (Hz) the fireball's edge and heart drift at, smooth (a 30 Hz stepped hash read as shimmer)
+  const FLICK = { deep: { base: 0.85, waves: [[0.05, 1.45, 3.7], [0.03, 3.7, 1.3]] }, town: { base: 0.85, waves: [[0.035, 0.6, 3.7], [0.021, 1.3, 1.3]] }, fireball: 9 };
   const BIOMES = {
     dungeon: { name: TXT('BIOMES.dungeon.name'), rock: [0.05, 0.04, 0.052], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], litSat: 1.0, floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
@@ -39,9 +43,11 @@
       from: { cultist: 2, skel_ember: 2, imp: 1, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
-    // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
-    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.17, 0.157, 0.17], ambK: 0.65, ambLvl: 1.0, fireK: 1.1, bigK: 0.76, torch: [1.0, 0.62, 0.3], torchR: 0.55, spill: [1.1, 0.35], topLift: 1.3, floorG: 1.3, wallG: [0.9, 0.9, 0, 1.05], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
-      tint: [1, 1, 1], roster: [], props: [], town: true },
+    // concept's yellow-orange, not the dungeon's red; a cool shade between the pools, so the pools stand out of it (TASKS 2138: neutral, the
+    // shadows read warmer than the concept's, a* 8.3 against 4.5); wallG: unlit masonry dark with deep seams (r10: L50 24.8 against 15); fireK: its fires' strength
+    // big*: the square's fire is a tight pool with no wide spill (TASKS 2095, r9: its 70–110 px ring read L 35 against the concept's 21)
+    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.155, 0.16, 0.18], ambK: 0.65, ambLvl: 1.05, fireK: 1.1, bigK: 0.4, bigR: 100, bigFall: 3.0, bigNear: 0.6, bigSpill: 0, torch: [1.0, 0.66, 0.36], torchR: 0.55, spill: [1.1, 0.35], topLift: 2.1, floorG: 1.7, wallG: [0.75, 0.62, 0, 1.35], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
+      tint: [1, 1, 1], roster: [], props: [], town: true, flick: FLICK.town },
   };
 
   const ARCH = {
@@ -235,9 +241,14 @@
     pool: {
       probe: { w: 0, minF: 1, room: 'treasure', ask: 1, name: TXT('EVENTS.probe.name'), say: TXT('EVENTS.probe.say'), yes: TXT('EVENTS.probe.yes'), no: TXT('EVENTS.probe.no'), prompt: TXT('EVENTS.probe.prompt'), done: TXT('EVENTS.probe.done') },
       // the skull door (TASKS 362): a skull over each way in and the bones on its floor tell of it from the doorway; «yes» drops a
-      // grate in every way in, and three waves of the floor's own roster rise one after another, wave i n[i] + depth / perF strong,
-      // gap s apart; the last one down lifts the grates and leaves a chest of a cache's tier (`chest`) on its spot
-      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [2, 3, 4], perF: 3, gap: 1.6, retry: 0.25, tries: 12, chest: 4,
+      // grate in every way in, and its waves of the floor's own roster rise one after another, gap s apart; the last one down lifts the
+      // grates and leaves the chest of `pay` on its spot. TASKS 2132: waves[0]..waves[1] of them, rolled as the floor is laid; the first
+      // size[0] + depth / perF strong, the last size[1] + depth / perF (EVENTS.trialWave), `elites` of the last one elites. Its room
+      // holds the last wave at PACK_AREA cells a monster, and never less than `area` (EVENTS.trialArea).
+      // pay: the chest by the number of waves, its tier and `up` (finds rolled that many floors deeper, as the cursed chest's): five or
+      // six waves pay the cache's tier the three waves paid before 2132, fewer less, more more
+      trial: { w: 3, minF: 1, room: 'treasure', ask: 1, goal: 1, area: 42, waves: [3, 8], size: [2, 4], perF: 3, elites: 1, gap: 1.6, retry: 0.25, tries: 12,
+        pay: { 3: { chest: 3 }, 4: { chest: 3, up: 1 }, 5: { chest: 4 }, 6: { chest: 4 }, 7: { chest: 4, up: 1 }, 8: { chest: 5 } },
         name: TXT('EVENTS.trial.name'), say: TXT('EVENTS.trial.say'), yes: TXT('EVENTS.trial.yes'), no: TXT('EVENTS.trial.no'), prompt: TXT('EVENTS.trial.prompt'), done: TXT('EVENTS.trial.done') },
       // the blood altar (TASKS 363): `cost` of the health the hero has now (never the last point) for one find of `item`, an epic or
       // better made for his class, on the altar. Its own reward, not a power: the altar of gifts (a room of its own) gives those.
@@ -279,6 +290,10 @@
         name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
   // the cursed chest's text names the curse's own number, which EVENTS holds only once its table is built
   TXT.bind('EVENTS.hex.say', EVENTS); EVENTS.pool.hex.say = TXT('EVENTS.hex.say');
+  // a pack's room per monster, in cells: a room's own pack (dungeon_fill.js) and a skull door's wave (TASKS 2132) never crowd it more
+  const PACK_AREA = 9;
+  EVENTS.trialWave = (i, n, depth) => { const P = EVENTS.pool.trial, [a, b] = P.size; return a + Math.round((b - a) * i / Math.max(1, n - 1)) + Math.floor(depth / P.perF); };
+  EVENTS.trialArea = (depth) => Math.max(EVENTS.pool.trial.area, PACK_AREA * EVENTS.trialWave(1, 2, depth));
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
@@ -363,6 +378,9 @@
   // the blast, time to step or dash away; r: the blast's reach; hp: share of max health, never the killing blow
   const CHEST_TRAP = { from: 2, p: 0.1, max: 2, fuse: 0.55, r: 96, hp: 0.2 };
   const MIMIC = { from: 3, p: 0.08 };
+  // a boss's chest opens by itself after the win (TASKS 2169): auto: play seconds after its seal falls, long enough to see it fall;
+  // edge: how far inside the camera's window the chest must be, so it never opens where the hero cannot see it
+  const BOSS_CHEST = { auto: 1.2, edge: 48 };
   // a statue that slides aside off a secret (TASKS 1354): p: chance a top-wall secret takes this cover where the statue fits
   // planned: the same chance in a room dressed to a matching plan, plans: those rooms (TASKS 1355); hostP: chance a room hosting a secret takes one of the plans
   // slide: seconds the stone takes to grind aside; the cell it leaves stays blocked until it is gone
@@ -373,5 +391,6 @@
   // `rest`: the painting of what is left lying there, its keel and half its ribs (TASKS 1736: only splinters marked where it had stood)
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2, rest: 'wreck_cv_broken' };
-  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  for (const b of Object.values(BIOMES)) b.flick = b.flick || FLICK.deep;
+  Object.assign(D, { FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BOSS_CHEST, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -10,26 +10,28 @@
   function grates(R, E, down) { const m = R.map, r = m.rooms[E.room];
     for (const g of E.gates || []) mapw.fillCells(m, g.cells, down ? 5 : 1);
     m.arenaBox = down ? [r.x, r.y, r.x + r.w, r.y + r.h] : null; }
+  // (TASKS 2132) a floor kept or saved before its waves were rolled has the three it was laid with
+  const trialN = (E) => E.waves || D.EVENTS.pool.trial.waves[0], trialPay = (E) => D.EVENTS.pool.trial.pay[trialN(E)];
   const trialFoes = (R, E) => R.en.filter((e) => e.summ === 'trial' && e.room === E.room && e.deadT < 0);
   function trialOff(S, R, E) { grates(R, E, 0); for (const e of trialFoes(R, E)) { e.deadT = S.t; e.hp = 0; } R.en = R.en.filter((e) => !(e.summ === 'trial' && e.room === E.room)); E.st = 'idle'; E.wave = 0; E.waveT = 0; E.tries = 0; S.saveN++; }
   const TRIAL = {
     start(S, R, E) { const P = D.EVENTS.pool.trial, h = R.hero; grates(R, E, 1); E.wave = 0; E.waveT = S.t + P.gap / 2;
       ev(S, { k: 'ambush', x: h.x, y: h.y }); ev(S, { k: 'grates', room: E.room, x: E.x, y: E.y }); R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('EVENTS.trial.start'), t: S.t, d: 3 }; },
-    // a wave rises at its moment, as many as find room; the next one a gap after the last of it falls, the chest after the third.
+    // a wave rises at its moment, as many as find room; the next one a gap after the last of it falls, the chest after the last.
     // The hero out of the room's box some other way than through a grate (a leap, a blink) ends it as if he had never said «yes»
-    step(S, R, E) { const P = D.EVENTS.pool.trial, h = R.hero, r = R.map.rooms[E.room]; if (h.deadT >= 0) return;
+    step(S, R, E) { const P = D.EVENTS.pool.trial, h = R.hero, r = R.map.rooms[E.room], N = trialN(E); if (h.deadT >= 0) return;
       if (!(h.x >= r.x * TILE && h.y >= r.y * TILE && h.x < (r.x + r.w) * TILE && h.y < (r.y + r.h) * TILE)) { trialOff(S, R, E); R.msg = { s: TXT('EVENTS.trial.fail'), t: S.t }; return; }
       if (E.waveT > 0) { if (S.t < E.waveT) return;
-        const n = SIMX.summonPack(S, R, E.room, P.waves[E.wave] + Math.floor(SIMX.dep(R) / P.perF), 'trial', 1);
+        const last = E.wave === N - 1, n = SIMX.summonPack(S, R, E.room, D.EVENTS.trialWave(E.wave, N, SIMX.dep(R)), 'trial', 1, last ? P.elites : 0);
         // a room with no free spot for it (the hero's foot, a crowd) gets another try; past the cap the wave is let go, so it never hangs
         if (!n && (E.tries = (E.tries || 0) + 1) < P.tries) { E.waveT = S.t + P.retry; return; }
-        E.waveT = 0; E.tries = 0; if (n) R.msg = { s: TXT('EVENTS.trial.wave', { n: E.wave + 1, of: P.waves.length }), t: S.t, d: 2 }; S.saveN++; return; }
+        E.waveT = 0; E.tries = 0; if (n) R.msg = { s: (last ? TXT('EVENTS.trial.last', { n: E.wave + 1, of: N }) : TXT('EVENTS.trial.wave', { n: E.wave + 1, of: N })), t: S.t, d: 2 }; S.saveN++; return; }
       if (trialFoes(R, E).length) return;
-      if (++E.wave >= P.waves.length) eventDone(S, R, E); else E.waveT = S.t + P.gap; },
-    reward(S, R, E) { const P = D.EVENTS.pool.trial; grates(R, E, 0);
-      const c = { x: E.x, y: E.y, tier: P.chest, open: 0, trial: 1 }, f = SIMX.fstat(R); c.loot = SIMX.chestLoot(R, c); R.chests.push(c); f.lootN += c.loot.length;
+      if (++E.wave >= N) eventDone(S, R, E); else E.waveT = S.t + P.gap; },
+    reward(S, R, E) { const Y = trialPay(E); grates(R, E, 0);
+      const c = { x: E.x, y: E.y, tier: Y.chest, up: Y.up || 0, open: 0, trial: 1 }, f = SIMX.fstat(R); c.loot = SIMX.chestLoot(R, c); R.chests.push(c); f.lootN += c.loot.length;
       ev(S, { k: 'grates', room: E.room, x: E.x, y: E.y, up: 1 }); ev(S, { k: 'summon', x: E.x, y: E.y }); },
-    leave: trialOff };
+    sayN: trialN, leave: trialOff };
   // the blood altar (TASKS 363): the cut is a wound like any other (its flash, its number), but no armour, dodge or shield takes it
   const BLOOD = {
     start(S, R, E) { const P = D.EVENTS.pool.blood, h = R.hero, n = Math.max(0, Math.min(h.hp - 1, Math.round(h.hp * P.cost)));
@@ -53,6 +55,7 @@
   // the goblin's table (TASKS 365): the stake is set as the floor is built, so the question can name it; with less gold than that the
   // goblin asks nothing. The throw falls on the run's dice at «yes» (a save holds them), as the fountain's fate does
   const DICE = {
+    sayN: (E) => E.stake,
     setup(R, E) { const P = D.EVENTS.pool.dice; E.stake = Math.round(P.stake[0] + P.stake[1] * SIMX.dep(R)); },
     can(S, R, E) { if (R.hero.gold >= E.stake) return true; R.msg = { s: TXT('EVENTS.dice.broke', { n: E.stake }), t: S.t, d: 3 }; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y }); return false; },
     reward(S, R, E) { const P = D.EVENTS.pool.dice, h = R.hero, n = Math.min(h.gold, E.stake);
@@ -113,6 +116,10 @@
   // a floor's blessing from its fountain comes back with the floor: arrive() clears the hero's, then this gives it again
   function eventsArrive(R) { const h = R.hero; if ((R.events || []).some((E) => E.fate === 'bless')) { h.bless = 1; h.blessTo = Math.max(h.blessTo || 0, R.floor); } }
   const eventsOf = (R) => R.events || [];
+  // an event's question, its {n} the rule's own number (sayN: the goblin's stake, the skull door's waves)
+  const eventSay = (E) => { const P = D.EVENTS.pool[E.id], F = EVENT_RULES[E.id] || {}; return F.sayN ? P.say.replace('{n}', F.sayN(E)) : P.say; };
+  // the skull door's fight for the HUD (TASKS 2132): its wave, the one up or the next to rise, of how many
+  const trialWaveOf = (R) => { const E = eventsOf(R).find((q) => q.id === 'trial' && q.st === 'on'); return E ? { n: Math.min(E.wave + 1, trialN(E)), of: trialN(E) } : null; };
   function eventsBuild(R) {
     R.events = (R.map.events || []).map((e) => Object.assign({ st: 'idle' }, e));
     for (const E of R.events) { const F = EVENT_RULES[E.id]; if (F && F.setup) F.setup(R, E); } }
@@ -135,5 +142,5 @@
   function stepEvents(S, R) { const h = R.hero;
     for (const E of eventsOf(R)) if (E.st === 'idle' && D.EVENTS.pool[E.id].walk && h.deadT < 0 && DG.roomAt(R.map, h.x, h.y) === E.room) eventStart(S, R, E);
     for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
-  Object.assign(SIMX, { EVENT_RULES, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
+  Object.assign(SIMX, { EVENT_RULES, trialN, trialPay, eventSay, trialWaveOf, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
 })(typeof window !== 'undefined' ? window : globalThis);
