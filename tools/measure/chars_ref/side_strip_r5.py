@@ -6,7 +6,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
 from cape_r5 import lab
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-D = os.path.join(ROOT, 'frames/critic_chars_r5_ref')
+D = os.path.join(ROOT, os.environ.get('REF_FRAMES', 'frames/critic_chars_r5_ref') + '')
 def flat(L, r=1):
     s = np.zeros(L.shape[:2]); H, W = s.shape
     for dy in range(-r, r + 1):

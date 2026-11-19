@@ -5,7 +5,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
 from cape_r5 import lab
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-D = os.path.join(ROOT, 'frames/critic_chars_r5_ref/' + (sys.argv[1] if len(sys.argv) > 1 else 'cape_town'))
+D = os.path.join(ROOT, os.environ.get('REF_FRAMES', 'frames/critic_chars_r5_ref') + '/' + (sys.argv[1] if len(sys.argv) > 1 else 'cape_town'))
 def ld(n, k): return np.asarray(Image.open(os.path.join(D, f'{n}__{k}.png')).convert('RGB')).astype(float)
 for n in sys.argv[2:] or ['def_run_r_38', 'def_run_l_38', 'def_walk_l_3', 'def_walk_l_6', 'def_walk_l_9', 'def_walk_dl_6', 'def_walk_ul_9', 'def_run_u_38', 'def_run_ur_38']:
     al, no = ld(n, 'all'), ld(n, 'none'); hero = np.abs(al - no).sum(2) > 24; L = lab(al)

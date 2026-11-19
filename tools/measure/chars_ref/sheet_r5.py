@@ -2,7 +2,7 @@
 import sys, os
 from PIL import Image, ImageDraw
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-D = os.path.join(ROOT, 'frames/critic_chars_r5_ref')
+D = os.path.join(ROOT, os.environ.get('REF_FRAMES', 'frames/critic_chars_r5_ref') + '')
 G = os.path.join(D, 'grab')
 def sheet(rows, out, s=2):
     w = max(len(r[1]) for r in rows); W = Image.new('RGB', (60 + w * 140 * s, len(rows) * 150 * s), (20, 20, 20)); dr = ImageDraw.Draw(W)

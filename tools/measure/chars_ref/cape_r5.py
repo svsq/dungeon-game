@@ -4,7 +4,7 @@ import os, glob, json, numpy as np
 from PIL import Image
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
 import sys
-D = os.path.join(ROOT, 'frames/critic_chars_r5_ref/' + (sys.argv[1] if len(sys.argv) > 1 else 'cape'))
+D = os.path.join(ROOT, os.environ.get('REF_FRAMES', 'frames/critic_chars_r5_ref') + '/' + (sys.argv[1] if len(sys.argv) > 1 else 'cape'))
 def lab(rgb):
     c = rgb / 255.0; c = np.where(c > 0.04045, ((c + 0.055) / 1.055) ** 2.4, c / 12.92)
     M = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]]); xyz = c @ M.T / np.array([0.9505, 1, 1.089])

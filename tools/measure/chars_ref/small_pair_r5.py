@@ -3,7 +3,7 @@
 import os, numpy as np
 from PIL import Image
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-D = os.path.join(ROOT, 'frames/critic_chars_r5_ref')
+D = os.path.join(ROOT, os.environ.get('REF_FRAMES', 'frames/critic_chars_r5_ref') + '')
 def fig(im, bg=None):
     a = np.asarray(im.convert('RGB')).astype(int); b = a[0, 0] if bg is None else bg; m = np.abs(a - b).sum(2) > 30; ys, xs = np.where(m); return im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
 rows = []

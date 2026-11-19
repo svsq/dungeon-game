@@ -6,7 +6,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
 from cape_r5 import lab
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-D = os.path.join(ROOT, 'frames/critic_chars_r5_ref/mage_arm')
+D = os.path.join(ROOT, os.environ.get('REF_FRAMES', 'frames/critic_chars_r5_ref') + '/mage_arm')
 ld = lambda n, k: np.asarray(Image.open(os.path.join(D, f'{n}__{k}.png')).convert('RGB')).astype(float)
 def dil(m, r=1):
     o = m.copy()
