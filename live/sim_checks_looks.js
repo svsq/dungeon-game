@@ -115,6 +115,10 @@
         if (!S.run) out.push('look show: no run from the start screen'); else { for (let i = 0; i < 5; i++) step(S, { keys: [] }); S.screen = 'inv'; draw(S); if (!n('probe_warrior_c')) out.push('look show: the hero screen of a warrior in «c» does not show his portrait'); } }
     } finally { for (const [cls, q] of Object.entries(D.LOOKS)) for (const [id, LK] of Object.entries(q)) LK.port = keep[cls + id]; K.seal = seal; K.cell = cell; }
   }
-  function lookCheck(out) { const RIGS = SB.rigs(), ART = SB.assets(); lookData(out, RIGS, ART); lookTex(out, RIGS, ART); lookHidden(out); lookPick(out); lookShow(out); }
+  // 2214: the menu's arch takes a class's hero from SIM.Q.freshHero: the hero as a run starts him, with no floor made for it
+  function freshHeroCheck(out) { const R = newRun(spawn(0, {}), 'campaign', 1, { cls: 'mage', bare: 1 }), Q = root.SIM.Q.freshHero('mage'), W = root.SIM.Q.freshHero('warrior');
+    if (R.map || R.en.length) out.push('look: a bare run made a floor');
+    if (!Q || !W || Q === W || D.clsOf(Q).id !== 'mage' || D.clsOf(W).id !== 'warrior' || !Q.eq.weapon || !(Q.hp > 0) || root.SIM.Q.freshHero('mage') !== Q) out.push('look: the arch\'s fresh hero is not a class\'s own, built once'); }
+  function lookCheck(out) { freshHeroCheck(out); const RIGS = SB.rigs(), ART = SB.assets(); lookData(out, RIGS, ART); lookTex(out, RIGS, ART); lookHidden(out); lookPick(out); lookShow(out); }
   SIMX.checks.add('lookCheck', lookCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

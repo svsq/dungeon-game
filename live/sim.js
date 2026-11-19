@@ -79,8 +79,8 @@
   // the render's own state when the page gave it none (render.mjs): the menu as a new game opens it
   let idleS = null;
   const idle = () => idleS || (idleS = spawn(0, {}));
-  // a class's hero as a new run starts him, for the menu's arch when no run is saved (TASKS 2146): built once, never stepped
-  const fresh = {}, freshHero = (cls) => fresh[cls] || (fresh[cls] = newRun(spawn(0, {}), 'campaign', 1, { cls }).hero);
+  // a class's hero as a new run starts him, for the menu's arch when no run is saved (TASKS 2146): built once, never stepped, and without a floor (2214)
+  const fresh = {}, freshHero = (cls) => fresh[cls] || (fresh[cls] = newRun(spawn(0, {}), 'campaign', 1, { cls, bare: 1 }).hero);
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null, slot: S.slot, saves: S.saves });
 
   root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, K, VIEW, viewFor, setView, RIG, create, spawn, respawn, outOfPlay, step, persist,

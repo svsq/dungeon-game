@@ -218,13 +218,14 @@ const failScreen = (title, line) => { LOADING.classList.remove('fade'); LOADING.
   // a floor drawn only once its programs are ready (TASKS 2106): till then the run stands under the loading screen; held: when
   // the wait began, what it was for
   let held = null, frameN = 0;
+  const loopFail = (e) => { console.error(e); bootLog('failed: ' + (e && e.stack || e)); failScreen('Видеокарта не смогла собрать картинку этажа', 'Обновите страницу. Если это повторяется, обновите драйвер видеокарты или закройте другие тяжёлые вкладки и окна.'); };
   const holdEnd = (now) => { if (!held) return; bootLog(`wait     ${held.what}: ${(now - held.t).toFixed(0)} ms for its programs`); held = null; };
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); frameStat(now, now - last); last = now;
     fpsAcc += wall; fpsN++; if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
     // (the first frame starts no compile of its own: it is the start's last step)
-    const warm = frameN++ > 0; if (warm) G.pump();
-    let wait = SCENE.ready(play.run);
+    // a program the driver cannot build (2215) is a failed start, not a frozen frame: the loop stops on the error screen
+    let wait; try { const warm = frameN++ > 0; if (warm) G.pump(); wait = SCENE.ready(play.run); } catch (e) { return loopFail(e); }
     if (pad) pad.poll(wall);                           // in real time, not scaled by the dev speed
     if (pad && !!pad.state.active !== padCursor) { padCursor = !!pad.state.active; cv.style.cursor = padCursor ? 'none' : 'crosshair'; }   // the HUD draws the pad's pointer
     const dt = paused ? (stepOnce ? 1 / 60 : 0) : wall * speed; stepOnce = false;
@@ -244,7 +245,7 @@ const failScreen = (title, line) => { LOADING.classList.remove('fade'); LOADING.
     const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
     if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
     if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
-    SCENE.state = play; wait = SCENE.ready(play.run);
+    SCENE.state = play; try { wait = SCENE.ready(play.run); } catch (e) { return loopFail(e); }
     if (wait < 1 && !held) held = { t: now, what: 'floor ' + play.run.floor + ' ' + play.run.map.biome };
     if (wait < 1) loadingShow(wait); else { loadingHide(); holdEnd(now); }
     if (wait >= 1) try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive

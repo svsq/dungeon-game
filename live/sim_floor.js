@@ -35,7 +35,7 @@
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = C.res === 'rage' ? 0 : st.maxMp;
     if (o.town && mode === 'campaign' && !o.allFree) R.captives = { merchant: { who: 'merchant' }, smith: { who: 'smith' }, enchanter: { who: 'enchanter' } };
     if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
-    enterFloor(S, R, o.town ? 0 : 1);
+    if (!o.bare) enterFloor(S, R, o.town ? 0 : 1);   // bare (2214): the hero alone, no floor made (the menu's arch)
     return R;
   }
 
