@@ -798,7 +798,7 @@
       n0 = nopes(); step(S, { keys: ['ArrowLeft'] }); step(S, { keys: [] }); if (A.n !== 1 || nopes() !== n0 + 1 || A.bump.d !== -1) out.push('split ends: ← at 1 does not answer');
       if (D.feedOf(S.ev, S.t).some((e) => e.k === 'nope' && !e.s)) out.push('split ends: the wordless refusal takes a plate of the feed');
       const KP = page.HUD.keyPlates(), sp = KP.sp_keys; if (!sp || sp[2] < SIMX.checks.kit.fontW(TXT('hud.split.keys'), 26) + 16) out.push(`split ends: the quantity window's keys have no plate their width (${JSON.stringify(sp)})`);
-      const T = townRun(), TR = T.run; TR.portal = { f: 3, x: 0, y: 0, from: 'scroll' }; T.meta.portals = [2]; T.screen = 'gate'; draw(T); const G = page.HUD.keyPlates().gt_help, P = UI.gate(SIMX.gateWays(TR, T).length).P;
+      const T = townRun(), TR = T.run; TR.portal = { f: 3, x: 0, y: 0, from: 'scroll' }; TR.slain = [2]; T.screen = 'gate'; draw(T); const G = page.HUD.keyPlates().gt_help, P = UI.gate(SIMX.gateWays(TR, T).length).P;
       if (!G || G[2] < SIMX.checks.kit.fontW(TXT('hud.gate.6'), 26) + 16 || G[1] < P.y + P.h) out.push(`split ends: the ring's keys have no plate their width under the window (${JSON.stringify(G)}, window to ${P.y + P.h})`);
     } finally { K.button = btn; K.ink = ink; } }
   // TASKS 2114: a button's «+» and «−» are bars whose middle is the button's middle to 0 px and whose edges fall on whole px, on odd

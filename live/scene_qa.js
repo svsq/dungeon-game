@@ -1973,18 +1973,18 @@
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // past the campaign (PR #21 review): the portal of the descent
     states.push(['town_gate_descent', climbS(0, (S, R, m, h) => { R.campaignWon = 1; R.memo = Object.assign({}, R.memo, { 14: { mode: 'endless' }, 15: { mode: 'endless' }, 16: { mode: 'endless' } }); R.portal = { f: 15, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; })]);
-    // the boss halls opened in earlier runs (TASKS 2104): beside the scroll's portal, a few; then every hall of the campaign, the rows
+    // the halls of the bosses this hero has slain (TASKS 2104, 2213): beside the scroll's portal, a few; then every hall of the campaign, the rows
     // thinned to fit; the prompt by the ring with more than one way. A portal left by a shut hall's gate has its own label; one left by
     // an open hall's gate is not shown, as the hall's row leads there (TASKS 2111)
     { const halls = Array.from({ length: DATA.RUNS.campaign.floors }, (_, i) => i + 1).filter((f) => DATA.stageOf('campaign', f).boss);
-      const ring = (S, R, m, h, P) => { R.deathMode = 'normal'; S.meta.portals = P; R.offers = []; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; };
+      const ring = (S, R, m, h, P) => { R.deathMode = 'normal'; R.slain = P.slice(); R.offers = []; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; };
       states.push(['town_gate_halls', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 2)); R.portal = { f: 5, x: 0, y: 0, from: 'scroll' }; S.screen = 'gate'; S.hover = 'go:1'; })]);
       states.push(['town_gate_halls_all', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls); R.portal = { f: 15, x: 0, y: 0, from: 'scroll' }; S.screen = 'gate'; S.hover = 'go:' + halls.length; })]);
       states.push(['town_gate_halls_gate', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); R.portal = { f: halls[1], x: 0, y: 0, from: 'gate' }; S.screen = 'gate'; S.hover = 'go:0'; })]);
       states.push(['town_gate_halls_dup', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 2)); R.portal = { f: halls[0], x: 0, y: 0, from: 'gate' }; S.screen = 'gate'; S.hover = 'go:0'; })]);
       states.push(['town_gate_halls_prompt', climbS(0, (S, R, m, h) => { ring(S, R, m, h, halls.slice(0, 1)); })]);
       // TASKS 2127: a normal-mode death on the 5th floor with the halls of the 2nd and 4th open, the toast's two lines in the town
-      states.push(['death_normal_toast', climbS(5, (S, R, m, h) => { R.deathMode = 'normal'; S.meta.portals = halls.slice(0, 2); h.xp = Math.round(D.xpNeed(h.lvl) * 0.8); h.hp = 0; S.t += 3; h.deadT = S.t - 2; SIM.step(S, { keys: [] }); S.ev = [];
+      states.push(['death_normal_toast', climbS(5, (S, R, m, h) => { R.deathMode = 'normal'; R.slain = halls.slice(0, 2); h.xp = Math.round(D.xpNeed(h.lvl) * 0.8); h.hp = 0; S.t += 3; h.deadT = S.t - 2; SIM.step(S, { keys: [] }); S.ev = [];
         if (R.msg) R.msg.t = S.t - 0.8; })]); }
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);

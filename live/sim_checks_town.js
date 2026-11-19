@@ -553,19 +553,22 @@
       R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 1; die(S, R); enterFloor(S, R, bossF); const b2 = R.en.find((e) => D.BOSSES[e.type]);
       if ((R.arena && R.arena.active) || !b2 || b2.hp !== b2.max || b2.deadT >= 0) out.push('death mode: a boss fight the hero fell in is still on, or the boss not whole, when he comes back'); }
     const [S, R] = fresh('hard'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]); R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIMX.killEnemy(S, R, b);
-    if (!(S.meta.portals || []).includes(bossF)) { out.push(`death mode: the boss of floor ${bossF} opens no hall in the meta (${JSON.stringify(S.meta.portals)})`); return out; }
-    const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S))));
-    if (!(S2.meta.portals || []).includes(bossF)) out.push('death mode: the opened hall does not outlive the save');
-    const [, R2] = fresh('normal', S2), o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
-    if (!go || o.some((q) => q.k !== 'boss')) out.push(`death mode: a new normal run's ring offers ${JSON.stringify(o)}`);
+    if (!(R.slain || []).includes(bossF)) { out.push(`death mode: the boss of floor ${bossF} leaves the hero's run no slain floor (${JSON.stringify(R.slain)})`); return out; }
+    if (JSON.stringify(S.meta.portals || []) !== '[]') out.push(`death mode: a boss slain writes a hall into the meta (${JSON.stringify(S.meta.portals)})`);
+    // 2213: the hall is the hero's own: the run keeps it through a save, and a new run (a new hero) of the same player has none
+    const [S3, R3] = fresh('normal'); R3.slain = [bossF]; const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S3))));
+    S2.meta.portals = [bossF];
+    if (SIMX.gateWays(fresh('normal', S2)[1], S2).length || SIMX.gateWays(fresh('hard', S2)[1], S2).length) out.push('death mode: a new run opens a hall for a boss the hero has not slain (an old meta.portals included)');
+    const [, R2] = [0, fresh('normal', S2)[1]]; R2.slain = [bossF]; const o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
+    if (!go || o.some((q) => q.k !== 'boss')) out.push(`death mode: a normal run that slew the boss has the ring offering ${JSON.stringify(o)}`);
     // TASKS 2111: a portal keeps its origin for its label (none in an old save = the scroll's); one left by an open hall's gate is
     // that hall's way twice, so the ring hides it, and going by the hall closes it
     { const way = (P) => { R2.portal = P; return SIMX.gateWays(R2, S2).find((q) => q.k === 'portal'); }, other = bossF + 1;
       const old = way({ f: bossF, x: 0, y: 0 }), scroll = way({ f: bossF, x: 0, y: 0, from: 'scroll' }), shut = way({ f: bossF, x: 0, y: 0, from: 'gate' }), far = way({ f: other, x: 0, y: 0, from: 'gate' });
       if (!old || old.from !== 'scroll' || !scroll || scroll.from !== 'scroll' || shut || !far || far.from !== 'gate') out.push(`death mode: the ring's portal by origin: old save ${JSON.stringify(old)}, scroll ${JSON.stringify(scroll)}, open hall's gate ${JSON.stringify(shut)}, a shut hall's gate ${JSON.stringify(far)}`);
       // TASKS 2126: the toast after a normal death names the deepest way the ring opens, else the mine from the first floor
-      const fell = (P) => { R2.portal = P; return SIMX.fellWay(S2, R2); }, pf = bossF + 2, ps = S2.meta.portals, hall = fell(null), deep = fell({ f: pf, x: 0, y: 0, from: 'scroll' });
-      S2.meta.portals = []; const none = fell(null); S2.meta.portals = ps;
+      const fell = (P) => { R2.portal = P; return SIMX.fellWay(S2, R2); }, pf = bossF + 2, ps = R2.slain, hall = fell(null), deep = fell({ f: pf, x: 0, y: 0, from: 'scroll' });
+      R2.slain = []; const none = fell(null); R2.slain = ps;
       if (hall !== TXT('sim_ui.fell.way.boss', { f: bossF }) || deep !== TXT('sim_ui.fell.way.portal', { f: pf }) || none !== TXT('sim_ui.fell.way.first')) out.push(`death mode: the death toast's way down reads «${hall}» with the hall of floor ${bossF}, «${deep}» with a portal to ${pf} too, «${none}» with neither`);
       R2.portal = { f: bossF, x: 0, y: 0, from: 'gate' }; }
     if (go) { SIMX.gateGo(S2, R2, go); const g = SIMX.hallGate(R2);

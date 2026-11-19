@@ -546,17 +546,13 @@
   const roomFor = (h, b) => { const cap = D.CONSUMABLES[b].stack; return h.bag.reduce((a, q) => a + (!q ? cap : q.b === b ? Math.max(0, cap - q.n) : 0), 0); };
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
-  // the ring's ways (TASKS 2104): the portal in hand, and with S given the boss halls the player has opened (S.meta.portals, kept
-  // across runs); a hardcore run starts from the first floor, so it gets no hall. A portal left by a hall's gate leads where that
+  // the ring's ways (TASKS 2104): the portal in hand, and with S given the halls of the bosses this hero has slain (R.slain, kept
+  // with the run: a new hero has none, 2213); a hardcore run starts from the first floor, so it gets no hall. A portal left by a hall's gate leads where that
   // hall's own way does, so it is shown only while the hall is not open (TASKS 2111)
   const atGate = (R, S) => !!(R.town && R.map.town && gateWays(R, S).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
-  const hallsOf = (S, R) => (!S || SIMX.hardcore(R) || RUN(R) !== D.RUNS.campaign ? [] : (S.meta.portals || []).filter((f) => f >= 1 && f <= RUN(R).floors));
+  const hallsOf = (S, R) => (!S || SIMX.hardcore(R) || RUN(R) !== D.RUNS.campaign ? [] : [...new Set(R.slain || [])].filter((f) => f >= 1 && f <= RUN(R).floors).sort((a, b) => a - b));
   const gateWays = (R, S) => { const H = hallsOf(S, R), P = R.portal, from = P && P.from === 'gate' ? 'gate' : 'scroll';
     return (P && !(from === 'gate' && H.includes(P.f)) ? [{ k: 'portal', f: P.f, from }] : []).concat(H.map((f) => ({ k: 'boss', f }))); };
-  // a boss slain in a campaign through the town opens its hall's portal for good (TASKS 2104), in either mode, as rewards are the same
-  function openHall(S, R) { const P = S.meta.portals || [];
-    if (R.test || !R.viaTown || RUN(R) !== D.RUNS.campaign || P.includes(R.floor)) return;
-    S.meta.portals = P.concat(R.floor).sort((a, b) => a - b); S.saveN++; }
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
     if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal' || (R.portal && R.portal.from === 'gate' && R.portal.f === o.f)) R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
@@ -634,6 +630,6 @@
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
-    stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openHall, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
+    stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell, CART_V, railLen, folkPause });
 })(typeof window !== 'undefined' ? window : globalThis);

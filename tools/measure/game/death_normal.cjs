@@ -6,7 +6,7 @@ const F = +(process.argv[2] || 5), seed = +(process.argv[3] || 1);
 function trial(withPortal, boss) {
   const S = P.start(seed), R = S.run, h = R.hero; P.greet(S);
   R.deathMode = 'normal'; h.lvl = 6; h.xp = Math.round(D.xpNeed(6) * 0.5);
-  if (boss) { S.meta.portals = [2, 4]; }
+  if (boss) { R.slain = [2, 4]; }
   X.enterFloor(S, R, F); R.deepest = Math.max(R.deepest || 0, F);
   if (withPortal) R.portal = { f: F, x: h.x, y: h.y, from: 'scroll' };   // a scroll read earlier on this floor, its portal left open
   const xp0 = h.xp, need = D.xpNeed(h.lvl), gold0 = h.gold, deaths0 = S.meta.deaths || 0, f0 = R.floor;
