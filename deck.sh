@@ -16,7 +16,7 @@ is_game() { python3 -c "import sys,urllib.request; sys.exit(0 if b'MODULES' in u
 if (exec 3<>"/dev/tcp/127.0.0.1/$P") 2>/dev/null; then
   is_game || { echo "Порт $P занят другим сервером: закройте его и запустите deck.sh снова."; read -r; exit 1; }
 else
-  python3 -m http.server "$P" --bind 127.0.0.1 >/dev/null 2>&1 &
+  python3 tools/serve.py "$P" --bind 127.0.0.1 >/dev/null 2>&1 &
   SERVER=$!
   trap 'kill $SERVER 2>/dev/null' EXIT
   for _ in $(seq 50); do (exec 3<>"/dev/tcp/127.0.0.1/$P") 2>/dev/null && break; sleep 0.1; done

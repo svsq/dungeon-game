@@ -15,6 +15,13 @@
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
   // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
   const folkTalk = (f, t) => f.near && t - f.sayT < D.FOLK_SAY;
+  const HOLD_SIDE = 6, GAIT_TURN = 0.08, GAIT_SNAP = 2;
+  function folkHeld(R, f, t) { const H = D.FOLK_HOLD, h = R.hero, dx = f.x - h.x, dy = f.y - h.y, d = Math.hypot(dx, dy), v = Math.hypot(h.vx, h.vy);
+    if (f.holdA != null) { if (h.deadT < 0 && d <= H.keep && t >= f.holdA && t - f.holdA < H.max && questMark(R, f.role)) return true; if (t - f.holdA >= H.max) f.holdC = t + H.cool; f.holdA = null; return false; }
+    // not by the way down: E there takes the way before the talk (TASKS 1600), a giver held at the stairs sent the hero down instead
+    const m = R.map, byWay = [m.down, exitKind(R) && m.exit].some((q) => q && Math.hypot(q.x - f.x, q.y - f.y) < H.way);
+    if (h.deadT >= 0 || d > H.near || byWay || t < (f.holdC ?? -9) || v < H.heroV || h.vx * dx + h.vy * dy < H.toward * v * d || !questMark(R, f.role)) return false;
+    f.holdA = t; return true; }
   const folkPause = (f, stop) => (f.role === 'porter' || f.role === 'mason' ? (stop && stop.act ? 1.8 : 0) : D.FOLK[f.role].pause || 0);
   // a hen (TASKS 1032): scatters from the hero who comes close (and from a walker's feet), runs to the child's grain and pecks there, else wanders about its
   // place a few steps at a time. f.goal { x, y, v, k: the grain it came for }; f.next: when it may pick its next spot
@@ -85,7 +92,7 @@
       k.home = k.home || { x: k.x, y: k.y }; k.path = sp && sp.path; k.greet = 1; G.sp = sp && { x: sp.x, y: sp.y };
       // the hero is held no longer than the walk takes, and a little more
       G.give = Math.min(GREET.give, (sp ? sp.path.reduce((d, p, j) => d + Math.hypot(p.x - (j ? sp.path[j - 1].x : k.x), p.y - (j ? sp.path[j - 1].y : k.y)), 0) / GREET_V : 0) + GREET.late); k.face = k.face || workFace(R, k); k.walked = 1; k.walkA = t; k.walkB = undefined; k.stuck = 0;
-      k.near = 1; k.sayT = t; k.sayS = D.KEEPER.greet; G.st = 'walk'; G.t1 = t; ev(S, { k: 'say', x: k.x, y: k.y, role: 'keeper' }); return; }
+      k.near = 1; k.sayT = t; k.sayS = D.KEEPER.greet; G.st = 'walk'; G.t1 = t; ev(S, { k: 'say', x: k.x, y: k.y, role: 'keeper' }); R.msg = { s: TXT('sim_town.greet.msg.s'), t: S.t, d: 4 }; return; }
     // a spot he has not reached in time (a hen on it, the hero in the way) he is put on, so he never talks from across the square
     if (G.st === 'walk') { if (k.path && t - G.t1 < (G.give ?? GREET.give)) { if (t - (h.faceT ?? -9) > 0.6 && Math.abs(k.x - h.x) > 8) heroFace(); return; }
       if (k.path && G.sp) { k.x = G.sp.x; k.y = G.sp.y; } k.path = null; k.spd = 0; k.vx = k.vy = 0; G.st = 'meet'; G.t2 = t; faceHero(); return; }
@@ -123,15 +130,20 @@
         else if (last && d < 1.5) { f.x = tg.x; f.y = tg.y; f.path = null; f.spd = 0; f.vx = f.vy = 0; continue; }
         else { want = last ? Math.min(GREET_V, d * 3 + 3) : GREET_V; ux = dx / d; uy = dy / d; } }
       else if (!route) { f.spd = 0; continue; }
-      if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0 && t >= (C.atT ?? -9) + 0.6))) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
-      if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
+      const held = route && folkHeld(R, f, t);
+      if (route && !held && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0 && t >= (C.atT ?? -9) + 0.6))) { f.go = 1; f.goT = t; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
+      if (route && f.go && !held && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
         const pass = f.role === 'porter' && !tg.act;
         if (pass && d < 3) { f.way = (f.way + 1) % route.length; f.stuck = 0; const t2 = route[f.way], d2 = Math.hypot(t2.x - f.x, t2.y - f.y) || 1; want = FD.v; ux = (t2.x - f.x) / d2; uy = (t2.y - f.y) / d2; }
-        else if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
+        // the speed it came in at, for the render to ease the stride out (biped's spd0): zeroed here, the legs snapped to standing in a frame (TASKS 2124)
+        else if (d < 1.5) { const v0 = Math.hypot(f.vx, f.vy); Object.assign(f, { spd0: v0, vxn0: v0 ? f.vx / v0 : 0, vyn0: v0 ? f.vy / v0 : 0 }); f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
           // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
           f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take') { C.takeT = t; if (--C.load <= 0) C.t = t + 2.5; } if (f.role === 'mason' && f.lift === 'drop') C.bin = (C.bin || 0) + 1; } }
         else { want = pass ? FD.v : Math.min(FD.v, d * 3 + 3); ux = dx / d; uy = dy / d; } }
-      f.spd += (want - f.spd) * Math.min(1, 7 * DT);
+      if (held && !want) f.spd = Math.max(0, f.spd - FD.v * DT / D.FOLK_HOLD.stop); else f.spd += (want - f.spd) * Math.min(1, 7 * DT);
+      // a giver held for the hero turns to him once stopped, the walkers' turn (D.FOLK_TURN): caught up with from behind, all four stood
+      // with their backs to him for up to 6 s, the «!» over the back of the head (town_motion_r10 1); turned at speed he would moonwalk
+      if (held && f.spd < 0.5 && Math.abs(h.x - f.x) > HOLD_SIDE) { const nf = h.x > f.x ? 1 : -1; if (nf !== f.face) { f.turnT = t; f.face = nf; } }
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
       if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }
       // round the others and the hero: try straight on, then wider and wider turns; nothing clear, it waits
@@ -140,7 +152,12 @@
       let moved = false;
       for (const a of [0, 0.6, -0.6, 1.2, -1.2]) { const c = Math.cos(a), sn = Math.sin(a), vx = ux * c - uy * sn, vy = ux * sn + uy * c, x = f.x + vx * step, y = f.y + vy * step;
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
-        f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
+        f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step;
+        // the gait's heading (f.hx, f.hy) eases round a corner of the round over GAIT_TURN, and the phase runs on f.pace, the stride
+        // shortened in depth (TASKS 2136): set by the way he goes, the feet swung over to the new heading in a frame (the porter 6.6 px)
+        // (a turn back on itself is snapped: eased, the heading never left the old way, and the feet turn with the figure's own turn then)
+        { const a0 = Math.atan2(f.hy ?? vy, f.hx ?? vx), da = Math.atan2(vy, vx) - a0, dw = da - 2 * Math.PI * Math.round(da / (2 * Math.PI)), a = Math.abs(dw) > GAIT_SNAP ? a0 + dw : a0 + dw * Math.min(1, DT / GAIT_TURN); f.hx = Math.cos(a); f.hy = Math.sin(a); }
+        f.pace = (f.pace ?? f.dist - step) + step / D.stepPace(f.hy); moved = true; break; }
       if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (f.path) { if ((f.stuck += DT) > GREET.stuck && f.path.length > 1) { f.path.shift(); f.stuck = 0; } continue; } if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
       if (Math.abs(f.vx) > (f.role === 'hen' ? 12 : 3)) { const nf = f.vx > 0 ? 1 : -1; if (f.role !== 'hen' || nf === f.face || t - (f.turnT ?? -9) > 1.1) { if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } } }
     // the merchant calls the hero over from across the yard, every so often
@@ -177,8 +194,9 @@
     const fresh = S.t - (R.enteredT ?? -9) < 0.3;
     if (dUp < 56 && !fresh && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s') }); return; }
       const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }; if (enterFloor(S, R, R.floor - 1, undefined, 'up')) ev(S, e); return; }
-    const gt = gateNear(R); if (gt) { const was = R.portal; R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; return; } ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
+    const gt = gateNear(R); if (gt) { const was = R.portal; R.portal = { f: R.floor, x: gt.x, y: gt.y + 40, from: 'gate' }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; return; } ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007), taken at once
+    const gf = giverFirst(S, R); if (gf) { openTalk(S, R, gf); return; }
     const cs = craftShut(R); if (cs) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.CAPTIVES[cs].shut }); return; }
     // the workshop's master answers first, his talk has the button into the workshop (PR 49 review: the enchanter could not be talked to at all)
     const cw = atCraft(R), master = cw && folkOf(R).find((f) => f.role === CRAFT_OF[cw]);
@@ -187,11 +205,11 @@
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; if (!S.meta.shards) ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_town.noShards') }); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; S.focus = 'stay'; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
-    if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
+    if (atGate(R, S)) { const o = gateWays(R, S); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     // the prompt shows the way out when one is in reach, so E takes it (TASKS 1600)
-    const fk = folkNear(R), way = (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) || (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60); if (fk && !way) { openTalk(S, R, fk); return; }
+    const fk = folkNear(R); if (fk && !wayNear(R)) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { const e = { k: 'stairs', x: h.x, y: h.y, floor: R.floor }; if (enterFloor(S, R, R.floor + 1)) ev(S, e); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
@@ -274,11 +292,12 @@
   // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
   // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
   // a batch more after each boss slain, as the merchant's shelf is stocked anew (TASKS 1026: 2–3 a run were all taken in the first
-  // minute); a batch's givers are those with no offer still waiting
+  // minute); a batch's givers are those with no offer still waiting, free and not the Keeper (his offers are the story chain's: a deal
+  // to him or to a caged smith would show nothing on the first board)
   // dealing is a step of its own, made on arrival in the town (enterFloor); the render and the talks only read (TASKS 2064)
   function dealOffers(R) { const G = D.QUEST_GIVE; R.offers = R.offers || []; if (R.offerB === undefined) R.offerB = R.offers.length ? 1 : 0;
     while (R.offerB < 1 + (R.bossN || 0)) { const b = R.offerB++; let a = D.mix32((R.seed >>> 0) + 0x51ed27 + b * 7919);
-      const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
+      const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => w !== 'keeper' && !(capOf(R, w) && !isFree(R, w)) && !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
       for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); } }
   }
   const offersOf = (R) => R.offers || [];
@@ -362,6 +381,11 @@
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
+  // a talk card holds about four lines of sixty letters (tools/measure/game/talk_stats.cjs)
+  const TALK_PAGE = 260;
+  // the rewards of several quests as one line: the counts summed, the items got by name
+  const rwSum = (L) => { const W = {}; for (const q of L) for (const k of ['scroll', 'gold', 'xp', 'shards']) if (q.rw[k]) W[k] = (W[k] || 0) + q.rw[k];
+    const got = L.filter((q) => q.rw.item).map((q) => q.rw.got); if (got.length) { W.item = got.length; if (got.every(Boolean)) W.got = got.join('», «'); } return rwLine(W); };
   // the count of this giver's turned quests of the kind steps the pick, so the same words never come twice in a row (TASKS 1985)
   function turnSay(R, role, q) { const ty = D.QUESTS[q.key].type, L = D.QUEST_SAY[role].turnin[ty], n = (R.quests || []).filter((o) => o.st === 'turned' && o.from === role && D.QUESTS[o.key].type === ty).length;
     return D.turnFill(L[(D.mix32((R.seed >>> 0) + [...role + ty].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + n) % L.length], q); }
@@ -370,7 +394,8 @@
   const keyNames = (s) => s.replace(NAMES_RX, '**$1**');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
     // a quest to turn in waits behind its giver's words on what was done: the thanks and reward come with the press (TASKS 1850, 1985)
-    const dn = questDone(R, role); if (dn) return { pages: [turnSay(R, role, dn)], act: { k: 'turn', id: dn.id, rw: dn.rw } };
+    // every quest ready for this giver goes in with the one press (town_game_r10 1: a batch cost two pages and a press a quest)
+    const dl = (R.quests || []).filter((q) => q.st === 'done' && q.from === role); if (dl.length) return { pages: [turnSay(R, role, dl[0])], act: { k: 'turn', id: dl[0].id, ids: dl.map((q) => q.id), rw: rwSum(dl) } };
     const of = offerOf(R, role); if (!of) return null;
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
@@ -388,8 +413,14 @@
   function talkAct(S, R, T) { const a = T.act; if (!a) return;
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
-    const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.questTalk.pages', { name: D.QUESTS[q.key].name, done: D.QUEST_SAY[T.role].done[(q.id || 0) % D.QUEST_SAY[T.role].done.length] }), TXT('sim_town.talkAct.pages', { thanks: q.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[q.key].thanks ? D.QUESTS[q.key].thanks : D.QUEST_SAY[T.role].thanks[(q.id || 0) % D.QUEST_SAY[T.role].thanks.length], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const L = (a.ids || [a.id]).map((id) => (R.quests || []).find((o) => o.id === id)).filter((q) => turnIn(S, R, q)); if (!L.length) return;
+    const nx = talkOf(R, T.role); T.pages = turnPages(T.role, L).concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+  // the turn-in told once pressed: the thanks, the quests by name and what they paid together, on one page while it fits the window;
+  // a quest's own thanks (the story's) goes before the plain ones, and a long one keeps a page of its own
+  function turnPages(role, L) { const SAY = D.QUEST_SAY[role], own = L.find((q) => q.key === 'rescue' || D.QUESTS[q.key].thanks), q0 = own || L[0];
+    const thanks = own ? (own.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[own.key].thanks) : SAY.thanks[(q0.id || 0) % SAY.thanks.length];
+    const sum = TXT('sim_town.turnAll', { names: L.map((q) => '«' + D.QUESTS[q.key].name + '»').join(', '), p2: rwSum(L) }), one = thanks + ' ' + sum;
+    return one.length <= TALK_PAGE ? [one] : [thanks, sum]; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -405,8 +436,8 @@
         if (!e && foe && (e = pickIn((o) => !ENEMIES[o.type].tether))) { retype(e, foe); SIMX.seatFoe(R, e, undefined, e.room); }
         // an old save's family may be unknown, or tied to the lava where no foe on stone can be made one (review of PR 75)
         if (!foe) { e = pickIn((o) => !!D.ELITE_GROUP[o.type] && !ENEMIES[o.type].tether); if (e) q.foe = e.type; }
-        if (!e) { q.lost = 1; continue; } if (!q.title) q.title = nickOf(e.type, nickHash(R, e)); const stg = STAGE(R, f), mob = stg.mob || 1;
-        e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
+        if (!e) { q.lost = 1; continue; } if (!q.title) q.title = nickOf(e.type, nickHash(R, e));
+        e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; SIMX.makeElite(R, e, D.NAMED.hp); e.quest = q.id; e.title = q.title; q.room = e.room; }
       // (TASKS 362) half the lairs are an event's room whose entry is a `goal` (the skull door): its waves are the lair's, done by its `qevent`
       else if (Q.type === 'room' && SIMX.eventsOf(R).some((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal) && D.mix32((R.seed >>> 0) * 7919 + f * 104729 + q.id + 362) / 4294967296 < 0.5) q.room = SIMX.eventsOf(R).find((E) => E.st === 'idle' && D.EVENTS.pool[E.id].goal).room;
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
@@ -445,16 +476,28 @@
   const folkNear = (R) => { if (!R.town || !R.map.town) return null; let best = null, bd = 76;
     for (const f of folkOf(R)) { const FD = D.FOLK[f.role]; if (!FD.lines) continue; const d = Math.hypot(f.x - R.hero.x, f.y - R.hero.y); if (d < bd) { bd = d; best = f; } }
     return best; };
-  // the Keeper's pages: the end of the last hero (a first death, a death, a win), a chapter's boss slain, a legendary found, a long
-  // time below; each told once; nothing new, his idle pair
-  function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = [];
+  const wayNear = (R) => { const m = R.map, h = R.hero; return !!((m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) || (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60)); };
+  // where the town service E would open stands, in interact's order
+  const svcAt = (S, R) => { const t = R.map.town.svc;
+    if (craftShut(R) || atCraft(R)) return near(R, 'anvil', 80) ? t.anvil : t.lectern;
+    if (atStash(R)) return t.stash; if (atSoulAltar(R)) return t.altar; if (atExitGate(R)) return t.exitGate; if (atGate(R, S)) return t.portal; if (atBoard(R)) return t.board;
+    return null; };
+  const giverFirst = (S, R) => { if (!R.town || !R.map.town) return null; const f = folkNear(R); if (!f || !questMark(R, f.role) || wayNear(R)) return null;
+    const p = svcAt(S, R); if (!p) return null; const h = R.hero, df = Math.hypot(f.x - h.x, f.y - h.y), ds = Math.hypot(p.x - h.x, p.y - h.y);
+    return df <= ds || Math.max(df, ds) < D.FOLK_FIRST.both ? f : null; };
+  // the Keeper's pages: the end of the last hero (a first death, a death, a win), a chapter's boss slain, a legendary found, the run's
+  // first fall, a long time below; each told once; nothing new, his idle pair
+  function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = []; let hush = 0;
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
     if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     // the campaign's last boss is told by the end of the run, whose words his generic «someone must go down again» would contradict
-    if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) out.push(...K.boss(ENEMIES[R.lastBoss].name)); }
+    if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) { hush = 1; out.push(...K.boss(ENEMIES[R.lastBoss].name)); } }
     if (R.legend && T.legend !== R.legend) { T.legend = R.legend; out.push(...K.rare(R.legend)); }
-    if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; out.push(...K.away); }
+    // the first fall of a run in the normal mode is told once (town_game_r10 5: he greeted the hero woken by his fire as long away)
+    if (R.fellN && !T.fell) { T.fell = 1; hush = 1; out.push(...TXT.talk('keeper').events.fell); }
+    // a long time below greets a hero back with nothing else to tell: after a boss's or a fall's words it only cost two presses more
+    if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; if (!hush) out.push(...K.away); }
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; a master's talk keeps a button
   // into his workshop; past the campaign's end a townsman with words for it says them once a run; the topics wait for an idle talk
@@ -503,10 +546,15 @@
   const roomFor = (h, b) => { const cap = D.CONSUMABLES[b].stack; return h.bag.reduce((a, q) => a + (!q ? cap : q.b === b ? Math.max(0, cap - q.n) : 0), 0); };
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
-  const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
-  const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []);
+  // the ring's ways (TASKS 2104): the portal in hand, and with S given the halls of the bosses this hero has slain (R.slain, kept
+  // with the run: a new hero has none, 2213); a hardcore run starts from the first floor, so it gets no hall. A portal left by a hall's gate leads where that
+  // hall's own way does, so it is shown only while the hall is not open (TASKS 2111)
+  const atGate = (R, S) => !!(R.town && R.map.town && gateWays(R, S).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
+  const hallsOf = (S, R) => (!S || SIMX.hardcore(R) || RUN(R) !== D.RUNS.campaign ? [] : [...new Set(R.slain || [])].filter((f) => f >= 1 && f <= RUN(R).floors).sort((a, b) => a - b));
+  const gateWays = (R, S) => { const H = hallsOf(S, R), P = R.portal, from = P && P.from === 'gate' ? 'gate' : 'scroll';
+    return (P && !(from === 'gate' && H.includes(P.f)) ? [{ k: 'portal', f: P.f, from }] : []).concat(H.map((f) => ({ k: 'boss', f }))); };
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
-    if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
+    if (!enterFloor(S, R, o.f, undefined, o.k)) return; if (o.k === 'portal' || (R.portal && R.portal.from === 'gate' && R.portal.f === o.f)) R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
   // a line (TASKS 391): half the time the tier's offer continues the ability a power already taken belongs to
@@ -581,7 +629,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf, settleStash,
+    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
-    sell });
+    sell, CART_V, railLen, folkPause });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,0 +1,101 @@
+[
+ {
+  "name": "charref_warrior_a",
+  "prompt": "art/prompts/charref_warrior_a.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/hero__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_warrior_b",
+  "prompt": "art/prompts/charref_warrior_b.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/hero__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_warrior_c",
+  "prompt": "art/prompts/charref_warrior_c.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/hero__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_mage_a",
+  "prompt": "art/prompts/charref_mage_a.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/mage__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_mage_b",
+  "prompt": "art/prompts/charref_mage_b.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/mage__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_mage_c",
+  "prompt": "art/prompts/charref_mage_c.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/mage__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_archer_a",
+  "prompt": "art/prompts/charref_archer_a.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/archer__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_archer_b",
+  "prompt": "art/prompts/charref_archer_b.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/archer__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ },
+ {
+  "name": "charref_archer_c",
+  "prompt": "art/prompts/charref_archer_c.txt",
+  "ref": [
+   "study/refcrops/hero_body.png=the concept's current hero: material quality and palette only, not his big head, face or proportions",
+   "live/assets/archer__body.png=the current in-game torso and head of this class: what to move away from"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r1/gen"
+ }
+]

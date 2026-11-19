@@ -9,6 +9,11 @@
   // (every biped's rig plants its drawn foot by the same STEP_DEPTH, through stepDz). A redrawn rig changes its numbers: sim_checks_colossus.js compares the table with it
   const STEP_DEPTH = { ahead: 0.6, back: 0.3 };
   const stepDz = (off, A, diry) => STEP_DEPTH.ahead * off * diry - STEP_DEPTH.back * A * Math.abs(diry);
+  // a townsperson's stride walking into the screen (TASKS 2136): shortened to `short` of it plumb in depth, the step's depth projected whole
+  // up to the depth the full stride reached, so the stance foot holds the floor in depth too. At the rig's projection alone (`ahead`, eased
+  // further for the lengthened stride, 2118) it slid at 0.58 of the walker's speed going plumb in depth, p90 12.5 → 19.8 px/s on the round
+  const STEP_PLANT = { short: 0.7 };
+  const stepPace = (diry) => 1 - (1 - STEP_PLANT.short) * diry * diry;
   const COLOSSUS_GEO = { rigH: 320, gap: 118.5, midAnkle: 123.5, ankle: { L: 74.5, R: 172.5 }, foot: { L: 70.64176829268293, R: 175.18155197657393 }, step: 29.80632555187274,
     lead: 0.64, pull: 0.15, depth: STEP_DEPTH };
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -298,5 +303,5 @@
   // (TASKS 1938) one number for the sim's step about a post and the rig's footfalls over it: apart, the feet slid while the body moved
   const AMB_T = 0.6;
 
-  Object.assign(D, { COLOSSUS_GEO, stepDz, ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt, AMB_T });
+  Object.assign(D, { COLOSSUS_GEO, STEP_DEPTH, stepDz, stepPace, ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt, AMB_T });
 })(typeof window !== 'undefined' ? window : globalThis);

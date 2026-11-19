@@ -47,11 +47,11 @@ void main(){ vec2 p = artPoint(), q = (p - u_center) * vec2(1.0, 1.3); float r =
   o = vec4(col * al, al * 0.65); }
 `;
   const FIREBALL = SPELL_MASK + `
-uniform vec2 u_center, u_dir; uniform float u_radius, u_age, u_amt, u_seed, u_mode, u_lift;
+uniform vec2 u_center, u_dir; uniform float u_radius, u_age, u_amt, u_seed, u_mode, u_lift, u_rate;
 void main(){ vec2 p = artPoint(), d = p - u_center;
   if (spellGate(p + vec2(0.0, u_lift)) < 0.5) discard;
   vec2 q = vec2(dot(d, u_dir), dot(d, vec2(-u_dir.y, u_dir.x))) / u_radius;
-  float flick = hash(vec2(floor(u_age * 30.0), u_seed)), noise = vnoise(p * 0.25 + floor(u_age * 30.0));
+  float a = u_age * u_rate, flick = mix(hash(vec2(floor(a), u_seed)), hash(vec2(floor(a) + 1.0, u_seed)), smoothstep(0.0, 1.0, fract(a))), noise = vnoise(p * 0.25 + a);
   float shape = length(q * vec2(0.86, 1.0)) + (noise - 0.5) * 0.24;
   shape += max(0.0, -q.x) * (0.13 + 0.12 * sin(q.y * 9.0 + u_age * 45.0));
   if (shape > 0.94 + 0.06 * flick) discard;
@@ -889,6 +889,23 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   vec3 c = mix(vec3(0.3, 0.5, 1.0), vec3(0.9, 0.95, 1.0), sw * smoothstep(0.8, 0.2, r)); float al = ring * u_amt; o = vec4(c * al, 0.0); }`;
   SC.REPEAT = ['floor_cv_tex', 'wall_cv_tex', 'walltop_cv_tex', 'shore_cv_tex', 'floor_mg_tex', 'wall_mg_tex', 'walltop_mg_tex', 'shore_mg_tex'];
   let LT = null, BAKE = { key: '', tg: null }, SEEN = { key: '', rec: null, cv: null }, VOID = { key: '', rec: null, cv: null };
+  // where each GL program draws (TASKS 2106: on Windows each costs ANGLE's HLSL compiler about a second). 'menu': before the first
+  // frame (the title, the menu and its crypt's fires); 'floor': on every floor, the town's too, as the hero swings and casts there;
+  // a list: the biomes whose floors draw it, a room's zone counted with its floor's. All but 'menu' compile in the background after
+  // the first frame, one a frame in this order, and a floor's own are waited for under the loading screen (SC.ready)
+  const PROGRAM_AT = {
+    sprite: 'menu', spriten: 'menu', solid: 'menu', solidn: 'menu', rrect: 'menu', glow: 'menu', ring: 'menu', copy: 'menu', bright: 'menu', blur: 'menu', final: 'menu', flame: 'menu',
+    lit: 'floor', rimout: 'floor', rimin: 'floor', shadow: 'floor', crack: 'floor', puff: 'floor', star: 'floor', portal: 'floor', arc: 'floor', fireball: 'floor', whirl: 'floor', blast: 'floor',
+    pool: ['dungeon', 'crypt', 'lava', 'arcane'], jet: ['dungeon', 'crypt', 'lava', 'arcane'], occglow: ['crypt', 'arcane'], lava: ['lava', 'magma'],
+    cave: ['cave', 'magma'], cavewater: ['cave', 'magma'], cavesrc: ['cave', 'magma'], serptele: ['cave'],
+    magma: ['magma'], mlava: ['magma'], magmasrc: ['magma'], spill: ['magma'],
+  };
+  const EAGER = new Set(Object.keys(PROGRAM_AT).filter((k) => PROGRAM_AT[k] === 'menu'));
+  const NEEDS = new WeakMap(), needOf = (m) => { let n = NEEDS.get(m); if (n) return n;
+    const bs = new Set([m.biome, ...m.rooms.map((r) => r.zone).filter(Boolean)]);
+    n = Object.keys(PROGRAM_AT).filter((k) => { const at = PROGRAM_AT[k]; return at === 'menu' || at === 'floor' || at.some((b) => bs.has(b)); }); NEEDS.set(m, n); return n; };
+  // the share of a run's floor's programs ready, 1 when it may be drawn; asking starts the ones not started yet
+  SC.ready = (R) => { if (!R || !R.map) return 1; const n = needOf(R.map); return G.want(n) / n.length; };
   SC.programs = () => {
     // the world renders on a 2×2 view-px grid (the reference's art pixel), every sprite and rotated rig part re-rasterised on it;
     // light, glows and the HUD stay full resolution (HD pixel, styles.md §1)
@@ -915,7 +932,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // (drawn over the fog of war, it keeps to the explored cells: u_seen, 0 on an unexplored floor's)
       .replace('float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d);', 'float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d) * smoothstep(0.1, 0.3, texture(u_seen, w / u_map).r);');
     if (SPILL.split('u_fr').length < 3 || !SPILL.includes('u_lv, w / u_map') || !SPILL.includes('vec2 fl = vec2(0.0);') || !SPILL.includes('smoothstep(0.1, 0.3, texture(u_seen')) throw new Error('SPILL: MLAVA changed under its patches');
-    L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST, occglow: OCCGLOW }, { pixel: PIX * Z, view: [VW, VH] });
+    L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST, occglow: OCCGLOW }, { pixel: PIX * Z, view: [VW, VH], eager: EAGER, order: Object.keys(PROGRAM_AT) });
+    { const left = Object.keys(L.P).filter((k) => !(k in PROGRAM_AT)); if (left.length) throw new Error('PROGRAM_AT: no place for ' + left.join(', ')); }
     if (LT) { G.free(LT.light); G.free(LT.lit); G.free(LT.occ); }
     // occ: the silhouettes of the monsters before the lava, which its glow and shimmer leave out (TASKS 407)
     LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }), occ: G.target(L.T.comp.w, L.T.comp.h, false, { view: [VW, VH] }) };

@@ -1,8 +1,8 @@
 // live/sim_checks_town.js — selfCheck's parts for the town: folk, services, talks, notes, the cart and the town loop. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    BASES, boardOffers, campaignDone, D, dep, DG, DT, endRun, ENEMIES, enterFloor, folkFree, folkOf, folkR, heroShot, heroSt, hitFolk, hurtHero,
-    interact, K, newQuest, newRun, offerOf, persist, questMark, REWARD, rollItem, runCompletion, spawn, startRun, stats, step, stockShop, takeQuest,
+    BASES, boardOffers, campaignDone, CART_V, D, dep, DG, DT, endRun, ENEMIES, enterFloor, folkFree, folkOf, folkR, heroShot, heroSt, hitFolk, hurtHero,
+    interact, K, newQuest, newRun, offerOf, persist, questMark, railLen, REWARD, rollItem, runCompletion, spawn, startRun, stats, step, stockShop, takeQuest,
     TILE, tradeDepth, turnIn, UI } = SIMX;
   const { noWelcome, noQuests } = SIMX.checks.kit;
   function townCheck() {
@@ -23,9 +23,39 @@
       { const [rx, ry] = [m.town.rails[0] % m.W, Math.floor(m.town.rails[0] / m.W)], e = m.town.rails[m.town.rails.length - 1], g = DG.TOWN.exitGate[0];
         if (rx !== DG.TOWN.adit[0] || ry !== DG.TOWN.adit[1]) out.push(`town ${sd}: the rails do not start under the adit`);
         if (m.town.rails.some((k) => Math.abs(k % m.W - g) < 8)) out.push(`town ${sd}: the rails run by the gate`);
-        if (!m.town.yardSolid.some((p) => Math.floor(p.y / TILE) === Math.floor(e / m.W) && Math.floor(p.x / TILE) === e % m.W - 1)) out.push(`town ${sd}: the rails end short of the mason's yard`); }
+        // TASKS 2090 cut the rails' flat last cell, so the yard's stone stands one free cell past the diagonal's end
+        const YARD_GAP = 2;
+        if (!m.town.yardSolid.some((p) => Math.floor(p.y / TILE) === Math.floor(e / m.W) && e % m.W - Math.floor(p.x / TILE) === YARD_GAP)) out.push(`town ${sd}: the rails end short of the mason's yard`); }
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
+    // TASKS 2100: the sweeper's round (its legs too) keeps clear of the hero's straight lines from the spawn to each service and from the stairs to the gate
+    { const T = DG.TOWN, G = T.use.exitGate, lines = Object.values(T.use).map((u) => [T.spawn, u]).concat([[T.use.stairs, G]]), R = T.routes.sweeper, SAMPLES = 40;
+      const away = (p, [a, b]) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+      R.forEach((a, i) => { const b = R[(i + 1) % R.length]; for (let k = 0; k <= SAMPLES; k++) { const p = [a[0] + (b[0] - a[0]) * k / SAMPLES, a[1] + (b[1] - a[1]) * k / SAMPLES];
+        if (lines.some((l) => away(p, l) < T.routeClear)) { out.push(`town: the sweeper's round leg ${i} comes within ${T.routeClear} cells of a straight line of the hero's`); break; } } }); }
+    // TASKS 2085, 2091: the track's table holds no painting sizes, they come from the assets: a painting twice as large lays sprites twice as
+    // deep, as many of them, each a period cut from half the painting's share; the whole track is one painting, one sleeper size and tone, and
+    // the sleepers go one period apart along the rails' length in floor space, round each bend too, so a bend leaves no gap or overlap
+    { const R = D.RAIL, pts = D.railPts(DG.genTown(977)), at = (k) => (n) => (n === 'rail_tw_h' ? [100 * k, 40 * k] : [1, 1]), K = D.CART.floor;
+      if (Object.keys(R).some((n) => n !== 'gauge' && n !== 'bend' && ('w' in R[n] || 'h' in R[n] || 'width' in R[n] || 'height' in R[n]))) out.push('rails: the table names a painting\'s size');
+      if (Object.keys(R).filter((n) => n !== 'gauge' && n !== 'bend').join() !== 'h') out.push('rails: the table holds more than one painting');
+      const a = D.railLay(pts, at(1)), b = D.railLay(pts, at(2));
+      if (!a.length || a.length !== b.length) out.push('rails: a painting of another size lays another number of sprites');
+      else if (Math.abs(b[0].h - 2 * a[0].h) > 1e-6 || Math.abs(b[0].src[2] - b[0].src[0] - (a[0].src[2] - a[0].src[0]) / 2) > 1e-6) out.push('rails: a painting\'s size does not reach the laid sprites');
+      const seg = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], (q[1] - pts[i][1]) / K));
+      const arc = (r) => { let acc = 0; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], ex = bx - ax, ey = (by - ay) / K, t = ((r.x - ax) * ex + (r.y - ay) / K * ey) / (seg[i - 1] ** 2);
+        if (t > -1e-6 && t < 1 + 1e-6 && Math.hypot(r.x - ax - t * (bx - ax), (r.y - ay - t * (by - ay)) / K) < 1e-3) return acc + t * seg[i - 1]; acc += seg[i - 1]; } return -1; };
+      const per = R.h.per * R.gauge / R.h.gauge, s = a.map(arc);
+      if (a.some((r) => r.tex !== R.h.tex || r.lift !== R.h.lift || Math.abs(r.w - per - 0.5) > 1e-6 || Math.abs(r.h - a[0].h) > 1e-6)) out.push('rails: the track is not one painting at one size and tone');
+      else if (s.some((v) => v < 0)) out.push('rails: a sleeper stands off the rails\' line');
+      else if (s.some((v, i) => i && Math.abs(v - s[i - 1] - per) > 1)) out.push('rails: the sleepers leave a gap or an overlap of over 1 px along the track');
+      // TASKS 2122: round the adit's bend a period goes out in slices that make up its length and painting, each turned no more than
+      // R.bend.step from the next, so the rails curve; the straight stretches stay whole periods
+      const cut = a.filter((r) => r.parts), ang = (q) => Math.atan2(q.dy / K, q.dx) * 180 / Math.PI, flat = a.flatMap((r) => r.parts || [r]);
+      if (!cut.length) out.push('rails: no period round the bend is laid in slices');
+      for (const r of cut) { const len = r.parts.reduce((o, q) => o + q.w - R.bend.lap, 0), src = r.parts.reduce((o, q) => o + q.src[2] - q.src[0], 0) * per / (per + R.bend.lap * r.parts.length);
+        if (Math.abs(len - per) > 1e-6 || Math.abs(src - (r.src[2] - r.src[0])) > 1e-6) { out.push('rails: a bend\'s slices do not make up their period'); break; } }
+      const kink = Math.max(...flat.slice(1).map((q, i) => Math.abs(ang(q) - ang(flat[i])))); if (kink > R.bend.step + 1e-6) out.push(`rails: the track turns ${kink.toFixed(1)}° from one sprite to the next`); }
     // TASKS 1149: the town's gate out asks first (E and Esc stay), then gives the run up; past the colossus it ends it won
     { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
       const ask = () => { Q.hero.x = g.x; Q.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); return G.screen === 'leave'; };
@@ -97,6 +127,28 @@
         press(S2, b); if (S2.screen === 'classes') press(S2, UI.classes().find((q) => q.id === 'go')); const Q3 = S2.run;
         if (!Q3 || Q3.floor !== 0 || !Q3.town || S2.screen !== 'play' || Q3.hero.lvl !== 1 || Q3.hero.gold !== 0 || Q3.hero.bag.filter(Boolean).length !== 2 || !Q3.hero.bag.some((it) => it && it.b === 'scroll')) out.push(`town: after a ${how} the hero does not start anew in the town`);
         if (S2.meta.shards < shards) out.push(`town: the meta loses shards after a ${how}`); } }
+    // TASKS 2128: every giver with a «!» over him, the hero at each of the spots round him where he is the nearest townsman, out of the way's
+    // reach and no farther from him than from a service in reach: the first E opens his talk (the porter at the anvil opened the forge)
+    { const SPOTS = [[0, 30], [0, 40], [30, 10], [-30, 10], [0, -30], [40, 30], [-40, 30]], EVERY = 0.5, OVER = 40; let byService = 0;
+      for (let sd = 1; sd <= 24; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, home = [h.x, h.y];
+        R.quests = []; R.offers = D.QUEST_GIVE.from.filter((r) => folkOf(R).some((f) => f.role === r)).map((r) => ({ key: 'fetch', from: r, q: 0 }));
+        const bad = new Set();
+        for (let k = 0; k * EVERY < OVER; k++) { for (let i = 0, n = Math.round(EVERY / DT); i < n; i++) step(S, { keys: [] });
+          for (const f of folkOf(R)) { if (!questMark(R, f.role) || bad.has(f.role)) continue;
+            for (const [dx, dy] of SPOTS) { h.x = f.x + dx; h.y = f.y + dy; if (SIMX.folkNear(R) !== f || SIMX.wayNear(R)) continue;
+              const p = SIMX.svcAt(S, R); if (p && Math.hypot(p.x - h.x, p.y - h.y) < Math.hypot(f.x - h.x, f.y - h.y)) continue; if (p) byService++;
+              interact(S, R); const got = S.screen === 'talk' ? S.talk && S.talk.role : S.screen;
+              if (got !== f.role) { bad.add(f.role); out.push(`town ${sd}: E by the ${f.role} with a «${questMark(R, f.role)}» at ${(k * EVERY).toFixed(1)} s (${dx}, ${dy}) opens ${got}`); }
+              S.screen = 'play'; S.talk = null; S.craft = null; if (bad.has(f.role)) break; } }
+          h.x = home[0]; h.y = home[1]; } }
+      if (!byService) out.push('town: no giver with a mark ever stood by a service, the E order goes unchecked'); }
+    // TASKS 2149: the town's fires breathe within ±7.5 % (0.4 of the old ±19 %), below the halls' and slower than 1.5 Hz, the halls'
+    // within ±10 %, and every wave keeps a phase per source, so neighbouring fires never beat in step
+    { const swing = (f) => f.waves.reduce((a, w) => a + w[0], 0) / f.base, TOWN_K = 0.075, TOWN_HZ = 1.5, DEEP_K = 0.1, T = D.BIOMES.town.flick, Dp = D.FLICK.deep, pc = (v) => (100 * v).toFixed(1);
+      if (swing(T) > TOWN_K || swing(T) >= swing(Dp)) out.push(`town: its fires flicker ±${pc(swing(T))} %, over ±${pc(TOWN_K)} % or the halls' ±${pc(swing(Dp))} %`);
+      if (T.waves.some((w) => w[1] > TOWN_HZ)) out.push(`town: a flicker wave over ${TOWN_HZ} Hz`);
+      if (swing(Dp) > DEEP_K) out.push(`the halls' fires flicker ±${pc(swing(Dp))} %, over ±${pc(DEEP_K)} %`);
+      if ([T, Dp].some((f) => f.waves.some((w) => !w[2]))) out.push('a flicker wave without a phase per source: neighbouring fires beat in step'); }
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -140,6 +192,30 @@
       if (!P.near || Math.abs(P.x - px) > 0.5 || P.face !== 1) out.push(`folk ${sd}: the porter walks on past the hero who speaks to him`); }
     return out;
   }
+  // TASKS 2126: a walker with an offer for the hero stops for him as he comes his way (D.FOLK_HOLD), within FOLK_HOLD.stop s, waits while
+  // he stands near, no longer than FOLK_HOLD.max, and walks on; one with nothing for the hero walks on past him
+  function folkHoldCheck() { const out = [], H = D.FOLK_HOLD, steps = (sec, o = {}) => { for (let i = 0, n = Math.round(sec / DT); i < n; i++) step(S, Object.assign({ keys: [] }, o)); };
+    let S, walkN = 0;
+    for (const offer of [1, 0]) { S = spawn(0, {}); S.run = newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, f = folkOf(R).find((q) => q.role === 'sweeper'), FD = D.FOLK.sweeper;
+      R.offers = offer ? [{ key: 'fetch', from: 'sweeper', q: 0 }] : []; R.quests = []; if (offer && questMark(R, 'sweeper') !== '!') { out.push('folk hold: the sweeper shows no «!» for his offer'); continue; }
+      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
+      const clear = () => [m.down, m.exit].every((q) => !q || Math.hypot(q.x - f.x, q.y - f.y) > H.way + H.near);
+      for (let i = 0; i < 120 * 90 && !(f.go && f.spd > 0.9 * FD.v && clear()); i++) step(S, { keys: [] });
+      if (!(f.go && f.spd > 0.9 * FD.v)) { out.push('folk hold: the sweeper never walks his round'); continue; }
+      const v = Math.hypot(f.vx, f.vy), ux = f.vx / v, uy = f.vy / v; h.x = f.x - ux * (H.near - 20); h.y = f.y - uy * (H.near - 20); h.vx = h.vy = 0;
+      const toward = () => ({ keys: [], left: f.x < h.x - 3, right: f.x > h.x + 3, up: f.y < h.y - 3, down: f.y > h.y + 3 });
+      // the walker with nothing for the hero is come at for as long as the one with an offer took to stop, short of the talk's reach
+      for (let i = 0; i < (offer ? 30 : walkN) && f.holdA == null; i++) { step(S, toward()); if (offer) walkN = i + 1; }
+      if (!offer) { steps(H.stop + 0.1); if (f.holdA != null || !(f.spd > 0.5 * FD.v)) out.push(`folk hold: the sweeper with nothing for the hero stops for him (spd ${f.spd.toFixed(1)})`); continue; }
+      if (f.holdA == null) { out.push(`folk hold: the sweeper with an offer does not stop for the hero coming his way from ${Math.round(Math.hypot(f.x - h.x, f.y - h.y))} px`); continue; }
+      const a = S.t; steps(H.stop + 0.1); if (f.spd > 0) out.push(`folk hold: the sweeper still walks at ${f.spd.toFixed(1)} ${(S.t - a).toFixed(2)} s after he stopped for the hero`);
+      // come up to from behind, he faces the hero within half a second, by the walkers' eased turn (town_motion_r10 1)
+      { const FACED = 0.5, TT = D.FOLK_TURN; steps(FACED - (S.t - a)); const sd = Math.sign(h.x - f.x), done = f.turnT === undefined ? -1 : f.turnT + (f.load ? TT.load : TT.t) - a;
+        if (f.face !== sd || done > FACED + 1e-6) out.push(`folk hold: ${FACED} s after he stopped for the hero the sweeper faces ${f.face} with the hero on side ${sd}, his turn done ${done.toFixed(2)} s in`);
+        else if (f.turnT === undefined || f.turnT < a) out.push('folk hold: the sweeper faced the hero with no turn: the check came at him from the front'); }
+      const x0 = f.x, y0 = f.y, off = () => Math.hypot(f.x - x0, f.y - y0); steps(H.max - H.stop - 0.6); if (off() > 0.5) out.push('folk hold: the sweeper walks off before his wait for the hero is out');
+      steps(1.5); if (off() < 2 || f.holdA != null) out.push(`folk hold: the sweeper still waits ${(S.t - a).toFixed(1)} s on for a hero who only stands by`); }
+    return out; }
   // TASKS 1010: in a run through the town the merchant is on a floor only where D.wanderAt says, and there with gear from deeper
   // down and a better showpiece; the town's shelf is stocked as the town's (more potions and scrolls), kept while no boss falls,
   // restocked for the deepest floor after one does; in the town the merchant pays by the deepest floor reached
@@ -189,9 +265,11 @@
     talkTo(R, 'keeper'); const p2 = read(); if (!D.FOLK.keeper.lines.some((l) => l[0] === p2[0])) out.push('talk: with nothing new the Keeper does not fall back on his idle lines');
     endRun(S, 'dead'); R = run(32); talkTo(R, 'keeper'); const p3 = read(); if (p3[0] !== K.death1[0]) out.push('talk: the first death is not spoken of');
     R.bossN = 1; R.lastBoss = 'boss_spider'; R.legend = 'Кольцо Бездны'; R.deepest = 6; enterFloor(S, R, 0, undefined, 'up'); talkTo(R, 'keeper'); const p4 = read();
-    if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0]) || !p4.includes(K.away[0])) out.push('talk: a boss, a legendary or a long time below is not spoken of');
+    if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: a boss or a legendary is not spoken of');
+    if (p4.includes(K.away[0])) out.push('talk: the long time below is told beside the boss slain, who already greets the hero back');
     talkTo(R, 'keeper'); const p5 = read(); if (p5.includes(K.away[0]) || p5.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: the Keeper tells the same news twice');
     endRun(S, 'dead'); R = run(33); talkTo(R, 'keeper'); const p6 = read(); if (p6[0] !== K.death[0]) out.push('talk: a later death is told as the first');
+    R = run(34); R.away = 5; R.townDeep = 3; talkTo(R, 'keeper'); if (read()[0] !== K.away[0]) out.push('talk: a long time below is not spoken of');
     for (const f of folkOf(R)) if (f.role !== 'guard') f.x += 2000; talkTo(R, 'guard'); const p7 = read(); for (const f of folkOf(R)) if (f.role !== 'guard') f.x -= 2000; if (!D.FOLK.guard.lines.some((l) => l[0] === p7[0])) out.push('talk: the guard does not speak his lines');
     // TASKS 1148: past the colossus the Keeper asks whether the run ends: «Завершить поход» (a click only, TASKS 1854) wins it with its reward, «Продолжить»
     // (Enter, E, Esc) leaves it going; after the descent past it the win is not counted again
@@ -318,24 +396,192 @@
     Q.hero.hp = 5; for (let i = 0; i < 30; i++) step(T, { keys: [] }); const tip = Q.msg && Q.msg.tip === 'scroll';
     Q.msg = null; for (let i = 0; i < 30; i++) step(T, { keys: [] }); if (!tip || !T.meta.tipScroll || (Q.msg && Q.msg.tip === 'scroll')) out.push('scroll: the hint at low health does not come once');
     return out; }
-  // TASKS 1781: along the whole rail the cart shows one painting, kept upright: the 3/4 one turned no more than CART.roll with its
-  // wheel line on the rails, the front one never turned and its axle tilted no more than 18 degrees; one change of view at the bend
+  // TASKS 1781, 2090: the floor is flat, so a cart is never sheared, squashed or tipped by the rails' slope: the 3/4 painting turns no more than
+  // CART.trim, the front one not at all, one change of view along the whole rail, and the bend's change keeps the rails' slope under CART.front
+  // TASKS 2141: the mason takes the stone at the cart where it halts and puts it into the bin, each stop a step from it on its near side:
+  // the folk sort by their feet's y, the bin by its own, so a stop above it hid him behind it; at the cart (sorted by its halt's y + 8 in
+  // drawCart) he stood 16 px below the halt, inside its box, and the stone rose off the box's far end: MASON_CLEAR puts him out in front
+  const MASON_REACH = 48, MASON_CLEAR = 20;
+  function masonStopCheck() { const out = [];
+    for (const sd of [1, 31, 977]) { const m = DG.genTown(sd), T = m.town, rt = T.npcs.find((n) => n.role === 'mason').route, c = D.cartAt(D.railPts(m), 1e9), tk = rt.find((q) => q.act === 'take'), dp = rt.find((q) => q.act === 'drop');
+      if (!tk || !dp) { out.push(`mason ${sd}: his round has no take or no drop`); continue; }
+      const dc = Math.hypot(tk.x - c.x, tk.y - c.y), db = Math.hypot(dp.x - T.svc.bin.x, dp.y - T.svc.bin.y);
+      if (dc > MASON_REACH) out.push(`mason ${sd}: takes ${dc.toFixed(0)} px from the cart's halt, over ${MASON_REACH}`);
+      if (tk.y - c.y < MASON_CLEAR) out.push(`mason ${sd}: takes standing in or behind the cart (${(tk.y - c.y).toFixed(0)} px below its halt, under ${MASON_CLEAR})`);
+      if (db > MASON_REACH) out.push(`mason ${sd}: drops ${db.toFixed(0)} px from the bin, over ${MASON_REACH}`);
+      if (dp.y <= T.svc.bin.y) out.push(`mason ${sd}: drops into the bin from behind it (his y ${dp.y.toFixed(0)}, the bin's ${T.svc.bin.y.toFixed(0)})`);
+      for (const q of [tk, dp]) if (!folkFree(m, q.x, q.y, folkR({ role: 'mason' }))) out.push(`mason ${sd}: the ${q.act} stop ${q.x.toFixed(0)},${q.y.toFixed(0)} is off the open floor`); }
+    return out; }
   function cartCheck() {
-    const out = [], C = D.CART, R2D = 180 / Math.PI, m = DG.genTown(31), pts = D.railPts(m);
+    const fs = require('fs'), path = require('path'), out = [], C = D.CART, m = DG.genTown(31), pts = D.railPts(m);
     let prev = null, swaps = 0;
     for (let s = 0; s <= 400; s++) { const v = D.cartView(pts, s);
-      if (v.side) { const line = Math.atan(Math.tan(C.side / R2D) / v.sx) * R2D - v.rot;
-        if (Math.abs(v.rot) > C.roll + 0.5 || v.sx < C.squash - 1e-6 || v.sx > 1) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}° or narrowed to ${v.sx.toFixed(2)}`);
-        if (Math.abs(line - v.th) > 1) out.push(`cart: the 3/4 view's wheel line at ${s} px runs ${line.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`); }
-      else if (v.rot || v.sx !== 1 || Math.abs(v.tilt) > 18 || v.th < 55) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}° or its axle tilts ${v.tilt.toFixed(0)}°`);
+      if (v.tilt || v.sx !== 1) out.push(`cart: the view at ${s} px is sheared ${v.tilt} or narrowed to ${v.sx}`);
+      if (v.side && (Math.abs(v.rot) > C.trim + 1e-6 || v.th >= C.front)) out.push(`cart: the 3/4 view at ${s} px is turned ${v.rot.toFixed(0)}° on rails at ${v.th.toFixed(0)}°`);
+      if (!v.side && (v.rot || v.th < C.front)) out.push(`cart: the front view at ${s} px (rails ${v.th.toFixed(0)}°) is turned ${v.rot}°`);
       if (prev && prev.side !== v.side) swaps++;
-      else if (prev && (Math.abs(prev.rot - v.rot) > 2 || Math.abs(prev.tilt - v.tilt) > 2 || Math.abs(prev.sx - v.sx) > 0.02)) out.push(`cart: the view jumps at ${s} px`);
       prev = v; if (out.length > 4) break; }
     if (swaps !== 1) out.push(`cart: the view changes ${swaps} times along the rails, not once at the bend`);
+    const end = D.cartView(pts, D.cartAt(pts, 1e4).ds), th0 = end.th; if (th0 < C.diag - C.trim - 1 || th0 > C.diag + C.trim + 1) out.push(`cart: at the rails' end the slope is ${th0.toFixed(0)}°, not the 3/4 painting's`);
+    // TASKS 2090: the wheels' lug moves no more than CART.lug.step px a frame at the top speed, and the rope on the plumb run keeps CART.rope.gap px
+    // off the rails' axis (the winch's plumb line down to the cart) but at its two ends; the sizes are the paintings' pixels at the sprites' height
+    const sizes = fs.readFileSync(path.join(__dirname, 'sizes.js'), 'utf8'), size = (n) => { const b = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), hh = +new RegExp('\\b' + n + ': (\\d+)').exec(sizes)[1];
+      return [Math.round(hh * b.readUInt32BE(16) / b.readUInt32BE(20)), hh]; };
+    for (const n of Object.keys(C.hubs)) { const [w, h] = size(n); let worst = 0;
+      for (let s = 0; s <= 400; s++) for (const q of [0, 1]) { const a = D.cartLug(n, q, w, h, s, 1), b = D.cartLug(n, q, w, h, s + CART_V / 60, 1); worst = Math.max(worst, Math.hypot(b[0] - a[0], b[1] - a[1])); }
+      if (worst > C.lug.step) out.push(`cart: the lug on ${n} moves ${worst.toFixed(2)} px a frame at the top speed, over ${C.lug.step}`); }
+    const axis = [D.cartWinch(pts), ...pts], dir = Math.sign(pts[pts.length - 1][0] - pts[0][0]) || 1, away = (p) => Math.min(...axis.slice(1).map((b, i) => { const a = axis[i], l2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2,
+      t = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1])); }));
+    for (const f of ['cart_tw_f', 'cart_tw_f_half', 'cart_tw_f_empty']) { const [w, h] = size(f); let near = 1e9, at = 0;
+      for (let s = 0; s <= 400; s += 2) { const v = D.cartAt(pts, s); if (D.cartView(pts, v.ds).side) continue; const hk = D.cartHook(0, f, w, h), rope = D.cartRope(D.cartWinch(pts), [v.x + hk[0], v.y + hk[1]], dir);
+        let run = 0; for (let i = 1; i < rope.length; i++) { run += Math.hypot(rope[i][0] - rope[i - 1][0], rope[i][1] - rope[i - 1][1]); rope[i].run = run; }
+        for (const p of rope) { if (p.run === undefined || (run - p.run) < C.rope.ends || p.run < C.rope.ends) continue; const g = away(p); if (g < near) { near = g; at = s; } } }
+      if (near < C.rope.gap) out.push(`cart: the rope of ${f} comes ${near.toFixed(1)} px to the rails' axis at ${at} px, under ${C.rope.gap}`); }
+    // TASKS 2109: the lug turns round its hub so the wheel's top goes the way the cart goes on the screen; the near box (CART.rim) never
+    // shows more than CART.shrink smaller than CART.ahead px further on (the front view came out of the adit at half the 3/4 one's size);
+    // TASKS 2113: the front view's edge-on wheel slabs stand on the two rails, their feet on the rails' line, within a pixel at every s of
+    // the plumb run, all three loads on one gauge; nothing on them turns (no lug: CART.hubs names only 3/4 paintings)
+    for (const n of Object.keys(C.hubs)) { const [w, h] = size(n); let wrong = null;
+      for (let s = 1; s <= 400 && !wrong; s += 3) { const v = D.cartAt(pts, s), u = D.cartAt(pts, s + 1), V = D.cartView(pts, v.ds); if (!V.side || u.x === v.x) continue;
+        for (const q of [0, 1]) { const [hu, hv] = C.hubs[n][q], c = [(hu - 0.5) * w, (hv - 1) * h], p = D.cartLug(n, q, w, h, s, V.run), p2 = D.cartLug(n, q, w, h, s + 1, V.run),
+            turn = (p[0] - c[0]) * (p2[1] - p[1]) - (p[1] - c[1]) * (p2[0] - p[0]);
+          if (Math.sign(turn) !== Math.sign(u.x - v.x)) wrong = [s, q]; } }
+      if (wrong) out.push(`cart: the wheel ${wrong[1]} of ${n} turns against the travel at ${wrong[0]} px`); }
+    { const tot = D.railTot(pts);
+      for (const n of Object.keys(C.hubs)) { const [w, h] = size(n), lug = (s) => D.cartLug(n, 0, w, h, D.cartAt(pts, s).s, 1), a = lug(tot);
+        for (const s of [tot + 3, tot + 36, 1e9]) { const b = lug(s); if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 1e-6) { out.push(`cart: the lug on ${n} turns ${(s - tot).toFixed(0)} px past the rails' end, the cart standing`); break; } } } }
+    const LOADS = [['cart_tw', 'cart_tw_f'], ['cart_tw_half', 'cart_tw_f_half'], ['cart_tw_empty', 'cart_tw_f_empty']];
+    const spans = [];
+    for (const [nmS, nmF] of LOADS) { const show = (s) => { const nm = D.cartView(pts, D.cartAt(pts, s).ds).side ? nmS : nmF; return C.rim[nm] * size(nm)[1]; };
+      const [w, h] = size(nmF), F = C.wheelsF[nmF], st = D.cartSeatF(nmF, w, h), piv = [w / 2 + st[0], h + st[1]], g = D.RAIL.gauge / 2;
+      if (C.hubs[nmF]) out.push(`cart: ${nmF} has wheel hubs, the front view's wheels are edge-on and must not turn`);
+      spans.push((F.x[1] - F.x[0]) * w);
+      let off = null, plumb = 0;
+      for (let s = 0; s <= 400 && !off; s++) { const v = D.cartAt(pts, s), a = D.railAt(pts, v.ds - 1), b = D.railAt(pts, v.ds + 1);
+        if (D.cartView(pts, v.ds).side || Math.abs(b[0] - a[0]) > 1e-6) continue; plumb++;
+        const rails = [[v.x - g, v.y], [v.x + g, v.y]];
+        for (const q of [0, 1]) { const at = [v.x + F.x[q] * w - piv[0], v.y + F.foot * h - piv[1]], d = Math.hypot(at[0] - rails[q][0], at[1] - rails[q][1]);
+          if (d > 1) off = [s, q, d]; } }
+      if (!plumb) out.push(`cart: ${nmF} is never shown on a plumb run of the rails`);
+      if (off) out.push(`cart: the wheel ${off[1]} of ${nmF} stands ${off[2].toFixed(2)} px off its rail at ${off[0]} px`);
+      let bad = null; for (let s = 0; s + C.ahead <= 400 && !bad; s += 3) { const a = show(s), b = show(s + C.ahead); if (a < (1 - C.shrink) * b) bad = [s, a, b]; }
+      if (bad) out.push(`cart: ${nmS} shows its near box ${bad[1].toFixed(1)} px high at ${bad[0]} px and ${bad[2].toFixed(1)} px ${C.ahead} px on`); }
+    if (Math.max(...spans) - Math.min(...spans) > 1) out.push(`cart: the front paintings' wheels stand ${spans.map((x) => x.toFixed(1)).join(', ')} px apart, not on one gauge`);
+    // TASKS 2121: the three 3/4 loads are one box: where the load changes (the cart at rest at the rails' end) their width, near box, hubs
+    // and lugs agree within a pixel; on the straight diagonal both near wheels' feet stand on the near rail within a pixel at every s
+    const put = (n, s) => { const [w, h] = size(n), v = D.cartAt(pts, s), V = D.cartView(pts, v.ds), st = D.cartSeat(n, w, h, V), r = V.rot * Math.PI / 180;
+      return (dx, dy) => { const x = dx - st[0], y = dy - st[1]; return [v.x + x * Math.cos(r) - y * Math.sin(r), v.y + x * Math.sin(r) + y * Math.cos(r)]; }; };
+    const SIDE = LOADS.map(([n]) => n), rest = railLen(m), spread = (f) => { const vs = SIDE.map(f); return Math.max(...vs.map((p, i) => Math.max(...vs.map((q) => Math.hypot(...p.map((c, j) => c - q[j])))))); };
+    const restV = D.cartView(pts, D.cartAt(pts, rest).ds), parts = { width: (n) => [size(n)[0]], 'near box': (n) => [C.rim[n] * size(n)[1]] };
+    for (const q of [0, 1]) { parts['hub ' + q] = (n) => { const [w, h] = size(n), [hu, hv] = C.hubs[n][q]; return put(n, rest)((hu - 0.5) * w, (hv - 1) * h); };
+      parts['lug ' + q] = (n) => { const [w, h] = size(n); return put(n, rest)(...D.cartLug(n, q, w, h, rest, restV.run)); }; }
+    for (const [k, f] of Object.entries(parts)) { const d = spread(f); if (d > 1) out.push(`cart: the 3/4 loads' ${k} differ by ${d.toFixed(2)} px at the rails' end`); }
+    for (const n of SIDE) { const [w, h] = size(n); let worst = 0, on = 0;
+      for (const s of [...Array(401).keys(), rest]) { const v = D.cartAt(pts, s), V = D.cartView(pts, v.ds), a = D.railAt(pts, v.ds - 1), b = D.railAt(pts, v.ds + 1);
+        if (!V.side) continue; const q0 = D.railAt(pts, v.ds - C.reach), q1 = D.railAt(pts, v.ds + C.reach), u = [b[0] - a[0], b[1] - a[1]], l = Math.hypot(...u);
+        if (Math.abs(u[0] * (q1[1] - q0[1]) - u[1] * (q1[0] - q0[0])) > 1e-6 * l * Math.hypot(q1[0] - q0[0], q1[1] - q0[1])) continue; on++;
+        for (const q of [0, 1]) { const f = put(n, s)((C.hubs[n][q][0] - 0.5) * w, (C.foot[n][q] - 1) * h), r = [f[0] - v.x - V.near[0], f[1] - v.y - V.near[1]];
+          worst = Math.max(worst, Math.abs(r[0] * u[1] - r[1] * u[0]) / l); } }
+      if (!on) out.push(`cart: ${n} is never shown on a straight diagonal of the rails`);
+      if (worst > 1) out.push(`cart: a near wheel of ${n} stands ${worst.toFixed(2)} px off the near rail on the diagonal`); }
+    // TASKS 2122: the change of view is a cross-fade of C.fade px of rails, 0.15-0.2 s at the top speed; at every s of the run the view more
+    // than half shown has its wheels (the front one's slabs, the 3/4 one's near wheels) within a pixel of a drawn rail's axis; across the
+    // fade the track's middle its wheels stand over, by each painting's alpha, moves no more than 3 px a 3 px step of s (the travel itself
+    // is 2.8) and the box's top over the ground no more than 4 px a 1 px step (one frame threw it 13 px aside)
+    const png = (n) => { const b = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
+    const axes = D.railAxes(pts, png), offRail = (p) => Math.min(...axes.map(([a, b]) => { const ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * ex + (p[1] - a[1]) * ey) / (ex * ex + ey * ey)));
+      return Math.hypot(p[0] - a[0] - t * ex, p[1] - a[1] - t * ey); })), swap = D.cartSwap(pts), secs = C.fade / (CART_V * (railLen(m) - C.stop) / railLen(m));
+    if (secs < 0.25 || secs > 0.35) out.push(`cart: the change of view fades over ${secs.toFixed(2)} s at the top speed, not 0.25-0.35`);
+    // TASKS 2140: while the two paintings share the screen (each a quarter or more of the fade's shares) the end of the box (C.face) they
+    // show differs by no more than 3 px, the 3/4 one grown through the fade (D.cartGrow), and the shares' blend of it changes by no more
+    // than 1 px a 1 px step of s
+    for (const [nmS, nmF] of LOADS) { const end = (n, g) => g * (C.face[n][1] - C.face[n][0]) * size(n)[1], F0 = end(nmF, 1);
+      let worst = [0], step = [0], prev = null;
+      for (let s = 0; s <= rest; s++) { const F = D.cartFade(pts, D.cartAt(pts, s).ds, swap), g = D.cartGrow(nmS, nmF, size, F.a), S0 = end(nmS, g), shown = F0 * (1 - F.a) + S0 * F.a;
+        if (F.a >= 0.25 && F.a <= 0.75 && Math.abs(S0 - F0) > worst[0]) worst = [Math.abs(S0 - F0), s];
+        if (prev !== null && Math.abs(shown - prev) > step[0]) step = [Math.abs(shown - prev), s]; prev = shown; }
+      if (worst[0] > 3) out.push(`cart: through the fade the ${nmS} pair's ends of the box differ by ${worst[0].toFixed(2)} px at ${worst[1]} px`);
+      if (step[0] > 1) out.push(`cart: the ${nmS} pair's end of the box changes ${step[0].toFixed(2)} px over the 1 px of s to ${step[1]}`); }
+    for (const [nmS, nmF] of LOADS) { let worst = [0], jump = [0], top = [0], last = null, lastTop = null;
+      for (let s = 0; s <= rest; s++) { const v = D.cartAt(pts, s), F = D.cartFade(pts, v.ds, swap), G = D.cartGrow(nmS, nmF, size, F.a), [nm, V, g] = F.a >= 0.5 ? [nmS, F.S, G] : [nmF, F.F, 1], [w, h] = size(nm);
+        for (const p of D.cartFeet(V.side, nm, w, h, V, v, g)) { const d = offRail(p); if (d > worst[0]) worst = [d, s, nm]; }
+        const each = [[nmF, F.F, 1 - F.a, 1], [nmS, F.S, F.a, G]].map(([n, U, a, gg]) => { const [ww, hh] = size(n), P = D.cartPut(n, ww, hh, U, v, gg), f = D.cartFeet(U.side, n, ww, hh, U, v, gg),
+          mid = U.side ? [(f[0][0] + f[1][0]) / 2 - U.near[0], (f[0][1] + f[1][1]) / 2 - U.near[1]] : [(f[0][0] + f[1][0]) / 2, (f[0][1] + f[1][1]) / 2], t = P(0, -hh); return [mid, [t[0] - v.x, t[1] - v.y], a]; });
+        const blend = (i) => [0, 1].map((j) => each[0][i][j] * each[0][2] + each[1][i][j] * each[1][2]), mid = blend(0), tp = blend(1);
+        if (lastTop) { const d = Math.hypot(tp[0] - lastTop[0], tp[1] - lastTop[1]); if (d > top[0]) top = [d, s]; } lastTop = tp;
+        if (s % 3 === 0) { if (last) { const d = Math.hypot(mid[0] - last[0], mid[1] - last[1]); if (d > jump[0]) jump = [d, s]; } last = mid; } }
+      if (worst[0] > 1) out.push(`cart: a wheel of ${worst[2]} stands ${worst[0].toFixed(2)} px off the drawn rails at ${worst[1]} px`);
+      if (jump[0] > 3) out.push(`cart: the ${nmS} pair's wheels jump ${jump[0].toFixed(2)} px over the 3 px of s to ${jump[1]}`);
+      if (top[0] > 4) out.push(`cart: the ${nmS} pair's box top jumps ${top[0].toFixed(2)} px over the 1 px of s to ${top[1]}`); }
+    return out;
+  }
+  // TASKS 2104: hardcore's death ends the run; the normal mode's wakes the hero in the town with a share of his level's experience
+  // gone, his level, gear and floors kept, and a boss fight he fell in called off; a boss slain opens its hall in the meta, the hall
+  // outlives the run, the ring of a new normal run offers it beside the way down from the first floor and leads to the boss's floor,
+  // a hardcore run's ring offers none; the counters go by mode, and a run saved before the modes plays as hardcore
+  function deathModeCheck() { const out = [], LVL = 3, XP = 50;
+    const fresh = (mode, S = spawn(0, {})) => { const R = newRun(S, 'campaign', 11, { town: 1, deathMode: mode }); S.run = R; S.screen = 'play'; return [S, R]; };
+    const die = (S, R) => { R.hero.ifr = 0; SIMX.killHero(S, R); for (let i = 0; i < 400 && S.run === R && R.hero.deadT >= 0; i++) step(S, { keys: [] }); };
+    const bossF = Array.from({ length: D.RUNS.campaign.floors }, (_, i) => i + 1).find((f) => D.stageOf('campaign', f).boss);
+    { const [S, R] = fresh('hard'); enterFloor(S, R, 1); die(S, R);
+      if (S.run || S.screen !== 'dead') out.push(`death mode: a hardcore death leaves the screen ${S.screen} and the run ${!!S.run}`);
+      if (!S.result || S.result.deathMode !== 'hard') out.push(`death mode: a hardcore run's result records the mode ${S.result && S.result.deathMode}`);
+      const M = S.meta.stats.mode || {}; if (!(M.hard && M.hard.deaths === 1) || (M.normal && M.normal.deaths)) out.push(`death mode: a hardcore death is counted ${JSON.stringify(M)}`); }
+    { const [S, R] = fresh('normal'), h = R.hero; enterFloor(S, R, 1); h.lvl = LVL; h.xp = XP; const gold = h.gold = 77, wpn = h.eq.weapon.id, lost = Math.min(XP, Math.round(D.xpNeed(LVL) * D.BAL.deathXpLoss)); die(S, R);
+      if (S.run !== R || S.screen !== 'play' || !R.town) out.push(`death mode: a normal death does not wake the hero in the town (screen ${S.screen}, floor ${R.floor})`);
+      if (h.deadT !== -1 || h.hp !== heroSt(S).maxHp) out.push('death mode: the hero wakes in the town still dead or hurt');
+      if (h.lvl !== LVL || h.xp !== XP - lost) out.push(`death mode: a normal death leaves level ${h.lvl} and ${h.xp} xp, not ${LVL} and ${XP - lost}`);
+      if (h.gold !== gold || !h.eq.weapon || h.eq.weapon.id !== wpn) out.push('death mode: a normal death takes the gold or the gear');
+      if (!R.memo || !R.memo[1]) out.push('death mode: a normal death drops the floor it happened on');
+      const M = S.meta.stats.mode || {}; if (!(M.normal && M.normal.deaths === 1) || (M.hard && M.hard.deaths)) out.push(`death mode: a normal death is counted ${JSON.stringify(M)}`);
+      // town_game_r10 5: the Keeper speaks of the run's first fall once, in place of the long time below; a second fall is not told again
+      S.meta.keeperMet = 1; S.meta.endTold = 1; R.away = 6; R.townDeep = 5; const F = TXT.talk('keeper').events.fell, p1 = SIMX.keeperPages(S, R), p2 = SIMX.keeperPages(S, R);
+      if (p1[0] !== F[0] || p1.includes(D.KEEPER.away[0]) || p2.includes(F[0])) out.push(`death mode: after a normal death the Keeper says ${JSON.stringify(p1.map((q) => q.slice(0, 30)))}, then ${JSON.stringify(p2.map((q) => q.slice(0, 30)))}`);
+      enterFloor(S, R, 1); die(S, R); if (SIMX.keeperPages(S, R).includes(F[0])) out.push('death mode: the Keeper tells the second fall of a run as the first'); }
+    if (!SIMX.hardcore({ viaTown: 1 })) out.push('death mode: a run saved before the modes is not hardcore');
+    // TASKS 2108: the start screen's checkbox turns hardcore on and off by a click and by Space, and the run started takes its choice
+    { const S = spawn(0, {}); S.screen = 'classes'; S.pendingMode = 'campaign'; const b = D.UI.classes(S.meta).find((q) => q.id === 'hard');
+      if (!b || D.deathPick(S.meta) !== 'normal') out.push(`death mode: the start screen has no hardcore checkbox, or it starts ticked (${D.deathPick(S.meta)})`);
+      else { step(S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); const on = D.deathPick(S.meta);
+        step(S, { keys: [] }); step(S, { keys: ['Space'] }); const off = D.deathPick(S.meta);
+        step(S, { keys: [] }); step(S, { keys: ['ArrowRight'] }); const ar = D.deathPick(S.meta); step(S, { keys: [] }); step(S, { keys: ['Enter'] });
+        if (on !== 'hard' || off !== 'normal' || ar !== 'hard' || D.deathPick(S.meta) !== 'normal' || S.focus !== 'hard') out.push(`death mode: the checkbox gives ${on} on a click, ${off} on Space, ${ar} on →, ${D.deathPick(S.meta)} on Enter, the focus on ${S.focus}`);
+        step(S, { keys: [] }); S.focus = 'go'; step(S, { keys: ['Enter'] });
+        if (!S.run || S.run.deathMode !== 'normal') out.push(`death mode: the run started after the checkbox plays ${S.run && S.run.deathMode}`); } }
+    if (!bossF) { out.push('death mode: the campaign has no boss floor'); return out; }
+    { const [S, R] = fresh('normal'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]);
+      R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 1; die(S, R); enterFloor(S, R, bossF); const b2 = R.en.find((e) => D.BOSSES[e.type]);
+      if ((R.arena && R.arena.active) || !b2 || b2.hp !== b2.max || b2.deadT >= 0) out.push('death mode: a boss fight the hero fell in is still on, or the boss not whole, when he comes back'); }
+    const [S, R] = fresh('hard'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]); R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIMX.killEnemy(S, R, b);
+    if (!(R.slain || []).includes(bossF)) { out.push(`death mode: the boss of floor ${bossF} leaves the hero's run no slain floor (${JSON.stringify(R.slain)})`); return out; }
+    if (JSON.stringify(S.meta.portals || []) !== '[]') out.push(`death mode: a boss slain writes a hall into the meta (${JSON.stringify(S.meta.portals)})`);
+    // 2213: the hall is the hero's own: the run keeps it through a save, and a new run (a new hero) of the same player has none
+    const [S3, R3] = fresh('normal'); R3.slain = [bossF]; const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S3))));
+    S2.meta.portals = [bossF];
+    if (SIMX.gateWays(fresh('normal', S2)[1], S2).length || SIMX.gateWays(fresh('hard', S2)[1], S2).length) out.push('death mode: a new run opens a hall for a boss the hero has not slain (an old meta.portals included)');
+    const [, R2] = [0, fresh('normal', S2)[1]]; R2.slain = [bossF]; const o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
+    if (!go || o.some((q) => q.k !== 'boss')) out.push(`death mode: a normal run that slew the boss has the ring offering ${JSON.stringify(o)}`);
+    // TASKS 2111: a portal keeps its origin for its label (none in an old save = the scroll's); one left by an open hall's gate is
+    // that hall's way twice, so the ring hides it, and going by the hall closes it
+    { const way = (P) => { R2.portal = P; return SIMX.gateWays(R2, S2).find((q) => q.k === 'portal'); }, other = bossF + 1;
+      const old = way({ f: bossF, x: 0, y: 0 }), scroll = way({ f: bossF, x: 0, y: 0, from: 'scroll' }), shut = way({ f: bossF, x: 0, y: 0, from: 'gate' }), far = way({ f: other, x: 0, y: 0, from: 'gate' });
+      if (!old || old.from !== 'scroll' || !scroll || scroll.from !== 'scroll' || shut || !far || far.from !== 'gate') out.push(`death mode: the ring's portal by origin: old save ${JSON.stringify(old)}, scroll ${JSON.stringify(scroll)}, open hall's gate ${JSON.stringify(shut)}, a shut hall's gate ${JSON.stringify(far)}`);
+      // TASKS 2126: the toast after a normal death names the deepest way the ring opens, else the mine from the first floor
+      const fell = (P) => { R2.portal = P; return SIMX.fellWay(S2, R2); }, pf = bossF + 2, ps = R2.slain, hall = fell(null), deep = fell({ f: pf, x: 0, y: 0, from: 'scroll' });
+      R2.slain = []; const none = fell(null); R2.slain = ps;
+      if (hall !== TXT('sim_ui.fell.way.boss', { f: bossF }) || deep !== TXT('sim_ui.fell.way.portal', { f: pf }) || none !== TXT('sim_ui.fell.way.first')) out.push(`death mode: the death toast's way down reads «${hall}» with the hall of floor ${bossF}, «${deep}» with a portal to ${pf} too, «${none}» with neither`);
+      R2.portal = { f: bossF, x: 0, y: 0, from: 'gate' }; }
+    if (go) { SIMX.gateGo(S2, R2, go); const g = SIMX.hallGate(R2);
+      if (R2.portal) out.push(`death mode: going by the hall of floor ${bossF} leaves its gate's portal open ${JSON.stringify(R2.portal)}`);
+      if (R2.floor !== bossF || !g || Math.hypot(R2.hero.x - g.x, R2.hero.y - g.y) > 2 * TILE) out.push(`death mode: the hall's portal leads to floor ${R2.floor}, ${g ? Math.round(Math.hypot(R2.hero.x - g.x, R2.hero.y - g.y)) : '?'} px from its portal`); }
+    { const [S3, R3] = fresh('hard', S2); if (SIMX.gateWays(R3, S3).length) out.push(`death mode: a hardcore run's ring offers ${JSON.stringify(SIMX.gateWays(R3, S3))}`); }
     return out;
   }
   SIMX.checks.add('townCheck', townCheck);
+  SIMX.checks.add('deathModeCheck', deathModeCheck);
+  SIMX.checks.add('folkHoldCheck', folkHoldCheck);
   SIMX.checks.add('cartCheck', cartCheck);
+  SIMX.checks.add('masonStopCheck', masonStopCheck);
   SIMX.checks.add('folkCheck', folkCheck);
   SIMX.checks.add('shopTownCheck', shopTownCheck);
   SIMX.checks.add('soulAltarCheck', soulAltarCheck);

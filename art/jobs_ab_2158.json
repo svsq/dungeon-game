@@ -1,0 +1,62 @@
+[
+ {
+  "name": "ab_charge_2158_1",
+  "prompt": "art/prompts/ab_charge_2158.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, chunky pixel grid, framing, outline, palette and shading to match",
+   "art/gen/archer_ability_sheet.png=more of the game's ability icons: a single bold symbol on a dark plate, the look to match"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/fix_icons_2158/gen"
+ },
+ {
+  "name": "ab_charge_2158_2",
+  "prompt": "art/prompts/ab_charge_2158.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, chunky pixel grid, framing, outline, palette and shading to match",
+   "art/gen/archer_ability_sheet.png=more of the game's ability icons: a single bold symbol on a dark plate, the look to match"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/fix_icons_2158/gen"
+ },
+ {
+  "name": "ab_cry_2158_1",
+  "prompt": "art/prompts/ab_cry_2158.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, chunky pixel grid, framing, outline, palette and shading to match",
+   "art/gen/archer_ability_sheet.png=more of the game's ability icons: a single bold symbol on a dark plate, the look to match"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/fix_icons_2158/gen"
+ },
+ {
+  "name": "ab_cry_2158_2",
+  "prompt": "art/prompts/ab_cry_2158.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, chunky pixel grid, framing, outline, palette and shading to match",
+   "art/gen/archer_ability_sheet.png=more of the game's ability icons: a single bold symbol on a dark plate, the look to match"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/fix_icons_2158/gen"
+ },
+ {
+  "name": "ab_leap_2158_1",
+  "prompt": "art/prompts/ab_leap_2158.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, chunky pixel grid, framing, outline, palette and shading to match",
+   "art/gen/archer_ability_sheet.png=more of the game's ability icons: a single bold symbol on a dark plate, the look to match"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/fix_icons_2158/gen"
+ },
+ {
+  "name": "ab_leap_2158_2",
+  "prompt": "art/prompts/ab_leap_2158.txt",
+  "ref": [
+   "art/gen/abilities_sheet.png=the game's ability icons: square format, chunky pixel grid, framing, outline, palette and shading to match",
+   "art/gen/archer_ability_sheet.png=more of the game's ability icons: a single bold symbol on a dark plate, the look to match"
+  ],
+  "size": "1024x1024",
+  "out_dir": "frames/fix_icons_2158/gen"
+ }
+]

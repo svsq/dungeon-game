@@ -104,26 +104,44 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   // ANGLE turns each into HLSL for D3D11, much slower than on a Mac. Asked all at the end, the driver compiles them side by side
   G.defer = false;
   const unchecked = new Set();
-  const finish = (P) => { const { p, sh, name } = P; unchecked.delete(P);
+  // without the extension a status query waits for the compile, so a program is taken as ready a frame after it was started: the
+  // loading screen gets drawn before the wait
+  let tick = 0;
+  // G.onReady(name, ms, how): a program checked, ms from its compile's start; how: 'start' (G.settle), 'bg' (G.pump, G.want) or
+  // 'demand' (drawn before it was ready, so waited for on the spot)
+  G.onReady = null;
+  const finish = (P, how) => { const { p, sh, name } = P; unchecked.delete(P);
     for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(name + ': ' + gl.getShaderInfoLog(s));
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(name + ': ' + gl.getProgramInfoLog(p));
     const loc = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const u = gl.getActiveUniform(p, i); loc[u.name.replace('[0]', '')] = { l: gl.getUniformLocation(p, u.name), type: u.type }; }
-    P.loc = loc; P.sh = null; };
+    P.loc = loc; P.sh = null; if (G.onReady) G.onReady(name, performance.now() - P.t0, how); };
   // programs are kept by name: a name asked again with another vertex shader is an error, not the old program (review of PR 62)
-  G.program = (name, fs, vs = 'one') => {
+  G.program = (name, fs, vs = 'one', defer = G.defer) => {
     if (progs[name]) { if (progs[name].vs !== vs) throw new Error(name + ': made with the vertex shader ' + progs[name].vs + ', asked with ' + vs); return progs[name]; }
     const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
-    const p = gl.createProgram(), sh = [mk(gl.VERTEX_SHADER, VSS[vs]), mk(gl.FRAGMENT_SHADER, COMMON + fs)]; for (const s of sh) gl.attachShader(p, s);
+    const t0 = performance.now(), p = gl.createProgram(), sh = [mk(gl.VERTEX_SHADER, VSS[vs]), mk(gl.FRAGMENT_SHADER, COMMON + fs)]; for (const s of sh) gl.attachShader(p, s);
     gl.bindAttribLocation(p, 0, 'a_pos'); gl.linkProgram(p);
-    const P = (progs[name] = { p, loc: null, name, sh, vs }); unchecked.add(P); if (!G.defer) finish(P); return P;
+    const P = (progs[name] = { p, loc: null, name, sh, vs, t0, tick }); unchecked.add(P); if (!defer) finish(P, 'demand'); return P;
   };
-  // waits, a frame at a time, until the driver has compiled every deferred program (KHR_parallel_shader_compile; without it they are
-  // asked at once), then checks them; returns how many there were
-  G.settle = async () => { const n = unchecked.size, done = (P) => gl.getProgramParameter(P.p, PAR.COMPLETION_STATUS_KHR);
-    if (PAR) while ([...unchecked].some((P) => !done(P))) await new Promise((r) => requestAnimationFrame(r));
-    for (const P of [...unchecked]) finish(P); G.defer = false; return n; };
+  const compiled = (P) => (PAR ? gl.getProgramParameter(P.p, PAR.COMPLETION_STATUS_KHR) : tick > P.tick);
+  const ready = (P, how) => { if (P.loc) return true; if (!compiled(P)) return false; finish(P, how); return true; };
+  // waits, a frame at a time, until the driver has compiled every deferred program (KHR_parallel_shader_compile), checking each
+  // as it gets done; returns how many there were
+  G.settle = async () => { const n = unchecked.size;
+    for (;;) { tick++; for (const P of [...unchecked]) ready(P, 'start'); if (!unchecked.size) break; await new Promise((r) => requestAnimationFrame(r)); }
+    G.defer = false; return n; };
   G.parallel = () => !!PAR;
+  // the programs not compiled at the start (TASKS 2106): their sources wait here, in the order given, and G.pump starts one a frame
+  // (the driver compiles it on its own threads, the frame goes on), G.want all of a list at once
+  const defs = {}, queue = [];
+  G.define = (name, fs, vs = 'one') => { if (!defs[name]) { defs[name] = { fs, vs }; queue.push(name); } };
+  G.make = (name) => progs[name] || G.program(name, defs[name].fs, defs[name].vs, true);
+  G.pump = () => { tick++; while (queue.length && progs[queue[0]]) queue.shift(); if (queue.length) G.make(queue.shift());
+    for (const P of unchecked) ready(P, 'bg'); };
+  // how many of names are compiled and checked; the ones not started yet start now
+  G.want = (names) => { let n = 0; for (const k of names) if (ready(G.make(k), 'bg')) n++; return n; };
+  G.pending = () => queue.filter((k) => !progs[k]).length + unchecked.size;
 
   // view: the coordinate space draws use (default w×h), e.g. a W/k × H/k target drawn in W×H view px; nearest: sample it crisp
   G.target = (w, h, float = false, { view = [w, h], nearest = false } = {}) => {
@@ -202,7 +220,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (qn) G.flush();
     if (G.outside(xf)) return;
     xf = onScreen(xf);
-    if (!P.loc) finish(P);
+    if (!P.loc) finish(P, 'demand');
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
@@ -219,7 +237,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (qn) G.flush();
     if (n <= 0) return;
     xf = onScreen(xf);
-    if (!P.loc) finish(P);
+    if (!P.loc) finish(P, 'demand');
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
@@ -244,7 +262,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   G.flush = () => {
     if (!qn) return; const n = qn, P = qP; qn = 0;
     if (G.onFlush) G.onFlush(P, QR, n);   // tools (frameprof): the batch's program and rectangles
-    if (!P.loc) finish(P);
+    if (!P.loc) finish(P, 'demand');
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
     setU(P, 'u_res', res);

@@ -9,8 +9,13 @@
   let last = 0;
   const rev = (m) => { let r = REVS.get(m); if (r === undefined) REVS.set(m, r = ++last); return r; };
   const touch = (m) => { REVS.set(m, ++last); };
-  const setCell = (m, k, v) => { m.cells[k] = v; touch(m); };
-  const fillCells = (m, xys, v) => { for (const [x, y] of xys) m.cells[y * m.W + x] = v; touch(m); };
+  // the cells' own revision (TASKS 2087): the minimap draws nothing but the cells, so a write to the water, the block or a lock (a flood's
+  // every step) leaves its picture, and the cache of it, as they were; any write to the cells moves both revisions
+  const CREVS = new WeakMap();
+  const cellsRev = (m) => { let r = CREVS.get(m); if (r === undefined) CREVS.set(m, r = ++last); return r; };
+  const touchCells = (m) => { CREVS.set(m, ++last); touch(m); };
+  const setCell = (m, k, v) => { m.cells[k] = v; touchCells(m); };
+  const fillCells = (m, xys, v) => { for (const [x, y] of xys) m.cells[y * m.W + x] = v; touchCells(m); };
   const blockPush = (m, k) => { m.block.push(k); touch(m); };
   const blockOnce = (m, k) => { if (!m.block.includes(k)) blockPush(m, k); };
   const blockDrop = (m, ...ks) => { m.block = m.block.filter((b) => !ks.includes(b)); touch(m); };
@@ -19,13 +24,14 @@
   // a lock opens without its door's cells changing: a monster passes a door whose lock is open, so the flow fields change with it
   const unlatch = (m, L, t) => { L.open = 1; L.openT = t; touch(m); };
   // a whole field laid anew (a floor put back from a save, a QA state's own floor)
-  const put = (m, field, v) => { m[field] = v; touch(m); };
+  const put = (m, field, v) => { m[field] = v; if (field === 'cells') touchCells(m); else touch(m); };
   // the water's cells as a set, one for the sim's wading and the scene's rings alike (TASKS 2074): a flood grows m.water under both
   const WATER = new WeakMap();
   const waterSet = (m) => { let w = WATER.get(m); if (!w || w.rev !== rev(m)) WATER.set(m, w = { rev: rev(m), cells: new Set(m.water || []) }); return w.cells; };
   // a cache's key as text (TASKS 2081); one of a map's own starts from its revision, which no other map ever shares, never from its seed and floor
   const keyOf = (...parts) => parts.join(':');
   const revKey = (m, ...parts) => keyOf(rev(m), ...parts);
-  const mapw = { rev, touch, setCell, fillCells, blockPush, blockOnce, blockDrop, addWater, dropWater, unlatch, put };
-  Object.assign(SIMX, { mapw, rev, waterSet, keyOf, revKey });
+  const cellsKey = (m, ...parts) => keyOf(cellsRev(m), ...parts);
+  const mapw = { rev, touch, touchCells, setCell, fillCells, blockPush, blockOnce, blockDrop, addWater, dropWater, unlatch, put };
+  Object.assign(SIMX, { mapw, rev, cellsRev, waterSet, keyOf, revKey, cellsKey });
 })(typeof window !== 'undefined' ? window : globalThis);

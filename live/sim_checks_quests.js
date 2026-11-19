@@ -1,8 +1,9 @@
 // live/sim_checks_quests.js — selfCheck's parts for quests: offers, taking and turning in. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    boxHit, completionHints, counted, D, DG, ENEMIES, enterFloor, folkOf, journalOf, killEnemy, lootAudit, newQuest, newRun, offerOf, offersOf,
+    boardOffers, boxHit, completionHints, counted, D, DG, ENEMIES, enterFloor, folkOf, journalOf, killEnemy, lootAudit, newQuest, newRun, offerOf, offersOf,
     openChest, openSecret, persist, questFloor, questMark, questMarks, spawn, STAGE, step, takeQuest, TILE, turnIn, UI, who } = SIMX;
+  const OFFER_SEEDS = Array.from({ length: 24 }, (_, i) => i + 1);
   const scrolls = (h) => h.bag.reduce((n, it) => n + (it && it.b === 'scroll' ? it.n : 0), 0);
   // TASKS 1018–1022: a run's offers are 2–3, each from its own townsman, the same for the same seed; ! over the giver, his talk ends
   // on the quest's page and E takes it; the named foe (on its floor, never a boss's; an elite with its name; marked on the map; kept
@@ -161,7 +162,7 @@
       for (let i = 0; i < 12 && S.screen === 'talk' && sq.st !== 'turned'; i++) step(S, { keys: ['KeyE'] });
       if (sq.st !== 'turned' || S.meta.shards <= sh) out.push('quest story: the step is not turned in for shards');
       // the thanks, then the next step's offer in the same talk
-      const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !D.QUEST_SAY.keeper.thanks.some((v) => S.talk.pages[1].startsWith(v))) out.push('quest story: no thanks and next offer after the turn-in');
+      const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !D.QUEST_SAY.keeper.thanks.some((v) => S.talk.pages[0].startsWith(v))) out.push('quest story: no thanks and next offer after the turn-in');
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
     // TASKS 1850: a quest to turn in waits behind an ordinary line with its button; its words, the thanks and the reward come once pressed
@@ -176,6 +177,10 @@
       for (let i = 0; i < 8 && S.screen === 'talk' && q.st !== 'turned'; i++) { if (said()) { out.push('quest turn-in: the ' + role + ' says it before the button'); break; } step(S, { keys: ['KeyE'] }); }
       if (q.st !== 'turned' || S.screen !== 'talk' || !said()) out.push('quest turn-in: the ' + role + ' does not say it once pressed');
       else if (!S.talk.pages.some((p) => p.includes(root.SIMX.rwLine(q.rw)))) out.push('quest turn-in: the ' + role + ' gives no reward once pressed' + (news ? ' (with news)' : '')); step(S, { keys: ['Escape'] }); }
+    // TASKS 2103: the first board of a run with the smith still caged holds no offer of his or the Keeper's and shows an optional quest
+    for (const sd of OFFER_SEEDS) { const R3 = newRun(S, 'campaign', sd, { town: 1 }), L3 = offersOf(R3), shown = boardOffers(R3).filter((o) => !o.of.q.story);
+      if (L3.some((o) => o.from === 'keeper' || (R3.captives || {})[o.from])) out.push('quest give: seed ' + sd + ' deals an offer to a caged giver or the Keeper');
+      if (!shown.length) out.push('quest give: seed ' + sd + ' shows no optional quest on the first board'); }
     // TASKS 1026: a boss slain deals a batch of offers more, to townsmen with none waiting; T reads the scroll on a floor
     R = run(93); const o0 = offersOf(R).length; R.bossN = 1; if (offersOf(R).length !== o0) out.push('quest give: a read of the offers deals a batch'); SIMX.dealOffers(R); const o1 = offersOf(R); if (o1.length <= o0 || o1.slice(o0).some((o) => o1.slice(0, o0).some((p) => p.from === o.from && !p.q))) out.push('quest give: no fresh batch of offers after a boss');
     enterFloor(S, R, 1); S.screen = 'play'; R.en = []; step(S, { keys: [] }); step(S, { keys: ['KeyT'] }); if (!R.hero.read) out.push('scroll: T does not read the scroll of return');
@@ -211,6 +216,36 @@
     const P = JSON.parse(JSON.stringify(persist(S))); if (!P.run.quests || P.run.quests.length !== 4 || JSON.stringify(P.run.quests).length > 2000) out.push('quest: the quests do not travel in the save, or bloat it');
     return out;
   }
+  // town_game_r10 1: every quest ready for a giver goes in with one press, told on one page with what they paid together; on the first
+  // board of a few seeds (all taken, all done) each giver with a ? is settled by the one press, his talk opened beside him
+  function turnAllCheck() {
+    const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; S.meta.keeperMet = 1; return S.run; };
+    const talkTo = (R, role) => { const f = folkOf(R).find((q) => q.role === role); for (const o of folkOf(R)) if (o !== f) o.x += 3000; R.hero.x = f.x + 44; R.hero.y = f.y + 12; for (let i = 0; i < 20; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); for (const o of folkOf(R)) if (o !== f) o.x -= 3000; return S.talk; };
+    const settle = (R, role, tag) => { const mine = () => R.quests.filter((q) => q.from === role && q.st === 'done'), n0 = mine().length, T = talkTo(R, role);
+      if (!T || !T.act || T.act.k !== 'turn') { out.push(`turn-in all: ${tag}: the ${role}'s talk offers no turn-in`); return; }
+      const pages = T.pages.length; let presses = 0; while (S.screen === 'talk' && S.talk.act && S.talk.act.k === 'turn' && presses < 12) { step(S, { keys: ['KeyE'] }); presses++; }
+      if (mine().length) out.push(`turn-in all: ${tag}: ${mine().length} of the ${role}'s ${n0} quests left after the press`);
+      if (presses > pages) out.push(`turn-in all: ${tag}: the ${role} took ${presses} presses on ${pages} pages`);
+      if (questMark(R, role) === '?') out.push(`turn-in all: ${tag}: the ? stays over the ${role}`);
+      const told = S.screen === 'talk' ? S.talk.pages : []; if (n0 > 1 && !told.some((p) => R.quests.filter((q) => q.from === role).every((q) => p.includes('«' + D.QUESTS[q.key].name + '»')))) out.push(`turn-in all: ${tag}: no page names all ${n0} quests of the ${role}`);
+      for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); };
+    // three quests of one giver: one press, one page with the three names and the summed reward
+    { const R = run(41); R.offers = []; R.quests = []; const L = ['cull', 'named', 'fetch'].map((k) => { const q = takeQuest(S, R, newQuest(R, k, 2, 'porter')); q.st = 'done'; q.n = q.need; return q; });
+      const xp0 = R.hero.xp, g0 = R.hero.gold, T = talkTo(R, 'porter'); if (!T || !T.act || T.act.k !== 'turn' || T.pages.length !== 1) out.push(`turn-in all: three of the porter's quests wait behind ${T ? T.pages.length : 0} pages`);
+      step(S, { keys: ['KeyE'] }); if (L.some((q) => q.st !== 'turned')) out.push('turn-in all: one press does not turn in all three quests');
+      const P = S.talk ? S.talk.pages : [], gold = L.reduce((a, q) => a + (q.rw.gold || 0), 0), xp = L.reduce((a, q) => a + (q.rw.xp || 0), 0);
+      if (!P.some((p) => L.every((q) => p.includes(D.QUESTS[q.key].name)) && p.includes(SIMX.rwLine({ gold, xp })))) out.push(`turn-in all: no page names the three quests with their summed reward (${JSON.stringify(P)})`);
+      if (P.length > 1) out.push(`turn-in all: the porter's three quests are told on ${P.length} pages`);
+      if (R.hero.gold - g0 !== gold) out.push(`turn-in all: ${R.hero.gold - g0} gold paid, not ${gold}`);
+      for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); }
+    for (const sd of [1, 2, 3]) { const R = run(sd);
+      for (const o of boardOffers(R)) if (!o.of.q.story) { const q = takeQuest(S, R, Object.assign({}, o.of.q, { id: R.nextId++ })); if (o.of.o) o.of.o.q = q.id; }
+      for (const q of R.quests) { q.n = q.need; q.st = 'done'; }
+      const roles = [...new Set(R.quests.map((q) => q.from))]; if (!roles.length) out.push(`turn-in all: seed ${sd} has no quest to turn in`);
+      for (const role of roles) settle(R, role, 'seed ' + sd);
+      if (R.quests.some((q) => q.st === 'done')) out.push(`turn-in all: seed ${sd} leaves ${R.quests.filter((q) => q.st === 'done').length} quests undone after a press at each giver`); }
+    return out; }
+  SIMX.checks.add('turnAllCheck', turnAllCheck);
   SIMX.checks.add('questCheck', questCheck);
   SIMX.checks.add('questGiveCheck', questGiveCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

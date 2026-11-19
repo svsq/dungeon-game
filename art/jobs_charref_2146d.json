@@ -1,0 +1,96 @@
+[
+ {
+  "name": "charref4_archer_a_small_1",
+  "prompt": "art/prompts/charref4_archer_a_small_a.txt",
+  "ref": [
+   "frames/char_refs_r4/gen/guide_archer_shrink.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_r4/gen/scale_warrior_a.png=another hero on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 1,
+  "out_dir": "frames/char_refs_r4/gen"
+ },
+ {
+  "name": "charref4_archer_a_small_2",
+  "prompt": "art/prompts/charref4_archer_a_small_a.txt",
+  "ref": [
+   "frames/char_refs_r4/gen/guide_archer_shrink.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_r4/gen/scale_warrior_a.png=another hero on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 2,
+  "out_dir": "frames/char_refs_r4/gen"
+ },
+ {
+  "name": "charref4_archer_a_small_3",
+  "prompt": "art/prompts/charref4_archer_a_small_a.txt",
+  "ref": [
+   "frames/char_refs_r4/gen/guide_archer_shrink.png=a rough automatic shrink to the exact target grid: copy its art-pixel size and 40-pixel figure height, not its noise",
+   "frames/char_refs_r4/gen/scale_warrior_a.png=another hero on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 3,
+  "out_dir": "frames/char_refs_r4/gen"
+ },
+ {
+  "name": "charref4_archer_a_small_4",
+  "prompt": "art/prompts/charref4_archer_a_small_b.txt",
+  "ref": [
+   "frames/char_refs_r4/gen/guide_archer_r3raw.png=the previous attempt on the exact target grid: keep its body, pose, height and colours, redraw its head and face",
+   "frames/char_refs_r4/gen/scale_warrior_a.png=another hero on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 4,
+  "out_dir": "frames/char_refs_r4/gen"
+ },
+ {
+  "name": "charref4_archer_a_small_5",
+  "prompt": "art/prompts/charref4_archer_a_small_b.txt",
+  "ref": [
+   "frames/char_refs_r4/gen/guide_archer_r3raw.png=the previous attempt on the exact target grid: keep its body, pose, height and colours, redraw its head and face",
+   "frames/char_refs_r4/gen/scale_warrior_a.png=another hero on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 5,
+  "out_dir": "frames/char_refs_r4/gen"
+ },
+ {
+  "name": "charref4_archer_a_small_6",
+  "prompt": "art/prompts/charref4_archer_a_small_b.txt",
+  "ref": [
+   "frames/char_refs_r4/gen/guide_archer_r3raw.png=the previous attempt on the exact target grid: keep its body, pose, height and colours, redraw its head and face",
+   "frames/char_refs_r4/gen/scale_warrior_a.png=another hero on the same grid: exactly this tall, these pixel blocks, and a face at least this readable; nothing else from it",
+   "art/char_refs/archer_a.png=this character's approved design, drawn large: identity, face, gear and colours only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true,
+  "seed": 6,
+  "out_dir": "frames/char_refs_r4/gen"
+ },
+ {
+  "name": "charref4_mage_a",
+  "prompt": "art/prompts/charref4_mage_a.txt",
+  "ref": [
+   "art/char_refs/mage_a_v2.png=edit target: change only the size of the sphere in the left hand, keep everything else identical"
+  ],
+  "size": "1536x1024",
+  "alpha": "none",
+  "out_dir": "frames/char_refs_r4/gen"
+ }
+]

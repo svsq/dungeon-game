@@ -92,7 +92,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const P = Object.assign({}, PROFILES[profile], noTown ? { quests: 0, home: 0, scrolls: 0, noTown: 1 } : TOWN[profile]), rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile)), forkR = rng(seed * 104729 + 17);
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
-  if (!initial) { S.seedBase = seed; S.meta.diff = diff; S.meta.cls = cls; startRun(S, mode); }
+  // the bots measure a death as the end of the run, as before the modes (TASKS 2104), so they play hardcore
+  if (!initial) { S.seedBase = seed; S.meta.diff = diff; S.meta.cls = cls; S.meta.deathMode = 'hard'; startRun(S, mode); }
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), salNext = new Map(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag

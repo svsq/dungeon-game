@@ -15,17 +15,15 @@
   // [dx, dy, r, alpha]; warm lanterns and the forge, the enchanter's and the altar's cold blue, the crypt's warm breath from below
   // (a light's centre stays on open floor: inside a wall cell the light map's occlusion swallows it)
   // (TASKS 1029: the lanterns became torches, lit by the torches' own code; the forge's glow on its art no longer whitens it)
-  const TOWN_LIGHT = { forge: { r: 120, col: [1, 0.5, 0.16], amt: 1.4, dy: 10, core: 48, glow: [-6, -12, 20, 0.85] },
-    runes: { r: 150, col: [0.46, 0.58, 0.85], amt: 1.2, dy: 20, core: 28, glow: [0, 8, 26, 0.3] }, altar: { r: 150, col: [0.36, 0.54, 0.95], amt: 1.3, dy: 34, core: 36, glow: [0, -14, 34, 0.5] }, portal: { r: 110, col: [1, 0.58, 0.24], amt: 0.7, dy: 0, core: 30, glow: [0, 0, 30, 0.2] },
-    stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 13, 1] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
-  const PAVE_K = 1, PAVE_TS = 160;
-  // the track's two paintings in their own pixels (live/assets size; TASKS 2012): `per` one sleeper and the ballast after it, `at` the
-  // middle of the first gap between two sleepers (where a period is cut, so it repeats without its ends), `gauge` between the rails'
-  // middles. `h` is seen from straight above and laid in floor space, `v` runs up the screen as the 3/4 camera sees it, for a stretch
-  // within `steep` degrees of plumb (the adit's); `gauge` (view px) sizes both, as the cart's wheels were set on; `lift` brings each
-  // painting's sleepers to one brown (the plumb one came out a quarter lighter)
-  const RAIL = { gauge: 18.6, steep: 20, h: { tex: 'rail_tw_h', w: 1516, h: 355, at: 198, per: 160, gauge: 123.5, lift: 1.35 },
-    v: { tex: 'rail_tw_v', w: 489, h: 1526, at: 190, per: 137, gauge: 161, lift: 1.08 } };
+  const TOWN_LIGHT = { forge: { r: 120, col: [1, 0.56, 0.22], amt: 1.4, dy: 10, core: 48, glow: [-6, -12, 20, 1.15], lamp: { r: 7, col: [1, 0.86, 0.6], amt: 1.3, k: 1.6 } },
+    runes: { r: 150, col: [0.32, 0.5, 1.0], amt: 1.5, dy: 20, core: 40, glow: [0, 8, 26, 0.3] }, altar: { r: 150, col: [0.32, 0.5, 1.0], amt: 1.45, dy: 34, core: 48, glow: [0, -14, 34, 0.65] }, portal: { r: 110, col: [1, 0.58, 0.24], amt: 0.7, dy: 0, core: 30, glow: [0, 0, 30, 0.2] },
+    stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 13, 1], lamp: { r: 3, col: [1, 0.92, 0.66], amt: 1.8, k: 1.2 } }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
+  const PORTAL_DISC = { w: 3.1, sq: 1 };
+  const PAVE_K = 1, PAVE_TS = 160, PAVE_SALT = { row: 41, col: 43 };
+  // the cobbles' texture repeats every PAVE_TS px and its courses lie on the cells, so its seams ran in straight lines (TASKS 2094): each row
+  // of repeats is moved sideways, each column up, by whole cells from the seeded hash, so the courses still meet and the joints stagger
+  const paveShift = (n, salt) => TILE * Math.floor(rnd(n, salt) * PAVE_TS / TILE);
+  const paveAt = (X, Y) => [((X + paveShift(Math.floor(Y / PAVE_TS), PAVE_SALT.row)) % PAVE_TS) / PAVE_TS, ((Y + paveShift(Math.floor(X / PAVE_TS), PAVE_SALT.col)) % PAVE_TS) / PAVE_TS];
   // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
   const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', mason: 'bin', sweeper: 'fire' };
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
@@ -33,22 +31,18 @@
   // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest
 
   const railPts = D.railPts;
+  // whether a point lies within r px of the track's edge; RAIL_CLEAR: the share of a decal's half-size that may reach over it
+  const RAIL_CLEAR = 1;
+  const railNear = (pts) => (x, y, r) => pts.some((b, i) => { if (!i) return false; const a = pts[i - 1], dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+    return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy) < r + D.RAIL.gauge / 2; });
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
-  // the rails lie on the floor (TASKS 2012): a stretch across the screen is laid in floor space and squashed to the view's depth with
-  // the town's other flat things; the adit's plumb stretch takes the painting that already recedes, its sleepers drawn closer
-  // as the floor goes away. Either way one period of the painting (a sleeper, its ballast and the rails over them) after another
+  // the rails lie on the floor (TASKS 2012): every stretch, the adit's plumb one too, is laid in floor space and squashed to the view's
+  // depth with the town's other flat things, one period of the painting (a sleeper, its ballast and the rails over them) after another
   function track(pts) {
-    const K = D.CART.floor, cut = (P) => [P.at / P.w, P.at / P.h];
-    const lay = (P, along, size, src, place) => { const k = RAIL.gauge / P.gauge, per = P.per * k; let carry = 0;
-      for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], plumb = Math.atan2(Math.abs(bx - ax), Math.abs(by - ay)) * 180 / Math.PI < RAIL.steep;
-        if (plumb !== (P === RAIL.v)) { carry = 0; continue; }
-        const len = along(bx - ax, by - ay);
-        let d = carry; for (; d < len; d += per) { const [w, h] = size(P, k, per); L.sprite(P.tex, 0, 0, { m: place(ax + (bx - ax) * d / len, ay + (by - ay) * d / len, bx - ax, by - ay), w, h, pivot: [w / 2, h / 2], src: src(P), u: { grade: [1, P.lift, 0, 1] } }); }
-        carry = d - len; } };
-    lay(RAIL.h, (dx, dy) => Math.hypot(dx, dy / K), (P, k, per) => [per + 0.5, P.h * k], (P) => [cut(P)[0], 0, cut(P)[0] + P.per / P.w, 1],
-      (x, y, dx, dy) => M.of(M.t(x, y), M.s(1, K), M.r(Math.atan2(dy / K, dx))));
-    lay(RAIL.v, (dx, dy) => Math.hypot(dx, dy), (P, k, per) => [P.w * k, per + 0.5], (P) => [0, cut(P)[1], 1, cut(P)[1] + P.per / P.h],
-      (x, y, dx, dy) => { const up = dy > 0 ? 1 : -1; return M.of(M.t(x, y), M.r(Math.atan2(-dx * up, dy * up))); });
+    const K = D.CART.floor;
+    for (const r of D.railLay(pts, SZ)) for (const q of r.parts || [r]) {
+      const m = M.of(M.t(q.x, q.y), M.s(1, K), M.r(Math.atan2(q.dy / K, q.dx)));
+      L.sprite(r.tex, 0, 0, { m, w: q.w, h: r.h, pivot: [q.w / 2, r.h / 2], src: q.src, u: { grade: [1, r.lift, 0, 1] } }); }
   }
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 8;
@@ -58,14 +52,15 @@
       for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) { const px = x + (i + 0.5) / 8, py = y + (j + 0.5) / 8; let d = 9;
         for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if (P.has((y + v) * m.W + x + u)) d = Math.min(d, Math.hypot(Math.max(x + u - px, 0, px - x - u - 1), Math.max(y + v - py, 0, py - y - v - 1)));
         if (d + 0.45 * rnd(x * 4 + i, y * 4 + j) > 0.55) continue;
-        const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
+        const X = x * TILE + i * q, Y = y * TILE + j * q, [u0, v0] = paveAt(X, Y);
         L.sprite(B.pave, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [1, PAVE_K, 0, 1] } }); } }
     const T = m.town;
     track(railPts(m));
     // the portal's disc and the rune ring lie flat on the floor: squashed to the view's depth (TASKS 1030: drawn round they stood up)
-    const disc = (n, o, w, u) => { const [w0, h0] = SZ(n), k = w / w0, h = h0 * k * 0.68; L.puff(o.x, o.y + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite(n, o.x - w / 2, o.y - h / 2, { w, h, u }); };
+    const disc = (n, o, w, u, sq) => { const [w0, h0] = SZ(n), k = w / w0, h = h0 * k * sq; L.puff(o.x, o.y + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite(n, o.x - w / 2, o.y - h / 2, { w, h, u }); };
     // the rune ring's grooves are thin: lifted, so the enchanter's blue light finds them
-    disc('disc_tw', T.svc.portal, 2.6 * TILE, { grade: [1, 1.3, 0, 1] }); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y - 2 }, 3 * TILE, { grade: [1, 2.2, 0, 1] });
+    // (TASKS 2138: the portal's disc is painted in its own perspective, squashed again it read 79 x 41 px against the ref's 100 x 80)
+    disc('disc_tw', T.svc.portal, PORTAL_DISC.w * TILE, { grade: [1, 1.3, 0, 1] }, PORTAL_DISC.sq); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y - 2 }, 3 * TILE, { grade: [1, 2.2, 0, 1] }, 0.68);
   }
   function bake(m) {
     const key = mapKey(m); if (BAKE.key === key) return; BAKE.key = key;
@@ -90,14 +85,14 @@
     const GALLERY_FLOOR = D.BIOMES[m.biome === 'arcane' ? 'dungeon' : 'arcane'];
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
-    const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
+    const tile = (tex, x, y, u, ts = TS, at = (X, Y) => [(X % ts) / ts, (Y % ts) / ts]) => { const [u0, v0] = at(x * TILE, y * TILE); L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
     const dark = (x, y, w, h, a) => L.solid(x, y, w, h, [0.01, 0.01, 0.015], 0, 0, 0, a);
     if (m.cliff) G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 0 }), G.xf(0, 0, MW, MH));
     else if (B.cave) G.draw(L.P.cave, { u_open: openTex(m), u_water: waterTex(m), u_wet: m.water.length || m.deep ? 1 : 0, u_lift: TOP_LIFT, u_map: [MW, MH],
       u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) }, G.xf(0, 0, MW, MH));
     else masonry();
     // the town's ruin tops (TASKS 1029): laid block by block, each a cell, its own shade, the joints dark between them, moss on some
-    // of those by the yard; lifted less than the crypt's slate (a lift of 1.45 read as a pale pavement round the yard)
+    // of those by the yard; lifted by the biome's topLift (TASKS 2096: 2.1, the unlit stone's L90 read 27 against the concept's 42)
     function townTop(x, y) {
       const k = 0.82 + 0.3 * rnd(x * 7 + 1, y * 13 + 2), moss = RD[y * m.W + x] <= 2 && rnd(x * 3 + 5, y * 5 + 9) < 0.45, X = x * TILE, Y = y * TILE;
       { const u0 = Math.floor(rnd(x * 5 + 7, y * 3 + 11) * 3) / 3, v0 = Math.floor(rnd(x * 3 + 13, y * 7 + 5) * 3) / 3; L.sprite(B.top, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + 1 / 3, v0 + 1 / 3], u: { grade: [0.55, (B.topLift || TOP_LIFT) * k, 0, 1], tint: topTint(B) } }); }
@@ -116,7 +111,7 @@
         // an accent zone keeps its own stone, near grey and dark (as dark as the tint it lost made it): the colour proper is its hearths'
         // light and the fill, which fades out past the doorway
         // the town's earth repeats every 7 cells: its art pixel ≈2 px like the hero's (TASKS 1030; the old texture's was 4.5)
-        if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224); }
+        if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224, pv ? paveAt : undefined); }
         else if (v === 1 && GALLERY.has(y * m.W + x)) tile(GALLERY_FLOOR.floor, x, y, { grade: [1, 1.02, 0, 1], tint: [...GALLERY_FLOOR.tint, 1] }, 192);   // on the wall bricks' scale: at the floor's own 288 the slabs read 1.5 times too big (TASKS 1680)
         else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
         else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(m.town && wallRun(x, y) ? B.wall + '_b' : B.wall, x, y, { grade: m.town ? [0.9, B.wallG[1] * (0.78 + 0.42 * rnd(x * 5 + 1, y * 9 + 4)), 0, 1.05] : [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
@@ -177,7 +172,9 @@
       for (let a = 0; a < 6.283; a += 0.035) for (const [rx, ry, col] of [[58, 26, [0.32, 0.05, 0.03]], [48, 21, [0.22, 0.04, 0.03]]]) L.solid(Math.round((cx0 + Math.cos(a) * rx) / 2) * 2, Math.round((cy0 + Math.sin(a) * ry) / 2) * 2, 2, 2, col);
       for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283 + 0.4; L.solid(Math.round((cx0 + Math.cos(a) * 53) / 2) * 2 - 2, Math.round((cy0 + Math.sin(a) * 23.5) / 2) * 2 - 2, 4, 4, [0.4, 0.07, 0.04]); } }
     // painted floor decals: cracks, grime, moss, blood, coins, bones, webs…
-    for (const d of m.decals || []) { if (SIM.Q.hidden(m, d)) continue; const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0); L.sprite(d.n, d.x - w0 * k / 2, d.y - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: d.n === 'dc_web' ? 0.7 : 0.92 } }); }
+    // (TASKS 2138: a tuft lay over the adit's bend; a decal reaching onto the track is left out where it is drawn, the map keeps it)
+    const onRails = m.town ? railNear(railPts(m)) : () => false;
+    for (const d of m.decals || []) { if (SIM.Q.hidden(m, d) || onRails(d.x, d.y, 20 * d.s * RAIL_CLEAR)) continue; const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0); L.sprite(d.n, d.x - w0 * k / 2, d.y - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: d.n === 'dc_web' ? 0.7 : 0.92 } }); }
     // stains and scorch marks scattered on the floor
     for (let i = 0; i < m.W * m.H / 40; i++) { const x = Math.floor(rnd(i, m.seed % 97) * m.W), y = Math.floor(rnd(i + 0.5, m.seed % 89) * m.H);
       if (c(x, y) !== 1) continue; const wall = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([i2, j2]) => c(x + i2, y + j2) !== 1 && c(x + i2, y + j2) !== 3), r = Math.min(wall ? 12 : 99, 8 + 14 * rnd(i, 3));   // a stain by a wall stays off it

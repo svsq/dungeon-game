@@ -1,0 +1,89 @@
+[
+ {
+  "name": "hero_parts_mage_new_1",
+  "prompt": "art/prompts/hero_parts_mage_new.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of this mage, large: face, age, grey hair, grey beard, robe, cowl, clasps, belt, materials and colours (his staff and orb are NOT part of this sheet)",
+   "art/char_refs/mage_a_small_noorb_r4_x8.png=the same mage at the game's real size (40 art pixels tall, shown 8x): big shapes and colour accents",
+   "art/gen/hero_parts_warrior_sheet.png=another class's rig part sheet: only its layout and the view of each part, not its man, armour or colours"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_mage_2146/gen"
+ },
+ {
+  "name": "hero_parts_mage_new_2",
+  "prompt": "art/prompts/hero_parts_mage_new.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of this mage, large: face, age, grey hair, grey beard, robe, cowl, clasps, belt, materials and colours (his staff and orb are NOT part of this sheet)",
+   "art/char_refs/mage_a_small_noorb_r4_x8.png=the same mage at the game's real size (40 art pixels tall, shown 8x): big shapes and colour accents",
+   "art/gen/hero_parts_warrior_sheet.png=another class's rig part sheet: only its layout and the view of each part, not its man, armour or colours"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_mage_2146/gen"
+ },
+ {
+  "name": "hero_parts_mage_new_3",
+  "prompt": "art/prompts/hero_parts_mage_new.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of this mage, large: face, age, grey hair, grey beard, robe, cowl, clasps, belt, materials and colours (his staff and orb are NOT part of this sheet)",
+   "art/char_refs/mage_a_small_noorb_r4_x8.png=the same mage at the game's real size (40 art pixels tall, shown 8x): big shapes and colour accents",
+   "art/gen/hero_parts_warrior_sheet.png=another class's rig part sheet: only its layout and the view of each part, not its man, armour or colours"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_mage_2146/gen"
+ },
+ {
+  "name": "hero_body_back_mage_new_1",
+  "prompt": "art/prompts/hero_body_back_mage_new.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of this mage, large: hair, robe, hood, cloak and colours",
+   "art/char_refs/mage_a_small_noorb_r4_x8.png=the same mage at the game's real size (40 art pixels tall, shown 8x): accents",
+   "art/gen/hero_body_back_warrior_new.png=another class's back part: framing and what it shows only"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_mage_2146/gen"
+ },
+ {
+  "name": "hero_body_back_mage_new_2",
+  "prompt": "art/prompts/hero_body_back_mage_new.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of this mage, large: hair, robe, hood, cloak and colours",
+   "art/char_refs/mage_a_small_noorb_r4_x8.png=the same mage at the game's real size (40 art pixels tall, shown 8x): accents",
+   "art/gen/hero_body_back_warrior_new.png=another class's back part: framing and what it shows only"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_mage_2146/gen"
+ },
+ {
+  "name": "portrait_mage_new_1",
+  "prompt": "art/prompts/portrait_mage_new.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of this mage: the head close-up on the right",
+   "art/gen/portrait.png=the warrior's portrait: framing, pixel size and background only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "out_dir": "frames/hero_mage_2146/gen"
+ },
+ {
+  "name": "portrait_mage_new_2",
+  "prompt": "art/prompts/portrait_mage_new.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of this mage: the head close-up on the right",
+   "art/gen/portrait.png=the warrior's portrait: framing, pixel size and background only"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "out_dir": "frames/hero_mage_2146/gen"
+ }
+]

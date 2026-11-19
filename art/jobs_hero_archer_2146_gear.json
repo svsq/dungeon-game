@@ -1,0 +1,50 @@
+[
+ {
+  "name": "gear_archer_hood_1",
+  "prompt": "art/prompts/gear_archer_hood_2146.txt",
+  "ref": [
+   "art/gen/gear_archer_hood_tpl.png=the archer's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/archer_a.png=the approved design of this archer"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_archer_2146/gear"
+ },
+ {
+  "name": "gear_archer_hood_2",
+  "prompt": "art/prompts/gear_archer_hood_2146.txt",
+  "ref": [
+   "art/gen/gear_archer_hood_tpl.png=the archer's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/archer_a.png=the approved design of this archer"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_archer_2146/gear"
+ },
+ {
+  "name": "gear_archer_helm_le_1",
+  "prompt": "art/prompts/gear_archer_helm_le_2146.txt",
+  "ref": [
+   "art/gen/gear_archer_helm_le_tpl.png=the archer's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/archer_a.png=the approved design of this archer"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_archer_2146/gear"
+ },
+ {
+  "name": "gear_archer_helm_le_2",
+  "prompt": "art/prompts/gear_archer_helm_le_2146.txt",
+  "ref": [
+   "art/gen/gear_archer_helm_le_tpl.png=the archer's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/archer_a.png=the approved design of this archer"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_archer_2146/gear"
+ }
+]

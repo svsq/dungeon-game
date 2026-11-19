@@ -737,12 +737,27 @@
   }
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
-  const GEN_PRINT = { 34: 'b7a355cecbaeeced', 35: 'edd1cbff1ee0d267' };
+  const GEN_PRINT = { 34: 'b7a355cecbaeeced', 35: 'edd1cbff1ee0d267', 36: '527b8453fdd5c2c5', 37: '5dff955eb1297435', 38: 'e60a42b935688c8a' };
   function genPrintCheck() { const h = require('crypto').createHash('sha1');
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
     return p === GEN_PRINT[D.GEN_VERSION] ? [] : [`gen print: the generator lays other floors (${p}) under D.GEN_VERSION ${D.GEN_VERSION}: raise the version and put the print in GEN_PRINT`]; }
+  // (TASKS 2112) one doorway, one door: no two doors of one axis come within two cells of each other (side by side in a wall, or
+  // back to back in one corridor) unless one is an arena door that gives way to the other (SIMX.doorTwin), and a boss hall's side
+  // holds no two doors within two cells. A cave arena's ragged edge takes a row of leaves on purpose (dungeon_terrain.js), so caves
+  // are left out
+  function doorPairCheck() { const out = [], near = (a, b) => a.cells.some(([x, y]) => b.cells.some(([u, v]) => Math.abs(u - x) <= 2 && Math.abs(v - y) <= 2));
+    const axis = (d) => (d.dir === 'l' || d.dir === 'r' ? 'v' : 'h');
+    for (const town of [0, 1]) for (const sd of [1, 77, 4242, 90001, 7]) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const arch = D.stageOf('campaign', f).arch; if (arch === 'cave' || arch === 'plateau') continue;
+      const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, from: 1, town }), ds = m.doors || [], tag = `doors: campaign${town ? ' via town' : ''} seed ${sd} f${f}`;
+      ds.forEach((a, i) => ds.forEach((b, j) => { if (j <= i || axis(a) !== axis(b) || !near(a, b)) return;
+        if (!(SIMX.doorTwin(m, a) && !b.arena) && !(SIMX.doorTwin(m, b) && !a.arena)) out.push(`${tag}: two doors at once, ${a.dir} of room ${a.room} at ${a.cells[0]} and ${b.dir} of room ${b.room} at ${b.cells[0]}`); }));
+      const hall = m.rooms.find((r) => r.type === 'boss'); if (!hall) continue;
+      const hd = ds.filter((d) => d.arena && d.room === hall.id);
+      hd.forEach((a, i) => hd.forEach((b, j) => { if (j > i && a.dir === b.dir && near(a, b)) out.push(`${tag}: the boss hall has two ${a.dir} doors within two cells, at ${a.cells[0]} and ${b.cells[0]}`); })); }
+    return out; }
   SIMX.checks.add('genCheck', genCheck, { slow: true });
+  SIMX.checks.add('doorPairCheck', doorPairCheck, { slow: true });
   SIMX.checks.add('cacheGenCheck', cacheGenCheck, { slow: true });
   SIMX.checks.add('floorTypeCheck', floorTypeCheck, { slow: true });
   SIMX.checks.add('floorBlendCheck', floorBlendCheck);

@@ -43,8 +43,8 @@
 | 2044–2379 | арены и боссы, колосс | 336 |
 | 2380–2429 | выпавший лут | 50 |
 | 2430–2585 | конец забега, спуск, `stepUI` (16 экранов в одной функции) | 156 |
-| 2586–2640 | контракт `create/step/spawn/respawn/outOfPlay`, `scriptInput` | 55 |
-| **2641–5170** | **`demoCheck`, `selfCheck` и ~40 проверок по темам (лут, этажи, магма, ближний бой, тайники, город, квесты…)** | **≈2530** |
+| 2586–2640 | контракт `create/step/spawn/respawn/outOfPlay` (`scriptInput` убран в 2147) | 55 |
+| **2641–5170** | **`selfCheck` и ~40 проверок по темам (лут, этажи, магма, ближний бой, тайники, город, квесты…)** | **≈2530** |
 | 5171–5176 | `persist`, экспорт `SIM` (≈150 имён: публичная поверхность для `bot.cjs`, `scene.js`, `hud.js`, `tools/`) | 6 |
 
 Половина файла — проверки. В браузере они не нужны, но там парсятся и попадают в каждый конфликт.
@@ -174,7 +174,7 @@
 | `sim_bosses.js` | 2044–2379 | арены, боссы, колосс |
 | `sim_town.js` | 1454–1799 | жители, камни, мастерские, квесты, разговоры, хранилище, алтари, торговец |
 | `sim_ui.js` | 2430–2585 | конец забега, спуск, `stepUI` (внутри — по функции на экран, вызываются из таблицы) |
-| `sim.js` | 2586–2640, 5171–5176 | контракт, `scriptInput`, `persist`, сборка публичного `SIM` |
+| `sim.js` | 2586–2640, 5171–5176 | контракт, `persist`, сборка публичного `SIM` |
 | `sim_checks.js` + `sim_checks_<домен>.js` | — | реестр `selfCheck` и проверки по доменам (раздел 4.5); **только Node**, в браузер не грузится |
 
 **Версия карты (2062)**: после сборки этажа карту пишут только функции `SIMX.mapw` из `sim_map.js` (`SIM.mapw` для QA): `setCell`, `fillCells`, `blockPush`, `blockOnce`, `blockDrop`, `addWater`, `dropWater`, `unlatch`, `put`, `touch`. Каждая двигает версию карты `rev(m)` (`SIM.Q.rev` для отрисовки), и ключи кешей берут только её: в симе `flow`, `homeFlow`, `reveal`, `secretMask`, `mapCut`, `lavaFlow`, `wideClear`, `inWater`, в отрисовке `mapKey`, `lavaField`, озёра лавы. Версия лежит в `WeakMap`, а не в карте: копия, сохранение и `JSON.stringify` карты (`samecheck`, `mapPrint`, разность этажа) её не видят, и номер не выдаётся дважды, так что две карты одного сида и этажа ключа не делят. Писать `m.cells`, `m.block`, `m.water` мимо `mapw` нельзя: `mapRevCheck` (`sim_checks_maprev.js`) ищет такие записи в исходниках. Поля `m.geometry` и `m.shut` убраны.
@@ -286,7 +286,7 @@
 | `ui_kit.js` | реестр, `UI.bp`, помощники сетки сумки и вкладок, `wrapLine`, `VIEW_H`, `uiDy`, `feedOf`, `INV` |
 | `ui_menu.js` | меню и его лист, классы, тестовые забеги, настройки, статистика, сохранения, пауза, вопросы, конец забега, отладка, `startPath`, `campaignLen`, `uiAt`, `dateOf`, `updShown`, `updMark` |
 | `ui_news.js` | «Что нового», лист версии на меню, `newsRows` |
-| `ui_update.js` | окно обновления, `relNotes`, `verNewer` (логика обновлятора, не раскладка) |
+| `ui_update.js` | окно обновления, `relNotes`, `relLog`, `verNewer` (логика обновлятора, не раскладка) |
 | `ui_hero.js` | экран героя, карточка умения, мета, открытия, развилка, кодекс |
 | `ui_town.js` | мастерская, разговор, доска, журнал, записки, хранилище, лавка, вопросы лавки и стопки, ворота, алтарь, событие, уход |
 
@@ -296,12 +296,13 @@
 
 - **Пишет только логика** (`sim_*`). Отрисовка, HUD и звук читают; `layercheck.cjs` (§8) держит отрисовку на `SIM.Q`.
 - **Отрисовка читает** (вне `scene_qa.js`) из `S`: `t`, `screen`, `run`, `ev`, `hover`, `meta`, `result`, `saved`, `talk`, `craft`,
-  `jsel`, `drag`, `demo`, `metaRun`, `resetT`, `resetM`, отладочные `debug`, `dbgLoot`; из забега `S.run`: `map`, `hero`, `en`,
+  `jsel`, `drag`, `metaRun`, `resetT`, `resetM`, отладочные `debug`, `dbgLoot`; из забега `S.run`: `map`, `hero`, `en`,
   `drops`, `chests`, `pots`, `proj`, `fires`, `pyres`, `rocks`, `eggs`, `cracks`, `scorches`, `lavaPending`, `folk`, `quests`, `ways`,
   `portal`, `shop`, `shrines`, `altar`, `donations`, `arena`, `bossDead`, `cam`, `zoom`, `trauma`, `seen`, `rseen`, `msg`, `keys`, `floor`,
   `mode`, `seed`, `town`, `viaTown`, `campaignWon`, `memo`, `grain`, `Hd`, `r`, `tx` (на 07.11.2026, `grep` по `R.` в файлах отрисовки).
 - **Запросы отрисовки к логике** — `SIM.Q` (44 функции чтения, `sim.js`) и константы `SIM.VIEW`, `DT`, `K`, `DOOM`, `CRUST`,
   `FOLK_OUCH`, `REWARD`. Запросы состояние не пишут (`fstat`, `offersOf`, `statsOf` только читают; их заполняют `fillStats`, `dealOffers`, `initStats` в шаге), кроме `stashOf`, который пока создаёт сундук при чтении; `at(t)` проигрывает заставку в свой кеш. Проверка: `gettersCheck` в `sim_checks_getters.js`.
+- **Режим гибели и порталы к боссам** (2104): забег хранит `R.deathMode` (`'normal'` или `'hard'`; нет поля, как в старых сохранениях, или забег не через город — хардкор, `SIMX.deathOf`/`hardcore` в `sim_core.js`), выбор для нового забега — `S.meta.deathMode` (`D.deathPick`, по умолчанию обычный). Гибель идёт через `heroFell` (`sim_ui.js`): хардкор — `endRun`, обычный — `callOff` боя с боссом, минус `D.BAL.deathXpLoss` опыта уровня и `enterFloor(…, 0, …, 'portal')`, тот же путь, что у свитка возвращения (`R.portal` не трогается). Залы убитых боссов кампании — этажи из `R.slain` самого забега (`hallsOf` в `sim_town.js`; не мета: новый герой начинает без залов, 2213), кольцо камней предлагает их через `gateWays(R, S)` (`'boss'`, прибытие `how = 'boss'` у `hallGate`). Счётчики по режимам — `S.meta.stats.mode.normal|hard` (те же ключи, что `stats.all`), режим в итогах — `S.result.deathMode`, `R.log.deathMode`.
 - **Платформа** (`index.html`): ввод → `S` через `SIM.step(S, input)`, `S.saveN` → `SIM.persist` → `localStorage`, конец забега →
   журнал на скачивание.
 

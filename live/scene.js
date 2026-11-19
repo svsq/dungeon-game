@@ -13,7 +13,7 @@
     LAVA_D.set(m, { g, d }); return d; };
   SC.render = (t) => {
     G.drop();   // (third review of PR 62)
-    const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
+    const ST = SC.state || SIM.Q.idle(), GT = ST.t, R = ST.run;
     L.GFX = L.GFX_Q ?? (ST.meta && ST.meta.gfx != null ? ST.meta.gfx : 2);
     if ((R && (R.zoom || D.ZOOM || 1) !== SCX.Z) || SIM.VIEW.H !== SCX.H) views(R ? R.zoom || D.ZOOM || 1 : SCX.Z);
     if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); G.flush(); return; }
@@ -44,29 +44,29 @@
       for (let j = 7; j >= 0; j--) {
         const lag = j * 0.12 / 7; if (lag > age) continue;
         const x = p.x - p.vx * lag, y = p.y - p.vy * lag, radius = (p.r + 4) * (1 - j * 0.075);
-        spell('fireball', x, y, radius * 1.4, radius * 1.4, { u_center: [x, y], u_origin: [p.x, p.y + 20], u_dir: dir, u_radius: radius, u_age: GT - lag, u_amt: j ? 0.6 * (1 - j / 8) : 1, u_seed: p.id, u_mode: 0, u_lift: 20 });
+        spell('fireball', x, y, radius * 1.4, radius * 1.4, { u_center: [x, y], u_origin: [p.x, p.y + 20], u_dir: dir, u_radius: radius, u_age: GT - lag, u_amt: j ? 0.6 * (1 - j / 8) : 1, u_seed: p.id, u_mode: 0, u_lift: 20, u_rate: D.FLICK.fireball });
       }
       for (let j = 0; j < 5; j++) {
         const q = (age * 3.5 + rnd(p.id, j)) % 1, lag = q * 0.12; if (lag > age) continue;
         const side = (rnd(p.id, j + 7) - 0.5) * (8 + q * 22), x = p.x - p.vx * lag - dir[1] * side, y = p.y - p.vy * lag + dir[0] * side;
-        spell('fireball', x, y, 5, 5, { u_center: [x, y], u_origin: [p.x, p.y + 20], u_dir: dir, u_radius: 2 + (1 - q) * 2, u_age: GT, u_amt: 0.6 * (1 - q), u_seed: p.id + j, u_mode: 1, u_lift: 20 });
+        spell('fireball', x, y, 5, 5, { u_center: [x, y], u_origin: [p.x, p.y + 20], u_dir: dir, u_radius: 2 + (1 - q) * 2, u_age: GT, u_amt: 0.6 * (1 - q), u_seed: p.id + j, u_mode: 1, u_lift: 20, u_rate: D.FLICK.fireball });
       }
       G.blend();
     };
     // (a dark room's torches and candles, TASKS 365, put out: neither drawn nor lit)
     const hid = (o) => !!o.dark || SIM.Q.hidden(m, o);
-    const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
+    const flick = (i) => { let v = B.flick.base; for (const [amp, hz, ph] of B.flick.waves) v += amp * Math.sin(2 * Math.PI * hz * t + ph * i); return v; };
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
     const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), big = tc.kind === 'fire', f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1) * (big ? B.bigK || 1 : B.town ? 0.72 + 0.056 * (i * 37 % 11) : 1), gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
       const pool = col[0] < 0.5 && tc.kind === 'brazier', hk = (pool && torchZ(m, tc).hearth) || [1, 1], pr = (pool ? 0.6 * hk[0] : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 * hk[1] : 1) * ((B.cave || B.town) && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
       const tr = (tc.kind === 'wall' ? B.torchR || 1 : 1) * sconceK(m, tc);   // the town's torches light pools ≈115 px across (TASKS 1029), its fire stays wide
-      TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr * tr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
+      TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? B.bigR || 200 : 220) * gr * pr * tr, col, (big ? 1.5 : 1.15) * f * pa, big ? B.bigFall || 3.0 : 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
-      TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr * sconceK(m, tc), pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]);
+      TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr * sconceK(m, tc), pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa * (big ? B.bigNear || 1 : 1), 3.5]);
       // (TASKS 1036) the reference's brightest stone is the ruin by a fire, its face and its top grey in a wide soft spill: the town's
       // fires add one up over the masonry behind them; the floor's pools and the shadows between stay as they were
-      if (B.spill) TL.push([tc.x, tc.y - (big ? 60 : 30), (big ? 380 : 190) * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * f / (B.fireK || 1) * (big ? 0.7 : 1), 1.4]); });
+      if (B.spill) TL.push([tc.x, tc.y - (big ? 60 : 30), (big ? 380 : 190) * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * f / (B.fireK || 1) * (big ? B.bigSpill ?? 0.7 : 1), 1.4]); });
     for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
       TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) * sconceK(m, d) : d.n === 'candelabra' ? 150 : 125), col, (tp ? (B.town ? 0.7 + 0.06 * Math.floor(d.x * 37 / 32 % 11) : 1.0) : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);

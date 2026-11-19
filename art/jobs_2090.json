@@ -1,0 +1,3 @@
+[
+ {"name": "cart_tw", "prompt": "art/prompts/cart_tw.txt", "ref": ["live/assets/cart_tw_f.png=this game's mine cart seen head-on from its front end", "live/assets/cart_tw.png=an earlier three-quarter painting of the same cart with wrong wheels"], "size": "1024x1024", "pixel": true, "alpha": "auto"}
+]

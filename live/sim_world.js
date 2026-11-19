@@ -36,7 +36,7 @@
     if (S.t - q.t0 < READ_T) return;
     const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; const n0 = it.n, at = { x: h.x, y: h.y }; if (--it.n <= 0) h.bag[q.i] = null;
     // (a way home that does not open keeps the scroll and gives nothing of its reading, review of PR 69)
-    const was = R.portal; R.portal = { f: R.floor, x: h.x, y: h.y }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; R.hero.bag[q.i] = Object.assign(it, { n: n0 }); return; }
+    const was = R.portal; R.portal = { f: R.floor, x: h.x, y: h.y, from: 'scroll' }; if (!enterFloor(S, R, 0, undefined, 'portal')) { R.portal = was; R.hero.bag[q.i] = Object.assign(it, { n: n0 }); return; }
     SIMX.firePowers(S, R, 'scroll', at); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   function useItem(S, R, idx) {
     const h = R.hero, it = h.bag[idx]; if (!it) return;
@@ -249,7 +249,8 @@
   }
   // n of the floor's roster risen in a room round the hero, out of his blade's reach (an ambush; a skull door's wave, TASKS 362):
   // all or none, or with `some` as many as find a place. → how many rose
-  function summonPack(S, R, ri0, n, summ, some) {
+  // elites: the first that many of it rise elites (a skull door's last wave, TASKS 2132)
+  function summonPack(S, R, ri0, n, summ, some, elites = 0) {
     const m = R.map, h = R.hero, f = dep(R), room = m.rooms[ri0];
     const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
     if (!roster.length) return 0;
@@ -278,6 +279,7 @@
       const { x, y } = positions[i], type = group[i], E = ENEMIES[type], hp = Math.round(E.hp * sc);
       R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: ri0, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
         cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ, spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
+      if (i < elites) SIMX.makeElite(R, R.en[R.en.length - 1]);
       ev(S, { k: 'summon', x, y });
     }
     return positions.length;

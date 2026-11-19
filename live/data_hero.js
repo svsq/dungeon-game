@@ -75,19 +75,22 @@
   TXT.bake(ABILITIES.filter((A) => A.id in AB_NUMS), 'desc', (A) => `ABILITIES.${A.id}.desc`, (A) => AB_NUMS[A.id]);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
   // right click's ability, `shoots`: the weapons it fires from instead of swinging, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
-  // the class screen of 1103 lists only those; `sat`: the paint's saturation under the light, the warrior's 0.8 kept his steel off the
+  // the class screen of 1103 lists only those; `arm` (TASKS 2177): the weapon arm is the far one in the rig's 3/4 view, so at ease it hangs
+  // `behind` the torso, only the forearm and fist past its edge, the fist at `hold` (arm lengths forward and down from the shoulder); `sat`: the paint's saturation under the light, the warrior's 0.8 kept his steel off the
   // fire's orange and greyed the mage's blue); `borrow`: the classes whose gear it wears while it has none of its own (1102). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
+  // `back` (TASKS 2202): the back view's own saturation (BACK_VIEW.bodySat without it) and its cape's swing with the stride, rad: the
+  // warrior's cape from behind is the front cape's red, dulled to 0.8 it read browner (ΔE 6-8), and stood still over the walking legs
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 5, sp: 1 },
-      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1 } },
+      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.2, 0.97] }, back: { sat: 1, swing: 0.08 } } },
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 5, sp: 1 }, intK: { spell: 0, hp: 0 }, strK: { atk: 0.3, poise: 2 },
-      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1, eye: [13.3, 5.9] } },
+      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1, eye: [12.5, 6.5], robe: 0.5, arm: { behind: 1, hold: [0.28, 0.32] } } },
     // the archer's mana comes from his arrows (TASKS 1162: `hitMp` a hit, a crit; the pool held on potions); `slow` the share of his
     // shot's cycle he is slowed after it, so a quick bow does not keep him slow
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 5, sp: 1 },
-      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', strK: { atk: 0.4 }, hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65, cold: { sat: 0.8, lift: 0.8 } } },
+      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', strK: { atk: 0.4 }, hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, eye: [13.5, 5.5], sat: 0.85, cold: { sat: 0.8, lift: 0.8 }, arm: { behind: 1, hold: [0.3, 0.9] }, back: { sat: 1 } } },
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
   // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire
@@ -101,6 +104,24 @@
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run
   const classesReady = () => Object.keys(CLASSES).filter((k) => CLASSES[k].look.ready);
   const clsOf = (h) => CLASSES[(h && h.cls) || 'warrior'] || CLASSES.warrior;
+  // (TASKS 2148) three looks a class, all open from the first run (the author's call: none is won by play), picked on the class's card,
+  // kept in the meta for the next card and on the hero (`h.look`); a hero saved before the looks has none and is «a». «a» is the class's
+  // own rig and portrait, «b» and «c» are named `<rig>_<id>` (the warrior's «b»: hero_b__body, portrait_hero_b; docs/LOOKS_2148.md).
+  // A look's fields override the class's `look` (eye, fist, arm, sat, robe, cold: they follow the drawing); `art`: the look whose art it
+  // draws until its own is in, so a drop-in is the art files, rigs.js and this line without its `art`; `gear`: the outfit table (scene_hero GEARS)
+  const LOOK_IDS = ['a', 'b', 'c'];
+  CLASSES.warrior.looks = { a: {}, b: { art: 'a' }, c: { art: 'a' } };
+  CLASSES.mage.looks = { a: {}, b: { art: 'a' }, c: { art: 'a' } };
+  CLASSES.archer.looks = { a: {}, b: { art: 'a' }, c: { art: 'a' } };
+  const lookRig = (C, id) => (id === 'a' ? C.look.rig : C.look.rig + '_' + id), portOf = (rig) => (rig === 'hero' ? 'portrait' : 'portrait_' + rig);
+  const LOOKS = Object.fromEntries(Object.entries(CLASSES).map(([cls, C]) => [cls, Object.fromEntries(LOOK_IDS.map((id) => {
+    const own = C.looks[id], art = own.art || id, A = C.looks[art], rig = lookRig(C, art);
+    return [id, Object.assign({}, C.look, A, own, { id, cls, art, rig, gear: own.gear || A.gear || C.look.rig, port: portOf(rig) })]; }))]));
+  const lookPick = (meta, cls) => { const id = ((meta || {}).look || {})[cls]; return LOOK_IDS.includes(id) ? id : 'a'; };
+  const lookOf = (h) => LOOKS[clsOf(h).id][h && LOOK_IDS.includes(h.look) ? h.look : 'a'];
+  // the looks the card offers: those with art of their own, read from the table so a drop-in shows its cell; with fewer than two none,
+  // and the card has no selector, as before 2148 (the author's order, 19.11.2026). `all`: a QA frame of the selector while the art is not in
+  const looksShown = (cls, all) => { const ids = all ? LOOK_IDS : LOOK_IDS.filter((id) => { const a = CLASSES[cls].looks[id].art; return !a || a === id; }); return ids.length > 1 ? ids : []; };
   const liveFor = (h, kind, list, key = (q) => q.id) => { const no = clsOf(h).dead[kind]; return list.filter((q) => !no.includes(key(q))); };
   const metaFor = (cls) => liveFor({ cls }, 'meta', META);
   const statFull = (h, s) => (clsOf(h).statFull || {})[s.k] || s.full;
@@ -188,5 +209,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
+  Object.assign(D, { TIPS, CLASSES, clsOf, LOOK_IDS, LOOKS, lookPick, lookOf, looksShown, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
 })(typeof window !== 'undefined' ? window : globalThis);

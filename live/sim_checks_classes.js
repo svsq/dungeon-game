@@ -85,9 +85,8 @@
   }
   function checkCodex(out) {
     for (const t of D.CODEX_TABS) { if (!D.codexList(t).length) out.push(`codex: tab ${t} is empty`); for (let p = 0; ; p++) { const U = D.UI.codex(t, p); for (const b of U.r) if (b.x + b.w > 1920 || b.y + b.h > 1080) out.push('codex: a row runs off the screen'); if (U.page !== p || p >= U.pages - 1) break; } }
-    const c = stage('warrior'); c.S.meta.codex = {}; c.S.demo = 0; SIMX.metaEvent(c.S, { k: 'hit', type: 'skeleton', id: 1, x: 0, y: 0 }); SIMX.metaEvent(c.S, { k: 'pickup', b: 'sword' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'whirl_pull' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'fury' });
+    const c = stage('warrior'); c.S.meta.codex = {}; SIMX.metaEvent(c.S, { k: 'hit', type: 'skeleton', id: 1, x: 0, y: 0 }); SIMX.metaEvent(c.S, { k: 'pickup', b: 'sword' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'whirl_pull' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'fury' });
     if (!c.S.meta.codex.m.skeleton || !c.S.meta.codex.it.sword || !c.S.meta.codex.p.whirl_pull || c.S.meta.codex.p.fury) out.push('codex: meetings are not written down');
-    { const S = spawn(0, {}); S.demo = 1; S.ev = []; SIMX.ev(S, { k: 'kill', type: 'skeleton', x: 0, y: 0 }); if (S.meta.codex) out.push('codex: the attract demo writes in it'); }
     { const S = spawn(0, {}); S.screen = 'meta'; const b = D.UI.meta('warrior').find((q) => q.id === 'codex'); SIMX.step(S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (S.screen !== 'codex') out.push('codex: the button does not open it'); SIMX.step(S, { keys: ['Escape'] }); if (S.screen !== 'meta') out.push('codex: Escape does not lead back'); }
   }
   function checkForks(out) {
@@ -234,8 +233,15 @@
       if (R0.rs !== c.R.rs || it0.lvl !== it1.lvl || it0.b !== it1.b) out.push(`unique: a ${cl}'s legendary takes other draws than a plain one`); }
     // a save from before 2029 may hold a unique on another base than its own: it loads, is named and powers the hero as before
     { const c = stage('warrior'), old = JSON.parse(JSON.stringify(Object.assign(SIMX.uniqueItem(c.R, 'u_w_weapon', 5), { b: 'axe' })));
-      try { c.h.eq.weapon = old; delete c.R.itemBalance; SIMX.rebalanceRun(c.R); if (SIMX.itemName(old) !== D.UNIQUES.u_w_weapon.name || !(SIMX.heroPowers(c.h) || {})[D.UNIQUES.u_w_weapon.power]) out.push('unique: an old unique on another base loses its name or power'); }
+      try { c.h.eq.weapon = old; delete c.R.itemBalance; SIMX.rebalanceRun(c.R); if (SIMX.itemName(old) !== D.UNIQUES.u_w_weapon.names.axe || !(SIMX.heroPowers(c.h) || {})[D.UNIQUES.u_w_weapon.power]) out.push('unique: an old unique on another base loses its name or power'); }
       catch (e) { out.push(`unique: an old unique on another base breaks the load: ${e.message}`); } }
+    // TASKS 2185: a unique on a base of its slot that is not its own is named by that base, never by its own
+    for (const U of Object.values(D.UNIQUES)) { const slot = D.BASES[U.b].slot;
+      if (D.uniqueName(U, U.b) !== U.name) out.push(`unique ${U.id}: its own base does not keep its name`);
+      for (const b of Object.keys(D.BASES)) { if (b === U.b || D.BASES[b].slot !== slot) continue;
+        const nm = D.uniqueName(U, b), want = (U.names && U.names[b]) || D.LEGEND_NAMES[b] || D.LEGEND_NAMES[slot];
+        if (nm !== want || nm === U.name) out.push(`unique ${U.id}: on ${b} it is named ${nm}, not by its base`);
+        if (SIMX.itemName({ b, rar: 4, u: U.id, lvl: 1, mods: {} }) !== nm) out.push(`unique ${U.id}: itemName on ${b} differs from the name by base`); } }
   }
   // TASKS 359: a found epic may hold one weak power of its class's altar pool, likelier deeper, and never moves a roll after it
   function checkEpicPowers(out) {
@@ -448,6 +454,7 @@
       if (!T || !T.act || !T.act.first) out.push('talk: the Keeper\'s first story quest is not offered as the first');
       else { for (let i = 0; i < 12 && T.p + 1 < T.pages.length; i++) step(S, { keys: ['KeyE'] }); step(S, { keys: ['KeyE'] }); step(S, { keys: ['Space'] });
         if (S.screen !== 'talk' || has()) out.push('talk: E or the space mashed onto the story offer closes the talk or takes it at once');
+        if (S.focus !== 'act') out.push('talk: a deaf E or space on the offer\'s page lights nothing (TASKS 2099)');
         for (let i = 0; i < 70; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen !== 'play' || !has()) out.push('talk: E does not take the Keeper\'s first story quest'); }
       const O = spawn(0, {}); O.run = newRun(O, 'campaign', 37, { town: 1 }); O.screen = 'talk'; O.talk = { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.keeper.topics, menu: 1 };
       step(O, { keys: ['Digit1'] }); step(O, { keys: [] }); step(O, { keys: ['Escape'] }); if (O.screen !== 'talk' || !O.talk || !O.talk.menu) out.push('talk: Esc in a topic does not go back to the topics');
@@ -544,7 +551,284 @@
       const tip = (v) => with_(T, 'v', v, () => { const c = stage('warrior'); c.h.thTip = 0; c.R.msg = null; SIMX.thresholdTip(c.S, c.R); return c.R.msg && c.R.msg.s; });
       if (tip(str + 1) || !String(tip(str)).includes(String(str))) out.push(`threshold: the tip does not follow THRESHOLD.warrior.v («${tip(str)}» at ${str}, «${tip(str + 1)}» above it)`); }
   }
+  // the held weapons in the hand that holds them (TASKS 2142, 2144, 2145), drawn in a sandbox at the textures' real sizes, standing and
+  // running, either way round, at three moments of the idle: the grip on the near hand, the mage's orb on his far palm, the bowstring
+  // across the bow on both sides of the grip, and the cape under the far arm (laid over it, it hid that arm and what it held)
+  function heroGripCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), GRIP = 3, STRING = [15, 45], SPAN = 0.35;
+    // (TASKS 2146) the orb only when worn: none on a bare staff, in the open far palm (its world texture is orb_held)
+    const KITS = [['warrior', 'sword'], ['mage', 'staff', 'orb'], ['mage', 'staff'], ['mage', 'wand', 'orb'], ['archer', 'shortbow'], ['archer', 'longbow']], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const ORB = 'orb_held', PALM = 14;
+    const STRING_COL = '0.36,0.34,0.31', seen = new Set();
+    for (const [cls, wb, ob] of KITS) for (const face of [1, -1]) for (const vx of [0, 150]) for (const GT of [10, 11.3, 12.7]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
+      const h = Object.assign({}, R.hero, { vx, vy: 0, gp: GT * 4, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
+      const J = {}, spr = [], sol = [], tag = `${cls} ${wb} face ${face}${vx ? ' running' : ''} at ${GT}`;
+      L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = (x, y, w, hh, col) => sol.push({ p: [x, y], col: String(col) });
+      drawHero(h, 300, 300, GT, heroSt(S), {});
+      const say = (s) => { if (!seen.has(s)) { seen.add(s); out.push(`hero grip: ${tag}: ${s}`); } };
+      if (!(d(J.grip, J.handR) <= GRIP)) say(`the weapon is held ${d(J.grip, J.handR).toFixed(1)} px from the hand`);
+      const pn = D.CLASSES[cls].look.rig + '__', cape = spr.findIndex((q) => q.n === pn + 'cape'), farArm = spr.findIndex((q) => q.n.startsWith(pn + 'uarmL'));
+      if (cape >= 0 && farArm >= 0 && cape > farArm) say('the cape is drawn over the far arm');
+      const orbs = spr.filter((q) => q.n === ORB);
+      if (!ob && orbs.length) say(`the orb is drawn ${orbs.length} times with no orb worn`);
+      // (TASKS 2170) the orb rests on the far palm beside the staff too, as on mage_a_v4 (it sat on the staff's head)
+      if (ob === 'orb') { if (orbs.length !== 1) say(`the orb is drawn ${orbs.length} times`); else if (d([orbs[0].o.m[4], orbs[0].o.m[5]], J.handL) > PALM) say(`the orb sits ${d([orbs[0].o.m[4], orbs[0].o.m[5]], J.handL).toFixed(1)} px from the far palm`); }
+      if (wb.endsWith('bow')) { const ends = [J.nockA, J.nockB].filter(Boolean), g = J.grip;
+        if (!sol.some((q) => q.col === STRING_COL)) { say('the string is not drawn'); continue; }
+        if (ends.length !== 2) { say('the string\'s nocks are not traced'); continue; }
+        const [a, b] = ends, span = d(a, b), cross = (a[0] - g[0]) * (b[0] - g[0]) + (a[1] - g[1]) * (b[1] - g[1]), u = Math.max(0, Math.min(1, ((g[0] - a[0]) * (b[0] - a[0]) + (g[1] - a[1]) * (b[1] - a[1])) / (span * span)));
+        const near = d(g, [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
+        if (cross >= 0 || [a, b].some((e) => d(e, g) < STRING[0] || d(e, g) > STRING[1]) || near > SPAN * span) say(`the string does not span the bow about the grip (ends ${d(a, g).toFixed(0)} and ${d(b, g).toFixed(0)} px out, ${near.toFixed(0)} px off it)`); }
+    }
+  }
+  // (TASKS 2156) a shot, a cast or a frost loosed behind him, and a plain turn, go through the back view: the drawn facing flips only while
+  // the back view is up, nothing held jumps across the body on the flip, and a bow is in one hand or the other in every frame
+  function heroTurnCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), BACK = 0.9, FLIP_JUMP = 10, GRIP = 3, T0 = 10, FPS = 60, N = 30, TURN_N = 12;
+    // (TASKS 2162) UP: aimed up and back over the turn, the mirror of the up-left QA cases; the whirl's free hand jumped 31 px on that flip
+    const UP = -0.84, KITS = [['archer', 'shortbow', '', 'shot'], ['archer', 'shortbow', '', 'turn'], ['mage', 'staff', '', 'shot'], ['mage', 'staff', '', 'fireball'], ['mage', 'staff', '', 'frost'],
+      ['mage', 'wand', 'orb', 'shot'], ['mage', 'staff', 'orb', 'turn'], ['warrior', 'sword', 'shield', 'turn'],
+      ['archer', 'shortbow', '', 'shot', UP], ['mage', 'staff', '', 'shot', UP], ['mage', 'staff', '', 'frost', UP], ['warrior', 'sword', '', 'whirl', UP], ['warrior', 'sword', 'shield', 'whirl', UP]], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    for (const [cls, wb, ob, act, aim = 0] of KITS) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
+      const cast = act === 'fireball' || act === 'frost' || act === 'whirl', h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: 1, aim, back: 0, backT: -9, faceT: T0, deadT: -1, hurtT: -9, dashT: -9,
+        atkT: act === 'shot' ? T0 : -9, atkA: aim, patkT: -9, castT: cast ? T0 : -9, castK: cast ? act : '', whirlT: act === 'whirl' ? T0 : -9, whirlA: aim }), tag = `${cls} ${wb}${ob ? ' and ' + ob : ''}, ${act} behind him${aim ? ' aimed up' : ''}`, st = heroSt(S);
+      const rows = [];
+      for (let k = 0; k <= N; k++) { const J = {}, V = {}; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; if (id === 'hero_view') V[n] = p; }; L.sprite = () => ({ w: 10, h: 10 }); L.solid = () => {};
+        drawHero(h, 300, 300, T0 + k / FPS, st, {}); rows.push({ J, back: V.back[0], face: V.face[0] }); }
+      const flips = rows.map((r, k) => (k && r.face !== rows[k - 1].face ? k : -1)).filter((k) => k > 0);
+      if (flips.length !== 1) { out.push(`hero turn: ${tag}: the drawn facing flips ${flips.length} times`); continue; }
+      const mixed = act === 'whirl' ? 0 : rows.filter((r) => r.back > 0.02 && r.back < 0.98).length;
+      if (mixed > 1) out.push(`hero turn: ${tag}: ${mixed} frames cross-fade the front and back views (the face shows twice)`);
+      const k = flips[0], a = rows[k - 1], b = rows[k];
+      if (Math.min(a.back, b.back) < BACK) out.push(`hero turn: ${tag}: the facing flips at back view ${Math.min(a.back, b.back).toFixed(2)}`);
+      for (const p of ['grip', 'shield', 'orb', 'handL', 'handR']) if (a.J[p] && b.J[p] && d(a.J[p], b.J[p]) > FLIP_JUMP) out.push(`hero turn: ${tag}: the ${p} jumps ${d(a.J[p], b.J[p]).toFixed(1)} px on the flip`);
+      if (wb.endsWith('bow')) { const far = rows.map((r) => Math.min(d(r.J.grip, r.J.handR), d(r.J.grip, r.J.handL))), m = Math.max(...far);
+        if (m > GRIP) out.push(`hero turn: ${tag}: the bow is ${m.toFixed(1)} px from either hand at frame ${far.indexOf(m)}`); }
+    }
+    // (TASKS 2192) the warrior's lowered weapon stays in sight through a plain turn: at least SEEN px of it on top in every frame (pointed
+    // away from the camera and shortened to a tenth it was gone under the back view for 3 frames)
+    // (TASKS 2202) from behind it counts under the cape too: the cape to the calves hides the blade hanging at his front as his body would,
+    // and this guards its drawn length (seen from behind only its tip below the hem shows, 3-10 px)
+    const SEEN = 20;
+    for (const wb of ['sword', 'longsword', 'axe', 'hammer']) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'warrior' }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const st = heroSt(S), seen = [];
+      for (let k = 0; k <= TURN_N; k++) { const J = {}, spr = []; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+        drawHero(Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face: -1, aim: 0, back: 0, backT: -9, faceT: T0, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), 300, 300, T0 + k / FPS, st, {});
+        const box = [J.ground[0] - 50, J.ground[1] - 100, J.ground[0] + 50, J.ground[1] + 4], c = SIMX.heroLayers.compose(spr, box), w = SIMX.heroLayers.compose(spr.filter((q) => /^it_/.test(q.n)), box); let n = 0;
+        for (let i = 0; i < c.top.length; i++) if (w.top[i] >= 0 && c.top[i] >= 0 && (/^it_/.test(spr[c.top[i]].n) || /__body_back/.test(spr[c.top[i]].n))) n++;
+        seen.push(n); }
+      const m = Math.min(...seen);
+      if (m < SEEN) out.push(`hero turn: warrior ${wb}, a plain turn: ${m} px of it in sight at frame ${seen.indexOf(m)} (at least ${SEEN})`);
+    }
+  }
+  // (TASKS 2198) the view follows the way he goes, whatever way he went before: in the sim, then drawn, after each of the 8 ways and walking
+  // each of them, at half speed and running, and standing once the keys are let go, with the class's weapon and with none. Down, its
+  // diagonals and straight sideways show the front (the 3/4 torso), up and its diagonals the back; the drawn facing is the way's side.
+  // Sideways after an up kept the back (h.back held its last value while iy was 0): every class walked left or right with his back to us
+  function heroViewCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), PREV = 30, WAY = 48, REST = 30, FULL = 0.98, NONE = 0.02;
+    const WAYS = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]], KIT = { warrior: 'sword', mage: 'staff', archer: 'shortbow' }, seen = new Set();
+    const go = (S, [dx, dy], n) => { const inp = { px: 480, py: 270, right: dx > 0, left: dx < 0, down: dy > 0, up: dy < 0 }; for (let i = 0; i < n; i++) step(S, inp); };
+    for (const cls of Object.keys(KIT)) for (const wb of [KIT[cls], '']) for (const prev of WAYS) for (const way of WAYS) {
+      const { S, h } = stage(cls); if (wb) h.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 }; else delete h.eq.weapon;
+      go(S, prev, PREV); go(S, way, WAY);
+      const up = way[1] < 0, name = (v) => `${v[1] < 0 ? 'up' : v[1] > 0 ? 'down' : ''}${v[0] && v[1] ? '-' : ''}${v[0] > 0 ? 'right' : v[0] < 0 ? 'left' : ''}`, pn = D.lookOf(h).rig + '__';
+      const look = (pace, over) => { const V = {}, spr = []; L.joint = (id, n, p) => { if (id === 'hero_view') V[n] = p; }; L.sprite = (n) => { spr.push(n); return { w: 10, h: 10 }; }; L.solid = () => {};
+        drawHero(Object.assign({}, h, over), 300, 300, S.t, heroSt(S), {});
+        const tag = `${cls}${wb ? ' with ' + wb : ' unarmed'} ${pace} ${name(way)} after ${name(prev)}`, say = (m) => { const k = cls + wb + pace + name(way) + m; if (!seen.has(k)) { seen.add(k); out.push(`hero view: ${tag}: ${m}`); } };
+        if ((h.back === 1) !== up) say(`the sim shows his ${h.back ? 'back' : 'front'}`);
+        if (up ? V.back[0] < FULL : V.back[0] > NONE) say(`drawn at back view ${V.back[0].toFixed(2)}`);
+        const front = spr.some((n) => n.startsWith(pn + 'body') && !n.includes('back')), back = spr.some((n) => n.startsWith(pn + 'body_back'));
+        if (up ? !back || front : back || !front) say(`the ${up ? 'back' : 'front'} torso is not the one drawn`);
+        if (way[0] && V.face[0] !== way[0]) say(`drawn facing ${V.face[0]}`); };
+      look('walking', { vx: h.vx / 2, vy: h.vy / 2 }); look('running', {});
+      go(S, [0, 0], REST); look('standing', {});
+    }
+  }
+  // (TASKS 2162) the held weapon on the run, in all four directions: from one frame to the next its tip moves no more than a step's
+  // swing (from behind the lowered sword tipped off the soles to one side or the other, 30 px a frame twice a stride)
+  function heroRunCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), TIP_STEP = 8, T0 = 10, FPS = 60, N = 30, RUN = root.SIM.K.RUN;
+    const KITS = [['warrior', 'sword'], ['warrior', 'sword', 'shield'], ['mage', 'staff'], ['archer', 'shortbow']], d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    for (const [cls, wb, ob] of KITS) for (const [dn, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
+      const h = Object.assign({}, R.hero, { vx: dx * RUN, vy: dy * RUN, face: dx < 0 ? -1 : 1, back: dy < 0 ? 1 : 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = heroSt(S);
+      const rate = RUN / root.SIM.Q.stepLen(Math.abs(dx)) * Math.PI, tips = [];
+      for (let k = 0; k <= N; k++) { const J = {}; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = () => ({ w: 10, h: 10 }); L.solid = () => {};
+        h.gp = 1 + rate * k / FPS; drawHero(h, 300, 300, T0 + k / FPS, st, {}); tips.push(J.tip); }
+      const steps = tips.slice(1).map((p, k) => d(p, tips[k])), m = Math.max(...steps);
+      if (m > TIP_STEP) out.push(`hero run: ${cls} ${wb}${ob ? ' and ' + ob : ''} running ${dn}: the weapon's tip moves ${m.toFixed(1)} px in a frame at frame ${steps.indexOf(m) + 1}`);
+    }
+  }
+  // (TASKS 2160) the standing hero of each class, either way round, in the world and in the arch: the cape-side arm's hand hangs in
+  // front of its elbow (the elbow does not bend backwards), the feet stand apart with a gap between the cape-side toe and the near heel,
+  // the other foot a little further back (toe to heel on one line they read as one leg behind the other), the knees near straight, the cape is drawn before every leg part, and the limbs of both
+  // sides are graded alike (the far ones were darker)
+  function heroPoseCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), TOE_GAP = 2, DEPTH = 0.015, KNEE = 25, H = 84, FOOT = 0.14;
+    // (TASKS 2164) each class against its own sheet: the warrior's 0.145 H, the others' 0.17–0.18; the shins near plumb as on the refs
+    // (the cape-side one splayed out 14–17°, the near one leaned in up to 11°, the refs: both 2–8° out), SHIN: degrees out from the body
+    const SPREAD = { warrior: 0.145 }, SPREAD0 = 0.16, SHIN = { L: [-6, 10], R: [-4, 12] };
+    const KITS = [['warrior', 'sword'], ['mage', 'staff'], ['archer', 'shortbow']], seen = new Set();
+    // (TASKS 2148) in each look with art of its own
+    for (const [cls, wb] of KITS) for (const look of D.LOOK_IDS.filter((l) => D.LOOKS[cls][l].art === l)) for (const face of [1, -1]) for (const menu of [0, 1]) for (const GT of [10, 11.3, 12.7]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls, look }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      const h = Object.assign({}, R.hero, { vx: 0, vy: 0, gp: 0, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
+      const J = {}, spr = [], tag = `${cls}${look === 'a' ? '' : ' «' + look + '»'} face ${face}${menu ? ' in the arch' : ''} at ${GT}`, say = (m) => { if (!seen.has(cls + look + m)) { seen.add(cls + look + m); out.push(`hero pose: ${tag}: ${m}`); } };
+      L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+      drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
+      if ((J.handL[0] - J.elbowL[0]) * face < 0) say(`the cape-side hand hangs ${Math.abs(J.handL[0] - J.elbowL[0]).toFixed(1)} px behind its elbow`);
+      const gap = (J.heelR[0] - J.toeL[0]) * face, spread = Math.abs(J.ankleR[0] - J.ankleL[0]) / H;
+      if (gap < TOE_GAP) say(`the cape-side toe is ${gap.toFixed(1)} px from the near heel: the feet stand toe to heel on one line`);
+      for (const k of ['L', 'R']) { const fl = Math.abs(J['toe' + k][0] - J['heel' + k][0]) / H; if (fl > FOOT) say(`the ${k} foot is ${fl.toFixed(3)} of the height heel to toe: in profile, not 3/4`); }
+      if (spread < (SPREAD[cls] ?? SPREAD0)) say(`the ankles are ${(spread * 100).toFixed(1)} % of the height apart`);
+      for (const k of ['L', 'R']) { const out = Math.atan2(J['ankle' + k][0] - J['knee' + k][0], J['ankle' + k][1] - J['knee' + k][1]) * 180 / Math.PI * face * (k === 'L' ? -1 : 1);
+        if (out < SHIN[k][0] || out > SHIN[k][1]) say(`the ${k} shin leans ${out.toFixed(0)}° out from the body (${SHIN[k].join('..')})`); }
+      if (J.ankleL[1] - J.ankleR[1] < DEPTH * H) say(`the other foot stands ${(J.ankleL[1] - J.ankleR[1]).toFixed(1)} px behind the cape-side one: both on one line`);
+      for (const k of ['L', 'R']) { const a = Math.atan2(J['knee' + k][1] - J['hip' + k][1], J['knee' + k][0] - J['hip' + k][0]) - Math.atan2(J['ankle' + k][1] - J['knee' + k][1], J['ankle' + k][0] - J['knee' + k][0]), deg = Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) * 180 / Math.PI;
+        if (deg > KNEE) say(`the ${k} knee is bent ${deg.toFixed(0)}° at ease`); }
+      const pn = D.LOOKS[cls][look].rig + '__', idx = (re) => spr.map((q, i) => (re.test(q.n.slice(pn.length)) && q.n.startsWith(pn) ? i : -1)).filter((i) => i >= 0);
+      const cape = idx(/^cape/), legs = idx(/^(thigh|shin|foot)[LR]/);
+      if (cape.length && legs.some((i) => i < Math.max(...cape))) say('the cape is drawn over a leg');
+      const grade = (re) => spr.filter((q) => q.n.startsWith(pn) && re.test(q.n.slice(pn.length))).map((q) => String(q.o.u.grade));
+      for (const k of ['uarm', 'farm', 'thigh', 'shin', 'foot']) { const l = grade(new RegExp('^' + k + 'L')), r = grade(new RegExp('^' + k + 'R'));
+        if (l.length && r.length && l[0] !== r[0]) say(`${k}L is graded ${l[0]}, ${k}R ${r[0]}`); }
+    }
+    heroArmPose(out, drawHero, L);
+  }
+  // (TASKS 2181) the arms against the class sheets, in shares of the height (soles to the top), as tools/measure/chars_ref/reach.py counts
+  // them: at ease the near (cape-side) hand hangs at least OUT outside its shoulder and its forearm is drawn over the body unless a shield
+  // rides it (under the body the warrior's hand lay behind the belt pouch, 0.004 H out); the far fist of the weapon arm stands in its class's
+  // band FIST with the forearm at most FORE degrees off plumb (2177 bent it 51–58° out from behind the torso; the sheets: warrior 5°, archer
+  // 36°), the mage's at his chest; the orb's palm out beside the body (it lay on the chest, 0.12 H inside); on the run no hand reaches more
+  // than RUN_REACH from its shoulder nor drops under RUN_HAND (0.337 and 0.450 before)
+  function heroArmPose(out, drawHero, L) {
+    const OUT = 0.03, FIST = { warrior: [0.45, 0.5], archer: [0.46, 0.52], mage: [0.62, 0.72] }, FORE = { warrior: 25, archer: 42 }, ORB = { out: 0.03, h: [0.58, 0.66] }, RUN_REACH = 0.33, RUN_HAND = 0.46, FPS = 60, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const KITS = [['warrior', 'sword'], ['archer', 'shortbow'], ['mage', 'staff'], ['mage', 'staff', 'orb'], ['warrior', 'sword', 'shield']], seen = new Set();
+    for (const [cls, wb, ob] of KITS) for (const face of [1, -1]) for (const menu of [0, 1]) for (const run of [0, 1]) {
+      if (menu && run) continue;
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
+      const st = heroSt(S), pn = D.CLASSES[cls].look.rig + '__', tag = `${cls}${ob ? ' and ' + ob : ''} ${run ? 'running' : 'at ease'} face ${face}${menu ? ' in the arch' : ''}`;
+      const say = (m) => { const k = cls + (ob || '') + run + m.replace(/[\d.-]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`hero arm pose: ${tag}: ${m}`); } };
+      const rate = root.SIM.K.RUN / root.SIM.Q.stepLen(1) * Math.PI;
+      for (let k = 0; k < (run ? 40 : 1); k++) { const J = {}, spr = [];
+        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n) => { spr.push(n); return { w: 10, h: 10 }; }; L.solid = () => {};
+        drawHero(Object.assign({}, R.hero, { vx: run ? root.SIM.K.RUN * face : 0, vy: 0, gp: run ? 1 + rate * k / FPS : 0, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), 300, 300, 10 + k / FPS, st, menu ? { menu: 1 } : {});
+        const H = J.ground[1] - J.top[1], hh = (s) => (J.ground[1] - J['hand' + s][1]) / H, dx = (s) => (s === 'L' ? -1 : 1) * face * (J['hand' + s][0] - J['sh' + s][0]) / H;
+        if (run) { for (const s of ob === 'orb' ? ['R'] : ['L', 'R']) { const r = d(J['sh' + s], J['hand' + s]) / H;
+          if (r > RUN_REACH) say(`the ${s} hand reaches ${r.toFixed(3)} of the height from its shoulder (at most ${RUN_REACH})`);
+          if (hh(s) < RUN_HAND && !(cls === 'mage' && s === 'R')) say(`the ${s} hand drops to ${hh(s).toFixed(3)} of the height (at least ${RUN_HAND})`); }
+          continue; }
+        if (ob === 'orb') { if (dx('L') < ORB.out || hh('L') < ORB.h[0] || hh('L') > ORB.h[1]) say(`the orb's palm is ${dx('L').toFixed(3)} out of the shoulder at ${hh('L').toFixed(3)} of the height (out ${ORB.out}, ${ORB.h.join('..')})`); }
+        else { if (dx('L') < OUT) say(`the near hand hangs ${dx('L').toFixed(3)} of the height out of its shoulder (at least ${OUT})`);
+          const body = spr.findIndex((n) => n.startsWith(pn + 'body')), fa = spr.findIndex((n) => n.startsWith(pn + 'farmL') && !n.includes('_sock'));
+          if (!ob && fa < body) say('the near forearm is drawn under the body'); }
+        if (hh('R') < FIST[cls][0] || hh('R') > FIST[cls][1]) say(`the weapon fist stands at ${hh('R').toFixed(3)} of the height (${FIST[cls].join('..')})`);
+        const fore = Math.atan2(Math.abs(J.handR[0] - J.elbowR[0]), J.handR[1] - J.elbowR[1]) * 180 / Math.PI;
+        if (FORE[cls] !== undefined && fore > FORE[cls]) say(`the weapon forearm stands ${fore.toFixed(0)}° off plumb (at most ${FORE[cls]}°)`); }
+    }
+  }
+  // (TASKS 2165, 2170) the mage's hands hold what they hold, counted on the textures' own pixels: the staff's or the wand's axis runs
+  // through the near fist's centre, the fist's pixels lie over the shaft (drawn after it) and the shaft shows on both sides of the fist;
+  // the orb rests above the far palm, the forearm under it near level, standing and running, either way round, in the world and the arch
+  // (TASKS 2187) the fist closes on the crooked shaft itself: the staff's own pixels just above and below it sit on the fist's middle
+  // (on the hand it sat 2 px off, the shaft along the fist's edge as if tied to the wrist); the orb lies in the cup (mage__cupL) drawn over
+  // it, the forearm a cuff (cuffL)
+  // (TASKS 2190) the cup's skin against mage_a_v4, counted in the cup's own frame (its up) in radii r of the orb's rim: none of it on the
+  // orb's face inside FACE r (the sheet has none; the 2187 cup had 44 ‰ of it there), its highest texel at least TIP_LOW r under the centre
+  // (2187: 0.08 r; the sheet's fingertips 0.77 r and more), at least TIPS texels of fingers round the lower outer rim, a palm under the
+  // centre, the wrist rising outward from the under-sleeve to the palm by WRIST degrees (2187: a level bar); and it turns with the forearm,
+  // its turn off rest the forearm's within TURN_TOL rad up to TURN (it stood upright while the forearm went down on a cast)
+  function heroFistCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), fs = require('fs'), zlib = require('zlib'), path = require('path');
+    const AXIS = 2, OVER = 4, PAST = 2, GRIP = 2.5, SHAFT = 0.75, BAND = 3, LEVEL = 50, HAND = 0.5, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const RIM = 0.85, FACE = 0.85, TIP_LOW = 0.6, TIPS = 6, RIM_OUT = 1.35, PALM = [0.9, 2.2], WRIST = [5, 45], TURN = 0.44, TURN_TOL = 0.12;
+    const alphaCache = {}, alpha = (n) => alphaCache[n] || (alphaCache[n] = (() => {
+      const buf = fs.readFileSync(path.join(__dirname, 'assets', n + '.png')), W = buf.readUInt32BE(16), H = buf.readUInt32BE(20), ct = buf[25], bpp = { 6: 4, 2: 3, 4: 2, 0: 1 }[ct];
+      if (buf[24] !== 8 || !bpp) throw new Error(n + ': only 8-bit PNGs are read');
+      const idat = []; for (let o = 8; o < buf.length;) { const len = buf.readUInt32BE(o), type = buf.toString('ascii', o + 4, o + 8); if (type === 'IDAT') idat.push(buf.subarray(o + 8, o + 8 + len)); o += 12 + len; }
+      const raw = zlib.inflateSync(Buffer.concat(idat)), px = Buffer.alloc(W * H * bpp), st = W * bpp;
+      for (let y = 0; y < H; y++) { const f = raw[y * (st + 1)], r = raw.subarray(y * (st + 1) + 1, (y + 1) * (st + 1)), o = y * st;
+        for (let x = 0; x < st; x++) { const a = x >= bpp ? px[o + x - bpp] : 0, b = y ? px[o - st + x] : 0, c = x >= bpp && y ? px[o - st + x - bpp] : 0, p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+          px[o + x] = (r[x] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][f]) & 255; } }
+      const A = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) A[i] = bpp === 4 ? px[i * 4 + 3] : bpp === 2 ? px[i * 2 + 1] : 255; return { W, H, A, px, bpp }; })());
+    const rgb = (t, x, y) => { const i = (y * t.W + x) * t.bpp; return t.bpp >= 3 ? [t.px[i], t.px[i + 1], t.px[i + 2]] : [t.px[i], t.px[i], t.px[i]]; };
+    const skinTx = (x, y, t) => { const [r, g, b] = rgb(t, x, y); return r > g && g > b && r - b > 40; };
+    const creamTx = (x, y, t) => { const [r, g, b] = rgb(t, x, y); return r > 110 && b >= r - 10 && Math.abs(r - g) < 40; };
+    const rest = {}, wrapPi = (a) => a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
+    // a drawn sprite's opaque texels on the screen: (u w − pivot) through its matrix, one point per texel
+    const texels = (q, keep = () => true) => { const t = alpha(q.n), o = q.o, pts = [];
+      for (let y = 0; y < t.H; y++) for (let x = 0; x < t.W; x++) if (t.A[y * t.W + x] > 127 && keep(x, y, t)) pts.push(L.M.ap(o.m, [(x + 0.5) / t.W * o.w - o.pivot[0], (y + 0.5) / t.H * o.h - o.pivot[1]]));
+      return pts; };
+    const seen = new Set();
+    for (const [wb, ob] of [['staff'], ['wand'], ['staff', 'orb'], ['wand', 'orb']]) for (const face of [1, -1]) for (const menu of [0, 1]) for (const [act, vx, GT] of [['rest', 0, 10], ['rest', 0, 11.3], ['run', 150, 10], ['run', 150, 11.3], ['cast', 0, 10.3]]) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'mage' }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
+      if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
+      const h = Object.assign({}, R.hero, { vx, vy: 0, gp: GT * 4, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: act === 'cast' ? 10 : -9, castK: act === 'cast' ? 'frost' : '', whirlT: -9 });
+      const J = {}, spr = [], tag = `mage ${wb}${ob ? ' and orb' : ''} ${act} face ${face}${menu ? ' in the arch' : ''} at ${GT}`, say = (m) => { const k = wb + (ob || '') + m.replace(/[\d.]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`hero fist: ${tag}: ${m}`); } };
+      L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
+      drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
+      // (TASKS 2177) the fist is its own sprite (mage__fistR), closed over the shaft at the hand
+      const fi = spr.findIndex((q) => /^mage__fistR/.test(q.n)), wi = spr.findIndex((q) => /^it_(staff|wand)/.test(q.n));
+      if (fi < 0 || wi < 0) { say(`the fist or the ${wb} is not drawn`); continue; }
+      const F = spr[fi], at = [F.o.m[4], F.o.m[5]];
+      if (d(at, J.handR) > GRIP) { say(`the fist sits ${d(at, J.handR).toFixed(1)} px from the hand`); continue; }
+      if (fi < wi) say(`the ${wb} is drawn over the fist`);
+      const fist = texels(F), wpn = texels(spr[wi]);
+      const c = fist.reduce((a, p) => [a[0] + p[0] / fist.length, a[1] + p[1] / fist.length], [0, 0]), g = J.grip, t = J.tip, len = d(g, t), u = [(t[0] - g[0]) / len, (t[1] - g[1]) / len];
+      const off = Math.abs((c[0] - g[0]) * u[1] - (c[1] - g[1]) * u[0]);
+      if (off > AXIS) say(`the ${wb}'s axis passes ${off.toFixed(1)} px from the fist's centre`);
+      const cell = (p) => Math.round(p[0]) + ',' + Math.round(p[1]), fc = new Set(fist.map(cell)), over = new Set(wpn.map(cell).filter((k) => fc.has(k))).size;
+      if (over < OVER) say(`the fist lies over ${over} px of the ${wb}`);
+      const along = (p) => (p[0] - c[0]) * u[0] + (p[1] - c[1]) * u[1], fa = fist.map(along), lo = Math.min(...fa), hi = Math.max(...fa), wa = wpn.filter((p) => !fc.has(cell(p))).map(along);
+      if (!wa.some((a) => a > hi + PAST) || !wa.some((a) => a < lo - PAST)) say(`the ${wb} does not show on both sides of the fist`);
+      const across = (p) => (p[0] - c[0]) * u[1] - (p[1] - c[1]) * u[0], mid = (b) => { const x = b.map(across); return x.length ? (Math.min(...x) + Math.max(...x)) / 2 : 0; };
+      if (wb === 'staff' && act === 'rest') for (const [nm, b] of [['above', wpn.filter((p) => along(p) > hi && along(p) < hi + BAND)], ['below', wpn.filter((p) => along(p) < lo && along(p) > lo - BAND)]])
+        if (Math.abs(mid(b)) > SHAFT) say(`the shaft ${nm} the fist runs ${mid(b).toFixed(2)} px off its middle`);
+      if (!ob) continue;
+      const orb = spr.find((q) => /^orb_held/.test(q.n)), oc = orb && [orb.o.m[4], orb.o.m[5]];
+      if (!orb) { say('the orb is not drawn'); continue; }
+      const ci = spr.findIndex((q) => /^mage__cupL/.test(q.n)), cuff = spr.findIndex((q) => /^mage__cuffL/.test(q.n));
+      if (ci < spr.indexOf(orb) || cuff < 0 || cuff > ci || spr.some((q) => /^mage__farmL/.test(q.n))) { say('the orb is not lying in the cup over the cuff'); continue; }
+      const Cq = spr[ci], up0 = L.M.ap(Cq.o.m, [0, -1]), c0 = L.M.ap(Cq.o.m, [0, 0]), ul = d(up0, c0), up = [(up0[0] - c0[0]) / ul, (up0[1] - c0[1]) / ul];
+      const r = orb.o.h / 2 * RIM, out1 = -face, sx = -up[1] * out1 > 0 ? 1 : -1, ox = [-up[1] * sx, up[0] * sx];
+      const loc = (p) => { const v = [p[0] - oc[0], p[1] - oc[1]]; return [v[0] * ox[0] + v[1] * ox[1], -(v[0] * up[0] + v[1] * up[1])]; };
+      const skin = texels(Cq, skinTx).map(loc), cream = texels(Cq, creamTx).map(loc), hyp = (q) => Math.hypot(q[0], q[1]);
+      const onFace = skin.filter((q) => hyp(q) < FACE * r).length, top = Math.min(...skin.map((q) => q[1])) / r;
+      if (onFace > 0) say(`${onFace} px of the cup's skin lie on the orb's face (inside ${FACE} of its radius)`);
+      if (top < TIP_LOW) say(`the cup's highest skin is ${top.toFixed(2)} of the orb's radius under its centre (at least ${TIP_LOW})`);
+      const tips = skin.filter((q) => hyp(q) >= FACE * r && hyp(q) < RIM_OUT * r && q[0] > 0 && q[1] > 0).length;
+      if (tips < TIPS) say(`${tips} px of fingers lie round the orb's lower outer rim`);
+      const palmQ = skin.filter((q) => Math.abs(q[0]) < r / 2 && q[1] > PALM[0] * r && q[1] < PALM[1] * r);
+      if (!palmQ.length) say('no palm under the orb\'s centre');
+      const mean = (a) => a.reduce((m, q) => [m[0] + q[0] / a.length, m[1] + q[1] / a.length], [0, 0]);
+      if (act === 'rest' && cream.length && palmQ.length) { const a = mean(cream), b = mean(skin.filter((q) => q[1] > PALM[0] * r)), w = Math.atan2(a[1] - b[1], b[0] - a[0]) * 180 / Math.PI;
+        if (w < WRIST[0] || w > WRIST[1]) say(`the wrist rises ${w.toFixed(0)}° from the under-sleeve to the palm (${WRIST.join('..')})`); }
+      const key = wb + face + menu, ang = Math.atan2(up[1], up[0]), fore = Math.atan2(J.handL[1] - J.elbowL[1], J.handL[0] - J.elbowL[0]);
+      if (act === 'rest' && !rest[key]) rest[key] = { ang, fore };
+      else if (act === 'cast' && rest[key]) { const df = wrapPi(fore - rest[key].fore), dc = wrapPi(ang - rest[key].ang), want = Math.max(-TURN, Math.min(TURN, df));
+        if (Math.abs(dc - want) > TURN_TOL) say(`the cup turns ${dc.toFixed(2)} rad while the forearm turns ${df.toFixed(2)} (it should follow up to ${TURN})`); }
+      if (act !== 'cast') { const lv = Math.abs(Math.atan2(J.handL[1] - J.elbowL[1], Math.abs(J.handL[0] - J.elbowL[0]))) * 180 / Math.PI, hy = (J.ground[1] - J.handL[1]) / (J.ground[1] - J.top[1]);
+        if (lv > LEVEL) say(`the forearm under the orb is ${lv.toFixed(0)}° off level`);
+        if (hy < HAND) say(`the orb's palm is ${hy.toFixed(2)} of the height over the soles`); }
+    }
+    // (TASKS 2200) the staff's and the wand's fist on the world grid (sim_checks_grip.js worldFist)
+    SIMX.heroLayers.fistsOnGrid(out, 'mage', ['staff', 'wand'], 'hero fist');
+  }
+  SIMX.checks.add('heroPoseCheck', heroPoseCheck);
+  SIMX.checks.add('heroFistCheck', heroFistCheck);
   SIMX.checks.add('classCheck', classCheck);
+  SIMX.checks.add('heroGripCheck', heroGripCheck);
+  SIMX.checks.add('heroTurnCheck', heroTurnCheck);
+  SIMX.checks.add('heroRunCheck', heroRunCheck);
+  SIMX.checks.add('heroViewCheck', heroViewCheck);
   SIMX.checks.add('powerCheck', checkPowers);
   SIMX.checks.add('dataLinkCheck', dataLinkCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

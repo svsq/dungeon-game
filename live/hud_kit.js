@@ -80,15 +80,13 @@
   };
   // an open book: a leather cover, two pages of parchment with the gutter between, a brass clasp on the right edge; returns
   // the two pages' writing areas and the whole spread
-  // the cover has a board's thickness: its back board in shadow a little lower, and the block of pages' edges at the foot (TASKS 1758).
-  // o.spine false: one wide parchment sheet in a leather board, no gutter, page block or clasp (TASKS 1876: the spine cut the
-  // settings' title and rows in two)
+  // one leather board: the back board in shadow and the block of pages' edges at the foot (TASKS 1758) read as a second frame under
+  // the first, on the lone settings sheet (544dd82f) and on the books with a spine alike (TASKS 2168), so neither is drawn.
+  // o.spine false: one wide parchment sheet in a leather board, no gutter or clasp (TASKS 1876: the spine cut the settings' title and rows in two)
   K.book = (id, x, y, w, h, o = {}) => {
     const spine = o.spine !== false;
-    K.nine('leather', x + 4, y + 12, w, h, { u: { grade: [0.42, 0.8, 0, 1] } });
     K.nine('leather', x, y, w, h);
     const m = 22, px = x + m, py = y + m, pw = w - 2 * m, ph = h - 2 * m, gw = 56;
-    if (spine) for (let i = 0; i < 3; i++) L.solid(px + 6 + i * 4, py + ph + 2 + i * 4, pw - 12 - i * 8, 3, [0.80 - i * 0.07, 0.69 - i * 0.07, 0.50 - i * 0.06]);
     K.paper(px, py, pw, ph);
     L.solid(px, py + ph - 3, pw, 3, [0.36, 0.23, 0.13]); L.solid(px, py, pw, 2, [0.62, 0.48, 0.32], 0, 0, 0, 0.6);
     if (spine) K.nine('gutter', x + w / 2 - gw / 2, py - 4, gw, ph + 8);
@@ -97,6 +95,13 @@
     const all = { x: px + pad, y: py + pad, w: pw - pad * 2, h: ph - pad * 2 };
     L.uiBox(id, all.x, all.y, all.w, all.h, 0); return { L: L0, R: R0, all };
   };
+  const rgbOf = (c) => (Array.isArray(c) ? c : [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16) / 255));
+  // a button's «+» or «−» as bars on its exact middle (TASKS 2114, UI.kit.signRects); o.out rings each bar in that colour, as a light
+  // label's outline did
+  K.sign = (id, cx, cy, size, plus, col, o = {}) => { const R = DATA.UI.kit.signRects(cx, cy, size, plus), c = rgbOf(col), a = o.a ?? 1, e = o.outW || 2;
+    if (o.out) for (const q of R) L.solid(q.x - e, q.y - e, q.w + 2 * e, q.h + 2 * e, rgbOf(o.out), 0, 0, 0, a);
+    for (const q of R) L.solid(q.x, q.y, q.w, q.h, c, 0, 0, 0, a); };
+  K.signOf = (s) => { const T = DATA.UI.kit.SIGN_OF; return Object.hasOwn(T, s) ? T[s] : undefined; };
   // a button: b = { x, y, w, h, label, on }; kind 'parch' (the plain one) or 'wax' (the one that does the thing, light letters)
   K.button = (id, b, st, kind = 'parch') => {
     // a button that cannot be pressed is dimmed, not greyed out: its words stay readable on it (TASKS 1762)
@@ -106,7 +111,9 @@
     const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.7, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.12, 1.5, 0, 1.08] : gradeOf(st), dy = st.press ? 2 : 0;
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: st.off && kind !== 'wax' ? { grade: g, tint: [1, 0.94, 0.87, 1] } : { grade: g } });
     const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#ffe7a3' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
-    (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
+    const sg = K.signOf(b.label);
+    if (sg !== undefined) K.sign(id + '_l', b.x + b.w / 2, b.y + b.h / 2 + dy, Math.min(b.w, b.h), sg, col);
+    else (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
   // the slider: an ink rule with ticks, a brass knob at f (0..1); o.ticks (count), o.value (text over the knob), o.ends ([left,
@@ -196,7 +203,7 @@
     K.corners({ x: B.L.x - 30, y: B.L.y - 30, w: B.L.w + B.R.w + 140, h: B.L.h + 60 }, 0.6);
     K.heading('k_head', TXT('UI.menu.9'), B.L.x + B.L.w / 2, B.L.y + 40, { size: 40, wing: 50 });
     K.ink('k_row', TXT('UI.menu.6', { name: TXT('DIFF.normal.name') }), B.L.x, B.L.y + 150, { size: 24 }); K.leader(B.L.x + 300, B.L.x + B.L.w, B.L.y + 160);
-    K.tabs('k_tab', [['a', TXT('DIFF.easy.name')], ['b', TXT('DIFF.normal.name')], ['c', TXT('DIFF.hard.name')]].map(([id, label], i) => ({ id, label, x: B.R.x - 60 + i * 150, y: B.R.y + 6, w: 160, h: 44 })), 'b', { hover: 'c', focus: '' });
+    K.tabs('k_tab', [['a', TXT('DIFF.easy.name')], ['b', TXT('DIFF.normal.name')], ['c', TXT('DIFF.hard.name')]].map(([id, label], i) => ({ id, label, x: B.R.x - 8 + i * 116, y: B.R.y + 6, w: 124, h: 44 })), 'b', { hover: 'c', focus: '' });
     K.rule(B.R.x, B.R.y + 70, B.R.w);
     for (let i = 0; i < 3; i++) K.check('k_chk' + i, B.R.x + i * 70, B.R.y + 100, i !== 0, st([0, 1, 3][i]));
     K.check('k_chk3', B.R.x + 210, B.R.y + 100, true, st(4));
@@ -204,10 +211,10 @@
     K.slider('k_sl1', B.L.x + 40, B.L.y + 380, B.L.w - 80, 0, st(3), { ticks: 5, value: '×0,5' });
     K.slider('k_sl2', B.R.x + 40, B.R.y + 260, B.R.w - 80, 1, st(1), { ticks: 5, value: '×1,5' });
     K.slider('k_sl3', B.R.x + 40, B.R.y + 380, B.R.w - 80, 0.25, st(4), { ticks: 5 });
-    K.panel('k_lea', 960, 40, 420, 250, 'leather');
-    K.light('k_lea_t', TXT('hud.draw.2'), 1170, 165, { size: 36, al: 0.5 });
+    K.panel('k_lea', 1000, 40, 400, 250, 'leather');
+    K.light('k_lea_t', TXT('hud.draw.2'), 1200, 165, { size: 36, al: 0.5 });
     const P = K.panel('k_torn', 1420, 40, 460, 250, 'torn'); K.ink('k_torn_t', TXT('UI.end.4'), P.x + P.w / 2, P.y + P.h / 2, { size: 26, al: 0.5 });
-    K.banner('k_ban', 1170, 320, 440, TXT('UI.menu.9'));
+    K.banner('k_ban', 1205, 320, 400, TXT('UI.menu.9'));
     K.rod(1420, 330, 460); K.ribbon(1860, 300, 200); K.seal(1440, 440, 1.2); K.knob(1520, 440, 2);
     K.part('ui_b_flourish', [64, 64], 1580, 400, { k: 1 }); K.part('ui_b_clasp', [48, 32], 1730, 410);
     K.bar('k_hp', 960, 420, 400, 40, 0.7, [0.75, 0.12, 0.08], [0.45, 0.05, 0.04]); K.bar('k_mp', 960, 474, 400, 40, 0.35, [0.18, 0.35, 0.85], [0.08, 0.15, 0.5]);

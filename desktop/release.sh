@@ -62,7 +62,7 @@ src="$ROOT"
 rm -rf "${DESK:?}/.pack"; mkdir -p "$DESK/.pack"
 if [ $head = 1 ]; then
   src="$DESK/.pack/src"; mkdir -p "$src"
-  git -C "$ROOT" archive HEAD live CHANGELOG.md tools/changelog.cjs tools/textcheck.cjs tools/layercheck.cjs tools/jsscan.cjs tools/scenebox.cjs tools/scopecheck.cjs tests/golden | tar -x -C "$src"
+  git -C "$ROOT" archive HEAD live CHANGELOG.md tools/changelog.cjs tools/textcheck.cjs tools/layercheck.cjs tools/jsscan.cjs tools/scopecheck.cjs tests/golden | tar -x -C "$src"
 elif ! git -C "$ROOT" diff --quiet HEAD -- live || [ -n "$(git -C "$ROOT" ls-files --others --exclude-standard live)" ]; then
   rev="$rev-dirty"
 fi

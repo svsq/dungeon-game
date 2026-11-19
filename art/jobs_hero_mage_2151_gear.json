@@ -1,0 +1,26 @@
+[
+ {
+  "name": "gear_mage_helm_le_1",
+  "prompt": "art/prompts/gear_mage_helm_le_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_helm_le_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2151/gear"
+ },
+ {
+  "name": "gear_mage_helm_le_2",
+  "prompt": "art/prompts/gear_mage_helm_le_2146.txt",
+  "ref": [
+   "art/gen/gear_mage_helm_le_tpl.png=the mage's rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons",
+   "art/char_refs/mage_a_v4.png=the approved design of this mage"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "out_dir": "frames/hero_mage_2151/gear"
+ }
+]

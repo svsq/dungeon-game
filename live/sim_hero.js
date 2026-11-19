@@ -210,7 +210,7 @@
     if (R.log && h.deadT < 0) { const L = logFloor(R); L.time += DT; L.minHp = Math.min(L.minHp, h.hp / st.maxHp); L.minMp = Math.min(L.minMp, h.mp / st.maxMp); L.maxHp = st.maxHp; L.maxMp = st.maxMp; L.atk = st.atk; L.def = st.def; }
     // mouse → world aim
     const Z = zoomOf(R), mx = R.cam[0] + inp.px / Z, my = R.cam[1] + inp.py / Z;
-    if (h.deadT >= 0) { if (t - h.deadT > 1.6) return SIMX.endRun(S, 'dead'); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
+    if (h.deadT >= 0) { if (t - h.deadT > 1.6) return SIMX.heroFell(S); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
     // Keys pressed in it, or in the hold on «Продолжить», are kept for the first step after it (TASKS 227, review of PR 57)
@@ -233,7 +233,8 @@
     // a shooter faces the shot being loosed: turned by the live pointer in the wind-up he fired over his own shoulder (critic r3)
     const held0 = (D.clsOf(h).shoots || []).includes(st.wtype) && t - h.atkT < D.SHOTS[(BASES[st.wtype] || {}).shot || 'bolt'].t, aimF = held0 ? h.atkA : h.aim;
     if (busy) { h.face = Math.cos(aimF) >= 0 ? 1 : -1; h.back = Math.sin(aimF) < -0.5 ? 1 : 0; }
-    else if (ix || iy) { if (ix) h.face = ix; h.back = iy < 0 ? 1 : iy > 0 ? 0 : h.back; }
+    // (TASKS 2198) a sideways walk shows the front 3/4 view: the last up or an upward shot kept his back to the camera walking sideways
+    else if (ix || iy) { if (ix) h.face = ix; h.back = iy < 0 ? 1 : 0; }
     if (h.back !== wasBack) h.backT = t;
     if (h.face !== wasFace) h.faceT = t;
     // dash
@@ -321,7 +322,7 @@
     if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, D.clsOf(h).abs[inp.slot - 1].id, inp);
     if (h.volleyT != null && t >= h.volleyT) SIMX.looseVolley(S, R);
     // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
-    if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
+    if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
       S.meta.tipScroll = 1; R.msg = { s: TXT('sim_hero.stepPlay.msg.s'), t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }
     // the whirl's hint (TASKS 390), over no other message; a test run counts its whirls in no meta, so its own count stops the hint too (review of PR 63)
     { const W = D.TIPS.whirl; if (h.ab.whirl && h.cd.whirl <= S.t && Math.max(S.meta.whirls || 0, R.whirls || 0) < W.until && S.t - (R.tipT ?? -1e9) > W.every && !(R.msg && S.t - R.msg.t < (R.msg.d || 3.5))) {
@@ -370,7 +371,7 @@
     if (R.events && R.events.length) SIMX.stepEvents(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
-    if (R.chests.length) SIMX.stepChestTraps(S, R);
+    if (R.chests.length) { SIMX.stepChestTraps(S, R); SIMX.stepBossChests(S, R); }
     SIMX.stepStatues(S, R); SIMX.stepLeaves(S, R);
     if (R.fires && R.fires.length) stepFires(S, R);
     // water puts the fire out

@@ -33,9 +33,9 @@
   // sheet and the talk stand on the view's bottom edge, the rest in its middle, on the 2 px grid
   const VIEW_H = [1080, 1248], uiDy = (scr, vh) => (!scr || scr === 'play' ? 0 : scr === 'menu' || scr === 'talk' ? vh - VIEW_H[0] : Math.round((vh - VIEW_H[0]) / 4) * 2);
   // the play feed's plates, newest last: a refusal said again while its plate still shows takes that plate's place, fresh, instead of
-  // stacking a copy (TASKS 1815). Kept here and not in the bus (review of PR 57): S.ev stays append-only for everyone who reads it
+  // stacking a copy (TASKS 1815); a wordless refusal (a count's end, town_game_r10 2) is a sound alone. Kept here and not in the bus (review of PR 57): S.ev stays append-only for everyone who reads it
   const FEED_K = new Set(['pickup', 'nope', 'lvl', 'unlock', 'trade']);
-  const feedOf = (ev, t, n = 5) => { const f = ev.filter((e) => FEED_K.has(e.k) && t - e.t < 3);
+  const feedOf = (ev, t, n = 5) => { const f = ev.filter((e) => FEED_K.has(e.k) && (e.k !== 'nope' || e.s) && t - e.t < 3);
     return f.filter((e, i) => !(e.k === 'nope' && e.s && f.some((q, j) => j > i && q.k === 'nope' && q.s === e.s))).slice(-n); };
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   // a currency's count, wherever a screen shows one (TASKS 2084): the icon, then the number on its own parchment plate. Each screen
@@ -48,11 +48,68 @@
   const purseLay = (rows, x, y, measure, al = 0) => { const P = PURSE, B = purseBox(rows, measure), x0 = Math.round(x - B.w * al);
     return rows.flatMap((row, j) => row.map((q, i) => { const ux = x0 + i * (B.uw + P.step[0]), uy = y + j * (P.h + P.step[1]), px = ux + P.icon + P.gap;
       return Object.assign({}, q, { ic: P.icons[q.k], icon: { x: ux, y: uy + (P.h - P.icon) / 2, s: P.icon }, plate: { x: px, y: uy, w: B.cw, h: P.h }, c: [px + B.cw / 2, uy + P.h / 2 + P.ty] }); })); };
+  // the quest tracker stands still under the minimap (TASKS 2110: in 2100 it dodged the town's adit and jumped across the screen as the
+  // camera moved); over the adit it shows only the rows that end above the adit's top, the rest go to its «и ещё N» line, one row at least.
+  // Its width has a ceiling, a quarter of the view at most, and a longer line ends in «…»: one long quest name stretched it over half
+  // the screen (the author's 2110, again after 1992). Hidden, it is a small chip with the count
+  // one layout gives the box's height and every line's place, so the drawn rows and the «и ещё N» line can never outgrow the box. The font
+  // has no step under 20 px (lib.js), so the tracker is made smaller by its spacing and its width ceiling, not by a smaller size
+  const TRACKER = { rows: 4, right: 14, gap: 14, head: 30, nameDy: 11, more: 26, bot: 6, textH: 24, out: 4, clear: 12, minW: 240, maxW: 460,
+    share: 0.24, chip: 32, pad: 12, box: 16, inset: 24, size: { title: 20, name: 19, line: 20, btn: 18 }, btnH: 24, btnPad: 16, btnGap: 8, headGap: 12 };
+  // a row's two lines and the next row stand a text height apart, so the spacing follows textH and no line can lie on another (TASKS 2117)
+  TRACKER.lineDy = TRACKER.nameDy + TRACKER.textH; TRACKER.row = 2 * TRACKER.textH;
+  const trkMaxW = (W) => Math.min(TRACKER.maxW, Math.round(W * TRACKER.share));
+  const trkH = (n, more) => { const T = TRACKER; return T.head + n * T.row + (more ? T.more : 0) + T.bot; };
+  const trkLay = (W, mmBot, want, total, adit, hidden) => { const T = TRACKER, w = hidden ? Math.min(want, trkMaxW(W)) : Math.max(T.minW, Math.min(want, trkMaxW(W))),
+    x = W - T.right - w, y = mmBot + T.gap, e = T.out + T.clear;
+    if (hidden) return { x, y, w, h: T.chip, n: 0, more: 0, rows: [], titleY: y + T.chip / 2 };
+    let n = Math.min(T.rows, total);
+    const near = adit && x - e < adit[0] + adit[2] && x + w + e > adit[0] && y - e < adit[1] + adit[3], over = (k) => near && y + trkH(k, total > k) + e > adit[1];
+    while (n > 1 && over(n)) n--;
+    // even one row on the adit: the tracker folds to its chip (TASKS 2117), the HUD sizes the chip by its count
+    if (n && over(n)) return { x, y, w, h: T.chip, n: 0, more: total, rows: [], titleY: y + T.chip / 2, fold: true };
+    const rows = Array.from({ length: n }, (_, i) => { const top = y + T.head + i * T.row; return { nameY: top + T.nameDy, lineY: top + T.lineDy }; });
+    return { x, y, w, h: trkH(n, total > n), n, more: total - n, rows, titleY: y + T.head / 2, moreY: y + T.head + n * T.row + T.more / 2,
+      textX: x + T.pad + T.inset, textW: w - 2 * T.pad - T.inset }; };
+  // a line too long for the tracker loses its tail to «…»; measure(s, size) is the page's font or a check's stand-in
+  const trkFit = (s, maxW, size, measure) => { s = String(s); if (measure(s, size) <= maxW) return s; let lo = 0, hi = s.length;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (measure(s.slice(0, m).trimEnd() + '…', size) <= maxW) lo = m; else hi = m - 1; }
+    return s.slice(0, lo).trimEnd() + '…'; };
+  // a button's «+» and «−» (TASKS 2114): the font's glyph has its own height and side bearings, so a text «+» sat off the button's
+  // middle; the sign is two solid bars instead. A bar's length and thickness take the parity of the centre's doubled coordinate, so the
+  // bar's edges fall on whole px and its middle on the centre exactly, on odd and even buttons alike
+  const SIGN = { span: 0.46, stroke: 0.1, min: 2 };
+  const signLen = (raw, odd, min) => { let v = Math.max(min, Math.round(raw)); if ((v & 1) !== odd) v += raw >= v || v - 1 < min ? 1 : -1; return v; };
+  const signRects = (cx, cy, size, plus = true) => { const c = [Math.round(cx * 2) / 2, Math.round(cy * 2) / 2], odd = c.map((v) => (v * 2) & 1);
+    const bar = (lx, ly) => { const w = signLen(lx, odd[0], SIGN.min), h = signLen(ly, odd[1], SIGN.min); return { x: c[0] - w / 2, y: c[1] - h / 2, w, h }; };
+    const a = size * SIGN.span, t = size * SIGN.stroke, r = [bar(a, t)]; if (plus) r.push(bar(t, a)); return r; };
+  const SIGN_OF = { '+': true, '−': false };
+  // a hero's portrait in its frame (TASKS 2168): the art fills the frame's well at one margin m on every side, its crop fw of the art's
+  // width and as tall as the drawn rect's aspect asks from `top` down, so no place stretches it or leaves a band of the well under it
+  // (the saves page's sat 5 px under the frame's top and 11 over its foot, the slots' rows stretched it 8 %). portCheck holds them to it
+  const PORT = { art: 1, frames: { hud: { w: 112, h: 112, m: 2, fw: 0.84, top: 0.02 }, inv: { w: 242, h: 206, m: 6, fw: 0.92, top: 0 }, classes: { w: 236, h: 200, m: 8, fw: 0.92, top: 0 },
+    load: { w: 220, h: 190, m: 8, fw: 0.92, top: 0 }, row: { m: 6, fw: 0.78, top: 0 }, talk: { w: 232, h: 342, m: 8, fw: 0.9, top: 0 } } };
+  // art: the art's width over its height. A townsman's whole figure is tall (TASKS 2176: the talk's frame shows him from the head
+  // down); a squat one would need more than its height at fw, so it takes a narrower share of its width instead and shows whole
+  const portIn = (f, x, y, w = f.w, h = f.h, art = PORT.art) => { const iw = w - 2 * f.m, ih = h - 2 * f.m, fw = Math.min(f.fw, (1 - f.top) * iw / (ih * art)), fh = fw * ih / iw * art, u0 = (1 - fw) / 2;
+    return { x: x + f.m, y: y + f.m, w: iw, h: ih, src: [u0, f.top, 1 - u0, f.top + fh] }; };
+  // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
+  // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
+  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1861):
+  // one-pixel stems blur away when the 1920×1080 canvas is shown at 1280×720
+  const FONT = { faces: [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], trebuchetW: 0.547, units: [2, 12] }, FACE = new Map();
+  const face = (size, bold = false) => { const n = Math.round(size), k = bold ? 'b' + n : n; let r = FACE.get(k); if (r) return r; let best = Infinity;
+    for (const [name, em, adv] of bold ? FONT.faces.slice(1) : FONT.faces) for (let unit = FONT.units[0]; unit <= FONT.units[1]; unit++) {
+      const d = Math.abs(adv * em * unit - FONT.trebuchetW * n); if (d < best) { best = d; r = { name, font: `${em * unit}px ${name}`, px: em * unit, unit }; } }
+    FACE.set(k, r); return r; };
   UI.add('kit', {
     // the bottom panel's height and its gap to the view's foot: the HUD lays it out by them and the camera keeps the hero above it (TASKS 1911)
     bp: { h: 122, foot: 6, purseY: 10 },
     purse: PURSE,
   });
-  UI.kit = { wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay };
+  // the skull door's wave counter (TASKS 2132): a plate at the top of the screen's middle, where a boss's ribbon stands in its fight;
+  // its line keeps to w less pad each side at its size (trialWaveCheck)
+  const WAVE = { y: 10, w: 260, h: 48, size: 28, pad: 22 };
+  UI.kit = { WAVE, wrapLine, SORTS, paperClose, sortCol, CELL, STEP, COLS, grid, bagTabs, tabAt, bagTabOf, bagGrid, tabRow, INV, purseBox, purseLay, TRACKER, trkMaxW, trkLay, trkFit, FONT, face, SIGN, SIGN_OF, signRects, PORT, portIn };
   UI.share('kit', { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -20,6 +20,11 @@
 //   prompt    — *prompt* states: the interaction plate (HUD.promptBox) stays clear of the hero's joint box (it sat on him at a chest)
 //   work      — folk_*_work loops: the tool or the working hand travels at least WORK of the height over the loop (TASKS 1015)
 //   blow      — folk_smith_work: the hammer's lowest point lies on the anvil's top (the blow lands on the anvil)
+//   flip      — folk_*_turn (TASKS 2101): a walker turning round: no hand, tool, shoulder, elbow, knee or foot joint steps over FLIP of
+//               the height in one frame (town_motion_r10 2: the shoulders and feet jumped on the turn's sign flip, unmeasured)
+//   thin      — folk_*_turn (TASKS 2123): on every frame of the turn the walker keeps at least THIN of the pixels it has before it
+//   stopgo    — folk_*_stop, folk_*_go (TASKS 2124): a walker stopping or setting off: no joint steps over FLIP of the height in one frame
+//   henturn   — folk_hen_enter_* (TASKS 2130): a hen's width (head to tail) steps at most HEN_JUMP of it in one frame from the town's start
 //   turn      — folk_talk, town_talk: talking, the smith's front hand is toward the hero, on either side of him
 //   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
 //               golem's ground point (the far one swung on past the body and lay behind it)
@@ -333,6 +338,46 @@ if (meta.tr.includes('imp_claw')) {
     if (/^hero.*_death_run$/.test(nm)) { const f0 = fr.find((f) => f.dead >= 0), f1 = f0 && fr.find((f) => f.t - f0.t >= 0.3), sp = f0 ? Math.hypot(f0.vx, f0.vy) : 0;
       if (!f0 || sp <= RUNV || !f1 || !f0.j || !f1.j) { report('inertia', nm, false, !f0 ? 'no frame with the hero dead' : sp <= RUNV ? `the run ${sp.toFixed(0)} px/s is not over ${RUNV.toFixed(0)}` : !f1 ? 'no frame 0.3 s after the death' : 'no trace'); continue; }
       const dx = (f1.j.hip[0] - f1.j.ground[0]) - (f0.j.hip[0] - f0.j.ground[0]); report('inertia', nm, Math.sign(dx) === Math.sign(f0.vx), `the hip moves ${dx.toFixed(1)} px over 0.3 s after the death, the run ${f0.vx.toFixed(0)} px/s`); } } }
+// flip (TASKS 2101): a walker turns round at 1/60 s (folk_*_turn): no hand, tool, shoulder, elbow or leg joint steps more than FLIP of the height between two frames
+{ const FLIP = 0.08, KEYS = ['handL', 'handR', 'grip', 'tip', 'shL', 'shR', 'elbowL', 'elbowR', 'kneeL', 'kneeR', 'ankleL', 'ankleR', 'heelL', 'heelR', 'toeL', 'toeR'];
+  for (const nm of meta.tr.filter((n) => /^folk_.*_turn$/.test(n))) {
+    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.ground && j.top); if (fr.length < 10) { report('flip', nm, false, 'no trace'); continue; }
+    const H = tall(fr[0]), keys = KEYS.filter((k) => fr.every((j) => Array.isArray(j[k])));
+    const step = (k) => Math.max(...fr.slice(1).map((j, i) => Math.hypot(j[k][0] - fr[i][k][0], j[k][1] - fr[i][k][1])));
+    const worst = keys.map((k) => [k, step(k)]).sort((a, b) => b[1] - a[1])[0]; if (!worst) { report('flip', nm, false, 'no hand or tool joint'); continue; }
+    report('flip', nm, worst[1] <= FLIP * H, `the ${worst[0]} steps ${worst[1].toFixed(1)} px of the ${H.toFixed(0)} px height in one frame (≤ ${(FLIP * H).toFixed(1)})`); } }
+// henturn (TASKS 2130): a hen from the town's first frame (folk_hen_enter_*, the real sim at 1/60 s): its width (head to tail) never
+// changes by more than HEN_JUMP of its whole width in one frame; the first step set its side with no turn, a 28 px flip
+{ const HEN_JUMP = 0.5;
+  for (const nm of meta.tr.filter((n) => /^folk_hen_enter_/.test(n))) {
+    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.head && j.tail); if (fr.length < 10) { report('henturn', nm, false, 'no trace'); continue; }
+    const w = fr.map((j) => j.head[0] - j.tail[0]), W = Math.max(...w.map(Math.abs)), turns = w.slice(1).filter((x, i) => Math.sign(x) !== Math.sign(w[i])).length;
+    const worst = w.slice(1).reduce((b, x, i) => (Math.abs(x - w[i]) > b[0] ? [Math.abs(x - w[i]), i + 1] : b), [0, 0]);
+    report('henturn', nm, worst[0] <= HEN_JUMP * W, `the width steps ${worst[0].toFixed(1)} px of ${W.toFixed(1)} on frame ${worst[1]} (≤ ${(HEN_JUMP * W).toFixed(1)}), ${turns} turn(s)`); } }
+// stopgo (TASKS 2124): a walker stops at a stop and sets off from one (folk_*_stop, folk_*_go, the real sim at 1/60 s, the camera held):
+// no joint of it steps more than FLIP of the height between two frames (the child's throwing hand switched on and off in a frame, 18 px)
+{ const FLIP = 0.08;
+  for (const nm of meta.tr.filter((n) => /^folk_.*_(stop|go)$/.test(n))) {
+    const all = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+      const j = LIB.TRACE[id] || null, v = LIB.TRACE[id + '_view']; LIB.TRACE = null; return { j, w: v && v.face ? v.face[0] : 1 }; }); }, nm);
+    const fr = all.filter((f) => f.j && f.j.ground && f.j.top); if (fr.length < 10) { report('stopgo', nm, false, 'no trace'); continue; }
+    // a turn on the spot (the child to the nearest hen) is the flip check's: its clamped width moves the feet by design (TASKS 2123)
+    const H = tall(fr[0].j), keys = Object.keys(fr[0].j).filter((k) => !k.startsWith('target') && fr.every((f) => Array.isArray(f.j[k]))), whole = (f) => Math.abs(f.w) > 0.999;
+    const step = (k) => fr.slice(1).reduce((b, f, i) => { if (!whole(f) || !whole(fr[i])) return b; const d = Math.hypot(f.j[k][0] - fr[i].j[k][0], f.j[k][1] - fr[i].j[k][1]); return d > b[0] ? [d, i + 1] : b; }, [0, 0]);
+    const worst = keys.map((k) => [k, ...step(k)]).sort((a, b) => b[1] - a[1])[0]; if (!worst) { report('stopgo', nm, false, 'no joint'); continue; }
+    report('stopgo', nm, worst[1] <= FLIP * H, `the ${worst[0]} steps ${worst[1].toFixed(1)} px of the ${H.toFixed(0)} px height on frame ${worst[2]} (≤ ${(FLIP * H).toFixed(1)})`); } }
+// thin (TASKS 2123): the walker's own pixels are the frame against the same frame drawn without it, in a box round its trace above the shadow
+{ const THIN = 0.2;
+  for (const nm of meta.tr.filter((n) => /^folk_.*_turn$/.test(n))) {
+    const r = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm], i = +id.slice(3), c = document.getElementById('c'), g = c.getContext('webgl2'), k = c.width / 1920;
+      return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id]; LIB.TRACE = null; if (!j || !j.ground || !j.top) return null;
+        const H = j.ground[1] - j.top[1], x0 = Math.round((j.ground[0] - 0.7 * H) * k), y0 = Math.round((j.top[1] - 0.1 * H) * k), w = Math.round(1.4 * H * k), h = Math.round((j.ground[1] - 5) * k) - y0;
+        const grab = () => { const a = new Uint8Array(w * h * 4); g.readPixels(x0, c.height - y0 - h, w, h, g.RGBA, g.UNSIGNED_BYTE, a); return a; }, a = grab();
+        const s0 = structuredClone(st); s0.run.folk = s0.run.folk.filter((f) => f.i !== i); SCENE.state = s0; SCENE.render(st.t + 0.01); const b = grab(); let n = 0;
+        for (let q = 0; q < a.length; q += 4) if (Math.abs(a[q] - b[q]) + Math.abs(a[q + 1] - b[q + 1]) + Math.abs(a[q + 2] - b[q + 2]) > 40) n++; return n; }); }, nm);
+    const ok = r.filter((n) => n !== null); if (ok.length < 10 || !ok[0]) { report('thin', nm, false, 'no trace'); continue; }
+    const lo = Math.min(...ok), at = ok.indexOf(lo);
+    report('thin', nm, lo >= THIN * ok[0], `the thinnest frame (${at}) keeps ${lo} of ${ok[0]} px, ${(100 * lo / ok[0]).toFixed(0)} % (≥ ${100 * THIN} %)`); } }
 // recoil (TASKS 1804): a blow on a light body (not heavy, narrower than the brute) throws its head against its hip by RECOIL of its height
 // (every type nodded 0.05–0.08 and the knock-back moved the rest)
 { const RECOIL = 0.1, big = await p.evaluate(() => Object.fromEntries(Object.entries(DATA.ENEMIES).map(([k, E]) => [k, !!(E.heavy || E.r >= 20 || DATA.BOSSES[k])])));

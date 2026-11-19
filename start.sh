@@ -14,4 +14,4 @@ echo "LIVE: $URL"
   if command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1
   elif command -v gio >/dev/null 2>&1; then gio open "$URL" >/dev/null 2>&1
   else echo "Откройте вручную: $URL"; fi ) &
-exec python3 -m http.server "$P" --bind 127.0.0.1
+exec python3 tools/serve.py "$P" --bind 127.0.0.1

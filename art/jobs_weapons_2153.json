@@ -1,0 +1,218 @@
+[
+ {
+  "name": "weapon_held_sword_2153_1",
+  "prompt": "art/prompts/weapon_held_sword_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_sword.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_sword_2153_2",
+  "prompt": "art/prompts/weapon_held_sword_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_sword.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_longsword_2153_1",
+  "prompt": "art/prompts/weapon_held_longsword_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_longsword.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_longsword_2153_2",
+  "prompt": "art/prompts/weapon_held_longsword_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_longsword.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_axe_2153_1",
+  "prompt": "art/prompts/weapon_held_axe_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_axe.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_axe_2153_2",
+  "prompt": "art/prompts/weapon_held_axe_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_axe.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_hammer_2153_1",
+  "prompt": "art/prompts/weapon_held_hammer_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_hammer.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_hammer_2153_2",
+  "prompt": "art/prompts/weapon_held_hammer_2153.txt",
+  "ref": [
+   "art/char_refs/warrior_a_v2.png=the approved design of the warrior: his worn rusty sword, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_hammer.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_staff_2153_1",
+  "prompt": "art/prompts/weapon_held_staff_2153.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of the mage: his crooked knotted dark wooden staff with its blue crystal, pixel density and palette (ignore the man and the orb)",
+   "art/gen/it_staff.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_staff_2153_2",
+  "prompt": "art/prompts/weapon_held_staff_2153.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of the mage: his crooked knotted dark wooden staff with its blue crystal, pixel density and palette (ignore the man and the orb)",
+   "art/gen/it_staff.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_wand_2153_1",
+  "prompt": "art/prompts/weapon_held_wand_2153.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of the mage: his crooked knotted dark wooden staff with its blue crystal, pixel density and palette (ignore the man and the orb)",
+   "art/gen/it_wand.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_wand_2153_2",
+  "prompt": "art/prompts/weapon_held_wand_2153.txt",
+  "ref": [
+   "art/char_refs/mage_a_v4.png=the approved design of the mage: his crooked knotted dark wooden staff with its blue crystal, pixel density and palette (ignore the man and the orb)",
+   "art/gen/it_wand.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_bow_s_2153_1",
+  "prompt": "art/prompts/weapon_held_bow_s_2153.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=the approved design of the archer: his dark wooden bow with a wrapped grip, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_bow_s_h.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_bow_s_2153_2",
+  "prompt": "art/prompts/weapon_held_bow_s_2153.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=the approved design of the archer: his dark wooden bow with a wrapped grip, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_bow_s_h.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_bow_l_2153_1",
+  "prompt": "art/prompts/weapon_held_bow_l_2153.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=the approved design of the archer: his dark wooden bow with a wrapped grip, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_bow_l_h.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_bow_l_2153_2",
+  "prompt": "art/prompts/weapon_held_bow_l_2153.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=the approved design of the archer: his dark wooden bow with a wrapped grip, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_bow_l_h.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1024x1536",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_crossbow_2153_1",
+  "prompt": "art/prompts/weapon_held_crossbow_2153.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=the approved design of the archer: his dark wooden bow with a wrapped grip, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_crossbow_h.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ },
+ {
+  "name": "weapon_held_crossbow_2153_2",
+  "prompt": "art/prompts/weapon_held_crossbow_2153.txt",
+  "ref": [
+   "art/char_refs/archer_a.png=the approved design of the archer: his dark wooden bow with a wrapped grip, gear materials, pixel density and palette (ignore the man himself)",
+   "art/gen/it_crossbow_h.png=the old picture: only its composition, angle and crop"
+  ],
+  "size": "1536x1024",
+  "alpha": "key",
+  "key": "ff00ff",
+  "out_dir": "frames/hero_weapons_2153/gen"
+ }
+]
