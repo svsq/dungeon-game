@@ -509,7 +509,7 @@
   SCREEN.shop = (S, inp, keys, x, y, click) => {
     const R = S.run, sh = R.shop;
     if (S.sellAsk) { const a = askAnswer(S, UI.sellAsk(), keys, x, y, click, inp.moved), A = S.sellAsk, it = R.hero.bag[A.i];
-      if (a) { S.sellAsk = null; S.focus = ''; S.hover = ''; if (a > 0 && it && it.id === A.id) sell(S, R, A.i); else ev(S, { k: 'ui', x, y }); }
+      if (a) { S.sellAsk = null; S.focus = 'sell:' + A.i; S.hover = ''; if (a > 0 && it && it.id === A.id) sell(S, R, A.i); else ev(S, { k: 'ui', x, y }); }
       return; }
     if (splitStep(S, R, inp, keys, x, y, click)) return;
     const U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
