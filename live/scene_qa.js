@@ -208,6 +208,14 @@
       S.result.damage = name === 'dead_short' ? [] : [{ t: 1, src: 'lava', n: 28 }, { t: 2, src: 'boss bolt', n: 75 },
         { t: 3, src: 'brute elite blast', n: 180, actor: { type: 'brute', elite: 1, mods: ['explosive', 'vampire'] } }];
     }
+    {
+      const S = structuredClone(states.find(([n]) => n === 'win')[1]);
+      const R = SIM.newRun(S, 'campaign', 1126021, { cls: 'mage' });
+      Object.assign(S.result, { mode: 'endless', floor: 0, deepest: 32, campaignWon: 1, town: 1, lvl: 34, time: 6433, kills: 1220, gold: 221093,
+        win: 0, found: 946, base: 293, shards: 1239, donations: 10, record: { best: 32, fresh: true }, hero: R.hero, heroStats: SIM.stats(R.hero, S.meta),
+        C: { floors: 32, passed: 32, foes: 1134, kills: 1048, lootN: 405, loot: 344, secN: 64, sec: 45, pct: 0.8256 } });
+      states.push(['win_endless_town', S]);
+    }
     // a run through the town ends on «Вернуться в город» (TASKS 1006)
     { const [, S0] = states.find(([n]) => n === 'dead'), S = Object.assign({}, S0, { result: Object.assign({}, S0.result, { town: 1, allFree: 1 }) }); states.push(['dead_town', S]); }
     for (const [name, src, actor] of [['dead_caster', 'cultist elite bolt', { type: 'cultist', elite: 1, mods: ['summoner', 'vampire'] }], ['dead_lava', 'lava', null],

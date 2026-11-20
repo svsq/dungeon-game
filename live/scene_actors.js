@@ -436,9 +436,11 @@
     };
     if (win) {
       // the fallen lord behind and aside, the hero large and lit in front of him: the two never merge into one dark shape (TASKS 235)
-      // the run's last boss: the serpent ends the campaign too (TASKS 339), the magma caves' lord theirs (399)
-      const lb = D.stageOf(r.mode, D.runOf(r.mode).floors).boss, sea = lb === 'boss_serpent';
-      enemy({ type: sea || D.BOSSES[lb] ? lb : 'boss', elite: sea ? 0 : 1, st: 'chase', mv: 'wave', endPortrait: sea }, x - 90, y - 5, true);
+      const mode = D.runOf(r.mode).endless && r.campaignWon ? 'campaign' : r.mode, run = D.runOf(mode);
+      if (!run.endless) {
+        const lb = D.stageOf(mode, run.floors).boss, sea = lb === 'boss_serpent';
+        enemy({ type: sea || D.BOSSES[lb] ? lb : 'boss', elite: sea ? 0 : 1, st: 'chase', mv: 'wave', endPortrait: sea }, x - 90, y - 5, true);
+      }
       if (r.hero) {
         const h = Object.assign({}, r.hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
         const hx = x + 35, hy = y + 70;

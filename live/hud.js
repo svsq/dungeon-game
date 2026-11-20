@@ -1830,7 +1830,7 @@
     if (r.hero) KIT.ink('e_who', r.hero.name ? TXT('hud.end.who', { name: r.hero.name, cls: D.clsOf(r.hero).name.toLowerCase() }) : D.clsOf(r.hero).name, bx + 480, by + 48, { size: 24, al: 1, fit: 300, col: I.d });
     runRows.forEach(([n, v], i) => { const y = by + 94 + i * 40, tw = KIT.ink('e_n' + i, n, bx + 30, y, { size: 24, col: I.d }), vw = KIT.ink('e_v' + i, v, bx + 480, y, { size: 24, al: 1 }); KIT.leader(bx + 30 + tw + 12, bx + 480 - vw - 10, y + 6); });
     doneRows.forEach(([n, v], i) => { const y = by + 94 + i * 40, tw = KIT.ink('e_cn' + i, n, bx + 570, y, { size: 24, col: I.d }), vw = KIT.ink('e_cv' + i, v, bx + 1040, y, { size: 24, al: 1, col: I.g }); KIT.leader(bx + 570 + tw + 12, bx + 1040 - vw - 10, y + 6); });
-    KIT.rule(bx + 30, by + 300, 1010, 0.7);
+    KIT.rule(bx + 30, by + (r.campaignWon ? 320 : 300), 1010, 0.7);
     const base = r.base ?? r.bonus ?? 0, sb = r.statBonus || 0;
     const rew = [[TXT('hud.end.rew'), '+' + (r.found ?? (r.shards - base - sb))],
       [TXT('hud.end.rew.2', { goldPer: SIM.REWARD.goldPer, p2: r.win ? TXT('hud.end.rew.3', { win: r.win }) : '' }), '+' + base]];
