@@ -244,7 +244,7 @@
     // the library (TASKS 368): its lectern on the spot, and up to `shelves` bookshelves against the back wall where the wall above is
     // whole (no way in or secret behind them), nothing hangs or stands there, and they keep clear of the lectern. A room with none of
     // them and none of its own is no library. Each shelf's cell is blocked, as a furnished one's is, so the way fields lead round it
-    library: (m, r) => { const W = m.W, at = eventSpot(m, r), P = D.EVENTS.pool.library; if (!at) return null;
+    library: (m, r, _rng, _seed, opts) => { const W = m.W, at = eventSpot(m, r), P = D.EVENTS.pool.library; if (!at) return null;
       const hide = new Set((m.secrets || []).flatMap((q) => q.wall.concat(q.front || []).map(([x, y]) => y * W + x)));
       const sx = Math.floor(at[0] / TILE), sy = Math.floor(at[1] / TILE), y0 = r.y * TILE + 22, half = D.PROP_W.bookshelf / 2, busy = new Set(m.block || []);
       for (const o of [...m.chests, ...m.pots, ...m.shrines, ...(m.webs || []), ...(m.ambush || []), ...m.traps]) busy.add(Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE));
@@ -260,7 +260,7 @@
       };
       // (a secret's wall or the floor before it is never hidden behind a shelf)
       const clear = (X, self, Y = y0, wall = 1) => { const x = Math.floor(X / TILE), y = Math.floor(Y / TILE); if (x - 1 < r.x || x + 1 > r.x + r.w - 1 || (wall && Math.abs(x - sx) <= 3 && sy - r.y < 3)) return false;
-        if (overPassage(X, y)) return false;
+        if (!opts.legacyLibraryPlacement && overPassage(X, y)) return false;
         for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) if (hide.has((y + j) * W + x + i)) return false;
         if (wall) for (let i = -1; i <= 1; i++) if (m.cells[(r.y - 1) * W + x + i] !== 0) return false;
         if (m.torches.some((t) => Math.abs(t.x - X) < half + 8 && Math.abs(t.y - Y) < 70)) return false;
@@ -308,7 +308,7 @@
       for (const r of rooms) { if (r.event || !big(r, E)) continue;
         // (an elite is a room's reward, TASKS 433: a dead end off the way would be left with none, and a lair floor short of its own)
         if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit || e.elite))) continue;
-        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er, seed) : eventSpot(m, r); if (!at) continue;
+        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er, seed, opts) : eventSpot(m, r); if (!at) continue;
         r.event = id; if (E.room === 'treasure') { m.enemies = m.enemies.filter((e) => e.room !== r.id); if (m.webs) m.webs = m.webs.filter((w) => roomAt(m, w.x, w.y) !== r.id); }
         out.push(Object.assign({ id, room: r.id, x: at[0], y: at[1] }, at[2])); break; } }
     if (out.length) m.events = out;
