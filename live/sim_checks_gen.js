@@ -28,6 +28,12 @@
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function genCheck() {
     const out = [];
+    for (const [sd, lands] of [[3, true], [42, false]]) {
+      const m = DG.genFloor(sd * 31 + 9 * 1013, 9, { mode: 'campaign', runSeed: sd, town: 1 });
+      const bridge = m.crossings.find((c) => c.kind === 'bridge');
+      const wet = new Set(m.water), deck = new Set(m.crossings.filter((c) => c.kind === 'bridge' || c.kind === 'ford').flatMap((c) => c.cells));
+      if (!bridge || DG.bridgeLands(m, bridge, wet, deck) !== lands || bridge.cells.some((k) => m.cells[k] !== 1)) out.push(`cave ${sd} f9: wrong landing classification or a bridge off the floor`);
+    }
     // the water caves' floors (TASKS 301) are held to the campaign's rules
     // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
     // (seed 7: its 3rd and 7th floors are tombs, TASKS 378)

@@ -1145,9 +1145,19 @@
       }
       if (!found) throw new Error('No real fireball crossing deep water in cave QA');
     }
+    { const S = play(), R = S.run = SIM.newRun(S, 'campaign', 42, { town: 1 }); S.screen = 'play';
+      SIM.enterFloor(S, R, 9);
+      const m = R.map, h = R.hero, crossing = m.crossings.find((c) => c.kind === 'bridge');
+      if (crossing) {
+        const middle = crossing.cells[Math.floor(crossing.cells.length / 2)];
+        h.x = (middle % m.W + 0.5) * TILE; h.y = (Math.floor(middle / m.W) + 0.5) * TILE;
+        R.en = []; R.msg = null; R.seen.fill(1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
+        states.push(['cave_ford_bent_landing', S]);
+      } }
+    const isWaterBridge = (m, c) => c.kind === 'bridge' && DUNGEON.bridgeLands(m, c, SIM.Q.waterSet(m), new Set(m.crossings.filter((q) => q.kind === 'bridge' || q.kind === 'ford').flatMap((q) => q.cells)));
     // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
-      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => q.kind === 'bridge'); if (!c) continue;
+      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => isWaterBridge(m, q)); if (!c) continue;
         const k = c.cells[0], h = R.hero, shore = [1, -1, m.W, -m.W].map((d) => k + d).find((n) => m.cells[n] === 1 && !c.cells.includes(n)) ?? k;
         h.x = (shore % m.W + 0.5) * TILE; h.y = (Math.floor(shore / m.W) + 0.6) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['cave_crossing', structuredClone(S)]); break; }
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, q = m.waterFeatures.find((o) => o.kind === 'waterfall' && o.room >= 0); if (!q) continue;
@@ -1192,8 +1202,8 @@
       // the bridge with the most swaying plants round it: their stir is measured on this frame (cave_bridge_life); a lily drifts a
       // step in seconds, so a bridge among lilies alone measured as frozen
       const plants = (m, c) => { const [x, y] = mid(c); return (m.flora || []).filter((q) => q.n !== 'lily_cv' && Math.abs(q.x - x) < 240 && Math.abs(q.y - y) < 160).length; };
-      look('cave_bridge', (m) => { const bs = m.crossings.filter((q) => q.kind === 'bridge' && q.axis === 'x'), c = bs.filter((q) => q.span[1] - q.span[0] >= 4 && plants(m, q) >= 6).sort((a, b) => plants(m, b) - plants(m, a))[0]; if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; }, [1, 3, 5, 8, 13, 21]);
-      look('cave_bridge_v', (m) => { const c = m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'y'); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x + 10, y] }; });
+      look('cave_bridge', (m) => { const bs = m.crossings.filter((q) => q.axis === 'x' && isWaterBridge(m, q)), c = bs.filter((q) => q.span[1] - q.span[0] >= 4 && plants(m, q) >= 6).sort((a, b) => plants(m, b) - plants(m, a))[0]; if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; }, [1, 3, 5, 8, 13, 21]);
+      look('cave_bridge_v', (m) => { const c = m.crossings.find((q) => q.axis === 'y' && isWaterBridge(m, q)); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x + 10, y] }; });
       look('cave_ford', (m) => { const c = m.crossings.find((q) => q.look === 'walk'), d = m.crossings.find((q) => q.look === 'stones'); if (!c) return null; if (!d) { const [x, y] = mid(c); return { x, y, hero: [x, y] }; } const [x, y] = mid(c), [x2, y2] = mid(d);
         return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
       look('cave_camp', (m) => { const r = m.rooms.find((q) => q.camp); return r ? { x: m.sanct.x, y: m.sanct.y - 40, hero: [m.spawn.x, m.spawn.y] } : null; });

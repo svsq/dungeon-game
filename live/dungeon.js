@@ -116,6 +116,19 @@
       out.push({ kind, cells: cs, axis: hor ? 'x' : 'y', clean: clean ? 1 : 0 }); }
     return false;
   }
+  function bridgeLands(m, bridge, wet, deck) {
+    if (!bridge.span) return false;
+    const [u0, u1, v0] = bridge.span, hor = bridge.axis === 'x';
+    const lands = (end, dir, v) => {
+      for (let n = 1; n <= 4; n++) {
+        const u = end + n * dir, k = hor ? v * m.W + u : u * m.W + v;
+        if ((m.cells[k] !== 1 && m.cells[k] !== 5) || deck.has(k)) return false;
+        if (!wet.has(k)) return true;
+      }
+      return false;
+    };
+    return [v0, v0 + 1].every((v) => lands(u0, -1, v) && lands(u1, 1, v));
+  }
   const NO_SHOP = Object.freeze({ x: -99, y: -99, w: 0, h: 0, cx: -99, cy: -99 });
   // a lake floor's two ways (TASKS 472): the walk to the stairs over the islands and the walk round the shore, and whether the
   // islands save the share AR.lake.save of the walk round
@@ -510,7 +523,7 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
