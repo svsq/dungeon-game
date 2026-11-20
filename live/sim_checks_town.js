@@ -78,6 +78,18 @@
       const P = JSON.parse(JSON.stringify(persist(G))); delete P.run.map.town.yardSolid; delete P.run.cart; const O = spawn(1, P), Q = O.saved; O.run = Q; O.saved = null; O.screen = 'play'; let threw = null;
       try { for (let i = 0; i < 30; i++) step(O, { keys: [] }); } catch (e) { threw = e; }
       if (threw) out.push(`town: an old save breaks on load (${threw.message})`); else if (!O.run.map.town.yardSolid || !O.run.folk.some((f) => f.role === 'mason')) out.push('town: an old save keeps the old town'); }
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run;
+      const L = railLen(Q.map);
+      for (const [s, st, next] of [[L, 'down', 'at'], [L + TILE, 'down', 'at'], [0, 'up', 'in']]) {
+        Q.cart = { s, st, load: 3, t: 0 }; G.ev = [];
+        step(G, { keys: [] });
+        if (Q.cart.st !== next || G.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_town.cart'))) out.push(`town cart: ${st} at ${s.toFixed(1)} warns a hero at the spawn or fails to stop`);
+      }
+      const k = Q.map.town.rails[1], h = Q.hero;
+      h.x = (k % Q.map.W + 0.5) * TILE; h.y = (Math.floor(k / Q.map.W) + 0.5) * TILE;
+      Q.cart = { s: TILE / 2, st: 'down', load: 3, t: 0 }; G.ev = [];
+      step(G, { keys: [] });
+      if (Q.cart.s !== TILE / 2 || !G.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_town.cart'))) out.push('town cart: fails to warn a hero on the rails or keeps rolling'); }
     // TASKS 1425, 1426: a hero on the rails is pushed once the wait is over and the cart keeps rolling; stacks dropped on a stack join it
     { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, h = Q.hero; step(G, { keys: [] }); Object.assign(Q.cart, { s: 200, st: 'down', load: 3 }); let s0 = Q.cart.s;
       for (let i = 0; i < 2400; i++) { const [x, y] = [h.x, h.y]; step(G, { keys: [] }); if (i < 500) { const T = Q.map.town, c = (k) => [(k % Q.map.W + 0.5) * TILE, (Math.floor(k / Q.map.W) + 0.5) * TILE]; let d = Q.cart.s, p = c(T.rails[0]); for (let j = 1; j < T.rails.length; j++) { const A = c(T.rails[j - 1]), B = c(T.rails[j]), l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d <= l) { p = [A[0] + (B[0] - A[0]) * d / l, A[1] + (B[1] - A[1]) * d / l]; break; } d -= l; p = B; } h.x = p[0] + 10; h.y = p[1]; } else { h.x = x; h.y = y; } if (Q.map.cells[Math.floor(h.y / TILE) * Q.map.W + Math.floor(h.x / TILE)] === 0) { out.push('town cart: pushed the hero into a wall'); break; } }
