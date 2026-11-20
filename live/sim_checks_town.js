@@ -85,6 +85,9 @@
         step(G, { keys: [] });
         if (Q.cart.st !== next || G.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_town.cart'))) out.push(`town cart: ${st} at ${s.toFixed(1)} warns a hero at the spawn or fails to stop`);
       }
+      Q.cart = { s: L + TILE, st: 'up', load: 0, t: 0 }; G.ev = [];
+      step(G, { keys: [] });
+      if (Q.cart.st !== 'up' || Q.cart.s >= L || G.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_town.cart'))) out.push('town cart: cannot return from the old end of shortened rails');
       const k = Q.map.town.rails[1], h = Q.hero;
       h.x = (k % Q.map.W + 0.5) * TILE; h.y = (Math.floor(k / Q.map.W) + 0.5) * TILE;
       Q.cart = { s: TILE / 2, st: 'down', load: 3, t: 0 }; G.ev = [];
