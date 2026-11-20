@@ -360,8 +360,12 @@
           else { SIMX.breakPots(S, R, bx, by, rad); SIMX.hitProps(S, R, bx, by, rad); }
           ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: touched ? 1 : 0, mine: 1 }); }
         else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT, F = touched && !wall && p.frag, dmg = F ? Math.max(1, Math.round(p.dmg * F.first)) : p.dmg, br = p.br || 66;
+          const before = R.trauma;
           for (const e of R.en) if (e.deadT < 0 && !(p.shard && p.past.includes(e.id)) && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < br + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, dmg, !!p.crit, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
-          SIMX.breakPots(S, R, bx, by, br * 0.75); SIMX.hitProps(S, R, bx, by, br * 0.75); SIMX.tearWebs(S, R, bx, by - 20, br, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by, ...(p.br ? { vr: Math.round(88 * br / 66) } : {}) }); R.trauma = Math.min(1, R.trauma + (p.br ? 0.08 : 0.2));
+          SIMX.breakPots(S, R, bx, by, br * 0.75); SIMX.hitProps(S, R, bx, by, br * 0.75); SIMX.tearWebs(S, R, bx, by - 20, br, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by, ...(p.br ? { vr: Math.round(88 * br / 66) } : {}) });
+          // One blast can hit many targets, but it should not drown out a stronger camera hit.
+          const cap = p.k === 'fire' ? (p.br ? 0.28 : 0.36) : 1;
+          R.trauma = Math.max(before, Math.min(cap, R.trauma + (p.br ? 0.08 : 0.2)));
           if (F) shatter(S, R, p, touched, F);
           if (p.blaze && D.POWERS[p.blaze]) SIMX.POWER_FX.burnGround(S, R, D.POWERS[p.blaze], { x: bx, y: by }); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }

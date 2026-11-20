@@ -28,6 +28,30 @@
     }
     return out;
   }
+  function fireballShakeCheck() {
+    const out = [], S = spawn(0, {});
+    S.run = newRun(S, 'campaign', 1234, { cls: 'mage' });
+    const R = S.run, m = R.map, h = R.hero;
+    h.x = 10.5 * TILE; h.y = 10.5 * TILE; h.aim = 0; h.ab.fireball = 1;
+    R.pots = []; m.decor = []; m.torches = []; m.webs = [];
+    for (let y = 8; y <= 12; y++) for (let x = 9; x <= 20; x++) m.cells[y * m.W + x] = 1;
+    const volley = (n, trauma) => {
+      R.trauma = trauma; S.ev = [];
+      for (let i = 0; i < n; i++) { h.mp = 999; h.cd.fireball = 0; castAbility(S, R, 'fireball', {}); }
+      S.t += 1.2; SIMX.stepProjectiles(S, R);
+      if (S.ev.filter((e) => e.k === 'boom').length !== n) out.push(`fireball shake: expected ${n} blasts`);
+      return R.trauma;
+    };
+    R.en = [];
+    if (volley(1, 0) !== 0.2) out.push('fireball shake: an isolated blast loses its original pulse');
+    const [x, y] = SIMX.hand(h), e = { id: R.nextId++, type: 'skeleton', x: x + 16, y: y + 24,
+      hp: 1e6, max: 1e6, deadT: -1, st: 'chase', kbx: 0, kby: 0 };
+    R.en = [e];
+    const peak = volley(8, 0);
+    if (peak > 0.36 || peak <= 0.2 || e.hp >= e.max) out.push(`fireball shake: an eight-shot blast on a target gives ${peak} trauma and ${e.max - e.hp} damage`);
+    if (volley(8, 0.7) !== 0.7) out.push('fireball shake: a volley interferes with stronger preexisting trauma');
+    return out;
+  }
   function playCheck() {
     const out = [];
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
@@ -721,6 +745,7 @@
   }
   SIMX.checks.add('playCheck', playCheck, { slow: true });
   SIMX.checks.add('mageBoltCheck', mageBoltCheck);
+  SIMX.checks.add('fireballShakeCheck', fireballShakeCheck);
   SIMX.checks.add('meleeSpacingCheck', meleeSpacingCheck);
   SIMX.checks.add('reactionCheck', reactionCheck);
   SIMX.checks.add('hazardCheck', hazardCheck, { slow: true });
