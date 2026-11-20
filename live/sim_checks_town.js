@@ -538,6 +538,13 @@
     const fresh = (mode, S = spawn(0, {})) => { const R = newRun(S, 'campaign', 11, { town: 1, deathMode: mode }); S.run = R; S.screen = 'play'; return [S, R]; };
     const die = (S, R) => { R.hero.ifr = 0; SIMX.killHero(S, R); for (let i = 0; i < 400 && S.run === R && R.hero.deadT >= 0; i++) step(S, { keys: [] }); };
     const bossF = Array.from({ length: D.RUNS.campaign.floors }, (_, i) => i + 1).find((f) => D.stageOf('campaign', f).boss);
+    { const [S, R] = fresh('normal'), h = R.hero; enterFloor(S, R, 1); h.xp = XP; SIMX.killHero(S, R);
+      const enter = SIMX.enterFloor, deaths = S.meta.deaths || 0, floor = R.floor;
+      try { SIMX.enterFloor = (state, run) => { run.msg = { s: TXT('sim_floor.enterFail.town'), t: state.t, d: 4 }; return false; }; SIMX.heroFell(S); }
+      finally { SIMX.enterFloor = enter; }
+      if (h.deadT < 0 || h.hp !== 0 || h.xp !== XP || R.floor !== floor || (S.meta.deaths || 0) !== deaths || !R.msg || R.msg.s !== TXT('sim_floor.enterFail.town')) out.push('death mode: failed town entry changes the dead hero or hides the error');
+      const fail = S.fellFailed; S.t = h.deadT + 2; step(S, { keys: [] }); if (S.fellFailed !== fail || h.deadT < 0) out.push('death mode: failed town entry retries automatically');
+      SIMX.heroFell(S); if (!R.town || h.deadT !== -1 || h.xp !== XP - Math.min(XP, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss))) out.push('death mode: retry after failed town entry does not revive once'); }
     { const [S, R] = fresh('hard'); enterFloor(S, R, 1); die(S, R);
       if (S.run || S.screen !== 'dead') out.push(`death mode: a hardcore death leaves the screen ${S.screen} and the run ${!!S.run}`);
       if (!S.result || S.result.deathMode !== 'hard') out.push(`death mode: a hardcore run's result records the mode ${S.result && S.result.deathMode}`);

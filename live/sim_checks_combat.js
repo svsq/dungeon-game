@@ -372,7 +372,7 @@
         if (R.shop.goods.length !== n0 || h.gold !== g.price - 1) out.push('a buy went through without enough gold');
         h.gold = g.price + 5; step(S, at('buy:0'));
         if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('a buy did not take its price or did not land in the bag');
-        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); step(S, at('sell:' + i));
+        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); if (D.BASES[g.it.b].slot) h.eq[D.BASES[g.it.b].slot] = Object.assign({}, g.it); step(S, at('sell:' + i));
         if (h.gold !== 5 + pr || h.bag[i] || !R.shop.back.some((q) => q.it.id === g.it.id && q.price === pr)) out.push('a sale did not pay or did not reach the buy-back row');
         step(S, at('back:0')); if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('buying back a sold item failed');
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
@@ -381,8 +381,8 @@
         // TASKS 1863 г, в, д, 1978: a legendary asks first; «Оставить» and Esc keep it with the shop open, «Продать» sells it; the right
         // button sells as the left does, I leaves the shop open
         const SA = UI.sellAsk(), sa = (id) => { const b = SA.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
-        h.bag[0] = Object.assign(rollItem(R, 1, 0), { id: 71000, rar: 4 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: a legendary is sold on one press');
-        if (!S.sellAsk) out.push('shop: a legendary\'s sale does not ask');
+        h.bag[0] = Object.assign({}, h.eq.weapon, { id: 71000, lvl: h.eq.weapon.lvl + 1, rar: 0 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: an upgrade is sold on one press');
+        if (!S.sellAsk) out.push('shop: an upgrade sale does not ask');
         step(S, sa('sellNo')); if (S.sellAsk || !h.bag[0] || h.gold !== g0) out.push('shop: «Оставить» does not keep the legendary');
         step(S, at('sell:0')); step(S, { keys: ['Escape'] }); if (S.sellAsk || S.screen !== 'shop' || !h.bag[0]) out.push('shop: Esc on the sale\'s question does not just close the question');
         step(S, at('sell:0')); step(S, sa('sellYes')); if (S.sellAsk || (h.bag[0] && h.bag[0].id === 71000)) out.push('shop: «Продать» does not sell the legendary');
@@ -392,7 +392,7 @@
           if (!parts.every(inA)) out.push('shop: the sale\'s question leaves its sheet');
           if (parts.some((a, i) => parts.some((b, j) => j > i && hit(a, b)))) out.push('shop: the sale\'s question, its cell or its buttons overlap');
           if (U2.r.some((b) => (b.id === 'talk' || b.id === 'close') && hit(b, A))) out.push('shop: the sale\'s question sits over the merchant\'s buttons'); }
-        h.bag[1] = Object.assign(rollItem(R, 1, 0), { id: 71001, rar: 1 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell');
+        h.bag[1] = Object.assign({}, h.eq.weapon, { id: 71001, rar: 4 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell an equivalent legendary');
         step(S, { keys: ['KeyI'] }); if (S.screen !== 'shop') out.push('shop: I closes it, only E and Esc should');
         step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('Esc does not close the shop'); } }
     // a jam in a two-cell corridor (TASKS 151): monsters queued behind the ones at the hero don't stand still for long, they leave;

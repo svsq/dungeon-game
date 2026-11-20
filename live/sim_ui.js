@@ -33,10 +33,12 @@
   // share of his level's experience goes, never the level, and the death is counted as one
   function heroFell(S) { const R = S.run, h = R.hero; if (hardcore(R)) { endRun(S, 'dead'); return; }
     SIMX.callOff(S, R);
+    if (!SIMX.enterFloor(S, R, 0, undefined, 'portal')) { S.fellFailed = R; return; }
+    S.fellFailed = null;
     const lost = Math.min(h.xp, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss)), st = heroSt(S);
     h.xp -= lost; h.deadT = -1; h.deadRun = null; h.hp = st.maxHp; h.mp = D.clsOf(h).res === 'rage' ? 0 : st.maxMp; h.poison = 0; h.burn = 0; h.sunk = null; h.stag = null;
     if (!R.test) S.meta.deaths = (S.meta.deaths || 0) + 1; tally(S, R, 'deaths'); if (R.log) R.log.falls = (R.log.falls || 0) + 1; R.fellN = (R.fellN || 0) + 1;
-    if (enterFloor(S, R, 0, undefined, 'portal')) R.msg = { s: (lost ? TXT('sim_ui.fell.msg', { xp: lost }) : TXT('sim_ui.fell.msg.none')) + '\n' + fellWay(S, R), t: S.t, d: 5 }; }
+    R.msg = { s: (lost ? TXT('sim_ui.fell.msg', { xp: lost }) : TXT('sim_ui.fell.msg.none')) + '\n' + fellWay(S, R), t: S.t, d: 5 }; }
   // the toast's second line names the deepest way the ring opens, or the mine from the first floor (town_game_r9 2: it named only
   // the experience, while the real price may be four floors walked again)
   function fellWay(S, R) { const w = SIMX.gateWays(R, S).reduce((a, q) => (!a || q.f > a.f ? q : a), null);
@@ -524,9 +526,12 @@
     if (b.id.startsWith('sell:')) sellAsk(S, R, b.i, x, y);
     return;
   };
-  // a legendary or better asks first (TASKS 1863 г, 1978): the merchant buys it back only while it is among his last few
+  const sellUpgrade = (h, it) => { const B = D.BASES[it.b]; if (!B || !B.slot) return false;
+    const cur = h.eq[B.slot]; if (!cur) return true;
+    const a = SIMX.itemMods(it), b = SIMX.itemMods(cur);
+    return it.lvl > cur.lvl || (it.atk || 0) > (cur.atk || 0) || (it.def || 0) > (cur.def || 0) || Object.keys(a).some((k) => a[k] > (b[k] || 0)); };
   const sellAsk = (S, R, i, x, y) => { const it = R.hero.bag[i]; if (!it) return;
-    if ((it.rar || 0) < 4) sell(S, R, i); else { S.sellAsk = { i, id: it.id }; S.focus = 'sellNo'; S.hover = ''; ev(S, { k: 'ui', x, y }); } };
+    if (!sellUpgrade(R.hero, it)) sell(S, R, i); else { S.sellAsk = { i, id: it.id }; S.focus = 'sellNo'; S.hover = ''; ev(S, { k: 'ui', x, y }); } };
   // one way out of every window (TASKS 1863 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
   // the rows stand as the board opened until it closes (TASKS 1885): a taken one stays in place with its button out, so the rows
