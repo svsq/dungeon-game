@@ -198,6 +198,12 @@
       ['prompt_exit', play((S) => { const R = S.run, h = R.hero; R.map.exit = { x: h.x, y: h.y + 40 }; })],
       ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
+      ['hud_four_digits', play((S) => {
+        const h = S.run.hero;
+        h.cls = 'mage'; h.lvl = 34; h.base.vit = 256; h.base.int = 340;
+        const st = SIM.stats(h, S.meta);
+        h.hp = st.maxHp; h.mp = st.maxMp;
+      })],
       ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 0, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 12, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, passed: 0, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],

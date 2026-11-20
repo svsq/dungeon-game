@@ -402,7 +402,7 @@
   // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
   function bpGeo(S, R) {
     const h = R.hero, np = potsOf(R).length, ns = D.clsOf(h).abs.length;
-    const NW = 136, FW = 62, FH = 92, CS = 84, PS = 64, SEP = 32, PAD = 28, BH = D.UI.bp.h;
+    const NW = 152, FW = 62, FH = 92, CS = 84, PS = 64, SEP = 32, PAD = 28, BH = D.UI.bp.h;
     // the gold on its own row as on the ref, the soul shards and a floor's key under it
     const money = purseRows(S, R, [['gold'], ['shards'].concat(R.keys > 0 ? ['key'] : [])]);
     const mw = D.UI.kit.purseBox(money, purseW).w, vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 12, potW = np * PS + (np - 1) * 12;
