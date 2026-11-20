@@ -373,6 +373,23 @@
     for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= D.RUNS[mode].floors; f++) { const m2 = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, Object.assign({ mode, runSeed: sd }, o));
       if ((m2.events || []).some((x) => x.id === 'library') && (!o.town || !P.biomes.includes(m2.biome))) out.push(`${tag}: drawn in the ${mode}${o.town ? ' (town)' : ''} run on a ${m2.biome} floor ${f}`); }
   }
+  function libraryPassageCheck() {
+    const out = [], half = D.PROP_W.bookshelf / 2;
+    for (const [seed, floor, options] of [[10 * 31 + 2 * 1013, 2, { runSeed: 10 }], [6, 1, { runSeed: 6, events: ['library'] }], [7, 2, { runSeed: 7, events: ['library'] }]]) {
+      const m = DG.genFloor(seed, floor, { mode: 'campaign', town: 1, ...options });
+      const shelves = m.decor.filter((d) => d.n === 'bookshelf' && d.lib);
+      if (seed !== 6 && !m.events?.some((e) => e.id === 'library')) out.push(`library seed ${seed} f${floor}: no viable room kept`);
+      for (const d of shelves) {
+        const r = m.rooms[d.r], y = Math.floor(d.y / TILE);
+        const left = Math.floor((d.x - half) / TILE), right = Math.floor((d.x + half) / TILE);
+        for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
+          if (!DG.inRm(r, cx, cy) && [1, 5, 6].includes(m.cells[cy * m.W + cx]))
+            out.push(`library seed ${seed} f${floor}: a shelf overlaps the corridor at ${cx},${cy}`);
+        }
+      }
+    }
+    return out;
+  }
   SIMX.checks.add('eventGenCheck', checkEventGen);
   SIMX.checks.add('eventPlayCheck', checkEventPlay);
   SIMX.checks.add('trialPlayCheck', checkTrialPlay);
@@ -384,4 +401,5 @@
   SIMX.checks.add('darkPlayCheck', checkDarkPlay);
   SIMX.checks.add('captivePlayCheck', checkCaptivePlay);
   SIMX.checks.add('libraryPlayCheck', checkLibraryPlay);
+  SIMX.checks.add('libraryPassageCheck', libraryPassageCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

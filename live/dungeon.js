@@ -249,8 +249,18 @@
       const sx = Math.floor(at[0] / TILE), sy = Math.floor(at[1] / TILE), y0 = r.y * TILE + 22, half = D.PROP_W.bookshelf / 2, busy = new Set(m.block || []);
       for (const o of [...m.chests, ...m.pots, ...m.shrines, ...(m.webs || []), ...(m.ambush || []), ...m.traps]) busy.add(Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE));
       const own = m.decor.filter((d) => d.n === 'bookshelf' && d.secret === undefined && inRm(r, Math.floor(d.x / TILE), Math.floor(d.y / TILE))), put = [];
+      const overPassage = (X, y) => {
+        const left = Math.floor((X - half) / TILE), right = Math.floor((X + half) / TILE);
+        for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
+          if (inRm(r, cx, cy)) continue;
+          const c = m.cells[cy * W + cx];
+          if (c === 1 || c === 5 || c === 6) return true;
+        }
+        return false;
+      };
       // (a secret's wall or the floor before it is never hidden behind a shelf)
       const clear = (X, self, Y = y0, wall = 1) => { const x = Math.floor(X / TILE), y = Math.floor(Y / TILE); if (x - 1 < r.x || x + 1 > r.x + r.w - 1 || (wall && Math.abs(x - sx) <= 3 && sy - r.y < 3)) return false;
+        if (overPassage(X, y)) return false;
         for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) if (hide.has((y + j) * W + x + i)) return false;
         if (wall) for (let i = -1; i <= 1; i++) if (m.cells[(r.y - 1) * W + x + i] !== 0) return false;
         if (m.torches.some((t) => Math.abs(t.x - X) < half + 8 && Math.abs(t.y - Y) < 70)) return false;

@@ -1991,6 +1991,13 @@
         if (st === 'done') { S.screen = 'play'; for (let i = 0; i < 40; i++) SIM.step(S, { keys: [] }); }
         R.cam = [E.x - SCX.VW / 2, E.y - 60 - SCX.VH / 2]; });
       if (S.run && (S.run.events || []).some((q) => q.id === 'library')) states.push([nm, S]); }
+    states.push(['library_passage_clear', mk((S) => {
+      S.run = SIM.newRun(S, 'campaign', 10, { town: 1, allFree: 1 }); S.screen = 'play';
+      const R = S.run, h = R.hero;
+      SIM.enterFloor(S, R, 2); R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1);
+      h.x = 48.5 * TILE; h.y = 30.5 * TILE;
+      R.cam = [h.x - SCX.VW / 2, 28.5 * TILE - SCX.VH / 2];
+    })]);
     for (const [nm, st] of [['unlit_door', 'door'], ['unlit_room', 'in'], ['unlit_map', 'map']]) { const S = darkS(st); if (S.run && (S.run.events || []).some((q) => q.id === 'dark')) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
