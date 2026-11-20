@@ -1156,10 +1156,11 @@
       } }
     const isWaterBridge = (m, c) => c.kind === 'bridge' && DUNGEON.bridgeLands(m, c, SIM.Q.waterSet(m), new Set(m.crossings.filter((q) => q.kind === 'bridge' || q.kind === 'ford').flatMap((q) => q.cells)));
     // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
-    { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
+    { const S = play(); S.run = SIM.newRun(S, 'cave', 5); S.screen = 'play';
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => isWaterBridge(m, q)); if (!c) continue;
         const k = c.cells[0], h = R.hero, shore = [1, -1, m.W, -m.W].map((d) => k + d).find((n) => m.cells[n] === 1 && !c.cells.includes(n)) ?? k;
         h.x = (shore % m.W + 0.5) * TILE; h.y = (Math.floor(shore / m.W) + 0.6) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['cave_crossing', structuredClone(S)]); break; }
+      S.run = SIM.newRun(S, 'cave', 3);
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, q = m.waterFeatures.find((o) => o.kind === 'waterfall' && o.room >= 0); if (!q) continue;
         const h = R.hero; h.x = q.x + 2 * TILE; h.y = q.y + 4 * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2]; states.push(['cave_waterfall', structuredClone(S)]); break; }
       // a breach gushing out of a side wall and a spring boiling up under the rock (TASKS 304)
