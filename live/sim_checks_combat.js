@@ -6,6 +6,28 @@
     newRun, persist, reveal, REWARD, rollItem, solidAt, solidC, solids, spawn, stats, steer, step, stepArena, throwAway, TILE, toPx, UI,
     useItem, WADE, who } = SIMX;
   const { fight, plainRun } = SIMX.checks.kit;
+  function mageBoltCheck() {
+    const out = [];
+    for (const weapon of ['staff', 'wand']) {
+      const S = spawn(0, {});
+      S.run = newRun(S, 'campaign', 1234, { cls: 'mage' }); S.screen = 'play';
+      const R = S.run, m = R.map, h = R.hero;
+      h.x = 10.5 * TILE; h.y = 10.5 * TILE; h.aim = 0; h.eq.weapon = { ...h.eq.weapon, b: weapon };
+      const shotY = SIMX.hand(h)[1], web = { x: h.x + 104, y: shotY + 20, s: 1 },
+        barrel = { x: h.x + 175, y: shotY + 20, kind: 'barrel', hp: 1 },
+        crate = { x: barrel.x, y: barrel.y + 38, kind: 'crate', hp: 1 };
+      R.en = []; R.pots = [barrel, crate]; R.chests = []; R.shrines = [];
+      m.decor = []; m.torches = []; m.block = []; m.traps = []; m.webs = [web];
+      for (let y = 8; y <= 12; y++) for (let x = 9; x <= 20; x++) m.cells[y * m.W + x] = 1;
+      const aim = () => ({ keys: [], ...toPx(R, h.x + 240, shotY) });
+      step(S, aim());
+      for (let i = 0; i < 55; i++) step(S, { ...aim(), press: i === 0 ? 1 : 0 });
+      if (!web.torn || barrel.hp > 0 || crate.hp <= 0 || R.proj.length ||
+        !S.ev.some((e) => e.k === 'pop' && e.c === 'bolt' && Math.abs(e.x - barrel.x) < 20))
+        out.push(`mage ${weapon}: a basic bolt must tear the web, break the distant barrel and stop, leaving the off-path crate intact`);
+    }
+    return out;
+  }
   function playCheck() {
     const out = [];
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
@@ -698,6 +720,7 @@
     return out;
   }
   SIMX.checks.add('playCheck', playCheck, { slow: true });
+  SIMX.checks.add('mageBoltCheck', mageBoltCheck);
   SIMX.checks.add('meleeSpacingCheck', meleeSpacingCheck);
   SIMX.checks.add('reactionCheck', reactionCheck);
   SIMX.checks.add('hazardCheck', hazardCheck, { slow: true });

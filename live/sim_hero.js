@@ -308,6 +308,7 @@
       // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
       if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, [dmg, c] = heroRoll(R, h, st);
         const p = SIMX.heroShot(R, h, a, dmg, c, BASES[st.wtype].shot || 'bolt', BASES[st.wtype]);
+        if (p.k === 'bolt') p.hitsProps = 1;
         if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
         ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
         // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is

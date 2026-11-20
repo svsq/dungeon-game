@@ -236,9 +236,12 @@
       if (d > rad + 20 * w.s) return; if (arc !== undefined && d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) return;
       tearWeb(S, w, i, fire); }); }
   const tearWeb = (S, w, i, fire) => { w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); };
-  // an arrow tears every web its flight crosses, over the web's own ellipse (the shot's step is shorter than the web, so the point
-  // under it each step is enough), and flies on (TASKS 1706)
-  function arrowWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
+  function shotWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
+  function boltPropAt(R, x, y, r) {
+    const m = R.map, reaches = (p, pad) => Math.hypot(p.x - x, p.y - y) <= r + pad && losClear(m, x, y, p.x, p.y);
+    return R.pots.some((p) => p.hp > 0 && reaches(p, 10)) || m.decor.some((d) => !d.broken &&
+      (d.n === 'wreck_cv' || (d.n === 'bookshelf' && d.secret !== undefined && !m.secrets[d.secret].open)) && !hidden(m, d) && reaches(d, 18));
+  }
   function springAmbush(S, R, P) {
     const m = R.map, h = R.hero;
     if (!m.rooms[P.room] || P.fired) return false;
@@ -384,6 +387,6 @@
 
   Object.assign(SIMX, { looseVolley, setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, shotWebs, boltPropAt, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
     leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);
