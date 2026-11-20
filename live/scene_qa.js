@@ -198,6 +198,12 @@
       ['prompt_exit', play((S) => { const R = S.run, h = R.hero; R.map.exit = { x: h.x, y: h.y + 40 }; })],
       ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
+      ['hud_four_digits', play((S) => {
+        const h = S.run.hero;
+        h.cls = 'mage'; h.lvl = 34; h.base.vit = 256; h.base.int = 340;
+        const st = SIM.stats(h, S.meta);
+        h.hp = st.maxHp; h.mp = st.maxMp;
+      })],
       ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 0, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 12, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, passed: 0, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
@@ -207,6 +213,14 @@
       if (name !== 'dead_short') S.meta.shards = 99999;
       S.result.damage = name === 'dead_short' ? [] : [{ t: 1, src: 'lava', n: 28 }, { t: 2, src: 'boss bolt', n: 75 },
         { t: 3, src: 'brute elite blast', n: 180, actor: { type: 'brute', elite: 1, mods: ['explosive', 'vampire'] } }];
+    }
+    {
+      const S = structuredClone(states.find(([n]) => n === 'win')[1]);
+      const R = SIM.newRun(S, 'campaign', 1126021, { cls: 'mage' });
+      Object.assign(S.result, { mode: 'endless', floor: 0, deepest: 32, campaignWon: 1, town: 1, lvl: 34, time: 6433, kills: 1220, gold: 221093,
+        win: 0, found: 946, base: 293, shards: 1239, donations: 10, record: { best: 32, fresh: true }, hero: R.hero, heroStats: SIM.stats(R.hero, S.meta),
+        C: { floors: 32, passed: 32, foes: 1134, kills: 1048, lootN: 405, loot: 344, secN: 64, sec: 45, pct: 0.8256 } });
+      states.push(['win_endless_town', S]);
     }
     // a run through the town ends on «Вернуться в город» (TASKS 1006)
     { const [, S0] = states.find(([n]) => n === 'dead'), S = Object.assign({}, S0, { result: Object.assign({}, S0.result, { town: 1, allFree: 1 }) }); states.push(['dead_town', S]); }
@@ -1131,11 +1145,22 @@
       }
       if (!found) throw new Error('No real fireball crossing deep water in cave QA');
     }
+    { const S = play(), R = S.run = SIM.newRun(S, 'campaign', 42, { town: 1 }); S.screen = 'play';
+      SIM.enterFloor(S, R, 9);
+      const m = R.map, h = R.hero, crossing = m.crossings.find((c) => c.kind === 'bridge');
+      if (crossing) {
+        const middle = crossing.cells[Math.floor(crossing.cells.length / 2)];
+        h.x = (middle % m.W + 0.5) * TILE; h.y = (Math.floor(middle / m.W) + 0.5) * TILE;
+        R.en = []; R.msg = null; R.seen.fill(1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
+        states.push(['cave_ford_bent_landing', S]);
+      } }
+    const isWaterBridge = (m, c) => c.kind === 'bridge' && DUNGEON.bridgeLands(m, c, SIM.Q.waterSet(m), new Set(m.crossings.filter((q) => q.kind === 'bridge' || q.kind === 'ford').flatMap((q) => q.cells)));
     // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
-    { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
-      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => q.kind === 'bridge'); if (!c) continue;
+    { const S = play(); S.run = SIM.newRun(S, 'cave', 5); S.screen = 'play';
+      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => isWaterBridge(m, q)); if (!c) continue;
         const k = c.cells[0], h = R.hero, shore = [1, -1, m.W, -m.W].map((d) => k + d).find((n) => m.cells[n] === 1 && !c.cells.includes(n)) ?? k;
         h.x = (shore % m.W + 0.5) * TILE; h.y = (Math.floor(shore / m.W) + 0.6) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['cave_crossing', structuredClone(S)]); break; }
+      S.run = SIM.newRun(S, 'cave', 3);
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, q = m.waterFeatures.find((o) => o.kind === 'waterfall' && o.room >= 0); if (!q) continue;
         const h = R.hero; h.x = q.x + 2 * TILE; h.y = q.y + 4 * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2]; states.push(['cave_waterfall', structuredClone(S)]); break; }
       // a breach gushing out of a side wall and a spring boiling up under the rock (TASKS 304)
@@ -1178,8 +1203,8 @@
       // the bridge with the most swaying plants round it: their stir is measured on this frame (cave_bridge_life); a lily drifts a
       // step in seconds, so a bridge among lilies alone measured as frozen
       const plants = (m, c) => { const [x, y] = mid(c); return (m.flora || []).filter((q) => q.n !== 'lily_cv' && Math.abs(q.x - x) < 240 && Math.abs(q.y - y) < 160).length; };
-      look('cave_bridge', (m) => { const bs = m.crossings.filter((q) => q.kind === 'bridge' && q.axis === 'x'), c = bs.filter((q) => q.span[1] - q.span[0] >= 4 && plants(m, q) >= 6).sort((a, b) => plants(m, b) - plants(m, a))[0]; if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; }, [1, 3, 5, 8, 13, 21]);
-      look('cave_bridge_v', (m) => { const c = m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'y'); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x + 10, y] }; });
+      look('cave_bridge', (m) => { const bs = m.crossings.filter((q) => q.axis === 'x' && isWaterBridge(m, q)), c = bs.filter((q) => q.span[1] - q.span[0] >= 4 && plants(m, q) >= 6).sort((a, b) => plants(m, b) - plants(m, a))[0]; if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; }, [1, 3, 5, 8, 13, 21]);
+      look('cave_bridge_v', (m) => { const c = m.crossings.find((q) => q.axis === 'y' && isWaterBridge(m, q)); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x + 10, y] }; });
       look('cave_ford', (m) => { const c = m.crossings.find((q) => q.look === 'walk'), d = m.crossings.find((q) => q.look === 'stones'); if (!c) return null; if (!d) { const [x, y] = mid(c); return { x, y, hero: [x, y] }; } const [x, y] = mid(c), [x2, y2] = mid(d);
         return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
       look('cave_camp', (m) => { const r = m.rooms.find((q) => q.camp); return r ? { x: m.sanct.x, y: m.sanct.y - 40, hero: [m.spawn.x, m.spawn.y] } : null; });
@@ -1966,6 +1991,13 @@
         if (st === 'done') { S.screen = 'play'; for (let i = 0; i < 40; i++) SIM.step(S, { keys: [] }); }
         R.cam = [E.x - SCX.VW / 2, E.y - 60 - SCX.VH / 2]; });
       if (S.run && (S.run.events || []).some((q) => q.id === 'library')) states.push([nm, S]); }
+    states.push(['library_passage_clear', mk((S) => {
+      S.run = SIM.newRun(S, 'campaign', 10, { town: 1, allFree: 1 }); S.screen = 'play';
+      const R = S.run, h = R.hero;
+      SIM.enterFloor(S, R, 2); R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1);
+      h.x = 48.5 * TILE; h.y = 30.5 * TILE;
+      R.cam = [h.x - SCX.VW / 2, 28.5 * TILE - SCX.VH / 2];
+    })]);
     for (const [nm, st] of [['unlit_door', 'door'], ['unlit_room', 'in'], ['unlit_map', 'map']]) { const S = darkS(st); if (S.run && (S.run.events || []).some((q) => q.id === 'dark')) states.push([nm, S]); }
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);

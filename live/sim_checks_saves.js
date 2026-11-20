@@ -178,7 +178,32 @@
       try { spawn(1, P); } catch (e) { out.push('old save: a saved run holding a sconce that no torch carries stops the game from starting'); } finally { console.error = err; } }
     return out;
   }
+  function librarySaveCheck() {
+    const out = [], S = spawn(0, {}), f = 2;
+    S.run = newRun(S, 'campaign', 10, { town: 1, allFree: 1 }); S.screen = 'play';
+    const R = S.run;
+    enterFloor(S, R, f, { legacyLibraryPlacement: true });
+    R.memo[f].gen = null;
+    const { mp } = R.memo[f], shelf = R.map.decor.find((d) => d.lib), chest = R.chests[0], loot = R.nextId++;
+    if (!shelf || !chest) return ['old library save: no original shelf or chest on the floor'];
+    chest.open = 1; R.seen[7] = 1;
+    R.drops.push({ id: loot, kind: 'gold', x: chest.x, y: chest.y, n: 77 });
+    const snapshot = () => JSON.parse(JSON.stringify(persist(S))), active = snapshot();
+    enterFloor(S, R, 0);
+    for (const [save, wasActive] of [[active, true], [snapshot(), false]]) {
+      const T = spawn(1, save); loadSlot(T, T.slot);
+      const Q = T.run;
+      if (wasActive) enterFloor(T, Q, 0);
+      enterFloor(T, Q, f);
+      if (Q.memo[f].mp !== mp || !Q.map.decor.some((d) => d.lib && d.x === shelf.x && d.y === shelf.y) ||
+          !Q.chests.some((c) => c.open && c.x === chest.x && c.y === chest.y) || Q.seen[7] !== 1 ||
+          !Q.drops.some((d) => d.id === loot && d.n === 77))
+        out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} loses its layout, open chest, explored cells or loose loot`);
+    }
+    return out;
+  }
   SIMX.checks.add('oldSaveCheck', oldSaveCheck);
+  SIMX.checks.add('librarySaveCheck', librarySaveCheck);
   SIMX.checks.add('floorFailCheck', floorFailCheck);
   SIMX.checks.add('awayCheck', awayCheck);
   SIMX.checks.add('climbCheck', climbCheck, { slow: true });

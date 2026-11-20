@@ -94,8 +94,8 @@
     for (const [k, q] of Object.entries(d.p)) a[k] = fpatch(a[k], q); for (const k of d.d || []) delete a[k]; if (d.n !== undefined) a.length = d.n; return a; }
   const rle = (a) => { const o = []; for (let i = 0; i < a.length;) { let j = i; while (j < a.length && a[j] === a[i]) j++; o.push(a[i], j - i); i = j; } return o; };
   const unrle = (o) => { const a = []; for (let i = 0; i < o.length; i += 2) for (let k = 0; k < o[i + 1]; k++) a.push(o[i]); return a; };
-  function freshFloor(R, f, M) { const keep = Object.assign({}, R), mode = R.mode; R.rs = M.rs; R.nextId = M.id; R.mode = M.mode; R.floor = f;
-    try { buildFloor(R, f, M.gen || undefined); return Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])); }
+  function freshFloor(R, f, M, gen = M.gen || undefined) { const keep = Object.assign({}, R), mode = R.mode; R.rs = M.rs; R.nextId = M.id; R.mode = M.mode; R.floor = f;
+    try { buildFloor(R, f, gen); return Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])); }
     finally { for (const k of Object.keys(R)) if (!(k in keep)) delete R[k]; Object.assign(R, keep); R.mode = mode; } }
   // the baseline as JSON, taken when a floor is first built or first restored, so that leaving it again does not generate it a third time
   const BASE = new WeakMap(), snapFloor = (o) => JSON.stringify(Object.fromEntries(FLOOR_KEYS.map((k) => [k, o[k]])));
@@ -103,8 +103,17 @@
   // put its stairs and monsters wrong, so a kept floor whose rebuild has another print is built anew; a floor kept before the print
   // takes the rebuild's
   const mapPrint = (m) => { const s = JSON.stringify(m); let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(36); };
+  function matchingFloor(R, f, M) {
+    const floor = freshFloor(R, f, M), print = mapPrint(floor.map);
+    if (M.gv === D.GEN_VERSION && M.mp && M.mp !== print) {
+      // Floors already visited with the old shelf placement keep their layout so their saved diff still applies.
+      const legacy = freshFloor(R, f, M, { ...M.gen, legacyLibraryPlacement: true });
+      if (mapPrint(legacy.map) === M.mp) return { floor: legacy, print: M.mp };
+    }
+    return { floor, print };
+  }
   function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1 || (R.map && R.map.town)) return;
-    const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
+    const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(matchingFloor(R, f, M).floor), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
     M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
   // a floor kept by another generator (an old save): its diff fits a map no longer built, so the floor is built anew and only what
   // can't come back carries over: as many of its monsters stay dead as died there, the nearest the way in first, and a slain
@@ -136,7 +145,7 @@
     const logged = ((R.log && R.log.fl) || []).filter((v) => v.f === f).reduce((s, v) => s + Object.entries(v.kills || {}).filter(([k]) => !D.BOSSES[k.split(' ')[0]]).reduce((a, [, c]) => a + c, 0), 0);
     return Math.max(deadNow + gone, counted, logged); }
   function restoreFloor(R, f, M) { let old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
-    else { const B = freshFloor(R, f, M), mp = mapPrint(B.map), same = !M.mp || M.mp === mp; if (!M.mp) M.mp = mp;
+    else { const { floor: B, print: mp } = matchingFloor(R, f, M), same = !M.mp || M.mp === mp; if (!M.mp) M.mp = mp;
       // a diff that no longer fits the floor built now (TASKS 1917): the floor is built anew as an old generator's is, so the way on is
       // never shut; the explored map stays only on the same layout
       try { if (!same) throw new Error('the floor is built otherwise than it was kept'); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); relinkSconces(B.map); for (const k of FLOOR_KEYS) R[k] = B[k]; }

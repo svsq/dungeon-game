@@ -1,7 +1,7 @@
 // live/sim_checks_textnums.js — selfCheck's part for the numbers in texts (TASKS 2072). Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, { D } = SIMX, TXT = root.TXT, fs = require('fs'), path = require('path');
-  const GOLDEN = path.join(__dirname, '..', 'tests', 'golden', 'numtext.json');
+  const GOLDEN = path.join(__dirname, '..', 'tools', 'golden', 'numtext.json');
   // the file holds the texts as they were written with their digits by hand; a number now comes from the data, and the text it makes must be the same.
   // Change a line there only when a text is changed on purpose
   function goldenCheck(out) {

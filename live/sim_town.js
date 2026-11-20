@@ -41,7 +41,15 @@
     Object.defineProperty(T, 'railLen', { value: d, enumerable: false }); return d; };
   const railAt = (m, s) => { const T = m.town, c = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; let d = s; for (let i = 1; i < T.rails.length; i++) { const [ax, ay] = c(T.rails[i - 1]), [bx, by] = c(T.rails[i]), l = Math.hypot(bx - ax, by - ay); if (d <= l) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } return c(T.rails[T.rails.length - 1]); };
   const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
-  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, sgn = C.st === 'down' ? 1 : -1, [nx, ny] = railAt(R.map, Math.max(0, Math.min(L, C.s + sgn * 4))), dl = Math.hypot(nx - cx, ny - cy) || 1, dx = (nx - cx) / dl, dy = (ny - cy) / dl, ahead = (h.x - cx) * dx + (h.y - cy) * dy, off = (h.y - cy) * dx - (h.x - cx) * dy, near = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && ahead >= 0 && ahead <= 48 && Math.abs(off) < 18, rolling = t < (C.pushT || 0), block = near && !rolling;
+  function stepCart(S, R, C, t) {
+    const m = R.map, L = railLen(m), h = R.hero, down = C.st === 'down';
+    C.s = Math.max(0, Math.min(L, C.s));
+    const remaining = down ? L - C.s : C.s, [cx, cy] = railAt(m, C.s);
+    const [nx, ny] = railAt(m, C.s + (down ? 1 : -1) * Math.min(4, remaining));
+    const dl = Math.hypot(nx - cx, ny - cy), dx = (nx - cx) / (dl || 1), dy = (ny - cy) / (dl || 1);
+    const ahead = (h.x - cx) * dx + (h.y - cy) * dy, off = (h.y - cy) * dx - (h.x - cx) * dy;
+    const near = dl > 0 && (down || C.st === 'up') && h.deadT < 0 && ahead >= 0 && ahead <= Math.min(48, remaining) && Math.abs(off) < 18;
+    const rolling = t < (C.pushT || 0), block = near && !rolling;
     // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard, and once it has made up its mind it rolls on
     if (near && rolling) { const side = off >= 0 ? 1 : -1; SIMX.move(R.map, h, -dy * side * 120 * DT, dx * side * 120 * DT, K.R); }
     if (block && !C.held) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.cart') });

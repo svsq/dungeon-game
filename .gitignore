@@ -7,3 +7,4 @@ frames/
 study/critique/*
 !study/critique/*.md
 art/logs/
+.idea/

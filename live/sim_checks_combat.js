@@ -6,6 +6,52 @@
     newRun, persist, reveal, REWARD, rollItem, solidAt, solidC, solids, spawn, stats, steer, step, stepArena, throwAway, TILE, toPx, UI,
     useItem, WADE, who } = SIMX;
   const { fight, plainRun } = SIMX.checks.kit;
+  function mageBoltCheck() {
+    const out = [];
+    for (const weapon of ['staff', 'wand']) {
+      const S = spawn(0, {});
+      S.run = newRun(S, 'campaign', 1234, { cls: 'mage' }); S.screen = 'play';
+      const R = S.run, m = R.map, h = R.hero;
+      h.x = 10.5 * TILE; h.y = 10.5 * TILE; h.aim = 0; h.eq.weapon = { ...h.eq.weapon, b: weapon };
+      const shotY = SIMX.hand(h)[1], web = { x: h.x + 104, y: shotY + 20, s: 1 },
+        barrel = { x: h.x + 175, y: shotY + 20, kind: 'barrel', hp: 1 },
+        crate = { x: barrel.x, y: barrel.y + 38, kind: 'crate', hp: 1 };
+      R.en = []; R.pots = [barrel, crate]; R.chests = []; R.shrines = [];
+      m.decor = []; m.torches = []; m.block = []; m.traps = []; m.webs = [web];
+      for (let y = 8; y <= 12; y++) for (let x = 9; x <= 20; x++) m.cells[y * m.W + x] = 1;
+      const aim = () => ({ keys: [], ...toPx(R, h.x + 240, shotY) });
+      step(S, aim());
+      for (let i = 0; i < 55; i++) step(S, { ...aim(), press: i === 0 ? 1 : 0 });
+      if (!web.torn || barrel.hp > 0 || crate.hp <= 0 || R.proj.length ||
+        !S.ev.some((e) => e.k === 'pop' && e.c === 'bolt' && Math.abs(e.x - barrel.x) < 20))
+        out.push(`mage ${weapon}: a basic bolt must tear the web, break the distant barrel and stop, leaving the off-path crate intact`);
+    }
+    return out;
+  }
+  function fireballShakeCheck() {
+    const out = [], S = spawn(0, {});
+    S.run = newRun(S, 'campaign', 1234, { cls: 'mage' });
+    const R = S.run, m = R.map, h = R.hero;
+    h.x = 10.5 * TILE; h.y = 10.5 * TILE; h.aim = 0; h.ab.fireball = 1;
+    R.pots = []; m.decor = []; m.torches = []; m.webs = [];
+    for (let y = 8; y <= 12; y++) for (let x = 9; x <= 20; x++) m.cells[y * m.W + x] = 1;
+    const volley = (n, trauma) => {
+      R.trauma = trauma; S.ev = [];
+      for (let i = 0; i < n; i++) { h.mp = 999; h.cd.fireball = 0; castAbility(S, R, 'fireball', {}); }
+      S.t += 1.2; SIMX.stepProjectiles(S, R);
+      if (S.ev.filter((e) => e.k === 'boom').length !== n) out.push(`fireball shake: expected ${n} blasts`);
+      return R.trauma;
+    };
+    R.en = [];
+    if (volley(1, 0) !== 0.2) out.push('fireball shake: an isolated blast loses its original pulse');
+    const [x, y] = SIMX.hand(h), e = { id: R.nextId++, type: 'skeleton', x: x + 16, y: y + 24,
+      hp: 1e6, max: 1e6, deadT: -1, st: 'chase', kbx: 0, kby: 0 };
+    R.en = [e];
+    const peak = volley(8, 0);
+    if (peak > 0.36 || peak <= 0.2 || e.hp >= e.max) out.push(`fireball shake: an eight-shot blast on a target gives ${peak} trauma and ${e.max - e.hp} damage`);
+    if (volley(8, 0.7) !== 0.7) out.push('fireball shake: a volley interferes with stronger preexisting trauma');
+    return out;
+  }
   function playCheck() {
     const out = [];
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
@@ -326,7 +372,7 @@
         if (R.shop.goods.length !== n0 || h.gold !== g.price - 1) out.push('a buy went through without enough gold');
         h.gold = g.price + 5; step(S, at('buy:0'));
         if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('a buy did not take its price or did not land in the bag');
-        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); step(S, at('sell:' + i));
+        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); if (D.BASES[g.it.b].slot) h.eq[D.BASES[g.it.b].slot] = Object.assign({}, g.it); step(S, at('sell:' + i));
         if (h.gold !== 5 + pr || h.bag[i] || !R.shop.back.some((q) => q.it.id === g.it.id && q.price === pr)) out.push('a sale did not pay or did not reach the buy-back row');
         step(S, at('back:0')); if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('buying back a sold item failed');
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
@@ -335,17 +381,18 @@
         // TASKS 1863 г, в, д, 1978: a legendary asks first; «Оставить» and Esc keep it with the shop open, «Продать» sells it; the right
         // button sells as the left does, I leaves the shop open
         const SA = UI.sellAsk(), sa = (id) => { const b = SA.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
-        h.bag[0] = Object.assign(rollItem(R, 1, 0), { id: 71000, rar: 4 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: a legendary is sold on one press');
-        if (!S.sellAsk) out.push('shop: a legendary\'s sale does not ask');
+        h.bag[0] = Object.assign({}, h.eq.weapon, { id: 71000, lvl: h.eq.weapon.lvl + 1, rar: 0 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: an upgrade is sold on one press');
+        if (!S.sellAsk) out.push('shop: an upgrade sale does not ask');
         step(S, sa('sellNo')); if (S.sellAsk || !h.bag[0] || h.gold !== g0) out.push('shop: «Оставить» does not keep the legendary');
         step(S, at('sell:0')); step(S, { keys: ['Escape'] }); if (S.sellAsk || S.screen !== 'shop' || !h.bag[0]) out.push('shop: Esc on the sale\'s question does not just close the question');
         step(S, at('sell:0')); step(S, sa('sellYes')); if (S.sellAsk || (h.bag[0] && h.bag[0].id === 71000)) out.push('shop: «Продать» does not sell the legendary');
+        if (S.focus !== 'sell:0' || h.bag[0]) out.push('shop: focus does not return to the emptied sale cell');
         { const U2 = UI.shop(R.shop.goods.length, h.bag.length), A = SA.A, inA = (b) => b.x >= A.x && b.y >= A.y && b.x + b.w <= A.x + A.w && b.y + b.h <= A.y + A.h;
           const hit = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y), parts = [SA.cell, SA.q, ...SA.r];
           if (!parts.every(inA)) out.push('shop: the sale\'s question leaves its sheet');
           if (parts.some((a, i) => parts.some((b, j) => j > i && hit(a, b)))) out.push('shop: the sale\'s question, its cell or its buttons overlap');
           if (U2.r.some((b) => (b.id === 'talk' || b.id === 'close') && hit(b, A))) out.push('shop: the sale\'s question sits over the merchant\'s buttons'); }
-        h.bag[1] = Object.assign(rollItem(R, 1, 0), { id: 71001, rar: 1 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell');
+        h.bag[1] = Object.assign({}, h.eq.weapon, { id: 71001, rar: 4 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell an equivalent legendary');
         step(S, { keys: ['KeyI'] }); if (S.screen !== 'shop') out.push('shop: I closes it, only E and Esc should');
         step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('Esc does not close the shop'); } }
     // a jam in a two-cell corridor (TASKS 151): monsters queued behind the ones at the hero don't stand still for long, they leave;
@@ -698,6 +745,8 @@
     return out;
   }
   SIMX.checks.add('playCheck', playCheck, { slow: true });
+  SIMX.checks.add('mageBoltCheck', mageBoltCheck);
+  SIMX.checks.add('fireballShakeCheck', fireballShakeCheck);
   SIMX.checks.add('meleeSpacingCheck', meleeSpacingCheck);
   SIMX.checks.add('reactionCheck', reactionCheck);
   SIMX.checks.add('hazardCheck', hazardCheck, { slow: true });

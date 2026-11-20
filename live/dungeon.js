@@ -116,6 +116,19 @@
       out.push({ kind, cells: cs, axis: hor ? 'x' : 'y', clean: clean ? 1 : 0 }); }
     return false;
   }
+  function bridgeLands(m, bridge, wet, deck) {
+    if (!bridge.span) return false;
+    const [u0, u1, v0] = bridge.span, hor = bridge.axis === 'x';
+    const lands = (end, dir, v) => {
+      for (let n = 1; n <= 4; n++) {
+        const u = end + n * dir, k = hor ? v * m.W + u : u * m.W + v;
+        if ((m.cells[k] !== 1 && m.cells[k] !== 5) || deck.has(k)) return false;
+        if (!wet.has(k)) return true;
+      }
+      return false;
+    };
+    return [v0, v0 + 1].every((v) => lands(u0, -1, v) && lands(u1, 1, v));
+  }
   const NO_SHOP = Object.freeze({ x: -99, y: -99, w: 0, h: 0, cx: -99, cy: -99 });
   // a lake floor's two ways (TASKS 472): the walk to the stairs over the islands and the walk round the shore, and whether the
   // islands save the share AR.lake.save of the walk round
@@ -231,13 +244,23 @@
     // the library (TASKS 368): its lectern on the spot, and up to `shelves` bookshelves against the back wall where the wall above is
     // whole (no way in or secret behind them), nothing hangs or stands there, and they keep clear of the lectern. A room with none of
     // them and none of its own is no library. Each shelf's cell is blocked, as a furnished one's is, so the way fields lead round it
-    library: (m, r) => { const W = m.W, at = eventSpot(m, r), P = D.EVENTS.pool.library; if (!at) return null;
+    library: (m, r, _rng, _seed, opts) => { const W = m.W, at = eventSpot(m, r), P = D.EVENTS.pool.library; if (!at) return null;
       const hide = new Set((m.secrets || []).flatMap((q) => q.wall.concat(q.front || []).map(([x, y]) => y * W + x)));
       const sx = Math.floor(at[0] / TILE), sy = Math.floor(at[1] / TILE), y0 = r.y * TILE + 22, half = D.PROP_W.bookshelf / 2, busy = new Set(m.block || []);
       for (const o of [...m.chests, ...m.pots, ...m.shrines, ...(m.webs || []), ...(m.ambush || []), ...m.traps]) busy.add(Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE));
       const own = m.decor.filter((d) => d.n === 'bookshelf' && d.secret === undefined && inRm(r, Math.floor(d.x / TILE), Math.floor(d.y / TILE))), put = [];
+      const overPassage = (X, y) => {
+        const left = Math.floor((X - half) / TILE), right = Math.floor((X + half) / TILE);
+        for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
+          if (inRm(r, cx, cy)) continue;
+          const c = m.cells[cy * W + cx];
+          if (c === 1 || c === 5 || c === 6) return true;
+        }
+        return false;
+      };
       // (a secret's wall or the floor before it is never hidden behind a shelf)
       const clear = (X, self, Y = y0, wall = 1) => { const x = Math.floor(X / TILE), y = Math.floor(Y / TILE); if (x - 1 < r.x || x + 1 > r.x + r.w - 1 || (wall && Math.abs(x - sx) <= 3 && sy - r.y < 3)) return false;
+        if (!opts.legacyLibraryPlacement && overPassage(X, y)) return false;
         for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) if (hide.has((y + j) * W + x + i)) return false;
         if (wall) for (let i = -1; i <= 1; i++) if (m.cells[(r.y - 1) * W + x + i] !== 0) return false;
         if (m.torches.some((t) => Math.abs(t.x - X) < half + 8 && Math.abs(t.y - Y) < 70)) return false;
@@ -285,7 +308,7 @@
       for (const r of rooms) { if (r.event || !big(r, E)) continue;
         // (an elite is a room's reward, TASKS 433: a dead end off the way would be left with none, and a lair floor short of its own)
         if (E.room === 'treasure' && m.enemies.some((e) => e.room === r.id && (e.key !== undefined || e.guard || e.exit || e.elite))) continue;
-        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er, seed) : eventSpot(m, r); if (!at) continue;
+        const at = EVENT_PLACE[id] ? EVENT_PLACE[id](m, r, Er, seed, opts) : eventSpot(m, r); if (!at) continue;
         r.event = id; if (E.room === 'treasure') { m.enemies = m.enemies.filter((e) => e.room !== r.id); if (m.webs) m.webs = m.webs.filter((w) => roomAt(m, w.x, w.y) !== r.id); }
         out.push(Object.assign({ id, room: r.id, x: at[0], y: at[1] }, at[2])); break; } }
     if (out.length) m.events = out;
@@ -510,7 +533,7 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg };
+  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });

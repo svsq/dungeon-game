@@ -78,6 +78,21 @@
       const P = JSON.parse(JSON.stringify(persist(G))); delete P.run.map.town.yardSolid; delete P.run.cart; const O = spawn(1, P), Q = O.saved; O.run = Q; O.saved = null; O.screen = 'play'; let threw = null;
       try { for (let i = 0; i < 30; i++) step(O, { keys: [] }); } catch (e) { threw = e; }
       if (threw) out.push(`town: an old save breaks on load (${threw.message})`); else if (!O.run.map.town.yardSolid || !O.run.folk.some((f) => f.role === 'mason')) out.push('town: an old save keeps the old town'); }
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run;
+      const L = railLen(Q.map);
+      for (const [s, st, next] of [[L, 'down', 'at'], [L + TILE, 'down', 'at'], [0, 'up', 'in']]) {
+        Q.cart = { s, st, load: 3, t: 0 }; G.ev = [];
+        step(G, { keys: [] });
+        if (Q.cart.st !== next || G.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_town.cart'))) out.push(`town cart: ${st} at ${s.toFixed(1)} warns a hero at the spawn or fails to stop`);
+      }
+      Q.cart = { s: L + TILE, st: 'up', load: 0, t: 0 }; G.ev = [];
+      step(G, { keys: [] });
+      if (Q.cart.st !== 'up' || Q.cart.s >= L || G.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_town.cart'))) out.push('town cart: cannot return from the old end of shortened rails');
+      const k = Q.map.town.rails[1], h = Q.hero;
+      h.x = (k % Q.map.W + 0.5) * TILE; h.y = (Math.floor(k / Q.map.W) + 0.5) * TILE;
+      Q.cart = { s: TILE / 2, st: 'down', load: 3, t: 0 }; G.ev = [];
+      step(G, { keys: [] });
+      if (Q.cart.s !== TILE / 2 || !G.ev.some((e) => e.k === 'nope' && e.s === TXT('sim_town.cart'))) out.push('town cart: fails to warn a hero on the rails or keeps rolling'); }
     // TASKS 1425, 1426: a hero on the rails is pushed once the wait is over and the cart keeps rolling; stacks dropped on a stack join it
     { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, h = Q.hero; step(G, { keys: [] }); Object.assign(Q.cart, { s: 200, st: 'down', load: 3 }); let s0 = Q.cart.s;
       for (let i = 0; i < 2400; i++) { const [x, y] = [h.x, h.y]; step(G, { keys: [] }); if (i < 500) { const T = Q.map.town, c = (k) => [(k % Q.map.W + 0.5) * TILE, (Math.floor(k / Q.map.W) + 0.5) * TILE]; let d = Q.cart.s, p = c(T.rails[0]); for (let j = 1; j < T.rails.length; j++) { const A = c(T.rails[j - 1]), B = c(T.rails[j]), l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d <= l) { p = [A[0] + (B[0] - A[0]) * d / l, A[1] + (B[1] - A[1]) * d / l]; break; } d -= l; p = B; } h.x = p[0] + 10; h.y = p[1]; } else { h.x = x; h.y = y; } if (Q.map.cells[Math.floor(h.y / TILE) * Q.map.W + Math.floor(h.x / TILE)] === 0) { out.push('town cart: pushed the hero into a wall'); break; } }
@@ -523,6 +538,13 @@
     const fresh = (mode, S = spawn(0, {})) => { const R = newRun(S, 'campaign', 11, { town: 1, deathMode: mode }); S.run = R; S.screen = 'play'; return [S, R]; };
     const die = (S, R) => { R.hero.ifr = 0; SIMX.killHero(S, R); for (let i = 0; i < 400 && S.run === R && R.hero.deadT >= 0; i++) step(S, { keys: [] }); };
     const bossF = Array.from({ length: D.RUNS.campaign.floors }, (_, i) => i + 1).find((f) => D.stageOf('campaign', f).boss);
+    { const [S, R] = fresh('normal'), h = R.hero; enterFloor(S, R, 1); h.xp = XP; SIMX.killHero(S, R);
+      const enter = SIMX.enterFloor, deaths = S.meta.deaths || 0, floor = R.floor;
+      try { SIMX.enterFloor = (state, run) => { run.msg = { s: TXT('sim_floor.enterFail.town'), t: state.t, d: 4 }; return false; }; SIMX.heroFell(S); }
+      finally { SIMX.enterFloor = enter; }
+      if (h.deadT < 0 || h.hp !== 0 || h.xp !== XP || R.floor !== floor || (S.meta.deaths || 0) !== deaths || !R.msg || R.msg.s !== TXT('sim_floor.enterFail.town')) out.push('death mode: failed town entry changes the dead hero or hides the error');
+      const fail = S.fellFailed; S.t = h.deadT + 2; step(S, { keys: [] }); if (S.fellFailed !== fail || h.deadT < 0) out.push('death mode: failed town entry retries automatically');
+      SIMX.heroFell(S); if (!R.town || h.deadT !== -1 || h.xp !== XP - Math.min(XP, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss))) out.push('death mode: retry after failed town entry does not revive once'); }
     { const [S, R] = fresh('hard'); enterFloor(S, R, 1); die(S, R);
       if (S.run || S.screen !== 'dead') out.push(`death mode: a hardcore death leaves the screen ${S.screen} and the run ${!!S.run}`);
       if (!S.result || S.result.deathMode !== 'hard') out.push(`death mode: a hardcore run's result records the mode ${S.result && S.result.deathMode}`);
