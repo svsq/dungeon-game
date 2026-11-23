@@ -13,7 +13,7 @@
     longsword: { slot: 'weapon', cls: WR, name: TXT('BASES.longsword.name'), icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
     axe: { slot: 'weapon', cls: WR, name: TXT('BASES.axe.name'), icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
     hammer: { slot: 'weapon', cls: WR, name: TXT('BASES.hammer.name'), icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
-    staff: { slot: 'weapon', cls: MG, name: TXT('BASES.staff.name'), icon: 'it_staff', atk: 4.2, spd: 0.90, arc: 110, reach: 61, spell: 0.35, spellAtk: 6 },
+    staff: { slot: 'weapon', cls: MG, name: TXT('BASES.staff.name'), icon: 'it_staff', atk: 4.2, spd: 0.90, arc: 110, reach: 61, spell: 0.35, spellAtk: 6, club: { trigger: 48, windup: 0.13, cooldown: 0.55 } },
     shield: { slot: 'offhand', cls: WR, name: TXT('BASES.shield.name'), icon: 'it_shield', def: 4, w: 1 / 3 },
     buckler: { slot: 'offhand', cls: WR, name: TXT('BASES.buckler.name'), icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
     tower_shield: { slot: 'offhand', cls: WR, name: TXT('BASES.tower_shield.name'), icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },

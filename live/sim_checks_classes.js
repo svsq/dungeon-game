@@ -339,6 +339,46 @@
         const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
         if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
         if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); }
+      { const { S, R, h, foe, ok } = arena('mage');
+        if (!ok) out.push('class mage: no open floor to test the staff club');
+        else {
+          const staff = BASES.staff, club = staff.club, e = foe(200), far = 200, near = club.trigger - 8;
+          h.eq.weapon.atk = 1000;
+          h.eq.weapon.mods.crit = -100;
+          const tick = (distance, press = true) => {
+            Object.assign(e, { x: h.x + distance, y: h.y, st: 'idle', kbx: 0, kby: 0 });
+            step(S, { keys: [], press, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
+          };
+          const swing = (kind) => S.ev.some((q) => q.k === 'swing' && q.kind === kind && q.t === h.atkT);
+          const waitForHit = (distance, windup) => {
+            for (let i = 0; i < Math.ceil(windup / DT) + 2 && !h.atkHit; i++) tick(distance, false);
+          };
+          tick(far);
+          const orbCd = h.cd.atk, orbStart = h.atkT, st = stats(h, S.meta);
+          if (!S.ev.some((q) => q.k === 'swing' && q.shot && q.t === orbStart) ||
+              orbCd !== orbStart + Math.max(D.BOLT.t + DT, staff.spd / (1 + st.aspd / 100))) out.push('class mage: the ranged staff attack uses the wrong mode or cooldown');
+          tick(near);
+          if (h.atkT !== orbStart) out.push('class mage: staff club cancels an orb windup');
+          waitForHit(far, D.BOLT.t);
+          if (!S.ev.some((q) => q.k === 'bolt')) out.push('class mage: staff orb is not released');
+          R.proj = [];
+          tick(near);
+          const clubStart = h.atkT, clubCd = h.cd.staffClub;
+          if (!swing('staffClub') || clubCd !== clubStart + club.cooldown || h.cd.atk !== orbCd || S.t >= orbCd) out.push('class mage: staff club does not bypass the orb recovery on its own cooldown');
+          const hp = e.hp;
+          if (S.ev.some((q) => q.k === 'hit' && q.kind === 'staffClub')) out.push('class mage: staff club hits before the windup');
+          waitForHit(near, club.windup);
+          const hit = S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id);
+          if (!hit || hit.t - clubStart < club.windup || hit.n !== hp - e.hp || hit.n < Math.round(staff.atk * 0.9) || hit.n > Math.round(staff.atk * 1.1) || R.proj.length) out.push('class mage: staff club does not land as a base-damage melee hit');
+          tick(near);
+          if (h.atkT !== clubStart) out.push('class mage: staff club repeats during recovery');
+          while (S.t + DT < clubCd) tick(far, false);
+          tick(far);
+          if (h.atkT !== clubStart) out.push('class mage: club recovery allows an early orb');
+          while (S.t + DT < orbCd) tick(far, false);
+          tick(far);
+          if (h.atkT === clubStart || !S.ev.some((q) => q.k === 'swing' && q.shot && q.t === h.atkT)) out.push('class mage: the staff does not resume shooting once both cooldowns expire');
+        } }
       // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
       // onto it and lets it go, the leap carries him back from the aim, AGI (and a little STR, TASKS 1913) grows his bow's damage, a sword is not his
       { const { S, R, h, foe, ok } = arena('archer');
