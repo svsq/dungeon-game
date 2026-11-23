@@ -38,6 +38,9 @@
   // (TASKS 2145) a bow at rest is held out a little from the hip and stands near upright, its lower tip by the near foot: at the hip's
   // height and canted 33° the lower limb crossed both legs to the floor
   const BOW_REST = { ba: -1.8, lean: 0.3 }, BOW_MEET = 0.4;
+  // the charge's arms: the near one bent in before the chest (turn at the shoulder, rad, + is back; bend of the elbow), and the castT
+  // span over which the dash's own arm pose comes back once the charge has let go of the arms
+  const CHARGE_ARMS = { near: -0.25, nearBend: 0.6, release: [0.3, 0.55] };
   // (TASKS 2177) the weapon arm at ease under the torso (look.arm.behind) comes over it as an action raises it, cross-faded over this
   // much of the action's envelope: switched in one frame the arm popped over the chest
   const ARM_FRONT = 0.35, FRONT_IN = 0.1, FRONT_OFF = { on: 0.5, blow: 0.01, cast: 0.99 };
@@ -342,7 +345,7 @@
     const swAim = (a, reach = st.reach) => { const sh = R2U(RG.shR[0], RG.shR[1] + hipDy), tx = hx + Math.cos(a) * reach * 0.8, ty = hy + Math.sin(a) * reach * 0.8 - 34, g = Math.atan2(ty - sh[1], tx - sh[0]);
       return face > 0 ? g : Math.PI - g; };
     // (the thrust rises over 0.2 s: thrown out in 0.1 s the hand jumped 7–11 % of the height a frame, TASKS 1702)
-    const chargeE = h.castK === 'charge' ? SS(0.02, 0.22, castT) * (1 - SS(0.3, 0.55, castT)) : 0, cryE = h.castK === 'cry' ? SS(0.08, 0.28, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
+    const chargeE = h.castK === 'charge' ? SS(0.02, 0.22, castT) * (1 - SS(CHARGE_ARMS.release[0], CHARGE_ARMS.release[1], castT)) : 0, cryE = h.castK === 'cry' ? SS(0.08, 0.28, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
     // (TASKS 2192) the breath and the shout as one envelope: the arm's layer follows it, on the larger of the two it dipped under ARM_FRONT
     // where one hands over to the other and the arm under the body showed for a frame
     const cryK = h.castK === 'cry' ? SS(0, 0.08, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
@@ -423,7 +426,7 @@
       if (cryPrep > 0 || cryE > 0) { const w = SS(0.08, 0.28, castT);
         const arc = (A, x0, y0, x1, y1) => { const a0 = Math.atan2(y0, x0), a = a0 + (Math.atan2(y1, x1) - a0) * w, r = (Math.hypot(x0, y0) + (Math.hypot(x1, y1) - Math.hypot(x0, y0)) * w) * l; reach(A, r * Math.cos(a), r * Math.sin(a), cryK); };
         arc(arms.R, 0.3, 0.35, 0.25, -0.9); arc(arms.L, 0.1, 0.35, -0.15, -0.85); takePalm(cryK); }
-      if (chargeE > 0) { reach(arms.R, 0.2 * l + Math.cos(aimL) * 0.8 * l, Math.sin(aimL) * 0.8 * l - 0.05 * l, chargeE * (1 - swingK)); pose(arms.L, 0.6, 0.3, chargeE); takePalm(chargeE); }
+      if (chargeE > 0) { reach(arms.R, 0.2 * l + Math.cos(aimL) * 0.8 * l, Math.sin(aimL) * 0.8 * l - 0.05 * l, chargeE * (1 - swingK)); pose(arms.L, CHARGE_ARMS.near, CHARGE_ARMS.nearBend, chargeE); takePalm(chargeE); }
     } else if (shootE > 0 || (shooter && castE > 0)) {   // (a mage casts through his staff too: no free-hand push, no lowered blade)
       const l = armLen(arms.R), pe = Math.max(shootE, castE), kick = 0.1 * l * SS(BT - 0.01, BT + 0.05, kickT) * (1 - SS(BT + 0.05, BT + 0.25, kickT));
       // (aimed high the shouldered hand reaches as far as a bow's: tucked closer the elbow flipped over on the lowering)
@@ -450,7 +453,10 @@
     // reading a scroll (TASKS 1032): the free hand holds it out before the chest, the sword arm lowered
     const readE = h.read && swingK === 0 && whirlE === 0 && castE === 0 ? SS(0, 0.3, GT - h.read.t0) : 0;
     if (readE > 0) { const l = armLen(arms.L); reach(arms.L, 0.6 * l, 0.12 * l, readE); pose(arms.R, -0.2, 0.3, readE); takePalm(readE); }
-    if (dashE > 0 && Math.max(shootE, shooter ? castE : 0) < 0.05) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); takePalm(dashE); }   // (a leap's shot keeps its bow arm, TASKS 1125, and so does the leap's own raised bow: both at once jerked the hands, TASKS 1702)
+    // a charge is a lunge, not a fall: its whole run keeps the blade out to the aim and the near fist braced, the dash's thrown-back arms
+    // left both spread and the blade hanging back in the far hand
+    const dashArmE = dashE * (h.castK === 'charge' ? SS(CHARGE_ARMS.release[0], CHARGE_ARMS.release[1], castT) : 1);
+    if (dashArmE > 0 && Math.max(shootE, shooter ? castE : 0) < 0.05) { pose(arms.L, 0.55 * dashF, 0.45, dashArmE); pose(arms.R, 0.55 * dashF, 0.45, dashArmE); takePalm(dashArmE); }   // (a leap's shot keeps its bow arm, TASKS 1125, and so does the leap's own raised bow: both at once jerked the hands, TASKS 1702)
     // (TASKS 2192) the mage's staff or wand arm keeps its elbow's bend as the blow throws it back: unbent from the fist at the chest (2181)
     // the grip swung 7.6 px a frame, five times the warrior's
     if (hurtE > 0 && swingK === 0) { pose(arms.L, -0.45, 0.5, hurtE); takePalm(hurtE); pose(arms.R, -0.3, shooter && !bowArm ? arms.R.r2 - arms.R.r1 : 0.45, hurtE); }
