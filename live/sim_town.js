@@ -91,7 +91,7 @@
       if (!folkFree(R.map, x, y, folkR(f))) continue; const path = greetPath(R, f, x, y, false); if (path) return { x, y, path }; }
     return null; }
   function stepGreet(S, R, F) { const G = R.greet, t = S.t, h = R.hero, k = F.find((q) => q.role === 'keeper');
-    if (!G || G === 'done') return; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
+    if (!G || G === 'done') return; if (!k) delete R.meetKeeper; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
     if (G === 1) { R.greet = { st: 'wait', t0: t }; return; }
     const heroFace = () => { const hf = k.x >= h.x ? 1 : -1; if (hf !== h.face) { h.face = hf; h.faceT = t; } }, faceHero = () => { const nf = h.x >= k.x ? 1 : -1; if (nf !== k.face) { k.turnT = t; k.face = nf; } heroFace(); };
     // (a run loaded with his walk under way but the townsfolk made anew has him at the fire again: the walk starts over from there)
@@ -385,7 +385,11 @@
   const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
   // the mark over a townsman's head: ? a quest to turn in, ! one to take
   // (past the campaign's last boss the Keeper's own offers wait behind the end of the run, PR 29 review: no «!» over him for them)
-  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) ? '!' : '');
+  // a new hero's first visit has one goal, the talk with the Keeper: until it opens the others' offers keep their «!» (R.meetKeeper,
+  // armed with the welcome by startRun; a run saved without it has met him)
+  const meetKeeperFirst = (R) => !!(R.town && R.meetKeeper);
+  const firstGoal = (R) => (meetKeeperFirst(R) ? { name: TXT('sim_town.firstGoal'), line: TXT('sim_town.firstGoal.line', { p1: D.FOLK.keeper.name }) } : null);
+  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) && !(role !== 'keeper' && meetKeeperFirst(R)) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
@@ -515,6 +519,7 @@
     const idle = !qt && !pages.length;
     if (qt) pages = qt.act.k === 'turn' && pages.length ? pages : pages.concat(qt.pages);
     else if (idle) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
+    if (f.role === 'keeper') delete R.meetKeeper;
     S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, idle && FD.topics ? { topics: FD.topics } : {}, CRAFT_AT[f.role] ? { craft: CRAFT_AT[f.role] } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // anything left in the town for the heroes to come: S.meta.stash, D.STASH.cells of it, its items under the item balance
@@ -635,7 +640,7 @@
   }
 
   Object.assign(SIMX, {
-    folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
+    folkR, folkOf, folkFree, stepFolk, greetHold, meetKeeperFirst, firstGoal, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,

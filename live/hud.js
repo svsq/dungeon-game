@@ -629,9 +629,12 @@
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands. A done one is ticked in its
   // box, and a button on the heading folds the done ones away and back (TASKS 1992); the fold is the player's, kept in the meta
   const trkDone = (R) => SIM.Q.journalOf(R).filter((q) => q.st === 'done').length, trkFolded = (S, R) => !!S.meta.trkFold && trkDone(R) > 0;
-  const trkAll = (S, R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done'));
+  // a new hero's first goal (the talk with the Keeper) heads the list as a row of its own, not a quest
+  const trkGoal = (R) => { const g = SIM.Q.firstGoal(R); return g ? [{ goal: g, st: 'taken' }] : []; };
+  const trkName = (q) => (q.goal ? q.goal.name : D.QUESTS[q.key].name), trkLine = (q, R) => (q.goal ? q.goal.line : SIM.Q.questLine(q, R));
+  const trkAll = (S, R) => trkGoal(R).concat(SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done')));
   const TK = D.UI.kit.TRACKER, TF = TK.size, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
-  const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
+  const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: trkGoal(R).length + SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
   const aditBox = (R) => { const d = R.town && VW && R.map.decor.find((o) => o.role === 'adit'); if (!d) return null;
     const [sw, sh] = SZ(d.n), s = (d.s || 1) * VW.k; return [VW.sx(d.x) - sw * s / 2, VW.sy(d.y) + 4 * VW.k - sh * s, sw * s, sh * s]; };
   const btnW = (id, s) => lw(id, s, { size: TF.btn }) + TK.btnPad, measure = (s, size) => L.labelW(0, s, { size });
@@ -640,9 +643,9 @@
     const chip = (fold) => { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, null, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true, fold }); };
     if (trkHidden(S)) return chip(false);
     const head = lw('qt_t', TXT('hud.tracker'), { size: TF.title }) + 2 * TK.pad + TK.headGap + btnW('qt_hide', TXT('hud.tracker.hide')) + (nd ? TK.btnGap + btnW('qt_fold', trkFoldLab(S, R)) : 0);
-    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.QUESTS[q.key].name, TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
+    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(trkName(q), TF.name), measure(trkLine(q, R), TF.line)))) + 2 * TK.pad;
     const Y = K.trkLay(W, mb[1] + mb[3], w, all.length, aditBox(R)); if (Y.fold) return chip(true);
-    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.QUESTS[q.key].name, Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
+    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(trkName(q), Y.textW, TF.name, measure), line: K.trkFit(trkLine(q, R), Y.textW, TF.line, measure) })) }); }
   const trkBox = (S, R) => { const g = trkGeo(S, R); return g && g.box; };
   // the heading's buttons in view px, from the last frame drawn: the page asks them on a click and turns the click into the sim's key,
   // so it swings at nothing
@@ -659,10 +662,10 @@
     if (T.more) lab('qt_more', TXT('hud.tracker.more', { n: T.more }), x + P, T.moreY, { size: TF.line, col: C.dim });
     const by = T.titleY - TK.btnH / 2, hs = TXT('hud.tracker.hide'), hw = btnW('qt_hide', hs), hb = TRK_HIDE = [x + w - P - hw, by, hw, TK.btnH]; trkBtn('qt_hide', hs, hb, hov(hb));
     if (trkDone(R)) { const s = trkFoldLab(S, R), bw = btnW('qt_fold', s), b = TRK_FOLD = [hb[0] - TK.btnGap - bw, by, bw, TK.btnH]; trkBtn('qt_fold', s, b, hov(b)); }
-    T.list.forEach(({ q, name, line }, i) => { const { nameY, lineY } = T.rows[i], done = q.st === 'done', Q = D.QUESTS[q.key], B = TK.box, bx = x + P, bb = nameY - B / 2;
+    T.list.forEach(({ q, name, line }, i) => { const { nameY, lineY } = T.rows[i], done = q.st === 'done', story = !!q.goal || D.QUESTS[q.key].kind === 'story', B = TK.box, bx = x + P, bb = nameY - B / 2;
       L.rrect(bx, bb, B, B, 4, [0.07, 0.055, 0.05], [0.05, 0.04, 0.035]); for (const [a, b2, c, d] of [[0, 0, B, 2], [0, B - 2, B, 2], [0, 0, 2, B], [B - 2, 0, 2, B]]) L.solid(bx + a, bb + b2, c, d, done ? [0.56, 0.85, 0.54] : [0.55, 0.5, 0.44]);
       if (done) trkTick(bx, bb, B, [0.56, 0.85, 0.54]);
-      lab('qt_n' + i, name, T.textX, nameY, { size: TF.name, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('qt_n' + i, name, T.textX, nameY, { size: TF.name, col: done ? '#8fd98a' : story ? '#ffc070' : C.gold });
       lab('qt_l' + i, line, T.textX, lineY, { size: TF.line, col: done ? C.dim : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;

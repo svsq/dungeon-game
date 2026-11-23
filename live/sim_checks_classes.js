@@ -499,12 +499,16 @@
     // not in a run saved before it (or past it)
     { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, h = R.hero, F = folkOf(R), k = F.find((q) => q.role === 'keeper'), x0 = h.x, y0 = h.y, kx = k.x, ky = k.y;
       if (R.greet !== 1) out.push('welcome: a new game does not arm it');
+      // the first visit has one goal: the tracker's talk with the Keeper; the others' offers show no «!» until his talk opens
+      const givers = () => F.filter((f) => f.role !== 'keeper' && offerOf(R, f.role)), marked = () => givers().filter((f) => root.SIMX.questMark(R, f.role) === '!').length;
+      if (!root.SIMX.firstGoal(R) || marked()) out.push(`welcome: a new hero's first visit has ${root.SIMX.firstGoal(R) ? '' : 'no goal in the tracker and '}${marked()} «!» over the other givers`);
       let n = 0, walked = 0, said = 0; while (S.screen === 'play' && n++ < 120 * 16) { step(S, { keys: n % 40 === 0 ? ['KeyE', 'Space'] : [], left: 1, up: 1 }); walked = Math.max(walked, Math.hypot(k.x - kx, k.y - ky)); if (k.sayS) said = 1; }
       if (Math.hypot(h.x - x0, h.y - y0) > 2) out.push(`welcome: the hero walked ${Math.round(Math.hypot(h.x - x0, h.y - y0))} px while held`);
       if (S.screen !== 'talk' || !S.talk || S.talk.role !== 'keeper') out.push(`welcome: no talk with the Keeper in ${(n / 120).toFixed(1)} s (screen ${S.screen})`);
       else { const of = offerOf(R, 'keeper');
         if (!S.talk.act || S.talk.act.k !== 'take' || !of || S.talk.act.key !== of.q.key || of.q.key !== 'rescue') out.push(`welcome: the talk does not offer the quest about Horatio (${JSON.stringify(S.talk.act)})`);
-        if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`); }
+        if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`);
+        if (root.SIMX.firstGoal(R) || marked() !== givers().length) out.push(`welcome: past the Keeper's talk the first goal stays or ${givers().length - marked()} givers keep no «!»`); }
       if (walked < 100 || Math.hypot(k.x - h.x, k.y - h.y) > 70) out.push(`welcome: the Keeper did not come up to the hero (walked ${Math.round(walked)} px, ${Math.round(Math.hypot(k.x - h.x, k.y - h.y))} px off)`);
       if (!said) out.push('welcome: the Keeper says nothing on the way');
       step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk');
