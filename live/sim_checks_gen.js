@@ -724,7 +724,7 @@
     for (const runSeed of [1, 77]) for (let f = 1; f <= D.RUNS.campaign.chapter; f++) {
       const m = DG.genFloor(runSeed * 31 + f * 1013, f, { mode: 'campaign', runSeed, town: 1 });
       for (const d of m.decor) {
-        const room = m.rooms[d.r], width = D.PROP_W[d.n];
+        const room = m.rooms[d.r], width = D.backPropWidth(d.n);
         if (!d.solid || d.wall || !width || !room || d.secret !== undefined) continue;
         const row = Math.floor(d.y / TILE), centre = Math.floor(d.x / TILE);
         if (row !== room.y || cell(m, centre, row - 1) !== 0) continue;

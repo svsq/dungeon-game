@@ -394,5 +394,9 @@
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2, rest: 'wreck_cv_broken' };
   for (const b of Object.values(BIOMES)) b.flick = b.flick || FLICK.deep;
-  Object.assign(D, { FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BOSS_CHEST, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  // the merchant's goods along a back wall are drawn wider than PROP_W lays them (it keeps them apart as the floor is filled, so
+  // it stays as it is); the wall they stand against is the drawn width's. One width for the generator's wall spans and their check
+  const SHOP_PROP_W = { shop_shelf: 72, shop_armor: 47, shop_weapons: 65 };
+  const backPropWidth = (n) => SHOP_PROP_W[n] || PROP_W[n];
+  Object.assign(D, { SHOP_PROP_W, backPropWidth, FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BOSS_CHEST, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

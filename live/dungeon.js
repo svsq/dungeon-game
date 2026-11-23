@@ -26,13 +26,12 @@
   const inRm = (r, x, y, p = 0) => (x >= r.x - p && x < r.x + r.w + p && y >= r.y - p && y < r.y + r.h + p) || (!!r.wings && r.wings.some(([a, b, c, d]) => x >= a - p && x < a + c + p && y >= b - p && y < b + d + p));
   const rectsOf = (r) => [[r.x, r.y, r.w, r.h], ...(r.wings || [])];
 
-  const SHOP_BACK_WIDTH = { shop_shelf: 72, shop_armor: 47, shop_weapons: 65 };
   function backWallPropSpans(m) {
     const rows = [];
     if (m.town) return rows;
     const isWall = (x, y) => { const c = m.cells[(y - 1) * m.W + x]; return c === 0 || c === 4; };
     for (const d of m.decor || []) {
-      const width = SHOP_BACK_WIDTH[d.n] || D.PROP_W[d.n];
+      const width = D.backPropWidth(d.n);
       if (!d.solid || d.wall || !width) continue;
       const x = Math.floor(d.x / TILE), y = Math.floor(d.y / TILE), room = m.rooms?.[d.r], secret = m.secrets?.[d.secret];
       if ((!room || y !== room.y || !inRm(room, x, y)) && secret?.dir !== 'u') continue;
