@@ -8,6 +8,12 @@
   const lerp1 = (a, b, k) => a + (b - a) * k, lerp2 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], E01 = (q) => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
   const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
   const JOINT_W = 0.02;
+  // the guard's look over the yard: its window in the work loop (from, span, as the look's own ease), the head's sweep and the body's shift (rad)
+  const GUARD_LOOK = { from: 0.52, span: 0.18, head: 0.4, body: 0.07 };
+  // a hen's wings, two short strokes off its back (view px), raised by `lift` rad at most and beating at `rate` rad/s; `rest` the share
+  // of the lift they keep at the bottom of a beat; `fast` the speed range over which a running hen comes to beat them
+  const HEN_FLAP = { scare: 0.4, hop: 3, fast: [45, 70], rate: 30, lift: 1.1, rest: 0.35, min: 0.02, w: 7, h: 3, rootY: 0.5, nearRoot: 2, farRoot: -1, farPhase: 1.3,
+    col: { town_hen_white: [0.8, 0.77, 0.7], town_hen_red: [0.52, 0.24, 0.12], town_hen_grey: [0.46, 0.46, 0.5] } };
   // the legs step along the gait's eased heading (the sim's f.hx, f.hy, TASKS 2136) at the walker's speed
   const gaitV = (f) => { const v = Math.hypot(f.vx, f.vy); return f.hx === undefined || !v ? { vx: f.vx, vy: f.vy } : { vx: f.hx * v, vy: f.hy * v }; };
   // the stone the mason takes leaves the cart's box at its near rim, where the cart stands (TASKS 2141: it rose from a point off his own
@@ -25,10 +31,14 @@
       const face = f.face || (TOWN_FACE(m, n) >= n.x ? 1 : -1), [w, hh] = SZ(nm), ph = GT * (fed ? 3.4 : 1.3) + i * 2.1, peck = (1 - run) * Math.max(0, Math.sin(ph)) ** (fed ? 3 : 6);
       const spd = Math.hypot(f.vx, f.vy), st = f.dist / 5, hop = run * (1.6 + 0.02 * Math.max(0, spd - 24)) * Math.abs(Math.sin(st)), rock = run * 0.09 * Math.sin(st), scare = GT - (f.scareT ?? -9);
       const neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i) - 0.22 * run, tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7) - (scare >= 0 ? 0.5 * SS(0, 0.08, scare) * (1 - SS(0.3, 0.9, scare)) : 0);
+      // startled (f.scareT) it hops up and beats its wings for HF.scare s; running fast it beats them too
+      const HF = HEN_FLAP, scareK = scare >= 0 && scare < HF.scare ? Math.sin(Math.PI * scare / HF.scare) : 0, flap = Math.max(scareK, SS(HF.fast[0], HF.fast[1], spd)), up = hop + HF.hop * scareK;
       const fT = f.turnT === undefined ? 1 : SS(0, 0.12, GT - f.turnT), fs = face * (fT < 1 ? Math.sign(fT * 2 - 1 || 1) * Math.max(0.1, Math.abs(fT * 2 - 1)) : 1), LEG = 3.5;
-      Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4); L.joint(id, 'ground', [X, Yg]); L.joint(id, 'body', [X, Yg - hop - LEG]); L.joint(id, 'head', [X + fs * 7, Yg - hop - LEG - 12 + 7 * peck]); L.joint(id, 'tail', [X - fs * 7, Yg - hop - LEG - 8 + 6 * tail]);
-        for (const q of [0, 1]) { const a = st + q * Math.PI, hx = X + (q ? 2.5 : -2.5), hy = Yg - hop - LEG - 1, fx = hx + face * run * 3.2 * Math.sin(a), fy = Yg - run * 2 * Math.max(0, Math.cos(a)); L.solid(hx, hy, Math.hypot(fx - hx, fy - hy), 1.6, [0.82, 0.58, 0.2], Math.atan2(fy - hy, fx - hx), 0, 0.8, 1); }
-        L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(X, Yg - hop - LEG), M.r(rock), M.s(fs, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+      Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4); L.joint(id, 'ground', [X, Yg]); L.joint(id, 'body', [X, Yg - up - LEG]); L.joint(id, 'head', [X + fs * 7, Yg - up - LEG - 12 + 7 * peck]); L.joint(id, 'tail', [X - fs * 7, Yg - up - LEG - 8 + 6 * tail]);
+        for (const q of [0, 1]) { const a = st + q * Math.PI, hx = X + (q ? 2.5 : -2.5), hy = Yg - up - LEG - 1, fx = hx + face * run * 3.2 * Math.sin(a), fy = Yg - (up - hop) - run * 2 * Math.max(0, Math.cos(a)); L.solid(hx, hy, Math.hypot(fx - hx, fy - hy), 1.6, [0.82, 0.58, 0.2], Math.atan2(fy - hy, fx - hx), 0, 0.8, 1); }
+        L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(X, Yg - up - LEG), M.r(rock), M.s(fs, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+        if (flap > HF.min) for (const [q, ph0] of [[HF.farRoot, HF.farPhase], [HF.nearRoot, 0]]) { const th = flap * HF.lift * (HF.rest + (1 - HF.rest) * (0.5 + 0.5 * Math.sin(GT * HF.rate + i + ph0))), wx = X - fs * q, wy = Yg - up - LEG - HF.rootY * hh;
+          L.solid(wx, wy, HF.w, HF.h, HF.col[nm], fs > 0 ? Math.PI + th : -th, 0, HF.h / 2); } }]);
       return; }
     const nm = 'town_' + f.role; if (!RIGS[nm] || !window.ASSETS[nm + '__body']) return;
     const H = SZ(nm)[1], c = D.folkClock(f.role, i, GT), u = c.u, T = m.town.svc, route = n.route;
@@ -102,7 +112,9 @@
       const ground = (1 - tw) * bump01(u, 0.12, 0.34);
       tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i) - 0.14 * ground), talkR, tw * 0.5), L: lerp2(P(-0.2 + 0.05 * Math.sin(2 * Math.PI * u), -0.4 - 0.1 * Math.sin(2 * Math.PI * u + 0.8) ** 2), P(0.1, -0.5), hitch) };
       hold = { R: TOOL('town_tool_spear', 0.58, { abs: -Math.PI / 2 - 0.05 }) };
-      lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look; { const hc = Math.cos(Math.PI * look); headF = (hc < 0 ? -1 : 1) * Math.max(0.55, Math.abs(hc)); }
+      // over the look the head sweeps the yard (up to GUARD_LOOK.head rad each way, 6–7 px at the crown) and the body shifts onto it
+      const GLK = GUARD_LOOK, sweep = look * GLK.head * Math.sin(2 * Math.PI * Math.max(0, Math.min(1, (u - GLK.from) / GLK.span)));
+      lean = (0.025 * Math.sin(2 * Math.PI * u) + GLK.body * look) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look + sweep; { const hc = Math.cos(Math.PI * look); headF = (hc < 0 ? -1 : 1) * Math.max(0.55, Math.abs(hc)); }
     } else if (f.role === 'porter' || f.role === 'mason') {
       // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
       // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
