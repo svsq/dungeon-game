@@ -271,7 +271,7 @@
   // bus (ev → questOn), it is done when n reaches need, turned in in the town for its reward; it goes with the hero
   const QUEST_EV = new Set(['kill', 'clear', 'floor', 'qitem', 'qevent']);
   function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f, R.hero && R.hero.lvl) }; }
-  function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: TXT('sim_town.takeQuest.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
+  function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: TXT('sim_town.takeQuest.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; if (q.from === 'keeper') delete R.meetKeeper; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
   // how much one event moves a quest on
   function questStep(R, q, e) { const Q = D.QUESTS[q.key], deep = R.floor >= q.f && !R.town;
     if (Q.type === 'kill') return e.k === 'kill' && deep && !e.boss && (!Q.elite || e.elite) ? 1 : 0;
@@ -390,8 +390,8 @@
   const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
   // the mark over a townsman's head: ? a quest to turn in, ! one to take
   // (past the campaign's last boss the Keeper's own offers wait behind the end of the run, PR 29 review: no «!» over him for them)
-  // a new hero's first visit has one goal, the talk with the Keeper: until it opens the others' offers keep their «!» (R.meetKeeper,
-  // armed with the welcome by startRun; a run saved without it has met him)
+  // a new hero's first visit has one goal, the talk with the Keeper: until his first quest is taken the others' offers keep their «!»
+  // (R.meetKeeper, armed with the welcome by startRun; a run saved without it has met him)
   const meetKeeperFirst = (R) => !!(R.town && R.meetKeeper);
   const firstGoal = (R) => (meetKeeperFirst(R) ? { name: TXT('sim_town.firstGoal'), line: TXT('sim_town.firstGoal.line', { p1: D.FOLK.keeper.name }) } : null);
   const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) && !(role !== 'keeper' && meetKeeperFirst(R)) ? '!' : '');
@@ -524,7 +524,6 @@
     const idle = !qt && !pages.length;
     if (qt) pages = qt.act.k === 'turn' && pages.length ? pages : pages.concat(qt.pages);
     else if (idle) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    if (f.role === 'keeper') delete R.meetKeeper;
     S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, idle && FD.topics ? { topics: FD.topics } : {}, CRAFT_AT[f.role] ? { craft: CRAFT_AT[f.role] } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // anything left in the town for the heroes to come: S.meta.stash, D.STASH.cells of it, its items under the item balance

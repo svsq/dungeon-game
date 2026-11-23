@@ -499,8 +499,11 @@
     // not in a run saved before it (or past it)
     { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, h = R.hero, F = folkOf(R), k = F.find((q) => q.role === 'keeper'), x0 = h.x, y0 = h.y, kx = k.x, ky = k.y;
       if (R.greet !== 1) out.push('welcome: a new game does not arm it');
-      // the first visit has one goal: the tracker's talk with the Keeper; the others' offers show no «!» until his talk opens
+      // the first visit has one goal: the tracker's talk with the Keeper; the others' offers show no «!» until his first quest is taken,
+      // the talk opened and left with Esc keeps both
       const givers = () => F.filter((f) => f.role !== 'keeper' && offerOf(R, f.role)), marked = () => givers().filter((f) => root.SIMX.questMark(R, f.role) === '!').length;
+      const goalHeld = (when) => { if (!root.SIMX.firstGoal(R) || marked()) out.push(`welcome: ${when} the first goal is gone or ${marked()} other givers show «!»`); };
+      if (!givers().length) out.push('welcome: the town has no quest givers but the Keeper, the first goal checks nothing');
       if (!root.SIMX.firstGoal(R) || marked()) out.push(`welcome: a new hero's first visit has ${root.SIMX.firstGoal(R) ? '' : 'no goal in the tracker and '}${marked()} «!» over the other givers`);
       let n = 0, walked = 0, said = 0; while (S.screen === 'play' && n++ < 120 * 16) { step(S, { keys: n % 40 === 0 ? ['KeyE', 'Space'] : [], left: 1, up: 1 }); walked = Math.max(walked, Math.hypot(k.x - kx, k.y - ky)); if (k.sayS) said = 1; }
       if (Math.hypot(h.x - x0, h.y - y0) > 2) out.push(`welcome: the hero walked ${Math.round(Math.hypot(h.x - x0, h.y - y0))} px while held`);
@@ -508,16 +511,17 @@
       else { const of = offerOf(R, 'keeper');
         if (!S.talk.act || S.talk.act.k !== 'take' || !of || S.talk.act.key !== of.q.key || of.q.key !== 'rescue') out.push(`welcome: the talk does not offer the quest about Horatio (${JSON.stringify(S.talk.act)})`);
         if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`);
-        if (root.SIMX.firstGoal(R) || marked() !== givers().length) out.push(`welcome: past the Keeper's talk the first goal stays or ${givers().length - marked()} givers keep no «!»`); }
+        goalHeld('with the Keeper\'s talk open'); }
       if (walked < 100 || Math.hypot(k.x - h.x, k.y - h.y) > 70) out.push(`welcome: the Keeper did not come up to the hero (walked ${Math.round(walked)} px, ${Math.round(Math.hypot(k.x - h.x, k.y - h.y))} px off)`);
       if (!said) out.push('welcome: the Keeper says nothing on the way');
-      step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk');
+      step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk'); else goalHeld('past the talk left with Esc');
       const back = (rs) => { for (let i = 0; i < 120 * 12 && R.greet !== 'done'; i++) step(S, { keys: [] }); return R.greet === 'done'; };
       if (!back()) out.push('welcome: the Keeper does not go back to the fire');
       else if (Math.hypot(k.x - kx, k.y - ky) > 3) out.push(`welcome: the Keeper stops ${Math.round(Math.hypot(k.x - kx, k.y - ky))} px off his place`);
       if (!offerOf(R, 'keeper') || (R.quests || []).some((q) => q.key === 'rescue')) out.push('welcome: Esc lost or took the quest');
       h.x = k.x + 44; h.y = k.y + 12; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
       if (S.screen !== 'talk' || !S.talk.act || S.talk.act.k !== 'take') out.push('welcome: after Esc the Keeper does not offer the quest again');
+      else { root.SIMX.talkAct(S, R, S.talk); if (root.SIMX.firstGoal(R) || marked() !== givers().length) out.push(`welcome: the Keeper's quest taken, the first goal stays or ${givers().length - marked()} givers keep no «!»`); }
       S.screen = 'play'; S.talk = null; const hx = h.x; for (let i = 0; i < 60; i++) step(S, { keys: [], right: 1 }); if (h.x - hx < 20) out.push('welcome: the hero is still held after it');
       enterFloor(S, R, 1); enterFloor(S, R, 0); const k2 = folkOf(R).find((q) => q.role === 'keeper'), k2x = k2.x; let held = 0;
       for (let i = 0; i < 120 * 4; i++) { step(S, { keys: [], down: i < 30 ? 1 : 0 }); if (root.SIMX.greetHold(R)) held = 1; }
