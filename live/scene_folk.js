@@ -28,7 +28,7 @@
   // screen points; the tool rides the hand. The loop's moments (the blow, the poke, the throw) leave their effects in RIM.folk
   function drawFolk(f, n, m, R, GT, Y, sx, sy) {
     const i = f.i, FD = D.FOLK[f.role], X = sx(f.x), Yg = sy(f.y), id = 'npc' + i;
-    if (f.role === 'hen') { const nm = ['town_hen_white', 'town_hen_red', 'town_hen_grey'][i % 3], RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;
+    if (f.role === 'hen') { const nm = D.folkSprite(f), RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;
       // (TASKS 1032) a hen walks with a bob and a rock, its neck out; at the grain it pecks quicker; startled, the tail flicks up
       const run = SS(2, 24, Math.hypot(f.vx, f.vy)), fed = R.grain && GT - R.grain.t < 7 && Math.hypot(f.x - R.grain.x, f.y - R.grain.y) < 26;
       const face = f.face || (TOWN_FACE(m, n) >= n.x ? 1 : -1), [w, hh] = SZ(nm), ph = GT * (fed ? 3.4 : 1.3) + i * 2.1, peck = (1 - run) * Math.max(0, Math.sin(ph)) ** (fed ? 3 : 6);

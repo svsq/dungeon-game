@@ -5,7 +5,7 @@
 (function (root) {
   if (typeof module !== 'undefined') for (const f of require('./modules.js').parts.data) require('./' + f);
   const D = root.DATA, KEYS = [
-    'ROOM_SHAPES', 'FOLK', 'FOLK_SAY', 'FOLK_HOLD', 'TOAST', 'KEEPER', 'folkClock', 'folkInit', 'placeName', 'colossusStepAt', 'colossusContact', 'TILE', 'ZOOM',
+    'ROOM_SHAPES', 'FOLK', 'FOLK_SAY', 'FOLK_HOLD', 'TOAST', 'KEEPER', 'folkClock', 'folkInit', 'folkSprite', 'placeName', 'colossusStepAt', 'colossusContact', 'TILE', 'ZOOM',
     'ZOOMS', 'zoomFix', 'SETTINGS', 'BIOMES', 'ARCH', 'HAZ', 'hazCycle', 'hazClock', 'hazIn', 'hazAxes', 'RUNS', 'runOf', 'wanderAt', 'stageOf', 'rosterAt', 'CAVE_PACKS',
     'MAGMA_PACKS', 'DIFF', 'DIFF_ORDER', 'DEATH_MODES', 'DEATH_ORDER', 'deathPick', 'floorName', 'ENEMIES', 'BOSSES', 'bossPhase', 'bossMove', 'BAL', 'dmgAt', 'hpAt', 'ELITE',
     'eliteK', 'windOf', 'under', 'ELITE_MODS', 'eliteMods', 'modPool', 'TIPS', 'eliteName', 'ELITE_GROUP', 'ELITE_NAMES', 'SLOTS', 'SLOT_NAME', 'BASES',

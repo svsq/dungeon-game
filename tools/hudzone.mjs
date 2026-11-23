@@ -44,7 +44,7 @@ try {
     // the hero stands well clear of the spot, so his body is never the reason a mark moves or hides
     const heroAt = (x, y) => { h.x = R.cam[0] + x / Z; h.y = R.cam[1] + y / Z; };
     const away = (x, y) => { const p = [[260, 700], [960, 600], [1660, 700]].sort((a, b) => Math.hypot(b[0] - x, b[1] - y) - Math.hypot(a[0] - x, a[1] - y))[0]; heroAt(...p); };
-    const bodies = () => R.folk.map((f) => { const [w, hh] = SZ(f.role === 'hen' ? 'town_hen_white' : 'town_' + f.role); return { who: f.role, x: sx(f.x) - w * Z / 2, y: sy(f.y) - hh * Z, w: w * Z, h: hh * Z }; })
+    const bodies = () => R.folk.map((f) => { const [w, hh] = SZ(window.DATA.folkSprite(f)); return { who: f.role, x: sx(f.x) - w * Z / 2, y: sy(f.y) - hh * Z, w: w * Z, h: hh * Z }; })
       .concat({ who: 'hero', x: sx(h.x) - 30 * Z, y: sy(h.y) - 84 * Z, w: 60 * Z, h: 90 * Z });
     // the limit is the part's nearest free side, not a fixed reach, so a mark sent the long way round fails
     const esc = (z, x, y) => Math.min(z[0] - 48 >= 0 ? x + 24 - z[0] : Infinity, z[2] + 48 <= W ? z[2] + 24 - x : Infinity, z[1] - 64 >= 0 ? y + 32 - z[1] : Infinity, z[3] + 64 <= Hh ? z[3] + 32 - y : Infinity);

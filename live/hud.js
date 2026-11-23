@@ -42,8 +42,8 @@
   // a class drawn on its own rig has its own portrait (TASKS 1114), and each of its looks (TASKS 2148)
   const portraitOf = (h) => D.lookOf(h).port;
   const PF = D.UI.kit.PORT.frames, portrait = (tex, f, x, y, w, h) => { const P = D.UI.kit.portIn(f, x, y, w, h); L.sprite(tex, P.x, P.y, { w: P.w, h: P.h, src: P.src }); };
-  // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
-  // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
+  // the last frame's measures that hudZones builds the HUD's parts from: the minimap's panel, legend and all (a fixed 440 px let labels
+  // slip under the taller one of a big map), the tracker, the view the world was drawn in; KEYP: the windows' key plates drawn this frame
   let MMB = null, TRK = null, VW = null, KEYP = {};
   // an elite's label slot (TASKS 2032, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
   // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
@@ -88,15 +88,24 @@
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
     return toastBox(msgText(R.msg)); };
+  // the feed: pickups, trades and refusals, newest at the bottom, over the panel's left end; each row's text and plate, for the
+  // drawing and for the HUD's zone alike
+  const FEED = { x: 14, lift: 47, row: 34, h: 34, pad: 32, text: 16, size: 19 };
+  const feedText = (e) => (e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s
+    : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s);
+  const feedRows = (S, B) => { const feed = D.feedOf(S.ev, S.t);
+    return feed.map((e, i) => { const s = feedText(e); return { e, s, box: [FEED.x, B.y - FEED.lift - (feed.length - 1 - i) * FEED.row, lw('feed' + i, s, { size: FEED.size }) + FEED.pad, FEED.h] }; }); };
   const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
-  // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
-  // label is free to sit where they would be
+  // the parts of the HUD that world labels and quest marks keep off: the effects and the stats sheet by the portrait, the boss bar's
+  // strip at the top, the minimap, the tracker, the message card, the bottom panel; in play also the key hints, the crossed-out speaker
+  // and the feed's plates, which are drawn only there (on the pause a world label is free to sit where they would be)
   const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, BF.y + Math.max(1, BFR) * BF.dy + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
     [500, -I, 1420, 150, 'top'], MMB ? [MMB[0] - 4, -I, I, MMB[1] + MMB[3] + 4, 'minimap'] : [W - 260, -I, I, 440, 'minimap']];
     if (TRK) z.push([TRK[0] - 4, TRK[1] - 4, I, TRK[1] + TRK[3] + 4, 'tracker']);
     const play = !S || S.screen === 'play', kb = BPG && keysBox(), mb = msgBox(S);
     if (mb) z.push([mb[0] - 4, mb[1] - 4, mb[0] + mb[2] + 4, mb[1] + mb[3] + 4, 'card']);
-    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [])
+    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [],
+      play && S ? feedRows(S, BPG).map((q) => q.box.concat('feed')) : [])
       .forEach((b) => z.push([b[0] - 4, b[1] - 4, b[0] + b[2] + 4, b[1] + b[3] + 4, b[4]]));
     return z; };
   const underHud = (x, y) => (ZN || hudZones()).some((z) => x > z[0] && x < z[2] && y > z[1] && y < z[3]);
@@ -513,12 +522,8 @@
     else if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = msgText(R.msg);
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
       else toast(s, al); } }
-    // feed: pickups and refusals, newest at the bottom, over the panel's left end
-    const feed = D.feedOf(S.ev, S.t);
-    feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = B.y - 30 - (feed.length - 1 - i) * 34;
-      const s = e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s;
-      const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 32;
-      plate('feedbox' + i, 14, y - 17, w, 34, { a: 0.85 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
+    feedRows(S, B).forEach(({ e, s, box: [x, y, w, h] }, i) => { const al = 1 - L.SS(2.4, 3, S.t - e.t), col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold;
+      plate('feedbox' + i, x, y, w, h, { a: 0.85 * al }); lab('feed' + i, s, x + FEED.text, y + h / 2 + 1, { size: FEED.size, col, a: al }); });
     // the key hints over the panel's right end: the panel takes the bottom edge they stood on
     const ka = keysA(S);
     if (ka > 0) { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;

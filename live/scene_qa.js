@@ -1840,10 +1840,12 @@
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     // TASKS 2125: the porter's «?» with him under the open legend's map, and with him past the right edge at the tracker's height
-    const porterAt = (sx, sy, leg, zoom) => climbS(0, (S, R) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }]; R.legAuto = 0; R.mapLeg = leg;
+    // (feed: that many plates in the feed over the panel's left end, which the mark keeps off as a part of the HUD)
+    const porterAt = (sx, sy, leg, zoom, feed = 0) => climbS(0, (S, R) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }]; R.legAuto = 0; R.mapLeg = leg;
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const p = R.folk.find((f) => f.role === 'porter'), h = R.hero, z = (S.meta.zoom = R.zoom = zoom);
-      R.cam = [h.x - SCX.VW / 2 / z, h.y - 30 - SCX.VH / 2 / z]; p.x = R.cam[0] + sx / z; p.y = R.cam[1] + sy / z; });
-    states.push(['town_quest_marks_hud', porterAt(1760, 330, 1, 1)], ['town_quest_marks_edge', porterAt(2040, 420, 0, 1.5)]);
+      R.cam = [h.x - SCX.VW / 2 / z, h.y - 30 - SCX.VH / 2 / z]; p.x = R.cam[0] + sx / z; p.y = R.cam[1] + sy / z; S.ev = Array.from({ length: feed }, (_, i) => ({ k: 'pickup', s: TXT('QA.thing'), rar: i, t: S.t - i * 0.1 })); });
+    const FEED_PLATES = 3;
+    states.push(['town_quest_marks_hud', porterAt(1760, 330, 1, 1)], ['town_quest_marks_edge', porterAt(2040, 420, 0, 1.5)], ['town_quest_marks_feed', porterAt(160, 900, 0, 1, FEED_PLATES)]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
       const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge' } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);

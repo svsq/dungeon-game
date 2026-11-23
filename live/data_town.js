@@ -91,6 +91,8 @@
   // ran into the forge's corner, and the porter skipped his pick-up and walked to the merchant empty-handed (TASKS 1031)
   // a hen starts facing the way it is drawn at rest (to the nearest child, as TOWN_FACE), so its first step turns it over FOLK_TURN-like
   // easing: from face 0 the sim set the side with no turn and the drawing flipped in a frame (town_motion_r9 7)
+  // a townsperson's sprite (and size) name: the hens take three looks by their index, the rest their role's
+  const HEN_LOOKS = ['town_hen_white', 'town_hen_red', 'town_hen_grey'], folkSprite = (f) => (f.role === 'hen' ? HEN_LOOKS[f.i % HEN_LOOKS.length] : 'town_' + f.role);
   const henFace = (npcs, n) => { const c = npcs.filter((q) => q.role === 'child').sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return !c || c.x >= n.x ? 1 : -1; };
   const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1, hen = n.role === 'hen';
     return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: hen ? henFace(npcs, n) : 0, walked: hen ? 1 : 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
@@ -244,7 +246,7 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, folkSprite, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   // `nudge` (town_game_r10 4): how far a full mark may slide across and down from over the head to clear the HUD before it goes small;

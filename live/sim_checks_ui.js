@@ -780,7 +780,13 @@
     finally { SIMX.setView(h0); }
     if (first) out.push(first + (under ? ` (${under} of ${marks} marks under the HUD)` : ''));
     // the share the r10 critic counted: of the givers whose head is on the screen, how many show the small mark (34 % before the nudge)
-    if (headSmall > heads * Q.headSmall) out.push(`quest mark: ${headSmall} of ${heads} givers with the head on the screen show a small mark, over ${Q.headSmall * 100} %`); }
+    if (headSmall > heads * Q.headSmall) out.push(`quest mark: ${headSmall} of ${heads} givers with the head on the screen show a small mark, over ${Q.headSmall * 100} %`);
+    // the feed's plates over the panel's left end are a part of the HUD in play, one zone a plate (pickups: repeated refusals merge into one)
+    { const FEED_ROWS = 2, view = { cx: R.cam[0], cy: R.cam[1], sx: (x) => (x - R.cam[0]) * R.zoom, sy: (y) => (y - R.cam[1]) * R.zoom, k: R.zoom };
+      S.ev = Array.from({ length: FEED_ROWS }, (_, i) => ({ k: 'pickup', s: TXT('QA.thing'), rar: i, t: S.t - i * DT }));
+      const feed = page.HUD.markZones(S, R, view).filter((z) => z[4] === 'feed'), panel = page.HUD.markZones(S, R, view).find((z) => z[4] === 'panel');
+      if (feed.length !== FEED_ROWS || !panel || feed.some((z) => z[3] > panel[1] + 1 || z[0] > panel[0] + 1)) out.push(`quest mark: the feed's plates make ${feed.length} HUD zones of ${FEED_ROWS}, or not over the panel's left end ${JSON.stringify(feed)}`);
+      S.ev = []; } }
   // town_game_r10 2, 3: the quantity window's «−» at 1 and «+» at the top are dim and inert, a step past an end answers with the
   // refusal's sound and a shake of the count, the top is written «из N»; its keys and the ring's lie on their own plates
   function checkSplitEnds(out) {
