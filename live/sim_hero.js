@@ -211,6 +211,8 @@
 
   // ---------------- the world step (screen 'play') ----------------
   const FELL_DELAY_SECONDS = 1.6, FELL_RETRY_KEYS = ['Enter', 'Space'];
+  const fellRetryShown = (S, R) => S.screen === 'play' && !!R.fellFailed && R.hero.deadT >= 0;
+  const fellRetryHint = () => ({ s: TXT('sim_ui.fell.retry', { keys: FELL_RETRY_KEYS.map((key) => TXT('sim_ui.fell.key.' + key)).join(', ') }), pad: TXT('sim_ui.fell.retry@pad') });
   function stepPlay(S, inp, keys) {
     const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t; R.play = (R.play ?? (R.log ? R.log.fl.reduce((n, L) => n + L.time, 0) : 0)) + DT; tally(S, R, 'time', DT);   // saves from before the counter resume from the journal's per-floor time
     SIMX.stepArena(S, R);
@@ -219,7 +221,7 @@
     // mouse → world aim
     const Z = zoomOf(R), mx = R.cam[0] + inp.px / Z, my = R.cam[1] + inp.py / Z;
     if (h.deadT >= 0) {
-      if (R.fellFailed) { if (R.msg) R.msg.t = t; if ((inp.press || FELL_RETRY_KEYS.some((key) => keys[key]))) return SIMX.heroFell(S); }
+      if (R.fellFailed) { if (inp.click || FELL_RETRY_KEYS.some((key) => keys[key])) { S.eatPress = 1; return SIMX.heroFell(S); } }
       else if (t - h.deadT > FELL_DELAY_SECONDS) return SIMX.heroFell(S);
       stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
@@ -310,10 +312,11 @@
     const Cl = D.clsOf(h), weapon = BASES[st.wtype], shoots = (Cl.shoots || []).includes(st.wtype);
     const staffClub = shoots && weapon?.club;
     if (inp.press && !S.eatPress && (h.cd.staffClub ?? 0) <= t) {
-      const club = staffClub && R.en.some((e) => !under(e) && inMeleeArc(m, h, e, h.aim, SIMX.attackShape(h, st, true).arc, staffClub.trigger));
+      const clubShape = staffClub && SIMX.attackShape(h, st, st.wtype);
+      const club = clubShape && R.en.some((e) => !under(e) && inMeleeArc(m, h, e, h.aim, clubShape.arc, staffClub.trigger));
       const ready = club ? h.atkT < 0 || h.atkHit : h.cd.atk <= t;
       if (ready) {
-        const { kind, frame, cooldown: interval } = SIMX.attackShape(h, st, club);
+        const { kind, frame, cooldown: interval } = club ? clubShape : SIMX.attackShape(h, st, null);
         h.patkT = h.atkT; h.patkA = h.atkA; h.patkClub = h.atkClub; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++;
         h.atkClub = club ? st.wtype : null;
         h.cd[club ? 'staffClub' : 'atk'] = t + Math.max(frame + DT, interval);
@@ -322,8 +325,9 @@
         ev(S, { k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face, ...(kind === 'staffClub' ? { kind } : kind === 'shot' ? { shot: 1 } : {}) });
       }
     }
-    const clubBase = BASES[h.atkClub], { kind: attackKind, frame, arc, reach } = SIMX.attackShape(h, st, !!clubBase);
-    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= frame) {
+    const strike = h.atkT >= 0 && !h.atkHit ? SIMX.attackShape(h, st, h.atkClub) : null;
+    if (strike && t - h.atkT >= strike.frame) {
+      const clubBase = BASES[h.atkClub], { kind: attackKind, arc, reach } = strike;
       h.atkHit = 1;
       const ranged = attackKind === 'shot';
       if (ranged) {
@@ -441,5 +445,5 @@
 
   Object.assign(SIMX, {
     heroSt, heroRoll, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, killHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
-    stepPlay });
+    stepPlay, fellRetryHint, fellRetryShown, FELL_RETRY_KEYS });
 })(typeof window !== 'undefined' ? window : globalThis);

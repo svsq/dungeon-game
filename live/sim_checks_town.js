@@ -543,17 +543,27 @@
       try { SIMX.enterFloor = (state, run) => { run.msg = { s: TXT('sim_floor.enterFail.town'), t: state.t, d: 4 }; return false; }; SIMX.heroFell(S); }
       finally { SIMX.enterFloor = enter; }
       if (h.deadT < 0 || h.hp !== 0 || h.xp !== XP || R.floor !== floor || (S.meta.deaths || 0) !== deaths) out.push('death mode: failed town entry changes the dead hero');
-      if (!R.fellFailed || !R.msg || R.msg.s !== TXT('sim_ui.fell.retry')) out.push('death mode: failed town entry does not flag the run or show the retry hint');
+      const hint = SIMX.fellRetryHint(), shown = (state) => SIMX.fellRetryShown(state, state.run);
+      if (!R.fellFailed || !shown(S)) out.push('death mode: failed town entry does not flag the run or show the retry hint');
+      if (SIMX.messageText(hint, true) !== TXT('sim_ui.fell.retry@pad') || SIMX.FELL_RETRY_KEYS.some((key) => !SIMX.messageText(hint, false).includes(TXT('sim_ui.fell.key.' + key)))) out.push('death mode: the retry hint does not follow the input method or name every retry key');
       S.t = h.deadT + 2; step(S, { keys: [] }); if (!R.fellFailed || h.deadT < 0) out.push('death mode: failed town entry retries without a key');
-      S.t += 60; step(S, { keys: [] }); if (!R.msg || S.t - R.msg.t >= R.msg.d) out.push('death mode: the retry hint expires while the hero is dead');
-      const saved = JSON.parse(JSON.stringify(R)); if (!saved.fellFailed) out.push('death mode: the failed-entry flag does not survive a save');
-      try { SIMX.enterFloor = () => false; step(S, { keys: ['Space'] }); } finally { SIMX.enterFloor = enter; }
-      if (!R.fellFailed || h.deadT < 0) out.push('death mode: a retry key that fails again revives the hero');
-      if (SIMX.messageText(R.msg, true) !== TXT('sim_ui.fell.retry@pad') || SIMX.messageText(R.msg, false) !== TXT('sim_ui.fell.retry')) out.push('death mode: the retry hint does not follow the input method');
-      try { SIMX.enterFloor = () => false; step(S, { keys: [], press: 1 }); } finally { SIMX.enterFloor = enter; }
-      if (!R.fellFailed || h.deadT < 0) out.push('death mode: a mouse press that fails again revives the hero');
-      step(S, { keys: [], press: 1 }); if (R.fellFailed || !R.town || h.deadT !== -1) out.push('death mode: the retry key does not take the hero to the town');
-      if (h.xp !== XP - Math.min(XP, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss))) out.push('death mode: retry after failed town entry does not revive once'); }
+      S.t += 60; R.msg = { s: 'other', t: S.t, d: 1 }; step(S, { keys: [] }); S.t += 60; step(S, { keys: [] });
+      if (!shown(S)) out.push('death mode: the retry hint goes away while the hero is dead or under another message');
+      const T = spawn(1, JSON.parse(JSON.stringify(persist(S)))); SIMX.loadSlot(T, T.slot); const R2 = T.run, h2 = R2.hero; R2.holdT = -1; R2.greet = null;
+      if (!R2.fellFailed || h2.deadT < 0 || !shown(T)) out.push('death mode: the failed-entry hint does not survive save, load and resume');
+      let tries = 0; const failing = (fn) => { try { SIMX.enterFloor = () => { tries++; return false; }; fn(); } finally { SIMX.enterFloor = enter; } };
+      failing(() => { for (let i = 0; i < 5; i++) step(T, { keys: [], press: 1 }); });
+      if (tries || !R2.fellFailed || h2.deadT < 0) out.push('death mode: a held mouse button retries');
+      failing(() => step(T, { keys: ['Space'] }));
+      if (tries !== 1 || !R2.fellFailed || h2.deadT < 0 || !shown(T)) out.push('death mode: a retry key that fails again revives the hero or loses the hint');
+      failing(() => { step(T, { keys: [], press: 1, click: 1 }); for (let i = 0; i < 3; i++) step(T, { keys: [], press: 1 }); });
+      if (tries !== 2 || !R2.fellFailed || h2.deadT < 0) out.push('death mode: a mouse click that fails again retries more than once or revives the hero');
+      const atk = h2.atkN; step(T, { keys: [], press: 1, click: 1 });
+      if (R2.fellFailed || !R2.town || h2.deadT !== -1) out.push('death mode: the retry click does not take the hero to the town');
+      if (h2.xp !== XP - Math.min(XP, Math.round(D.xpNeed(h2.lvl) * D.BAL.deathXpLoss))) out.push('death mode: retry after failed town entry does not revive once');
+      R2.holdT = -1; R2.greet = null; for (let i = 0; i < 20; i++) step(T, { keys: [], press: 1 });
+      if (h2.atkN !== atk) out.push('death mode: the retry click goes on into an attack in the town');
+      step(T, { keys: [] }); step(T, { keys: [], press: 1 }); if (h2.atkN === atk) out.push('death mode: a fresh press in the town does not attack after the retry'); }
     { const [S, R] = fresh('hard'); enterFloor(S, R, 1); die(S, R);
       if (S.run || S.screen !== 'dead') out.push(`death mode: a hardcore death leaves the screen ${S.screen} and the run ${!!S.run}`);
       if (!S.result || S.result.deathMode !== 'hard') out.push(`death mode: a hardcore run's result records the mode ${S.result && S.result.deathMode}`);

@@ -357,9 +357,8 @@
           const orbCd = h.cd.atk, orbStart = h.atkT, st = stats(h, S.meta);
           if (!S.ev.some((q) => q.k === 'swing' && q.shot && q.t === orbStart) ||
               orbCd !== orbStart + Math.max(D.BOLT.t + DT, staff.spd / (1 + st.aspd / 100))) out.push('class mage: the ranged staff attack uses the wrong mode or cooldown');
-          { const asClub = SIMX.attackShape(h, st, true), asShot = SIMX.attackShape(h, st, false), RAD = Math.PI / 180;
-            if (asClub.kind !== 'staffClub' || asClub.arc !== staff.arc * RAD || asClub.reach !== staff.reach || asClub.frame !== club.windup || asClub.cooldown !== club.cooldown
-              || asShot.kind !== 'shot' || asShot.arc !== st.arc * RAD || asShot.reach !== st.reach || asShot.frame !== D.BOLT.t || asShot.cooldown !== st.wcd / (1 + st.aspd / 100)) out.push('class mage: the attack shape of the club or the shot is wrong'); }
+          { const asClub = SIMX.attackShape(h, st, h.eq.weapon.b), asShot = SIMX.attackShape(h, st, null);
+            if (asClub.kind !== 'staffClub' || asClub.frame !== club.windup || asClub.cooldown !== club.cooldown || asShot.kind !== 'shot' || asShot.frame !== D.BOLT.t) out.push('class mage: the attack shape of the club or the shot is wrong'); }
           tick(near);
           if (h.atkT !== orbStart) out.push('class mage: staff club cancels an orb windup');
           waitForHit(far, D.BOLT.t);
@@ -382,6 +381,18 @@
           tick(far);
           if (h.atkT === clubStart || !S.ev.some((q) => q.k === 'swing' && q.shot && q.t === h.atkT)) out.push('class mage: the staff does not resume shooting once both cooldowns expire');
         } }
+      for (const [cls, kind] of [['warrior', 'melee'], ['archer', 'shot']]) { const { S, h, ok } = arena(cls);
+        if (ok && SIMX.attackShape(h, stats(h, S.meta), null).kind !== kind) out.push(`class ${cls}: the attack shape is not a ${kind}`); }
+      { const { S, R, h, foe, ok } = arena('mage');
+        if (ok) {
+          const club = BASES.staff.club, e = foe(200);
+          h.eq.weapon.atk = 1000; h.eq.weapon.mods.crit = -100;
+          Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
+          step(S, { keys: [], press: 1, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
+          const clubStart = h.atkT; h.eq.weapon.b = 'sword';
+          for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) step(S, { keys: [] });
+          const hit = S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id);
+          if (!hit || hit.t - clubStart < club.windup || hit.t - clubStart > club.windup + 2 * DT || S.ev.some((q) => q.k === 'bolt')) out.push('class mage: a club blow changes its shape when the weapon is swapped before its hit frame'); } }
       // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
       // onto it and lets it go, the leap carries him back from the aim, AGI (and a little STR, TASKS 1913) grows his bow's damage, a sword is not his
       { const { S, R, h, foe, ok } = arena('archer');

@@ -25,9 +25,29 @@
       else for (const it of Z.items) { const x = Math.floor(it.x / TILE), y = Z.k === 'levers' ? Math.floor((it.y + 48) / TILE) : Math.floor(it.y / TILE); if (!reachC(x, y)) out.push(`a ${Z.k} piece is out of reach`); }
       if (Z && Z.k === 'candles' && m.decor.filter((d) => d.pz === i && d.n === 'candles').length !== 3) out.push('is missing its candles'); }
     return out; }
+  // the consumer's side of a bridge: the hero's own step lands on wood only over a deck, a ford or a bridge of stones gives stone
+  const BRIDGE_WIDTH = 2, BRIDGE_LENGTH = 3, LANDING = 1;
+  function crossingStepCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; enterFloor(S, S.run, 1);
+    const R = S.run, m = R.map, h = R.hero, wet = SIMX.waterSet(m), floorAt = (u, v) => m.cells[v * m.W + u] === 1 && !wet.has(v * m.W + u) && !m.block.includes(v * m.W + u);
+    const span = BRIDGE_LENGTH + 2 * LANDING;
+    let u0 = -1, v0 = -1;
+    for (let v = 1; v < m.H - BRIDGE_WIDTH && u0 < 0; v++) for (let u = 1; u < m.W - span && u0 < 0; u++) {
+      let all = true; for (let dv = 0; dv < BRIDGE_WIDTH && all; dv++) for (let du = 0; du < span && all; du++) all = floorAt(u + du, v + dv);
+      if (all) { u0 = u; v0 = v; } }
+    if (u0 < 0) return out;
+    const first = u0 + LANDING, last = first + BRIDGE_LENGTH - 1, middle = v0 * m.W + first + (BRIDGE_LENGTH >> 1);
+    const cells = []; for (let dv = 0; dv < BRIDGE_WIDTH; dv++) for (let u = first; u <= last; u++) cells.push((v0 + dv) * m.W + u);
+    const stepOn = (crossing) => { mapw.put(m, 'crossings', [crossing]); R.en = []; R.freeze = 0; h.ifr = 1e9; h.x = (middle % m.W + 0.5) * TILE; h.y = (Math.floor(middle / m.W) + 0.5) * TILE; h.vx = h.vy = 0; h.gp = Math.PI - 0.001; S.ev = [];
+      step(S, { keys: [], right: 1, px: 960, py: 540 }); const e = S.ev.find((q) => q.k === 'step'); return e && e.mat; };
+    const bridge = { kind: 'bridge', axis: 'x', span: [first, last, v0], cells };
+    const cases = [['a bridge with landings', bridge, 'wood'], ['a bridge of stones', { ...bridge, look: 'stones' }, 'stone'], ['a bridge without a span', { ...bridge, span: undefined }, 'stone'], ['a ford', { ...bridge, kind: 'ford' }, 'stone']];
+    for (const [label, crossing, mat] of cases) { const got = stepOn(crossing); if (got !== mat) out.push(`crossing: the hero's step on ${label} gives ${got}, not ${mat}`); }
+    return out;
+  }
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function genCheck() {
-    const out = [];
+    const out = crossingStepCheck();
     for (const [sd, lands] of [[3, true], [42, false]]) {
       const m = DG.genFloor(sd * 31 + 9 * 1013, 9, { mode: 'campaign', runSeed: sd, town: 1 });
       const bridge = m.crossings.find((c) => c.kind === 'bridge');

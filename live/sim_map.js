@@ -34,12 +34,12 @@
   const cellsKey = (m, ...parts) => keyOf(cellsRev(m), ...parts);
   // a bridge drawn as stepping stones (no landings at its ends over water) carries no deck, posts or torches; one answer per map revision for the sim's step sound, the rockfall's dust and the scene's lights and drawing
   const DECKS = new WeakMap();
-  const deckKinds = (m) => { const cached = DECKS.get(m); if (cached && cached.rev === rev(m)) return cached;
+  const deckKinds = (m) => { const cached = DECKS.get(m); if (cached && cached.rev === rev(m) && cached.crossings === m.crossings) return cached;
     const dungeon = root.DUNGEON || require('./dungeon.js'), wet = waterSet(m), crossings = m.crossings || [];
     const dry = new Set(crossings.filter((c) => c.kind === 'bridge' || c.kind === 'ford').flatMap((c) => c.cells));
     const stones = new Set(crossings.filter((c) => c.look === 'stones' || (c.kind === 'bridge' && !c.lava && !c.chasm && !dungeon.bridgeLands(m, c, wet, dry))));
     const deckCells = new Set(crossings.filter((c) => c.kind === 'bridge' && !stones.has(c)).flatMap((c) => c.cells));
-    const entry = { rev: rev(m), stones, deckCells }; DECKS.set(m, entry); return entry; };
+    const entry = { rev: rev(m), crossings: m.crossings, stones, deckCells }; DECKS.set(m, entry); return entry; };
   const crossingOnStones = (m, c) => deckKinds(m).stones.has(c);
   const deckAt = (m, cell) => deckKinds(m).deckCells.has(cell);
   const mapw = { rev, touch, touchCells, setCell, fillCells, blockPush, blockOnce, blockDrop, addWater, dropWater, unlatch, put };

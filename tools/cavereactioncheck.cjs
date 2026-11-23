@@ -17,7 +17,7 @@ for (const seed of [1,3,7]) {
       counts[mat]++;if(!events.some((q)=>q.k==='step'&&q.mat===mat))events.push(e);
     };
     for(const c of m.crossings) if(c.kind==='bridge'||c.kind==='ford') {
-      const k=c.cells.find((k)=>m.cells[k]===1&&!m.block.includes(k));if(k!==undefined)check(k,c.kind==='bridge'?'wood':'stone');
+      const k=c.cells.find((k)=>m.cells[k]===1&&!m.block.includes(k));if(k!==undefined)check(k,c.kind==='bridge'&&SIM.Q.deckAt(m,k)?'wood':'stone');
     }
     const wet=new Set(m.water),cross=new Set(m.crossings.flatMap((c)=>c.cells));
     const k=m.cells.findIndex((c,k)=>c===1&&!wet.has(k)&&!cross.has(k)&&!m.block.includes(k));assert.ok(k>=0);check(k,'stone');

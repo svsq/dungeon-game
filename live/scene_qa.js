@@ -1154,7 +1154,7 @@
         R.en = []; R.msg = null; R.seen.fill(1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
         states.push(['cave_ford_bent_landing', S]);
       } }
-    const isWaterBridge = (m, c) => c.kind === 'bridge' && DUNGEON.bridgeLands(m, c, SIM.Q.waterSet(m), new Set(m.crossings.filter((q) => q.kind === 'bridge' || q.kind === 'ford').flatMap((q) => q.cells)));
+    const isWaterBridge = (m, c) => c.kind === 'bridge' && !c.lava && !c.chasm && !SIM.Q.crossingOnStones(m, c);
     // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
     { const S = play(); S.run = SIM.newRun(S, 'cave', 5); S.screen = 'play';
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => isWaterBridge(m, q)); if (!c) continue;
@@ -1382,7 +1382,7 @@
     transitions.hero_turn = eventT(clear, (S) => { const h = S.run.hero; h.face = -h.face; h.faceT = S.t; });
     // whirl and cast need the pointer held on one aim: the sim re-aims the hero every step
     const aimT = (a, fire) => { const fr = []; let S = play(clear); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
-      if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } fire(S, h); } fr.push(S); S = structuredClone(S);
+      if (i === MAGE_FIRST_PRESS) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, keys: [] }); } return fr; };
     const whirl = (S, h) => { h.whirlT = h.castT = S.t; h.castK = 'whirl'; h.whirlA = h.aim; S.ev.push({ k: 'whirl', t: S.t, x: h.x, y: h.y, a: h.aim, r: D.abRank('whirl', 1).r }); };
     // TASKS 177: the whirl's circle on screen is its reach: skeletons at the edge of the damage zone, right, left and below (the zone is squeezed ×1.3 in depth)
@@ -2190,23 +2190,23 @@
     const asMageOrb = (wb) => (S) => { asMage(S); const h = S.run.hero; h.eq.offhand = { id: 0, b: 'orb', rar: 0, lvl: 1, mods: {}, def: 4 }; if (wb) h.eq.weapon = Object.assign({}, h.eq.weapon, { b: wb }); };
     for (const [pre, wb] of [['mage_orb_', null], ['mage_wand_orb_', 'wand']]) for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = pre + k;
       out.cycles[n] = cyc(dx, dy, asMageOrb(wb)); out.sprites[n] = mageSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asMageOrb(wb)(S); if (dy < 0) S.run.hero.back = 1; }); }
+    const MAGE_FIRST_PRESS = 5, QA_FRAME_S = 2 * SIM.DT, framesOf = (seconds) => Math.ceil(seconds / QA_FRAME_S), FOE_FAR_TRIGGERS = 2;
     const mageT = (a0, fire, press, turn, each) => { const fr = []; let S = play((S) => { clear(S); asMage(S); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (fire) fire(S, h); } if (each) each(S, h, i); fr.push(S); S = structuredClone(S);
-      const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [5] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, keys: [] }); } return fr; };
+      const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [MAGE_FIRST_PRESS] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, keys: [] }); } return fr; };
     const frost = (S, h) => { h.castT = S.t; h.castK = 'frost'; S.ev.push({ k: 'frost', t: S.t, x: h.x, y: h.y, a: h.aim, r: D.abRank('frost', 1).r, arc: D.FROST.arc }); };
     for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) { transitions['hero_mage_shoot_' + n] = mageT(a, null, 1); transitions['hero_mage_frost_' + n] = mageT(a, frost); transitions['hero_mage_cast_' + n] = mageT(a, cast); }
     transitions.hero_mage_staff_club = mageT(0, (S, h) => {
       lone('skeleton')(S);
       S.run.en[0].x = h.x + D.BASES.staff.club.trigger - D.ENEMIES.skeleton.r;
     }, 1);
-    const MAGE_FIRST_PRESS = 5, QA_FRAME_S = 2 * SIM.DT, framesOf = (seconds) => Math.ceil(seconds / QA_FRAME_S);
-    // two shots one staff cooldown apart: the second raise carries on from the first
+    // two shots one staff cooldown apart: the second press comes once the first one's cooldown has run out
     transitions.hero_mage_shoot2_r = mageT(0, null, [MAGE_FIRST_PRESS, MAGE_FIRST_PRESS + framesOf(D.BASES.staff.spd) + 1]);
     // a bolt, then a foe steps into the club's reach as the bolt's frame passes: the club carries on from the raised staff
     const clubPress = MAGE_FIRST_PRESS + framesOf(D.SHOTS[D.BASES.staff.shot || 'bolt'].t) + 1, staffClub = D.BASES.staff.club;
     transitions.hero_mage_bolt_then_club = mageT(0, lone('skeleton'), [MAGE_FIRST_PRESS, clubPress], null, (S, h, i) => {
       if (i < MAGE_FIRST_PRESS) return;
-      const foe = S.run.en[0]; foe.x = h.x + (i < clubPress ? 2 * staffClub.trigger : staffClub.trigger - D.ENEMIES.skeleton.r); foe.y = h.y; foe.vx = foe.vy = 0; });
+      const foe = S.run.en[0]; foe.x = h.x + (i < clubPress ? FOE_FAR_TRIGGERS * staffClub.trigger : staffClub.trigger - D.ENEMIES.skeleton.r); foe.y = h.y; foe.vx = foe.vy = 0; });
     // (TASKS 1153: the pointer turned in the wind-up; a wand's shots 0.36 s apart with the aim flipped)
     transitions.hero_mage_shoot_turn = mageT(0, null, 1, [7, 1.2]); transitions.hero_mage_wand_flip = mageT(0, (S, h) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'wand' }); }, [5, 30], [20, Math.PI]);
     transitions.hero_mage_hurt = mageT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; });

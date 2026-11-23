@@ -8,7 +8,7 @@ const cast=(S,a)=>{const R=S.run,h=R.hero;h.aim=a;h.face=Math.cos(a)>=0?1:-1;R.c
 let bridge=false;
 for(const seed of [3,7,1])for(let f=1;f<=4&&!bridge;f++) {
   const S=base(seed,f),R=S.run,m=R.map,h=R.hero;
-  for(const c of m.crossings.filter((c)=>c.kind==='bridge'))for(const post of c.posts) {
+  for(const c of m.crossings.filter((c)=>c.kind==='bridge'&&!SIM.Q.crossingOnStones(m,c)))for(const post of c.posts) {
     if(bridge)break;
     const C=structuredClone(S),A=C.run,H=A.hero;
     H.x=post.x-120;H.y=post.y+SIM.RIG.shoulder-28;

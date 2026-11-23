@@ -117,9 +117,9 @@
   // a swing faster than its own damage frame is cut off before it lands (TASKS 1833): past that the speed shown would be one never reached (PR 56 review)
   const hitFrame = (h, wtype) => ((D.clsOf(h).shoots || []).includes(wtype) ? D.SHOTS[(BASES[wtype] || {}).shot || 'bolt'].t : SIMX.K.HIT);
   const RADIANS_PER_DEGREE = Math.PI / 180;
-  // the one description of a blow in the current mode: the staff's club or the weapon's own attack
-  function attackShape(h, st, clubbed) {
-    const base = BASES[st.wtype], club = clubbed ? base?.club : null;
+  // the one description of a blow: clubWeapon names the weapon whose club struck (the blow's own, not the one now in hand), null for the weapon's own attack
+  function attackShape(h, st, clubWeapon) {
+    const base = BASES[clubWeapon], club = base?.club;
     if (club) return { kind: 'staffClub', arc: base.arc * RADIANS_PER_DEGREE, reach: base.reach, frame: club.windup, cooldown: club.cooldown };
     const shoots = (D.clsOf(h).shoots || []).includes(st.wtype);
     return { kind: shoots ? 'shot' : 'melee', arc: st.arc * RADIANS_PER_DEGREE, reach: st.reach, frame: hitFrame(h, st.wtype), cooldown: st.wcd / (1 + st.aspd / 100) };

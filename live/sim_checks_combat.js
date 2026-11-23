@@ -368,9 +368,11 @@
       const R = S.run, h = R.hero, sh = R.map.shop; R.en = []; h.x = sh.front.x; h.y = sh.front.y; step(S, { keys: ['KeyE'] });
       if (S.screen !== 'shop') out.push('E at the counter does not open the shop');
       else { const U = UI.shop(R.shop.goods.length), at = (id) => { const b = U.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
-        const g = R.shop.goods[0], n0 = R.shop.goods.length; h.gold = g.price - 1; step(S, at('buy:0'));
+        const rarity = (id) => D.RARITY.findIndex((entry) => entry.id === id);
+        const epic = rarity('epic'), rare = rarity('rare'), legendary = rarity('legendary');
+        const g = R.shop.goods.find((q) => !q.n && (q.it.rar || 0) < epic), n0 = R.shop.goods.length, gi = R.shop.goods.indexOf(g); h.gold = g.price - 1; step(S, at('buy:' + gi));
         if (R.shop.goods.length !== n0 || h.gold !== g.price - 1) out.push('a buy went through without enough gold');
-        h.gold = g.price + 5; step(S, at('buy:0'));
+        h.gold = g.price + 5; step(S, at('buy:' + gi));
         if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('a buy did not take its price or did not land in the bag');
         const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); step(S, at('sell:' + i));
         if (h.gold !== 5 + pr || h.bag[i] || !R.shop.back.some((q) => q.it.id === g.it.id && q.price === pr)) out.push('a sale did not pay or did not reach the buy-back row');
@@ -378,8 +380,6 @@
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
         const cg = R.shop.goods.find((q) => q.n); h.gold = 1e6; const c0 = cg.n; step(S, at('buy:' + R.shop.goods.indexOf(cg)));
         if (h.gold !== 1e6 || cg.n !== c0) out.push('a buy into a full bag took the gold');
-        const rarity = (id) => D.RARITY.findIndex((entry) => entry.id === id);
-        const epic = rarity('epic'), rare = rarity('rare'), legendary = rarity('legendary');
         const cell = 'sell:0', lowerLevel = 3, wornLevel = 5, higherLevel = wornLevel + 1;
         const equipped = itemPower({ b: 'sword', lvl: wornLevel, rar: legendary, mods: { vit: 5 } });
         h.eq.weapon = equipped;

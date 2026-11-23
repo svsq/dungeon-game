@@ -193,7 +193,7 @@
     if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(130 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const LK = D.lookOf(h), pn = LK.rig + '__', P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
-    const atkT = GT - h.atkT, strikeShape = SIM.Q.attackShape(h, st, h.atkClub === st.wtype), clubSwing = strikeShape.kind === 'staffClub' && atkT >= 0 && atkT < strikeShape.cooldown;
+    const atkT = GT - h.atkT, strikeShape = SIM.Q.attackShape(h, st, h.atkClub), clubSwing = strikeShape.kind === 'staffClub' && atkT >= 0 && atkT < strikeShape.cooldown;
     const swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && !['whirl', 'charge', 'cry'].includes(h.castK);
     // whirl: the hand and blade sweep a ground ellipse at waist height around the body from the aim, behind it while pointing away;
     // eased in from the current pose and out of a crouch

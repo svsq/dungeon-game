@@ -79,11 +79,13 @@
   const msgLines = (s) => { const T = D.TOAST, parts = s.split('\n'), one = parts.length === 1 && lw('msg_m', s, { size: T.size }) <= T.one, size = one ? T.size : T.size2;
     return { size, ls: one ? [s] : parts.length > 1 ? parts.flatMap((q) => (lw('msg_m', q, { size }) <= T.one ? [q] : wrapWords(q, T.wrap, size))) : wrapWords(s, T.wrap, size) }; };
   // the floor's card while it is up (TASKS 1951 в): an elite's plate under it gives way, its own name read over the card's
-  const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
+  const toastBox = (s) => { const { size, ls } = msgLines(s), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+    return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
+  const fellRetryShown = SIM.Q.fellRetryShown;
+  const msgBox = (S) => { const R = S && S.run; if (R && fellRetryShown(S, R)) return toastBox(msgText(SIM.Q.fellRetryHint())); if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
-    const { size, ls } = msgLines(msgText(R.msg)), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
-    return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
+    return toastBox(msgText(R.msg)); };
   const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
   // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
   // label is free to sit where they would be
@@ -501,13 +503,14 @@
     // floor banner
     // a boss's arrival plate gives way to its ribbon, or its name stood on the screen two and three times over (TASKS 1794)
     const named = boss && R.msg && R.msg.chapter === D.ENEMIES[boss.type].name;
-    if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = msgText(R.msg);
-      if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
-      else {
-      const { size, ls } = msgLines(s), lh = size + 8;
+        const toast = (s, al) => { const { size, ls } = msgLines(s), lh = size + 8;
       const w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
       plate('msg_box', W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * lh, { a: al });
-      ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lh, { size, al: 0.5, col: C.gold, a: al })); } } }
+      ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lh, { size, al: 0.5, col: C.gold, a: al })); };
+    if (fellRetryShown(S, R)) toast(msgText(SIM.Q.fellRetryHint()), 1);
+    else if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = msgText(R.msg);
+      if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
+      else toast(s, al); } }
     // feed: pickups and refusals, newest at the bottom, over the panel's left end
     const feed = D.feedOf(S.ev, S.t);
     feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = B.y - 30 - (feed.length - 1 - i) * 34;
