@@ -133,6 +133,10 @@
     return { blade, k, bend, fs, dir, start, end, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
   }
   const DEPTH_K = 0.65;   // the 3/4 camera's squeeze of floor depth
+  // the crossbow lies on the floor plane, but squeezed by the camera's own depth its stock aimed down shrank to a crossbar at the hip
+  // and the shot's direction was lost: it is squeezed less, and its bolt is drawn heavy enough to read (w, core: the shaft's and its
+  // light core's thickness, head: the steel head's length and width, px)
+  const XBOW = { depth: 0.85, bolt: { w: 3.5, core: 1.6, head: [6, 4] } };
   // seen from behind (TASKS 2011): the resting blade is held up and away, so it stands steeper and foreshortened behind the body
   // instead of the front view's flat cut-out poking out of the cape; the arms hang in the cape's shade (the shirt's white cuffs were
   // the brightest thing on him); the feet point away, heels to the camera, so they narrow about the ankle; the cape's broad red
@@ -437,7 +441,7 @@
       if (orbCast) reach(arms.R, 0.15 * l + Math.cos(aimS) * 0.45 * l, Math.sin(aimS) * 0.45 * l + 0.2 * l, pe); else reach(arms.R, tx, ty, mageG === 'fireball' && !pole ? 0.35 * pe : pe);
       // a bow is drawn (TASKS 1125 critic): the far hand takes the string at the stave and pulls it back along the aim through the
       // wind-up, lets it snap home on the loose
-      if (xbow) { const dl = 14 / s / Math.hypot(Math.cos(aimS), Math.sin(aimS) / DEPTH_K); reach(arms.L, RG.shR[0] - RG.shL[0] + tx + Math.cos(aimS) * dl, RG.shR[1] - RG.shL[1] + ty + Math.sin(aimS) * dl, pe); }
+      if (xbow) { const dl = 14 / s / Math.hypot(Math.cos(aimS), Math.sin(aimS) / XBOW.depth); reach(arms.L, RG.shR[0] - RG.shL[0] + tx + Math.cos(aimS) * dl, RG.shR[1] - RG.shL[1] + ty + Math.sin(aimS) * dl, pe); }
       // (TASKS 2146) the far arm takes the bow out to the aim and the near hand draws the string to the cheek, as a right-handed archer
       // seen from his right does; both hands meet at the grip on the raise, where the bow passes from one to the other
       else if (bowArm) { const dl = 0.72 * l * drawE; reach(arms.L, RG.shR[0] - RG.shL[0] + tx, RG.shR[1] - RG.shL[1] + ty, pe); reach(arms.R, tx - Math.cos(aimS) * dl, ty - Math.sin(aimS) * dl, pe); bowHand = SS(0, 0.9, pe); }
@@ -600,11 +604,11 @@
           sa += to * f1; } }
       // the crossbow is painted from above: laid on the floor plane along its screen angle, it shortens aiming at or away from the
       // camera and shows its prod across the shot from every side; a bolt lies on it but for a moment after the loose
-      if (xbow) { const th0 = Math.atan2(Math.sin(sa) / DEPTH_K, Math.cos(sa)), at = (fx) => { const lx = (fx - 0.3) * tw; return [Hd[0] + Math.cos(th0) * lx, Hd[1] + DEPTH_K * Math.sin(th0) * lx]; };
-        L.sprite(fine(tex), 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.s(1, DEPTH_K), M.r(th0)), w: tw, h: th, pivot: [tw * 0.3, th * 0.5], u: U });
+      if (xbow) { const th0 = Math.atan2(Math.sin(sa) / XBOW.depth, Math.cos(sa)), at = (fx) => { const lx = (fx - 0.3) * tw; return [Hd[0] + Math.cos(th0) * lx, Hd[1] + XBOW.depth * Math.sin(th0) * lx]; };
+        L.sprite(fine(tex), 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.s(1, XBOW.depth), M.r(th0)), w: tw, h: th, pivot: [tw * 0.3, th * 0.5], u: U });
         if (drop === 0 && !(swinging && atkT >= BT && atkT < BT + 0.3)) { const [a0, a1] = [at(0.33), at(0.86)], bl = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]), ba3 = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]), ink = (c) => (o.id === 'occ' && L.sp && L.sp.ink ? L.sp.ink : c);
-          L.solid(a0[0], a0[1], bl, 2.5, ink([0.16, 0.1, 0.06]), ba3, 0, 1.25, alpha); L.solid(a0[0], a0[1], bl, 1.2, ink([0.92, 0.8, 0.58]), ba3, 0, 0.6, alpha); L.solid(a1[0], a1[1], 4, 3, ink([0.8, 0.82, 0.86]), ba3, 0, 1.5, alpha); }
-        gripAt = drop === 0 ? { p: [...Hd], a: Math.atan2(DEPTH_K * Math.sin(th0), Math.cos(th0)) - fX * Math.PI / 2 } : null;
+          const B = XBOW.bolt; L.solid(a0[0], a0[1], bl, B.w, ink([0.16, 0.1, 0.06]), ba3, 0, B.w / 2, alpha); L.solid(a0[0], a0[1], bl, B.core, ink([0.92, 0.8, 0.58]), ba3, 0, B.core / 2, alpha); L.solid(a1[0], a1[1], B.head[0], B.head[1], ink([0.8, 0.82, 0.86]), ba3, 0, B.head[1] / 2, alpha); }
+        gripAt = drop === 0 ? { p: [...Hd], a: Math.atan2(XBOW.depth * Math.sin(th0), Math.cos(th0)) - fX * Math.PI / 2 } : null;
         const tip = at(0.9); L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; return; }
       // a bow is held by the middle of its stave and turned across the shot (TASKS 1125); until the loose an arrow lies on it along the aim
       // (mirrored across its stave facing right, so its string faces the archer, not the target; turned over on the raise it went
