@@ -804,7 +804,7 @@
   const abRankLine = (h, A, r) => !r ? TXT('hud.inv.14', { unlock: A.unlock }) : r >= D.AB_MAX && h.mast ? TXT('hud.inv.13.mastery', { r, AB_MAX: D.AB_MAX, pct: nf(h.mast * D.MASTERY.pct) }) : TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX });
   // the next rank against this one, a line for each number that moves; a fork the rank opens is said before the press
   function abTip(h, A, r, st, R, pend, forkAt) {
-    if (r >= D.AB_MAX) return [TXT('hud.abtip.max', { r }), [TXT('hud.abtip.mastery', { step: nf(D.MASTERY.pct) })]];
+    if (r >= D.AB_MAX) return [TXT('hud.abtip.max', { r }), [D.ranksFull(h) ? TXT('hud.abtip.mastery', { step: nf(D.MASTERY.pct) }) : TXT('hud.abtip.masteryLater', { AB_MAX: D.AB_MAX })]];
     const n = r + 1, a = D.abRank(A.id, Math.max(1, r)), b = D.abRank(A.id, n), pc = A.desc.includes('{d}%') ? '%' : '', out = [];
     if (!r) out.push(abDesc(A, 1, st, R));
     else { const d0 = abD(A, r, st, R), d1 = abD(A, n, st, R); if (d1 !== d0) out.push(TXT('hud.abtip.power', { a: d0 + pc, b: d1 + pc }));

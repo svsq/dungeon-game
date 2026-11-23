@@ -8,6 +8,9 @@
   const lerp1 = (a, b, k) => a + (b - a) * k, lerp2 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], E01 = (q) => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
   const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
   const JOINT_W = 0.02;
+  // a hen's pecking: one peck a cycle at rate rad/s (sharp: how short the dip is), quicker at the grain; between pecks the neck looks
+  // about (glance, rad of neck at glanceRate rad/s), so it is never still for long
+  const HEN_PECK = { rate: 2.6, sharp: 5, fed: { rate: 3.4, sharp: 3 }, glance: 0.14, glanceRate: 1.9 }, HEN_PECK_PERIOD = 2 * Math.PI / HEN_PECK.rate;
   // the legs step along the gait's eased heading (the sim's f.hx, f.hy, TASKS 2136) at the walker's speed
   const gaitV = (f) => { const v = Math.hypot(f.vx, f.vy); return f.hx === undefined || !v ? { vx: f.vx, vy: f.vy } : { vx: f.hx * v, vy: f.hy * v }; };
   // the stone the mason takes leaves the cart's box at its near rim, where the cart stands (TASKS 2141: it rose from a point off his own
@@ -17,9 +20,6 @@
   // one townsperson (TASKS 1015): a work loop on its own clock (DATA.folkClock, shared with the sim's events), the walk of a round,
   // and the talk: turned to the hero, head up, the free hand gesturing, eased in and out of the work pose. Hands are placed by IK on
   // screen points; the tool rides the hand. The loop's moments (the blow, the poke, the throw) leave their effects in RIM.folk
-  // a hen's pecking: one peck a cycle at rate rad/s (sharp: how short the dip is), quicker at the grain; between pecks the neck looks
-  // about (glance, rad of neck at glanceRate rad/s), so it is never still for long
-  const HEN_PECK = { rate: 2.6, sharp: 5, fed: { rate: 3.4, sharp: 3 }, glance: 0.14, glanceRate: 1.9 }, HEN_PECK_PERIOD = 2 * Math.PI / HEN_PECK.rate;
   function drawFolk(f, n, m, R, GT, Y, sx, sy) {
     const i = f.i, FD = D.FOLK[f.role], X = sx(f.x), Yg = sy(f.y), id = 'npc' + i;
     if (f.role === 'hen') { const nm = ['town_hen_white', 'town_hen_red', 'town_hen_grey'][i % 3], RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;

@@ -1,7 +1,7 @@
 // live/scene_qa.js — SCENE.QA(): the named states, cycles, loops and transitions that qa.mjs, swingcheck.mjs, motioncheck.mjs,
 // lootvis.mjs and the other checks render (references/engine.md §7). Built from the sim; reads the scene's inside through SCX.
 (function () {
-  const SCX = window.SCX, { D, EN_TEX, enemyScale, enemyDrawnSize, GLOW, SC, SZ, TILE, TOWN_FACE } = SCX;
+  const SCX = window.SCX, { D, enemyDrawnSize, GLOW, SC, SZ, TILE, TOWN_FACE } = SCX;
   const build = () => {
     const mk = (fn) => { const S = SIM.spawn(0, {}); fn(S); return S; };
     const play = (fn) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); if (fn) fn(S); });
@@ -1301,7 +1301,7 @@
       Object.assign(R.en[0], typeof extra === 'function' ? extra(R.en[0], h, R) : extra); });
       for (let i = 0; i < (ty === 'boss_colossus' ? 200 : move === 'weave' || move === 'charge' ? 180 : 100); i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };   // the sim steps 1/120 s; frames are 1/60 s
     // monster walk cycles, right and down: one stride in 12 frames (the rig's own stride), subject en990
-    const enCyc = (ty, dx, dy) => { const out = [], n = D.BOSSES[ty] ? 24 : 12, H0 = SZ(EN_TEX[ty])[1] * enemyScale({ type: ty }), st = MONSTERS.stride(ty, H0), E = D.ENEMIES[ty];
+    const enCyc = (ty, dx, dy) => { const out = [], n = D.BOSSES[ty] ? 24 : 12, H0 = enemyDrawnSize({ type: ty })[1], st = MONSTERS.stride(ty, H0), E = D.ENEMIES[ty];
       for (let i = 0; i < n; i++) { const S = playOf(ty)((S) => { const R = S.run, h = R.hero, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5); R.msg = null; R.seen = R.seen.map(() => 1);
         const mg = MG.has(ty), hx = h.x, hy = h.y; h.x = mg ? hx - 4 * TILE : (r.x + 1) * TILE; h.y = mg ? hy - 2 * TILE : (r.y + 1) * TILE + 20;
         const x0 = mg ? hx + TILE : (r.x + r.w / 2) * TILE, y0 = mg ? hy : (r.y + r.h / 2) * TILE, d = i * st / n;
@@ -1699,7 +1699,8 @@
     states.push(['inv_drop_potion', play((S) => { scatter(S); drop(S, 'bag:0', 'eq:ring'); })]);
     states.push(['inv_drop_worn_refused', play((S) => { scatter(S); drop(S, 'eq:armor', 'bag:0'); })]);
     // TASKS 1349: every rank full at 15, the points past them shown as mastery
-    states.push(['inv_mastery', play((S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; })]);
+    const masteryFull = (S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; };
+    states.push(['inv_mastery', play(masteryFull)]);
     states.push(['inv_sort', play((S) => { scatter(S); S.hover = 'sort:rar'; })]);
     states.push(['inv_sort_after', play((S) => { scatter(S); const a = invAt(S, 'sort:rar'); SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sort:rar'; })]);
     const stashMix = (S, R, h) => { const T = SIM.stashOf(S); T.items = [[3, 1, 'armor'], [9, 3, 'weapon'], null, [5, 2, 'ring'], [12, 4, 'boots'], null, [7, 3, 'amulet']].map((q, i) => q && Object.assign(SIM.rollItem(R, q[0], q[1], q[2], { own: 1 }), { id: 910 + i })); };
@@ -2176,7 +2177,7 @@
     const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles, folkCyc),
       sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, heroSpr])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); const pn = k.startsWith('fire_priest_') ? 'priest' : n; return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a.startsWith(pn + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
-      subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_').slice(0, -1).join('_'); return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1)) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_plate_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_plate_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
+      subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_').slice(0, -1).join('_'); return [k, MONSTERS.stride(ty, enemyDrawnSize({ type: ty })[1]) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_plate_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_plate_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
       rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'eel', 'serpent', 'boss'], loops, attacks, swings, impacts, transitions, box };
     // (TASKS 2146) the warrior with a shield on the far forearm: its run and turn for the animation pass's measure
     const asShield = (S) => { S.run.hero.eq.offhand = { id: 0, b: 'shield', rar: 0, lvl: 1, mods: {}, def: 3 }; };
@@ -2252,8 +2253,8 @@
     // (TASKS 2146) a turn at rest: it passes through the back view
     const turnAt = (S, h) => { h.face = -h.face; h.faceT = S.t; }; transitions.hero_mage_turn = mageT(0, turnAt); transitions.hero_archer_turn = archerT(0, turnAt);
     // the whole-game critics' findings: mastery on the skill card and its tip, the shards still wanting for the next discovery
-    { const masteryFull = (S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; };
-      states.push(['inv_mastery_tip', play((S) => { masteryFull(S); tipOn(S, 'ab:' + DATA.clsOf(S.run.hero).abs[0].id); })]);
+    { states.push(['inv_mastery_tip', play((S) => { masteryFull(S); tipOn(S, 'ab:' + DATA.clsOf(S.run.hero).abs[0].id); })]);
+      states.push(['inv_mastery_partial_tip', play((S) => { masteryFull(S); const h = S.run.hero, [full, short] = DATA.clsOf(h).abs; h.ab[short.id] = DATA.AB_MAX - 1; h.mast = 0; tipOn(S, 'ab:' + full.id); })]);
       const deadShort = states.find(([n]) => n === 'dead_short'), unlockShards = 12;
       if (deadShort) { const S = structuredClone(deadShort[1]); S.meta.shards = unlockShards; S.meta.open = {}; states.push(['dead_unlock_short', S]); } }
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
