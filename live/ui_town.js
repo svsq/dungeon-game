@@ -6,6 +6,8 @@
   const { CELL, STEP, grid, sortCol, paperClose, bagGrid, tabRow, portIn, PORT } = UI.kit;
   const CARD_PAD = 16;
   // the ring's window: a row's step and the gap under it, and the height the rows may take at most (a campaign's halls and two ways more)
+  // the stake row of an event window: its top this far over the window's bottom, the number's width, the − and + buttons' size
+  const EVENT_BET = { over: 190, num: 300, btn: 56, gap: 14 };
   const GATE = { y: 190, top: 40, bottom: 1000, head: 200, foot: 90, row: 84, gap: 12, text: 108, end: 40 };
   // the journal and the notes are one book (TASKS 2176): its pages' writing areas as KIT.book lays them out, the tabs over the right
   // page, «Закрыть» under the book as the saves' «Назад»
@@ -104,8 +106,13 @@
         r: [{ id: 'spOk', label: '', on: true, x: A.x + 40, y: A.y + A.h - 96, w: 200, h: 60 }, { id: 'spNo', label: TXT('UI.split.no'), on: true, x: A.x + A.w - 240, y: A.y + A.h - 96, w: 200, h: 60 },
           { id: 'spMinus', label: '\u2212', on: true, x: A.x + A.w / 2 - 150, y: A.y + 140, w: 56, h: 56 }, { id: 'spPlus', label: '+', on: true, x: A.x + A.w / 2 + 94, y: A.y + 140, w: 56, h: 56 }] }; },
     // (TASKS 363: tall and wide enough for the longest question of the pool, the skull door's, at 26 px)
-    event: () => { const P = { x: 560, y: 290, w: 800, h: 480 };
-      return { P, r: [{ id: 'evYes', label: '', on: true, x: P.x + 40, y: P.y + P.h - 100, w: 300, h: 64 }, { id: 'evNo', label: '', on: true, x: P.x + P.w - 340, y: P.y + P.h - 100, w: 300, h: 64 }] }; },
+    // an event with a stake (the goblin's table) has the stake between − and + over the answers; the answers stay r[0] and r[1]
+    event: (bet) => { const P = { x: 560, y: 290, w: 800, h: 480 }, B = EVENT_BET, by = P.y + P.h - B.over;
+      const r = [{ id: 'evYes', label: '', on: true, x: P.x + 40, y: P.y + P.h - 100, w: 300, h: 64 }, { id: 'evNo', label: '', on: true, x: P.x + P.w - 340, y: P.y + P.h - 100, w: 300, h: 64 }];
+      if (!bet) return { P, r };
+      const cx = P.x + P.w / 2, num = { x: cx - B.num / 2, y: by, w: B.num, h: B.btn };
+      r.push({ id: 'evLess', label: '\u2212', on: true, x: num.x - B.gap - B.btn, y: by, w: B.btn, h: B.btn }, { id: 'evMore', label: '+', on: true, x: num.x + num.w + B.gap, y: by, w: B.btn, h: B.btn });
+      return { P, r, num, textBot: P.h - by + P.y + B.gap }; },
     // the town's gate out (TASKS 1149): its question and two buttons, the way out on the left
     leave: () => { const P = { x: 610, y: 330, w: 700, h: 330 };
       return { P, r: [{ id: 'go', label: '', on: true, x: P.x + 40, y: P.y + P.h - 100, w: 300, h: 64 }, { id: 'stay', label: TXT('UI.leave.stay'), on: true, x: P.x + P.w - 340, y: P.y + P.h - 100, w: 300, h: 64 }] }; },

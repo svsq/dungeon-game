@@ -31,7 +31,10 @@ canvas{cursor:crosshair}
 const V = Date.now(), STATIC = !!window.__STATIC__;          // STATIC: packed build (no polling, no dev overlay)
 // the start's screen and log (TASKS 2004): a title and a bar from the first paint, so the window is never a black one while the
 // scripts, the textures and the shaders load; every stage's time goes to the console and, in the desktop build, to boot.log
-const BOOT = { el: document.getElementById('boot'), done: 0, all: 1, t: performance.now() };
+// the bar's steps are counted once modules.js and assets.js have run; till then a guess of about their size keeps the first scripts'
+// steps a sliver of the bar (with 1 the font's script alone filled it)
+const BOOT_GUESS = 1000;
+const BOOT = { el: document.getElementById('boot'), done: 0, all: BOOT_GUESS, t: performance.now() };
 const barTo = (el, f) => { if (el.dataset.failed) return; el.querySelector('i').style.width = (f * 100).toFixed(1) + '%'; el.querySelector('.n').textContent = `Загрузка… ${Math.round(f * 100)} %`; };
 const bootStep = (n = 1) => { BOOT.done += n; if (BOOT.el) barTo(BOOT.el, Math.min(1, BOOT.done / BOOT.all)); };
 const bootLog = (s) => { console.info('[boot] ' + s); try { if (window.desktop && desktop.bootLog) desktop.bootLog(s); } catch (e) {} };
@@ -218,7 +221,10 @@ const failScreen = (title, line) => { LOADING.classList.remove('fade'); LOADING.
   // a floor drawn only once its programs are ready (TASKS 2106): till then the run stands under the loading screen; held: when
   // the wait began, what it was for
   let held = null, frameN = 0;
-  const loopFail = (e) => { console.error(e); bootLog('failed: ' + (e && e.stack || e)); failScreen('Видеокарта не смогла собрать картинку этажа', 'Обновите страницу. Если это повторяется, обновите драйвер видеокарты или закройте другие тяжёлые вкладки и окна.'); };
+  // the video card is named only for a program it could not build; anything else (a broken save's floor, a bug) is a failed floor load
+  const loopFail = (e) => { console.error(e); bootLog('failed: ' + (e && e.stack || e)); if (window.AUDIO) try { AUDIO.silence(); } catch (err) { console.error(err); }
+    if (e instanceof G.ProgramError) failScreen('Видеокарта не смогла собрать картинку этажа', 'Обновите страницу. Если это повторяется, обновите драйвер видеокарты или закройте другие тяжёлые вкладки и окна.');
+    else failScreen('Не удалось загрузить этаж', 'Обновите страницу. Если это повторяется, загрузите другое сохранение или начните новый поход.'); };
   const holdEnd = (now) => { if (!held) return; bootLog(`wait     ${held.what}: ${(now - held.t).toFixed(0)} ms for its programs`); held = null; };
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); frameStat(now, now - last); last = now;

@@ -54,20 +54,17 @@
   // the screen (the author's 2110, again after 1992). Hidden, it is a small chip with the count
   // one layout gives the box's height and every line's place, so the drawn rows and the «и ещё N» line can never outgrow the box. The font
   // has no step under 20 px (lib.js), so the tracker is made smaller by its spacing and its width ceiling, not by a smaller size
-  const TRACKER = { rows: 4, right: 14, gap: 14, head: 30, nameDy: 11, more: 26, bot: 6, textH: 24, out: 4, clear: 12, minW: 240, maxW: 460,
+  const TRACKER = { rows: 4, right: 14, gap: 14, head: 30, nameDy: 11, more: 26, bot: 6, textH: 24, out: 4, minW: 240, maxW: 460,
     share: 0.24, chip: 32, pad: 12, box: 16, inset: 24, size: { title: 20, name: 19, line: 20, btn: 18 }, btnH: 24, btnPad: 16, btnGap: 8, headGap: 12 };
   // a row's two lines and the next row stand a text height apart, so the spacing follows textH and no line can lie on another (TASKS 2117)
   TRACKER.lineDy = TRACKER.nameDy + TRACKER.textH; TRACKER.row = 2 * TRACKER.textH;
   const trkMaxW = (W) => Math.min(TRACKER.maxW, Math.round(W * TRACKER.share));
   const trkH = (n, more) => { const T = TRACKER; return T.head + n * T.row + (more ? T.more : 0) + T.bot; };
-  const trkLay = (W, mmBot, want, total, adit, hidden) => { const T = TRACKER, w = hidden ? Math.min(want, trkMaxW(W)) : Math.max(T.minW, Math.min(want, trkMaxW(W))),
-    x = W - T.right - w, y = mmBot + T.gap, e = T.out + T.clear;
+  // only the player folds or hides it: nothing the camera shows under it (the town's adit once did) changes its rows
+  const trkLay = (W, mmBot, want, total, hidden) => { const T = TRACKER, w = hidden ? Math.min(want, trkMaxW(W)) : Math.max(T.minW, Math.min(want, trkMaxW(W))),
+    x = W - T.right - w, y = mmBot + T.gap;
     if (hidden) return { x, y, w, h: T.chip, n: 0, more: 0, rows: [], titleY: y + T.chip / 2 };
-    let n = Math.min(T.rows, total);
-    const near = adit && x - e < adit[0] + adit[2] && x + w + e > adit[0] && y - e < adit[1] + adit[3], over = (k) => near && y + trkH(k, total > k) + e > adit[1];
-    while (n > 1 && over(n)) n--;
-    // even one row on the adit: the tracker folds to its chip (TASKS 2117), the HUD sizes the chip by its count
-    if (n && over(n)) return { x, y, w, h: T.chip, n: 0, more: total, rows: [], titleY: y + T.chip / 2, fold: true };
+    const n = Math.min(T.rows, total);
     const rows = Array.from({ length: n }, (_, i) => { const top = y + T.head + i * T.row; return { nameY: top + T.nameDy, lineY: top + T.lineDy }; });
     return { x, y, w, h: trkH(n, total > n), n, more: total - n, rows, titleY: y + T.head / 2, moreY: y + T.head + n * T.row + T.more / 2,
       textX: x + T.pad + T.inset, textW: w - 2 * T.pad - T.inset }; };
