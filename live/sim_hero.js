@@ -309,26 +309,23 @@
     if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: SIMX.deckAt(m, Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE)) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     const Cl = D.clsOf(h), weapon = BASES[st.wtype], shoots = (Cl.shoots || []).includes(st.wtype);
     const staffClub = shoots && weapon?.club;
-    const meleeArc = st.arc * Math.PI / 180, meleeReach = st.reach;
     if (inp.press && !S.eatPress && (h.cd.staffClub ?? 0) <= t) {
-      const club = staffClub && R.en.some((e) => !under(e) && inMeleeArc(m, h, e, h.aim, weapon.arc * Math.PI / 180, staffClub.trigger));
+      const club = staffClub && R.en.some((e) => !under(e) && inMeleeArc(m, h, e, h.aim, SIMX.attackShape(h, st, true).arc, staffClub.trigger));
       const ready = club ? h.atkT < 0 || h.atkHit : h.cd.atk <= t;
       if (ready) {
-        const frame = club ? staffClub.windup : SIMX.hitFrame(h, st.wtype);
-        const interval = club ? staffClub.cooldown : st.wcd / (1 + st.aspd / 100);
-        h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++;
+        const { kind, frame, cooldown: interval } = SIMX.attackShape(h, st, club);
+        h.patkT = h.atkT; h.patkA = h.atkA; h.patkClub = h.atkClub; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++;
         h.atkClub = club ? st.wtype : null;
         h.cd[club ? 'staffClub' : 'atk'] = t + Math.max(frame + DT, interval);
         h.atkSlow = Math.min(0.2, (Cl.slow || 1) * interval);
         if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
-        ev(S, { k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face, ...(club ? { kind: 'staffClub' } : shoots ? { shot: 1 } : {}) });
+        ev(S, { k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face, ...(kind === 'staffClub' ? { kind } : kind === 'shot' ? { shot: 1 } : {}) });
       }
     }
-    const clubBase = BASES[h.atkClub], frame = clubBase ? clubBase.club.windup : SIMX.hitFrame(h, st.wtype);
+    const clubBase = BASES[h.atkClub], { kind: attackKind, frame, arc, reach } = SIMX.attackShape(h, st, !!clubBase);
     if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= frame) {
       h.atkHit = 1;
-      const ranged = shoots && !clubBase;
-      const arc = clubBase ? clubBase.arc * Math.PI / 180 : meleeArc, reach = clubBase ? clubBase.reach : meleeReach;
+      const ranged = attackKind === 'shot';
       if (ranged) {
         const a = h.atkA, [dmg, c] = heroRoll(R, h, st);
         const p = SIMX.heroShot(R, h, a, dmg, c, weapon.shot || 'bolt', weapon);

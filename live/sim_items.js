@@ -116,6 +116,14 @@
   const gift = (h, id) => ((h.perks || {})[id] || 0) * GIFT_V[id];
   // a swing faster than its own damage frame is cut off before it lands (TASKS 1833): past that the speed shown would be one never reached (PR 56 review)
   const hitFrame = (h, wtype) => ((D.clsOf(h).shoots || []).includes(wtype) ? D.SHOTS[(BASES[wtype] || {}).shot || 'bolt'].t : SIMX.K.HIT);
+  const RADIANS_PER_DEGREE = Math.PI / 180;
+  // the one description of a blow in the current mode: the staff's club or the weapon's own attack
+  function attackShape(h, st, clubbed) {
+    const base = BASES[st.wtype], club = clubbed ? base?.club : null;
+    if (club) return { kind: 'staffClub', arc: base.arc * RADIANS_PER_DEGREE, reach: base.reach, frame: club.windup, cooldown: club.cooldown };
+    const shoots = (D.clsOf(h).shoots || []).includes(st.wtype);
+    return { kind: shoots ? 'shot' : 'melee', arc: st.arc * RADIANS_PER_DEGREE, reach: st.reach, frame: hitFrame(h, st.wtype), cooldown: st.wcd / (1 + st.aspd / 100) };
+  }
   function stats(h, meta) {
     const s = { str: h.base.str, agi: h.base.agi, int: h.base.int, vit: h.base.vit, atk: 0, def: 0, crit: 0, critd: 0, hp: 0, mp: 0, aspd: 0, mspd: 0, leech: 0, fire: 0, regen: 0, onhit: 0, dodge: 0 };
     let wpn = null;
@@ -221,5 +229,5 @@
 
   Object.assign(SIMX, {
     sortItems, itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, uniqueItem, bossPrize, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
-    stats, equipmentComparison, hitFrame, propBoxes, behindProp, DROP_REST, stepDrops, takeItem, tossedNear });
+    stats, equipmentComparison, hitFrame, attackShape, propBoxes, behindProp, DROP_REST, stepDrops, takeItem, tossedNear });
 })(typeof window !== 'undefined' ? window : globalThis);

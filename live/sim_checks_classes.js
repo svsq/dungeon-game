@@ -357,6 +357,9 @@
           const orbCd = h.cd.atk, orbStart = h.atkT, st = stats(h, S.meta);
           if (!S.ev.some((q) => q.k === 'swing' && q.shot && q.t === orbStart) ||
               orbCd !== orbStart + Math.max(D.BOLT.t + DT, staff.spd / (1 + st.aspd / 100))) out.push('class mage: the ranged staff attack uses the wrong mode or cooldown');
+          { const asClub = SIMX.attackShape(h, st, true), asShot = SIMX.attackShape(h, st, false), RAD = Math.PI / 180;
+            if (asClub.kind !== 'staffClub' || asClub.arc !== staff.arc * RAD || asClub.reach !== staff.reach || asClub.frame !== club.windup || asClub.cooldown !== club.cooldown
+              || asShot.kind !== 'shot' || asShot.arc !== st.arc * RAD || asShot.reach !== st.reach || asShot.frame !== D.BOLT.t || asShot.cooldown !== st.wcd / (1 + st.aspd / 100)) out.push('class mage: the attack shape of the club or the shot is wrong'); }
           tick(near);
           if (h.atkT !== orbStart) out.push('class mage: staff club cancels an orb windup');
           waitForHit(far, D.BOLT.t);
