@@ -298,6 +298,8 @@
       if (C.abilities.length !== 3 || C.unlock.length !== 3 || C.abs.some((a) => !a.id || !a.name)) out.push(`class ${id}: not three abilities that exist`);
       if (!C.unlock.includes(1)) out.push(`class ${id}: no ability at level 1`);
       if (!ABILITIES.some((a) => a.id === C.rclick)) out.push(`class ${id}: the right click's ability does not exist`);
+      // every class opens alike: the right click casts its own ability that is open from the 1st level
+      if (C.unlock[C.abilities.indexOf(C.rclick)] !== 1) out.push(`class ${id}: the right click's ${C.rclick} is not its ability open from the 1st level`);
       for (const [slot, b] of Object.entries(C.start)) if (!BASES[b] || BASES[b].slot !== slot) out.push(`class ${id}: starting ${slot} ${b} is no such base`);
       const S = spawn(0, {}), R = newRun(S, 'campaign', 81, { cls: id }), h = R.hero;
       if (h.cls !== id || h.eq.weapon.b !== C.start.weapon || h.eq.armor.b !== C.start.armor) out.push(`class ${id}: a new hero is not of its class`);
