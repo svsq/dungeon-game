@@ -110,6 +110,7 @@
     'hud.abtip.locked': 'Откроется с {unlock} уровня.',
     'hud.abtip.noSp': 'Нужно очко навыка.',
     'hud.abtip.max': 'Ранг {r}, выше некуда.',
+    'hud.abtip.mastery': 'Новые очки уходят в мастерство: каждое даёт +{step}% к урону и здоровью',
     'hud.abtip.forkAt': 'Ранг {r}: развилка',
     'UI.codex.title': 'Кодекс',
     'UI.codex.open': 'Кодекс',

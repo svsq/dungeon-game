@@ -2250,6 +2250,11 @@
     transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, heroDies);
     // (TASKS 2146) a turn at rest: it passes through the back view
     const turnAt = (S, h) => { h.face = -h.face; h.faceT = S.t; }; transitions.hero_mage_turn = mageT(0, turnAt); transitions.hero_archer_turn = archerT(0, turnAt);
+    // the whole-game critics' findings: mastery on the skill card and its tip, the shards still wanting for the next discovery
+    { const masteryFull = (S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; };
+      states.push(['inv_mastery_tip', play((S) => { masteryFull(S); tipOn(S, 'ab:' + DATA.clsOf(S.run.hero).abs[0].id); })]);
+      const deadShort = states.find(([n]) => n === 'dead_short'), unlockShards = 12;
+      if (deadShort) { const S = structuredClone(deadShort[1]); S.meta.shards = unlockShards; S.meta.open = {}; states.push(['dead_unlock_short', S]); } }
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
     Object.assign(out.subject, doorSubj);
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);
