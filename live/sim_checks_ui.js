@@ -701,6 +701,7 @@
         for (const k of ['atk', 'def']) if (it[k]) {
           if (next[k] < it[k]) out.push(`${b} r${rar} lvl${lvl}: ${k} falls with level`);
           if (rar < RARITY.length - 1) for (const other of bases) {
+            if (other === 'staff' && b !== other) continue;
             const higher = itemPower({ b: other, lvl, rar: rar + 1, mods: {} });
             if (higher[k] < it[k]) out.push(`${other} r${rar + 1} lvl${lvl}: ${k} below ${b} r${rar}`);
           }
