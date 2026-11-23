@@ -1,7 +1,7 @@
 // live/scene_qa.js — SCENE.QA(): the named states, cycles, loops and transitions that qa.mjs, swingcheck.mjs, motioncheck.mjs,
 // lootvis.mjs and the other checks render (references/engine.md §7). Built from the sim; reads the scene's inside through SCX.
 (function () {
-  const SCX = window.SCX, { D, EN_TEX, GLOW, SC, SZ, TILE, TOWN_FACE } = SCX;
+  const SCX = window.SCX, { D, EN_TEX, enemyScale, enemyDrawnSize, GLOW, SC, SZ, TILE, TOWN_FACE } = SCX;
   const build = () => {
     const mk = (fn) => { const S = SIM.spawn(0, {}); fn(S); return S; };
     const play = (fn) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); if (fn) fn(S); });
@@ -1301,7 +1301,7 @@
       Object.assign(R.en[0], typeof extra === 'function' ? extra(R.en[0], h, R) : extra); });
       for (let i = 0; i < (ty === 'boss_colossus' ? 200 : move === 'weave' || move === 'charge' ? 180 : 100); i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };   // the sim steps 1/120 s; frames are 1/60 s
     // monster walk cycles, right and down: one stride in 12 frames (the rig's own stride), subject en990
-    const enCyc = (ty, dx, dy) => { const out = [], n = D.BOSSES[ty] ? 24 : 12, H0 = SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1), st = MONSTERS.stride(ty, H0), E = D.ENEMIES[ty];
+    const enCyc = (ty, dx, dy) => { const out = [], n = D.BOSSES[ty] ? 24 : 12, H0 = SZ(EN_TEX[ty])[1] * enemyScale({ type: ty }), st = MONSTERS.stride(ty, H0), E = D.ENEMIES[ty];
       for (let i = 0; i < n; i++) { const S = playOf(ty)((S) => { const R = S.run, h = R.hero, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5); R.msg = null; R.seen = R.seen.map(() => 1);
         const mg = MG.has(ty), hx = h.x, hy = h.y; h.x = mg ? hx - 4 * TILE : (r.x + 1) * TILE; h.y = mg ? hy - 2 * TILE : (r.y + 1) * TILE + 20;
         const x0 = mg ? hx + TILE : (r.x + r.w / 2) * TILE, y0 = mg ? hy : (r.y + r.h / 2) * TILE, d = i * st / n;
@@ -1600,7 +1600,7 @@
     for (const hn of folkS().run.folk.filter((q) => q.role === 'hen')) { let S = folkS((S, R) => camOn(R, R.folk.find((q) => q.i === hn.i))); const cam = S.run.cam.slice(), fr = [], nm = 'folk_hen_enter_' + hn.i;
       for (let k = 0; k < 72; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
       transitions[nm] = fr; folkSubj[nm] = 'npc' + hn.i; }
-    { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'hen'); i = f.i; camOn(R, f); }); folkSubj.folk_hen_peck = 'npc' + i; loops.folk_hen_peck = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.t += k / 12; return S; }); }
+    { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'hen'); i = f.i; camOn(R, f); }); folkSubj.folk_hen_peck = 'npc' + i; const henFps = 12; loops.folk_hen_peck = Array.from({ length: Math.ceil(SCX.HEN_PECK_PERIOD * henFps) + 1 }, (_, k) => { const S = structuredClone(base); S.t += k / henFps; return S; }); }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 120 }); const p = SCX.railPts(R.map)[4]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_roll = 'cart'; loops.folk_cart_roll = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 6; return S; }); }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 40 }); const p = SCX.railPts(R.map)[2]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_turn = 'cart'; loops.folk_cart_turn = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 3; return S; }); }
     // the end of the rails, where the cart waits at the bin most of its round (TASKS 2090): its last stretch, then at rest
@@ -2042,13 +2042,14 @@
       const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
+    const QA_BOX = { tall: 1.15, wide: 1.5 };
     const box = (name, S) => SCX.Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * SCX.Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, SCX.W, SCX.H];
       if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
       if (folkSubj[name] && R.folk) { const f = R.folk[+folkSubj[name].slice(3)]; return [f.x - R.cam[0] - 70, f.y - R.cam[1] - 120, 140, 136]; }
       const e = (enCycles[name] || loops[name]) && R.en[0];
       if (e && e.type === 'crab') { const hh = SZ('en_crab')[1]; return [e.x - R.cam[0] - 2 * hh, e.y - R.cam[1] - 2 * hh, 4 * hh, 4 * hh]; }
-      if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
+      if (e) { const hh = enemyDrawnSize(e)[1] * QA_BOX.tall, ww = hh * QA_BOX.wide; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
       const h = R.hero; return [h.x - R.cam[0] - 50, h.y - R.cam[1] - 90, 100, 110]; };
     const anim = {};
     for (const kind of ['fountain', 'stream']) {

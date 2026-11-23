@@ -9,6 +9,10 @@
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
   const modCol = (e, j = 0) => e.mods && e.mods.length ? D.ELITE_MODS.find((m) => m.id === e.mods[j % e.mods.length]).col : ELITE;
   const EN_TEX = { boss_serpent: 'serpent__body', boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', boss_colossus: 'en_colossus', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage', skel_ember: 'en_skeleton', fire_priest: 'en_cultist', imp: 'en_imp', golem: 'en_golem', salamander: 'en_salamander', mimic: 'chest' };
+  // a boss and an elite stand taller than their kind's sprite; the QA frames take the same size, or they cut the bosses off
+  const BOSS_SCALE = 1.6, ELITE_SCALE = 1.3;
+  const enemyScale = (e) => (D.BOSSES[e.type] ? D.BOSSES[e.type].scale || BOSS_SCALE : e.elite ? ELITE_SCALE : 1);
+  const enemyDrawnSize = (e) => { const [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = enemyScale(e); return [w0 * k, h0 * k]; };
   // per frame: the rim colour of the floor's fire, and the cultists' free hands (view px) for their glow
   const ARROW_H = 32;
   // and the skeleton mages' pearls and gathering hands (TASKS 311): [pearl, palm, gather 0..1]
@@ -257,7 +261,7 @@
   // (the light's occluder mask draws a live rig in this same pose, PR 67 review: drawn upright it left a flinching goblin's arms unlit)
   const livePose = poseMemo('pose', (e, E, GT) => { const [ew, wind] = windOfEn(e, E, GT), f = hitFlinch(e, E, GT); return { lean: attackLean(e, E, GT, ew, wind) - f.flLean, crouch: f.flCrouch, flinch: f.flArms }; });
   function drawEnemy(e, x, y, GT, t) {
-    const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
+    const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w, h] = enemyDrawnSize(e);
     // a golem in its crust takes a blow on the plates: its edge flashes, not the whole body white (TASKS 1724), the blow that breaks the last one too (1935)
     const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3 || (E.crust && ((e.crust ?? E.crust.n) > 0 || (e.plateT && e.plateT[1] === e.hitT))), hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, [ew, wind] = windOfEn(e, E, GT);
     const sp = Math.hypot(e.vx, e.vy), ph = e.dist / 20 * Math.PI, step = SS(5, 40, sp) * Math.abs(Math.sin(ph));
@@ -430,7 +434,7 @@
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
     const enemy = (actor, px, py, dead) => {
       const gt = t + 100, e = Object.assign({ id: 990, x: 0, y: 0, vx: 0, vy: 0, dist: 0, face: -1, st: 'idle', t0: -9, hitT: -9, hitP: -9, burn: 0, deadT: dead ? gt - (actor.type === 'boss_serpent' ? 0.6 : actor.type === 'boss_colossus' ? 0.35 : 2) : -1, dieA: 0 }, actor);
-      const k = dead ? 0.85 : 160 / (SZ(EN_TEX[e.type])[1] * (D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1));
+      const k = dead ? 0.85 : 160 / (SZ(EN_TEX[e.type])[1] * enemyScale(e));
       L.pre = M.of(M.t(px, py), M.s(k, k), M.t(-px, -py));
       try { drawEnemy(e, px, py, gt, t); } finally { L.pre = null; }
     };
@@ -552,7 +556,7 @@
   const knockOf = (e, T) => { const a = T - e.t; if (a < 0 || a >= 1.5 || !KNOCK[e.mat]) return null; const j = KNOCK[e.mat](a, e.s); j.fl = 0.6 * (1 - SS(0.03, 0.12, a)); return j; };
 
   Object.assign(SCX, {
-    modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
+    modCol, EN_TEX, enemyScale, enemyDrawnSize, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
     chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, warmsBy, livePose, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

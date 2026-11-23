@@ -17,14 +17,17 @@
   // one townsperson (TASKS 1015): a work loop on its own clock (DATA.folkClock, shared with the sim's events), the walk of a round,
   // and the talk: turned to the hero, head up, the free hand gesturing, eased in and out of the work pose. Hands are placed by IK on
   // screen points; the tool rides the hand. The loop's moments (the blow, the poke, the throw) leave their effects in RIM.folk
+  // a hen's pecking: one peck a cycle at rate rad/s (sharp: how short the dip is), quicker at the grain; between pecks the neck looks
+  // about (glance, rad of neck at glanceRate rad/s), so it is never still for long
+  const HEN_PECK = { rate: 2.6, sharp: 5, fed: { rate: 3.4, sharp: 3 }, glance: 0.14, glanceRate: 1.9 }, HEN_PECK_PERIOD = 2 * Math.PI / HEN_PECK.rate;
   function drawFolk(f, n, m, R, GT, Y, sx, sy) {
     const i = f.i, FD = D.FOLK[f.role], X = sx(f.x), Yg = sy(f.y), id = 'npc' + i;
     if (f.role === 'hen') { const nm = ['town_hen_white', 'town_hen_red', 'town_hen_grey'][i % 3], RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;
       // (TASKS 1032) a hen walks with a bob and a rock, its neck out; at the grain it pecks quicker; startled, the tail flicks up
       const run = SS(2, 24, Math.hypot(f.vx, f.vy)), fed = R.grain && GT - R.grain.t < 7 && Math.hypot(f.x - R.grain.x, f.y - R.grain.y) < 26;
-      const face = f.face || (TOWN_FACE(m, n) >= n.x ? 1 : -1), [w, hh] = SZ(nm), ph = GT * (fed ? 3.4 : 1.3) + i * 2.1, peck = (1 - run) * Math.max(0, Math.sin(ph)) ** (fed ? 3 : 6);
+      const face = f.face || (TOWN_FACE(m, n) >= n.x ? 1 : -1), [w, hh] = SZ(nm), pk = fed ? HEN_PECK.fed : HEN_PECK, ph = GT * pk.rate + i * 2.1, peck = (1 - run) * Math.max(0, Math.sin(ph)) ** pk.sharp;
       const spd = Math.hypot(f.vx, f.vy), st = f.dist / 5, hop = run * (1.6 + 0.02 * Math.max(0, spd - 24)) * Math.abs(Math.sin(st)), rock = run * 0.09 * Math.sin(st), scare = GT - (f.scareT ?? -9);
-      const neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i) - 0.22 * run, tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7) - (scare >= 0 ? 0.5 * SS(0, 0.08, scare) * (1 - SS(0.3, 0.9, scare)) : 0);
+      const neck = 0.9 * peck + (1 - peck) * (1 - run) * HEN_PECK.glance * Math.sin(GT * HEN_PECK.glanceRate + i) + 0.06 * Math.sin(GT * 3.1 + i) - 0.22 * run, tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7) - (scare >= 0 ? 0.5 * SS(0, 0.08, scare) * (1 - SS(0.3, 0.9, scare)) : 0);
       const fT = f.turnT === undefined ? 1 : SS(0, 0.12, GT - f.turnT), fs = face * (fT < 1 ? Math.sign(fT * 2 - 1 || 1) * Math.max(0.1, Math.abs(fT * 2 - 1)) : 1), LEG = 3.5;
       Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4); L.joint(id, 'ground', [X, Yg]); L.joint(id, 'body', [X, Yg - hop - LEG]); L.joint(id, 'head', [X + fs * 7, Yg - hop - LEG - 12 + 7 * peck]); L.joint(id, 'tail', [X - fs * 7, Yg - hop - LEG - 8 + 6 * tail]);
         for (const q of [0, 1]) { const a = st + q * Math.PI, hx = X + (q ? 2.5 : -2.5), hy = Yg - hop - LEG - 1, fx = hx + face * run * 3.2 * Math.sin(a), fy = Yg - run * 2 * Math.max(0, Math.cos(a)); L.solid(hx, hy, Math.hypot(fx - hx, fy - hy), 1.6, [0.82, 0.58, 0.2], Math.atan2(fy - hy, fx - hx), 0, 0.8, 1); }
@@ -240,5 +243,5 @@
       if (k > 0) L.solid(Math.round(x), Math.round(y), 2, 2, [0.86, 0.74, 0.42], 0, 0, 0, k); } }
 
   Object.assign(SCX, {
-    FOLK0, drawFolk, drawFolkRig, drawCart });
+    FOLK0, HEN_PECK_PERIOD, drawFolk, drawFolkRig, drawCart });
 })(typeof window !== 'undefined' ? window : globalThis);
