@@ -19,7 +19,7 @@
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
   // (set by the sim), 6 deep water (blocks walking and knockback, not projectiles or sight)
 
-  // the cell codes a way may pass through (floor and the doors' cells): what a shelf by a room's wall must leave open
+  // the cell codes a way may pass through (floor, a shut door, deep water): what a shelf by a room's wall must leave open
   const PASSAGE_CELLS = new Set([1, 5, 6]), isPassageCell = (c) => PASSAGE_CELLS.has(c);
   // a room's shape (TASKS 374): its box (x, y, w, h) is its core, where everything set against a wall or in rows stands, and
   // `wings`, boxes of floor joined to it (a cross's arms, an L's foot, a round hall's caps), are its floor as well
@@ -553,7 +553,7 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { isPassageCell, lavaBridgeLands: (m, c) => DGX.lavaBridgeLands(m, c), onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
+  root.DUNGEON = { isPassageCell, lavaBridgeLands: (m, c) => DGX.lavaBridgeLands(m, c), chasmBridgeLands: (m, c) => DGX.chasmBridgeLands(m, c), onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });

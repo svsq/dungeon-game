@@ -25,6 +25,11 @@
   // a laid floor's lava bridge lands at both its ends (the self-check's question)
   DGX.lavaBridgeLands = (m, c) => { const others = new Set((m.crossings || []).filter((o) => o !== c).flatMap((o) => o.cells));
     return bridgeEndLands(m.cells, m.W, c, c.span[0], -1, others) && bridgeEndLands(m.cells, m.W, c, c.span[1], 1, others); };
+  // a laid floor's chasm bridge lands at both its ends: past the deck's farthest cells along its axis lies a cell walked off it
+  // (the floor of a plateau, a pad of rock, another deck)
+  DGX.chasmBridgeLands = (m, c) => { const W = m.W, own = new Set(c.cells), hor = c.axis === 'x', u = (k) => (hor ? k % W : Math.floor(k / W)), step = hor ? 1 : W;
+    const us = c.cells.map(u), lo = Math.min(...us), hi = Math.max(...us), lands = (end, dir) => c.cells.some((k) => u(k) === end && !own.has(k + dir * step) && walkCell(m.cells[k + dir * step]));
+    return lands(lo, -1) && lands(hi, 1); };
   DGX.terrain = (GF) => {
     const {
       AR, FM, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,

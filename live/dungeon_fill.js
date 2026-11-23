@@ -167,9 +167,10 @@
     const kf = Math.min(ST.n, floor + ST.early), roster = D.rosterAt(biome, kf), lvl = depth;
     // a room floor's plain fill and its own packs (data.js ROOM_PACKS); a floor laid before them (opts.legacyRosters) fills every room
     // from the whole roster of its biome as it was
-    const legacyRosters = !!opts.legacyRosters, plain = legacyRosters ? D.BIOMES[biome].old || roster : D.oldAt(biome, kf), RP = !cave && !legacyRosters && D.ROOM_PACKS[biome];
-    // (the packs draw on a stream of their own: the floor's own stream runs as it did, so its props, secrets and events lie as before
-    // and only the kinds of a pack's monsters change)
+    const legacyRosters = !!opts.legacyRosters, plain = legacyRosters ? D.BIOMES[biome].old || roster : D.oldAt(biome, kf), RP = !cave && !legacyRosters && D.ROOM_PACKS.byBiome[biome];
+    // (the packs draw on a stream of their own: the floor's own stream runs as it did, so its monsters' places, items, secrets and
+    // events lie as before; the webs follow a room's spiders on the floor's stream, so where a pack changes them the webs and the
+    // decals laid after them lie otherwise)
     const Rp = mul32(seed ^ ROOM_PACK_SALT), pickP = (arr) => arr[Math.floor(Rp() * arr.length)];
     const roomPack = (n) => { if (!RP) return null; const has = (t) => roster.includes(t), opts2 = Object.values(RP).filter((P) => P.plan[0][0].some(has));
       if (!opts2.length || Rp() >= D.ROOM_PACKS.share) return null; let roll = Rp() * opts2.reduce((a, P) => a + P.w, 0), P = opts2[opts2.length - 1]; for (const o of opts2) if ((roll -= o.w) < 0) { P = o; break; }

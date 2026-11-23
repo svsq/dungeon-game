@@ -1137,7 +1137,7 @@
           if (m.cells[k] !== 1 || m.cells[k + 1] !== 6 || m.block.includes(k)) continue;
           let end = k + 1; while (end < k + 10 && m.cells[end] === 6) end++;
           if (end - k < 5 || m.cells[end] !== 1 || Math.floor(k / m.W) !== Math.floor(end / m.W)) continue;
-          const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999; h.cls = 'mage';   // (the warrior's right click is the charge now, TASKS 1130)
+          const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999; h.cls = 'mage';   // (the fireball is the mage's right click: the class's own, data_hero.js rclick)
           R.en = []; R.pots = []; R.chests = []; R.proj = []; R.msg = null; R.freeze = R.trauma = 0; S.ev = []; R.seen.fill(1); R.rseen.fill(1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
           SIM.step(S, { keys: [], rclick: 1, px: SCX.W, py: SCX.H / 2 });
           let n = 0; const pending = [];
@@ -1977,10 +1977,10 @@
       ['fountain_room', 'fountain', 0], ['fountain_ask', 'fountain', 'ask'], ['fountain_heal', 'fountain', 'done', 'heal'], ['fountain_bless', 'fountain', 'done', 'bless'], ['fountain_hex', 'fountain', 'done', 'hex']]) { const S = evS(id, st, fate && ((R, E) => { E.fate = fate; R.hero.hp = 20; })); if (S.run && (S.run.events || []).some((q) => q.id === id)) states.push([nm, S]); }
     // the goblin's table (TASKS 365): the table and its goblin as come upon, the question naming the least stake, the stake raised two
     // steps and raised to its top, each of the three throws by the faces that make it; and a hero short of the stake told so
-    const DICE_QA_FACES = { lose: [2, 3], win: [3, 6], jack: [4, 4] }, DICE_QA_RAISE = 2, DICE_QA_TOP = DATA.EVENTS.pool.dice.bet.most;
+    const DICE_QA_RAISE = 2, DICE_QA_TOP = DATA.EVENTS.pool.dice.bet.most;
     for (const [nm, st, fate, gold, raise] of [['dice_room', 0], ['dice_ask', 'ask'], ['dice_ask_raised', 'ask', 0, 0, DICE_QA_RAISE], ['dice_ask_top', 'ask', 0, 0, DICE_QA_TOP],
       ['dice_lose', 'done', 'lose'], ['dice_win', 'done', 'win'], ['dice_jack', 'done', 'jack'], ['dice_broke', 'ask', 0, 3]]) {
-      const S = evS('dice', st, (R, E) => { R.hero.gold = gold || 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.faces = DICE_QA_FACES[fate].slice(); });
+      const S = evS('dice', st, (R, E) => { R.hero.gold = gold || 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.faces = SIM.Q.diceFacesOf(fate); });
       if (raise && S.run && S.screen === 'event') for (let i = 0; i < raise; i++) SIM.step(S, { keys: ['ArrowUp'] });
       // (past the winnings' flight into the gold counter: caught on its way in, a number of three wide stood over the counter's edge)
       if (st === 'done' && S.run) for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); if (S.run && (S.run.events || []).some((q) => q.id === 'dice')) states.push([nm, S]); }

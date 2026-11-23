@@ -376,8 +376,10 @@
   function captivePlace(S, R) { const m = R.map; for (const C of Object.values(R.captives || {})) { const D0 = D.CAPTIVES[C.who]; if (D0.f !== R.floor || isFree(R, C.who)) continue; if (C.x === undefined && !D0.boss) captivePut(S, R, C); if (C.x !== undefined) for (const k of cageCells(m, C)) mapw.blockOnce(m, k); } }
   function captiveBoss(S, R, e) { for (const C of Object.values(R.captives || {})) if (D.CAPTIVES[C.who].boss && D.CAPTIVES[C.who].f === R.floor && C.x === undefined && !isFree(R, C.who)) { captivePut(S, R, C, [R.map.rooms[e.room]]); captivePlace(S, R); } }
   // freed, the captive says his thanks in the talk window and stays by his cage while it is up (C.talk); stepCaptives sends him off
-  // once it is closed
-  function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y }); ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y });
+  // once it is closed. The message box shows only in play, so a quest done by the freeing waits in R.msgNext behind the window
+  function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y });
+    const shown = R.msg, queued = R.msgNext; ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y });
+    if (R.msg !== shown) { R.msgNext = R.msg; R.msg = shown; } if (R.msgNext && R.msgNext !== queued) R.msgNext.afterTalk = 1;
     C.talk = 1; S.talk = { role: C.who, i: 0, pages: [D.CAPTIVES[C.who].free], p: 0, act: null }; S.screen = 'talk'; S.hover = ''; S.saveN++; ev(S, { k: 'say', x: C.x, y: C.y, role: C.who }); }
   // the way off: from the open side of the cage, down the floor's field toward its start (the way up, through its shut doors too), CAPTIVE_FLEE.cells of it
   function fleePath(R, C) { const m = R.map, F = SIMX.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), cell = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
@@ -385,7 +387,8 @@
     if (!near.length) return [[C.x, C.y]]; let k = near.sort((a, b) => F[a] - F[b] || a - b)[0]; const path = [[C.x, C.y], cell(k)];
     for (let i = 0; i < D.CAPTIVE_FLEE.cells && F[k] > 0; i++) { k = [k + 1, k - 1, k + m.W, k - m.W].filter((j) => F[j] >= 0 && F[j] < F[k]).sort((a, b) => F[a] - F[b] || a - b)[0]; if (k === undefined) break; path.push(cell(k)); }
     return path; }
-  function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C) }; S.saveN++; } }
+  const releaseAfterTalk = (S, R) => { if (!R.msgNext || !R.msgNext.afterTalk) return; delete R.msgNext.afterTalk; R.msg = Object.assign(R.msgNext, { t: S.t }); R.msgNext = null; };
+  function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C) }; releaseAfterTalk(S, R); S.saveN++; } }
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
     return D.storyChain(R.mode).find((s) => (D.QUESTS[s.key].type === 'free' ? !!capOf(R, D.QUESTS[s.key].who) && !isFree(R, D.QUESTS[s.key].who) : s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
   // what a townsman offers now: the quest as it would be taken (its floor set, its foe's name or its keepsake drawn), or null
@@ -438,7 +441,10 @@
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const L = (a.ids || [a.id]).map((id) => (R.quests || []).find((o) => o.id === id)).filter((q) => turnIn(S, R, q)); if (!L.length) return;
     const nx = talkOf(R, T.role), pages = turnPages(T.role, L); T.pages = pages.concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null;
-    T.got = { of: T.pages, pages: pages.length, rw: rwSum(L) }; }
+    T.got = { firstPage: T.pages[0], pages: pages.length, rw: rwSum(L) }; }
+  // the turn-in's reward block stands on its own pages while the talk still shows them; compared by the words, as a talk restored
+  // from a save or a hot reload holds copies of its pages
+  const talkGotShown = (T) => !!(T && T.got && T.got.rw && T.pages[0] === T.got.firstPage && T.p < T.got.pages);
   // the turn-in told once pressed: the thanks and the quests by name, on one page while it fits the window; a quest's own thanks (the
   // story's) goes before the plain ones, and a long one keeps a page of its own. What they paid together is the talk's `got`, shown on
   // these pages in a block of its own under the words
@@ -514,7 +520,7 @@
   // first fall, a long time below; each told once; nothing new, his idle pair
   function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = []; let hush = 0;
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
-    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.endDeaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
+    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(SIMX.runEndDeaths(M) === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     // the campaign's last boss is told by the end of the run, whose words his generic «someone must go down again» would contradict
     if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) { hush = 1; out.push(...K.boss(ENEMIES[R.lastBoss].name)); } }
@@ -654,7 +660,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, stepCaptives, fleePath, dropStaleOffers, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
+    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, stepCaptives, fleePath, dropStaleOffers, shopShut, craftShut, folkHere, questTalk, talkGotShown, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell, CART_V, railLen, folkPause });
 })(typeof window !== 'undefined' ? window : globalThis);

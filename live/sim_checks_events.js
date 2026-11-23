@@ -249,7 +249,6 @@
   // the goblin's table (TASKS 365) in each run: its least stake set with the floor and named; with less gold the goblin asks nothing;
   // «no» takes nothing; «yes» takes the stake and pays back none, twice or thrice by the faces thrown, one `qevent`, its line naming
   // the faces; it asks no more and stands in the way; a save keeps the throw
-  const DICE_CHECK_FACES = { lose: [2, 3], win: [3, 6], jack: [4, 4] };
   function checkDicePlay(out) {
     const P = D.EVENTS.pool.dice;
     for (const [mode, o] of MODES) for (const [i, fate] of SIMX.DICE_FATES.entries()) { const tag = `goblin's table ${mode}${o.town ? ' (town)' : ''} ${fate}`, { S, R, E, key, ask } = evRun(mode, o, 'dice'), h = R && R.hero;
@@ -258,13 +257,13 @@
       h.gold = E.stake - 1; key('KeyE'); if (S.screen === 'event' || h.gold !== E.stake - 1 || E.st !== 'idle') out.push(`${tag}: a hero short of the stake is asked, or loses gold`);
       h.gold = 1000; key('KeyE'); if (S.screen !== 'event') out.push(`${tag}: E with the stake in hand asks nothing (${S.screen})`); key('Enter');
       if (h.gold !== 1000 || E.st !== 'idle') out.push(`${tag}: «no» leaves ${h.gold} gold, it ${E.st}`);
-      const faces = DICE_CHECK_FACES[fate]; E.faces = faces.slice(); ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
+      const faces = SIMX.diceFacesOf(fate); E.faces = faces.slice(); ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
       if (h.gold !== want || E.st !== 'done' || E.fate !== fate || q.length !== 1) out.push(`${tag}: «yes» on ${faces} leaves ${h.gold} gold of ${want}, it ${E.st} ${E.fate}, ${q.length} qevent`);
       if (!R.msg || !faces.every((f) => R.msg.s.includes(String(f)))) out.push(`${tag}: the throw's line does not name ${faces} (${R.msg && R.msg.s})`);
       key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the table asks again`);
       if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the table does not stand in the way`);
       if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.fate !== fate || String(b.faces) !== String(faces)) out.push(`${tag}: a save forgets the throw`); } }
-    checkDiceRule(out); checkDiceStake(out); checkDiceThrows(out);
+    checkDiceRule(out); checkDiceStake(out); checkDiceShortGold(out); checkDiceThrows(out);
   }
   // the rule on every pair of faces: a double is the jackpot, a sum of winSum or more a win, anything else a loss
   function checkDiceRule(out) { const P = D.EVENTS.pool.dice;
@@ -278,8 +277,12 @@
     for (let i = 0; i < P.bet.most + 2; i++) key('ArrowDown'); if (betN() !== E.stake) out.push(`goblin's table: ↓ past the bottom stands at ${betN()}, not ${E.stake}`);
     key('Escape'); const held = 2; h.gold = E.stake * held + 1; key('KeyE');
     for (let i = 0; i < P.bet.most; i++) key('ArrowUp'); const top = SIMX.eventBet(R, E); if (top.n !== E.stake * held || top.top !== held) out.push(`goblin's table: with gold for ${held} steps the stake goes to ${top.n}`);
-    const g0 = h.gold; E.faces = DICE_CHECK_FACES.win.slice(); key('ArrowLeft'); key('Enter');
+    const g0 = h.gold; E.faces = SIMX.diceFacesOf('win'); key('ArrowLeft'); key('Enter');
     if (h.gold !== g0 + E.stake * held * (P.pay[SIMX.DICE_FATES.indexOf('win')] - 1) || E.bet !== E.stake * held) out.push(`goblin's table: a won stake of ${held} steps leaves ${h.gold} gold of ${g0}`); }
+  // a window left open with less gold than the least stake (a reload, a load) stakes only the gold held, so a loss leaves none, never a debt
+  function checkDiceShortGold(out) { const { R, E, key } = evRun('campaign', {}, 'dice'); if (!E) return; const h = R.hero;
+    h.gold = E.stake; key('KeyE'); const short = E.stake - 1; h.gold = short; E.faces = SIMX.diceFacesOf('lose'); key('ArrowLeft'); key('Enter');
+    if (E.st !== 'done' || h.gold !== 0 || E.bet !== short) out.push(`goblin's table: a lost stake with ${short} gold of ${E.stake} leaves ${h.gold} gold, bet ${E.bet}`); }
   // thrown on the run's dice, each die shows every face, the fate follows the faces, and the three fall about as the faces say
   function checkDiceThrows(out) { const P = D.EVENTS.pool.dice, { S, R, E } = evRun('campaign', {}, 'dice'); if (!E) return;
     const N = 600, n = { lose: 0, win: 0, jack: 0 }, seen = [new Set(), new Set()], odds = { lose: 0, win: 0, jack: 0 };

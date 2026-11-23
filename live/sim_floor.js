@@ -107,6 +107,9 @@
   // tells which. 38: before the dead-end lava bridges went back to lava and the room floors took their own packs, some of its floors
   // laid before the library's shelves kept off the passages too
   const GEN_LEGACY = { 38: [{ legacyBridges: true, legacyRosters: true }, { legacyBridges: true, legacyRosters: true, legacyLibraryPlacement: true }] };
+  // the generator's options with the legacy ones taken off, so a floor is laid by this version
+  const LEGACY_KEYS = new Set(Object.values(GEN_LEGACY).flat().flatMap(Object.keys));
+  const currentGen = (gen) => (gen ? Object.fromEntries(Object.entries(gen).filter(([k]) => !LEGACY_KEYS.has(k))) : gen);
   // a kept floor built as it was laid: by this generator, or by its legacy options for an older one, which the memo then keeps (with the
   // version), so its next build (stashFloor, the next visit) is the old one at once and is never generated twice; null when none fits
   function matchingFloor(R, f, M) {
@@ -249,7 +252,7 @@
   // version of the game from the RNG and ids it was first built with, so a change to the deep floors is measured without playing
   // the floors before them again
   function rebuildArrival(S) { const R = S.run, f = R.floor, M = R.memo && R.memo[f]; if (!M || !R.arrived) return false;
-    R.rs = M.rs; R.nextId = M.id; M.gv = D.GEN_VERSION; buildFloor(R, f, M.gen || undefined); BASE.set(M, snapFloor(R)); M.mp = mapPrint(R.map);
+    R.rs = M.rs; R.nextId = M.id; M.gv = D.GEN_VERSION; M.gen = currentGen(M.gen); buildFloor(R, f, M.gen || undefined); BASE.set(M, snapFloor(R)); M.mp = mapPrint(R.map);
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     SIMX.questPlace(S, R); R.stats[f] = floorStat(R); arrive(S, R, R.arrived); return true; }
 

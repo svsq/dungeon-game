@@ -393,7 +393,7 @@
     const W = SIMX.VIEW.W, cap = K.trkMaxW(W), half = T.textH / 2, measure = (s, size) => String(s).length * size * 0.6, wins = [[2576, 1456], [1920, 1080], [1600, 900], [1366, 768], [1280, 720], [1024, 768], [800, 600]];
     if (K.trkLay.length !== 5) out.push(`tracker: its layout takes ${K.trkLay.length} inputs, not the view, the minimap's foot, the width, the count and «hidden»`);
     if (cap > W / 4) out.push(`tracker: its width ceiling ${cap} px is over a quarter of the view's ${W}`);
-    const longest = Object.values(D.QUESTS).map((q) => q.name).concat(['«Ларец с накладными» · 3-й этаж · в тайной комнате', 'Нитежуй Гостеприимный · 3-й этаж · в тайной комнате за водопадом']);
+    const storyNames = Object.keys(D.RUNS).flatMap((mode) => D.storyChain(mode).map((c) => D.questName(c))), longest = Object.values(D.QUESTS).map((q) => q.name).concat(storyNames, ['«Ларец с накладными» · 3-й этаж · в тайной комнате', 'Нитежуй Гостеприимный · 3-й этаж · в тайной комнате за водопадом']);
     for (const s of longest) for (const size of [T.size.name, T.size.line]) { const L = K.trkLay(W, 400, 4000, 6), f = K.trkFit(s, L.textW, size, measure);
       if (measure(f, size) > L.textW || L.textX + L.textW > L.x + L.w) { out.push(`tracker: the line «${s}» runs past its right edge (${(L.textX + measure(f, size) - L.x - L.w).toFixed(0)} px)`); break; } }
     const test = (tag, vh, mmBot, w, n) => { const L = K.trkLay(W, mmBot, w, n), bot = L.y + L.h;

@@ -220,6 +220,10 @@
     const QM = Q.memo[f];
     if (QM.mp !== mp || QM.gv !== D.GEN_VERSION || !Q.chests.some((c) => c.open && c.x === chest.x && c.y === chest.y) || !Q.en.some((e) => e.id === foe.id && e.deadT >= 0))
       out.push(`old generator save: a floor of version ${OLD_GEN} is not kept as it was laid (print ${QM.mp === mp ? 'kept' : 'lost'}, version ${QM.gv})`);
+    // a bot's checkpoint rebuilt on its arrival lays that floor by this version, not by the legacy options its memo took on the way in
+    const N = spawn(0, {}); N.run = newRun(N, 'campaign', 12, { town: 1, allFree: 1 }); N.screen = 'play'; enterFloor(N, N.run, f);
+    Q.arrived = Q.arrived || 'down'; SIMX.rebuildArrival(T);
+    if (QM.mp !== N.run.memo[f].mp || Object.keys(QM.gen || {}).some((k) => k.startsWith('legacy'))) out.push(`old generator save: a checkpoint rebuilt on a floor of version ${OLD_GEN} keeps its legacy layout`);
     return out; }
   SIMX.checks.add('oldGenSaveCheck', oldGenSaveCheck);
   SIMX.checks.add('floorFailCheck', floorFailCheck);

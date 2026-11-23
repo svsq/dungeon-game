@@ -1614,7 +1614,7 @@
       if (ic) { KIT.nine('cell', P.x + 300, P.y + P.h - 162, 48, 48); icon(ic, P.x + 306, P.y + P.h - 156, 36); }
       if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) wrapLab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, P.w - 340 - dx, 26, INK.g); }
     // a turn-in's reward in a block of its own on its pages, under a rule and on a darker band of the page
-    if (T.got && T.got.of === T.pages && T.p < T.got.pages && T.got.rw) { const B = TALK_GOT, y = P.y + P.h - B.over;
+    if (SIM.Q.talkGotShown(T)) { const B = TALK_GOT, y = P.y + P.h - B.over;
       L.solid(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.h, B.band, 0, 0, 0, B.bandA); KIT.rule(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.ruleA);
       wrapLab('tk_got', TXT('hud.talk.got', { p1: T.got.rw }), P.x + 300, y + B.h / 2 - B.pad, P.w - 340, 26, INK.g); }
     if (T.pages.length > 1) KIT.ink('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 48, P.y + 60, { size: 20, al: 1, col: KIT.INK.d });

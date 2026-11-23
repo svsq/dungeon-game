@@ -300,11 +300,11 @@
   // `share`, drawn by its weight `w` among those whose first kind its floor's roster holds (BIOMES[*].from); a plan's entries are
   // [kinds, [least, most]] in order, the room filled up from the last entry's kinds; every other room keeps the plain fill of the
   // biome's `old` kinds. The kinds moved in from the caves and the magma come only so, a small share of the floors' monsters
-  const ROOM_PACKS = { share: 0.3,
+  const ROOM_PACKS = { share: 0.3, byBiome: {
     dungeon: { volley: { w: 2, plan: [[['skel_archer'], [1, 1]], [['skeleton', 'goblin'], [1, 2]]] }, ooze: { w: 1, plan: [[['slime'], [2, 3]], [['goblin'], [0, 1]]] } },
     crypt: { volley: { w: 2, plan: [[['skel_archer'], [1, 2]], [['skeleton'], [1, 2]]] }, rite: { w: 1, plan: [[['skel_mage'], [1, 1]], [['skeleton', 'ghost'], [1, 2]]] } },
     lava: { ember: { w: 1, plan: [[['skel_ember'], [2, 2]], [['skeleton', 'goblin'], [1, 2]]] }, spark: { w: 1, plan: [[['imp'], [2, 3]], [['goblin'], [0, 1]]] } },
-    arcane: { pyre: { w: 1, plan: [[['fire_priest'], [1, 1]], [['skeleton', 'cultist', 'ghost'], [1, 2]]] } } };
+    arcane: { pyre: { w: 1, plan: [[['fire_priest'], [1, 1]], [['skeleton', 'cultist', 'ghost'], [1, 2]]] } } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

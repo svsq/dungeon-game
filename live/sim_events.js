@@ -61,9 +61,12 @@
   const DICE_LINE = { lose: (p) => TXT('EVENTS.dice.lose', p), win: (p) => TXT('EVENTS.dice.win', p), jack: (p) => TXT('EVENTS.dice.jack', p) };
   const diceFate = (faces) => { const P = D.EVENTS.pool.dice, sum = faces.reduce((a, b) => a + b, 0);
     return faces.every((f) => f === faces[0]) ? 'jack' : sum >= P.winSum ? 'win' : 'lose'; };
+  // a pair of faces that throws the fate, by the table's own rule (the highest such pair, so its line names faces apart from small sums)
+  const diceFacesOf = (fate) => { const F = D.EVENTS.pool.dice.faces; let got = null; for (let a = 1; a <= F; a++) for (let b = a; b <= F; b++) if (diceFate([a, b]) === fate) got = [a, b]; return got; };
   const diceThrow = (R) => Array.from({ length: DIE_COUNT }, () => 1 + Math.floor(SIMX.rnd(R) * D.EVENTS.pool.dice.faces));
   const diceBetTop = (R, E) => Math.max(1, Math.min(D.EVENTS.pool.dice.bet.most, Math.floor(R.hero.gold / E.stake)));
-  const diceBet = (R, E) => E.stake * Math.min(E.betK || 1, diceBetTop(R, E));
+  // (never over the gold held: a window opened before a reload or a load may face a hero with less than the least stake)
+  const diceBet = (R, E) => Math.min(R.hero.gold, E.stake * Math.min(E.betK || 1, diceBetTop(R, E)));
   const DICE = {
     sayN: (E) => E.stake,
     setup(R, E) { const P = D.EVENTS.pool.dice; E.stake = Math.round(P.stake[0] + P.stake[1] * SIMX.dep(R)); },
@@ -159,5 +162,5 @@
   function stepEvents(S, R) { const h = R.hero;
     for (const E of eventsOf(R)) if (E.st === 'idle' && D.EVENTS.pool[E.id].walk && h.deadT < 0 && DG.roomAt(R.map, h.x, h.y) === E.room) eventStart(S, R, E);
     for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
-  Object.assign(SIMX, { EVENT_RULES, DICE_FATES, diceFate, eventBet, trialN, trialPay, eventSay, trialWaveOf, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
+  Object.assign(SIMX, { EVENT_RULES, DICE_FATES, diceFate, diceFacesOf, eventBet, trialN, trialPay, eventSay, trialWaveOf, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
 })(typeof window !== 'undefined' ? window : globalThis);

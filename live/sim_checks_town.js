@@ -286,6 +286,9 @@
     // the first death that ends a run is the first, however many falls of the normal mode came before it (they count in meta.deaths)
     { const S4 = spawn(0, {}), FALLS = 3; S4.run = newRun(S4, 'campaign', 33, { town: 1, deathMode: 'hard' }); S4.meta.deaths = FALLS; S4.meta.stats = Object.assign(S4.meta.stats || {}, { mode: { normal: { deaths: FALLS } } });
       endRun(S4, 'dead'); if (S4.meta.endDeaths !== 1) out.push(`talk: a first hardcore death after ${FALLS} normal falls counts as death ${S4.meta.endDeaths}`); }
+    // a meta saved before the count of run-ending deaths has only meta.deaths: its first death is still told as the first
+    { const S5 = spawn(0, {}); S5.run = newRun(S5, 'campaign', 34, { town: 1 }); Object.assign(S5.meta, { deaths: 1, lastEnd: 'dead', endTold: 0, keeperMet: 1 }); delete S5.meta.endDeaths;
+      if (!SIMX.keeperPages(S5, S5.run).includes(K.death1[0])) out.push('talk: a meta of an old save does not get the first death told'); }
     R.bossN = 1; R.lastBoss = 'boss_spider'; R.legend = 'Кольцо Бездны'; R.deepest = 6; enterFloor(S, R, 0, undefined, 'up'); talkTo(R, 'keeper'); const p4 = read();
     if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: a boss or a legendary is not spoken of');
     if (p4.includes(K.away[0])) out.push('talk: the long time below is told beside the boss slain, who already greets the hero back');

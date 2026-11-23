@@ -242,7 +242,7 @@
       const P = S.talk ? S.talk.pages : [], gold = L.reduce((a, q) => a + (q.rw.gold || 0), 0), xp = L.reduce((a, q) => a + (q.rw.xp || 0), 0);
       const got = S.talk && S.talk.got, sum = SIMX.rwLine({ gold, xp });
       if (!P.some((p) => L.every((q) => p.includes(D.questName(q))))) out.push(`turn-in all: no page names the three quests (${JSON.stringify(P)})`);
-      if (!got || !got.rw.includes(sum) || got.pages < 1 || got.of !== P || P.some((p) => p.includes(got.rw))) out.push(`turn-in all: the summed reward ${sum} is not in its own block (${JSON.stringify(got && { rw: got.rw, pages: got.pages })})`);
+      if (!got || !got.rw.includes(sum) || got.pages < 1 || !SIMX.talkGotShown(S.talk) || !SIMX.talkGotShown(JSON.parse(JSON.stringify(S.talk))) || P.some((p) => p.includes(got.rw))) out.push(`turn-in all: the summed reward ${sum} is not in its own block (${JSON.stringify(got && { rw: got.rw, pages: got.pages })})`);
       if (P.length > 1) out.push(`turn-in all: the porter's three quests are told on ${P.length} pages`);
       if (R.hero.gold - g0 !== gold) out.push(`turn-in all: ${R.hero.gold - g0} gold paid, not ${gold}`);
       for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); }
@@ -263,14 +263,19 @@
   SIMX.checks.add('bossQuestNamesCheck', bossQuestNamesCheck);
   // each of the three captives, freed, says his thanks in the talk window and stays by his cage while it is up; closed, he runs off
   // toward the floor's way up along a path that starts at his cage and gets nearer the start, and is done by its end
+  // longer than any message stays on screen, so a message raised behind the talk window would be gone by its close
+  const LONG_TALK = 10;
   function captiveTalkCheck() { const out = [], S = spawn(0, {}), X = root.SIMX;
     for (const who of Object.keys(D.CAPTIVES)) { const R = S.run = newRun(S, 'campaign', 84, { town: 1 }), C0 = D.CAPTIVES[who]; S.screen = 'play'; enterFloor(S, R, C0.f); const C = R.captives[who];
       if (C0.boss) { const b = R.en.find((e) => D.BOSSES[e.type]); if (!b) { out.push(`captive talk: no boss on floor ${C0.f} for the ${who}`); continue; } X.captiveBoss(S, R, b); }
       if (C.x === undefined) { out.push(`captive talk: no cage for the ${who}`); continue; }
+      const rescueKey = Object.keys(D.QUESTS).find((k) => D.QUESTS[k].type === 'free' && D.QUESTS[k].who === who), rescue = (R.quests || []).find((q) => q.key === rescueKey) || newQuest(R, rescueKey, C0.f, 'keeper');
+      if (!(R.quests = R.quests || []).includes(rescue)) R.quests.push(rescue);
       R.en = []; R.hero.x = C.x + 40; R.hero.y = C.y + 30; X.interact(S, R);
       if (S.screen !== 'talk' || !S.talk || S.talk.role !== who || S.talk.pages[0] !== C0.free) { out.push(`captive talk: freeing the ${who} opens ${S.screen}, not his talk`); continue; }
       for (let i = 0; i < 30; i++) step(S, { keys: [] }); if (!C.talk || C.flee) out.push(`captive talk: the ${who} leaves while he talks`);
-      step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
+      S.t += LONG_TALK; step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
+      if (rescue.st !== 'done' || !R.msg || R.msg.s !== TXT('sim_town.questOn.msg.s', { name: D.questName(rescue) }) || S.t - R.msg.t >= (R.msg.d || 0)) out.push(`captive talk: the ${who}'s rescue quest is not shown done once his talk is closed`);
       const F = C.flee; if (!F || C.talk || F.path.length < 3) { out.push(`captive talk: the ${who} does not run off once the talk is closed (${F ? F.path.length : 0} points)`); continue; }
       const m = R.map, field = X.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), at = ([x, y]) => field[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
       if (F.path[0][0] !== C.x || F.path[0][1] !== C.y || !(at(F.path[F.path.length - 1]) < at(F.path[1]))) out.push(`captive talk: the ${who}'s way off does not start at his cage and lead toward the way up`);
