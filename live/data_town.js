@@ -45,6 +45,16 @@
   const CAPTIVES = { merchant: { f: 1, quest: 'rescue', caged: TXT.talk('merchant').caged, free: TXT('sim_town.captive.free'), shut: TXT('sim_town.shopShut') },
     smith: { f: 3, quest: 'rescue_smith', caged: TXT.talk('smith').caged, free: TXT('sim_town.captive.smith.free'), shut: TXT('sim_town.captive.smith.shut') },
     enchanter: { f: 4, boss: 1, quest: 'rescue_enchanter', caged: TXT.talk('enchanter').caged, free: TXT('sim_town.captive.enchanter.free'), shut: TXT('sim_town.captive.enchanter.shut') } };
+  // a freed captive talks with the hero in the town's window, and once the talk is closed runs off toward the floor's way up: `cells`
+  // cells of the way at `speed` view px a second; at its end he is gone in a puff of dust that lasts `puff` s
+  const CAPTIVE_FLEE = { cells: 12, speed: 170, puff: 0.6 };
+  // where a fleeing captive is `t` s into his run along his path (world points): his place, his heading and how far he has come;
+  // past its end done, with `over` the seconds since he got there
+  const captiveFleeAt = (flee, t) => { const P = flee.path, d = Math.max(0, t) * CAPTIVE_FLEE.speed; let left = d;
+    for (let i = 1; i < P.length; i++) { const [ax, ay] = P[i - 1], [bx, by] = P[i], len = Math.hypot(bx - ax, by - ay) || 1;
+      if (left <= len) { const u = left / len; return { x: ax + (bx - ax) * u, y: ay + (by - ay) * u, vx: (bx - ax) / len * CAPTIVE_FLEE.speed, vy: (by - ay) / len * CAPTIVE_FLEE.speed, dist: d, done: false, over: 0 }; }
+      left -= len; }
+    const [x, y] = P[P.length - 1] || [0, 0]; return { x, y, vx: 0, vy: 0, dist: d, done: true, over: left / CAPTIVE_FLEE.speed }; };
   const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out; const caged = (f, late) => { if (mode === 'campaign') for (const c of Object.values(CAPTIVES)) if (c.f === f && !!c.boss === late) out.push({ key: c.quest, f }); };
     for (let f = 1; f <= M.floors; f++) { caged(f, false); if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); caged(f, true); }
     return out; };
@@ -249,7 +259,7 @@
     return out; };
   // a quest's name as the player reads it: its template's, or its own (nameOf) where one template stands for several quests
   const questName = (q) => { const Q = QUESTS[q.key]; return (Q.nameOf && Q.nameOf(q)) || Q.name; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questName, BOSS_QUEST_NAME, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, CAPTIVE_FLEE, captiveFleeAt, NOTES, STORY, QUESTS, questName, BOSS_QUEST_NAME, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   // `nudge` (town_game_r10 4): how far a full mark may slide across and down from over the head to clear the HUD before it goes small;

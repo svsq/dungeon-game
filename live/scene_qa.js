@@ -1778,7 +1778,15 @@
     states.push(['town_enchant_full', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }, { k: 'leech', v: 3 }, { k: 'mspd', v: 6 }, { k: 'crit', v: 4 }, { k: 'atk', v: 5 }]; })]);
     // a word with the townsfolk (TASKS 1016, 1023): the prompt by the Keeper; his dialogue on its longest page; the guard's line
     states.push(['captive_cage', climbS(1, (S, R, m, h) => { h.x = R.captives.merchant.x + 50; h.y = R.captives.merchant.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
-    states.push(['captive_freed', climbS(1, (S, R, m, h) => { h.x = R.captives.merchant.x + 50; h.y = R.captives.merchant.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); R.freed = { merchant: 1 }; R.msg = { s: TXT('sim_town.captive.free'), t: S.t - 1, d: 5 }; })]);
+    // each captive freed: his thanks in the talk window by his open cage, then on his run off (CAPTIVE_RUN_AT s into it) and gone in dust
+    const CAPTIVE_RUN_AT = 0.5, CAPTIVE_GONE_AT = 0.2;
+    const captiveS = (who, f, stage) => climbS(f, (S, R, m, h) => { if (D.CAPTIVES[who].boss) SIMX.captiveBoss(S, R, R.en.find((e) => D.BOSSES[e.type])); const C = R.captives[who]; if (!C || C.x === undefined) return;
+      h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); SIMX.interact(S, R); if (stage === 'talk') return;
+      SIM.step(S, { keys: ['Escape'] }); SIM.step(S, { keys: [] }); if (!C.flee) return;
+      const until = stage === 'run' ? CAPTIVE_RUN_AT : (D.captiveFleeAt(C.flee, 1e3).dist - D.captiveFleeAt(C.flee, 1e3).over * D.CAPTIVE_FLEE.speed) / D.CAPTIVE_FLEE.speed + CAPTIVE_GONE_AT;
+      while (S.t - C.flee.t < until) SIM.step(S, { keys: [] }); });
+    states.push(['captive_freed', captiveS('merchant', 1, 'talk')]);
+    for (const [who, f] of [['merchant', 1], ['smith', 3], ['enchanter', 4]]) for (const stage of ['talk', 'run', 'gone']) states.push([`captive_${stage}_${who}`, captiveS(who, f, stage)]);
     const noteWorst = () => D.NOTES.list.reduce((a, n) => (n.text.length > a.text.length ? n : a));
     states.push(['captive_smith', climbS(3, (S, R, m, h) => { const C = R.captives.smith; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['captive_enchanter', climbS(4, (S, R, m, h) => { const b = R.en.find((e) => D.BOSSES[e.type]); SIMX.captiveBoss(S, R, b); const C = R.captives.enchanter; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);

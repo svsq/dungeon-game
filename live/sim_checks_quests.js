@@ -256,6 +256,23 @@
       L.forEach((c, i) => { if (names[i] === D.QUESTS[c.key].name) out.push(`boss quests: ${mode}'s boss of floor ${c.f} has no name of its own`); }); }
     return out; }
   SIMX.checks.add('bossQuestNamesCheck', bossQuestNamesCheck);
+  // each of the three captives, freed, says his thanks in the talk window and stays by his cage while it is up; closed, he runs off
+  // toward the floor's way up along a path that starts at his cage and gets nearer the start, and is done by its end
+  function captiveTalkCheck() { const out = [], S = spawn(0, {}), X = root.SIMX;
+    for (const who of Object.keys(D.CAPTIVES)) { const R = S.run = newRun(S, 'campaign', 84, { town: 1 }), C0 = D.CAPTIVES[who]; S.screen = 'play'; enterFloor(S, R, C0.f); const C = R.captives[who];
+      if (C0.boss) { const b = R.en.find((e) => D.BOSSES[e.type]); if (!b) { out.push(`captive talk: no boss on floor ${C0.f} for the ${who}`); continue; } X.captiveBoss(S, R, b); }
+      if (C.x === undefined) { out.push(`captive talk: no cage for the ${who}`); continue; }
+      R.en = []; R.hero.x = C.x + 40; R.hero.y = C.y + 30; X.interact(S, R);
+      if (S.screen !== 'talk' || !S.talk || S.talk.role !== who || S.talk.pages[0] !== C0.free) { out.push(`captive talk: freeing the ${who} opens ${S.screen}, not his talk`); continue; }
+      for (let i = 0; i < 30; i++) step(S, { keys: [] }); if (!C.talk || C.flee) out.push(`captive talk: the ${who} leaves while he talks`);
+      step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
+      const F = C.flee; if (!F || C.talk || F.path.length < 3) { out.push(`captive talk: the ${who} does not run off once the talk is closed (${F ? F.path.length : 0} points)`); continue; }
+      const m = R.map, field = X.homeFlow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE)), at = ([x, y]) => field[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
+      if (F.path[0][0] !== C.x || F.path[0][1] !== C.y || !(at(F.path[F.path.length - 1]) < at(F.path[1]))) out.push(`captive talk: the ${who}'s way off does not start at his cage and lead toward the way up`);
+      const t0 = D.captiveFleeAt(F, 0), t1 = D.captiveFleeAt(F, 1), end = D.captiveFleeAt(F, 1e3);
+      if (t0.done || Math.hypot(t0.x - C.x, t0.y - C.y) > 0.5 || Math.hypot(t1.x - C.x, t1.y - C.y) < D.CAPTIVE_FLEE.speed / 2 || !end.done) out.push(`captive talk: the ${who} does not run along his way and reach its end`); }
+    return out; }
+  SIMX.checks.add('captiveTalkCheck', captiveTalkCheck);
   SIMX.checks.add('questCheck', questCheck);
   SIMX.checks.add('questGiveCheck', questGiveCheck);
 })(typeof window !== 'undefined' ? window : globalThis);
