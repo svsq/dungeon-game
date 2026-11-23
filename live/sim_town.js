@@ -379,8 +379,8 @@
   // once it is closed
   function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y }); ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y });
     C.talk = 1; S.talk = { role: C.who, i: 0, pages: [D.CAPTIVES[C.who].free], p: 0, act: null }; S.screen = 'talk'; S.hover = ''; S.saveN++; ev(S, { k: 'say', x: C.x, y: C.y, role: C.who }); }
-  // the way off: from the open side of the cage, down the floor's field toward its start (the way up), CAPTIVE_FLEE.cells of it
-  function fleePath(R, C) { const m = R.map, F = SIMX.homeFlow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE)), cell = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
+  // the way off: from the open side of the cage, down the floor's field toward its start (the way up, through its shut doors too), CAPTIVE_FLEE.cells of it
+  function fleePath(R, C) { const m = R.map, F = SIMX.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), cell = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
     const cage = new Set(cageCells(m, C)), near = []; for (const k of cage) for (const d of [1, -1, m.W, -m.W]) if (!cage.has(k + d) && F[k + d] >= 0) near.push(k + d);
     if (!near.length) return [[C.x, C.y]]; let k = near.sort((a, b) => F[a] - F[b] || a - b)[0]; const path = [[C.x, C.y], cell(k)];
     for (let i = 0; i < D.CAPTIVE_FLEE.cells && F[k] > 0; i++) { k = [k + 1, k - 1, k + m.W, k - m.W].filter((j) => F[j] >= 0 && F[j] < F[k]).sort((a, b) => F[a] - F[b] || a - b)[0]; if (k === undefined) break; path.push(cell(k)); }

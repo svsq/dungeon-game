@@ -429,8 +429,9 @@
           for (let i = 0; i < 120 && !arrows(); i++) step(S, { keys: [], ...aimAt }); const lt = S.t - t0;
           if (lt < D.VOLLEY.loose - 1e-9 || lt > D.VOLLEY.loose + 2 * DT) out.push(`class archer: the volley leaves ${lt.toFixed(3)} s after the key, not at the loose (${D.VOLLEY.loose} s)`);
           if (arrows() !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
-          // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w
-          { const vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w + 4) out.push('class archer: the volley does not close on a far cursor'); }
+          // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w; measured down the cursor's column
+          // from the hand, a tilted aim stretches it by up to FAN_SLACK of its width
+          { const FAN_SLACK = 0.12, vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w * (1 + FAN_SLACK)) out.push('class archer: the volley does not close on a far cursor'); }
           R.proj = []; h.mx = h.x + 150; h.my = h.y - 30; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0);
           if (Math.abs(q.x - (h.x + 150)) > 10) out.push('class archer: the trap is not set at the cursor'); h.x -= 120; w.x = q.x + 60; w.y = q.y; w.st = 'idle'; w.calmT = 1e9;
           for (let i = 0; i < 120; i++) { step(S, { keys: [] }); if (w.rootT) break; if (i > 55) w.x -= 2; }

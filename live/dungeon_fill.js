@@ -1,6 +1,8 @@
 // live/dungeon_fill.js — the contents: monsters and packs, lights, furniture, the caves' and magma's dressing, traps, decals; the checks a floor type is held to.
 // A stage of tryGen (ARCHITECTURE.md §4.2): it reads the floor's shared values from GF and leaves there what later stages use; null rerolls.
 (function (root) {
+  // the salt of the room packs' own stream of the floor's seed
+  const ROOM_PACK_SALT = 0x7ac5;
   const DGX = root.DGX, {
     D, ENEMIES, LIGHT_R, NO_SHOP, TILE, archLegs, byId, inRm, linkId, onArchLeg, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays, shuffleBy } = DGX;
   // a pack's plan cut down to lim: an entry marked keep is cut last (a small nest's cut took its one priest, TASKS 1647), and a hall's
@@ -166,10 +168,13 @@
     // a room floor's plain fill and its own packs (data.js ROOM_PACKS); a floor laid before them (opts.legacyRosters) fills every room
     // from the whole roster of its biome as it was
     const legacyRosters = !!opts.legacyRosters, plain = legacyRosters ? D.BIOMES[biome].old || roster : D.oldAt(biome, kf), RP = !cave && !legacyRosters && D.ROOM_PACKS[biome];
-    const roomPack = (n) => { if (!RP || R() >= D.ROOM_PACKS.share) return null; const has = (t) => roster.includes(t), opts2 = Object.values(RP).filter((P) => P.plan[0][0].some(has));
-      if (!opts2.length) return null; let roll = R() * opts2.reduce((a, P) => a + P.w, 0), P = opts2[opts2.length - 1]; for (const o of opts2) if ((roll -= o.w) < 0) { P = o; break; }
-      const out = []; for (const [kinds, [lo, hi]] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) out.push(pick(ks)); }
-      const last = P.plan[P.plan.length - 1][0].filter(has); while (out.length < n && last.length) out.push(pick(last)); return out.slice(0, n); };
+    // (the packs draw on a stream of their own: the floor's own stream runs as it did, so its props, secrets and events lie as before
+    // and only the kinds of a pack's monsters change)
+    const Rp = mul32(seed ^ ROOM_PACK_SALT), pickP = (arr) => arr[Math.floor(Rp() * arr.length)];
+    const roomPack = (n) => { if (!RP) return null; const has = (t) => roster.includes(t), opts2 = Object.values(RP).filter((P) => P.plan[0][0].some(has));
+      if (!opts2.length || Rp() >= D.ROOM_PACKS.share) return null; let roll = Rp() * opts2.reduce((a, P) => a + P.w, 0), P = opts2[opts2.length - 1]; for (const o of opts2) if ((roll -= o.w) < 0) { P = o; break; }
+      const out = []; for (const [kinds, [lo, hi]] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(Rp() * (hi - lo + 1)); i < k; i++) out.push(pickP(ks)); }
+      const last = P.plan[P.plan.length - 1][0].filter(has); while (out.length < n && last.length) out.push(pickP(last)); return out.slice(0, n); };
     const bridged = new Set(crossings.flatMap((c) => c.cells));
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
         && !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 2 * TILE); });
@@ -448,7 +453,7 @@
         const pack = pick(cave ? roster : plain), guard = r.type === 'exit' && !!ST.guard, own = cave || r.type !== 'combat' ? null : roomPack(n);
         if (cave) { if (n > 0) cavePack(r, n + (r.hall ? HL.kinds[r.hall].extra : 0), guard); }
         else for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
-          let type = own && own[i] ? own[i] : R() < 0.6 ? pack : pick(plain); if (!(own && own[i]) && type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
+          let type = R() < 0.6 ? pack : pick(plain); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack; if (own && own[i]) type = own[i];
           // a drowned lies in the room's shallows (TASKS 307); a room with none takes another of the roster
           if (ENEMIES[type].lurk) { const q = shallowIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
           // an eel in its deep water; a room with none takes another

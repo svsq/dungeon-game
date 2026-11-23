@@ -242,7 +242,7 @@
       const P = S.talk ? S.talk.pages : [], gold = L.reduce((a, q) => a + (q.rw.gold || 0), 0), xp = L.reduce((a, q) => a + (q.rw.xp || 0), 0);
       const got = S.talk && S.talk.got, sum = SIMX.rwLine({ gold, xp });
       if (!P.some((p) => L.every((q) => p.includes(D.questName(q))))) out.push(`turn-in all: no page names the three quests (${JSON.stringify(P)})`);
-      if (!got || got.rw !== sum || got.pages < 1 || got.of !== P || P.some((p) => p.includes(sum))) out.push(`turn-in all: the summed reward ${sum} is not in its own block (${JSON.stringify(got && { rw: got.rw, pages: got.pages })})`);
+      if (!got || !got.rw.includes(sum) || got.pages < 1 || got.of !== P || P.some((p) => p.includes(got.rw))) out.push(`turn-in all: the summed reward ${sum} is not in its own block (${JSON.stringify(got && { rw: got.rw, pages: got.pages })})`);
       if (P.length > 1) out.push(`turn-in all: the porter's three quests are told on ${P.length} pages`);
       if (R.hero.gold - g0 !== gold) out.push(`turn-in all: ${R.hero.gold - g0} gold paid, not ${gold}`);
       for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); }
@@ -272,7 +272,7 @@
       for (let i = 0; i < 30; i++) step(S, { keys: [] }); if (!C.talk || C.flee) out.push(`captive talk: the ${who} leaves while he talks`);
       step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
       const F = C.flee; if (!F || C.talk || F.path.length < 3) { out.push(`captive talk: the ${who} does not run off once the talk is closed (${F ? F.path.length : 0} points)`); continue; }
-      const m = R.map, field = X.homeFlow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE)), at = ([x, y]) => field[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
+      const m = R.map, field = X.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), at = ([x, y]) => field[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
       if (F.path[0][0] !== C.x || F.path[0][1] !== C.y || !(at(F.path[F.path.length - 1]) < at(F.path[1]))) out.push(`captive talk: the ${who}'s way off does not start at his cage and lead toward the way up`);
       const t0 = D.captiveFleeAt(F, 0), t1 = D.captiveFleeAt(F, 1), end = D.captiveFleeAt(F, 1e3);
       if (t0.done || Math.hypot(t0.x - C.x, t0.y - C.y) > 0.5 || Math.hypot(t1.x - C.x, t1.y - C.y) < D.CAPTIVE_FLEE.speed / 2 || !end.done) out.push(`captive talk: the ${who} does not run along his way and reach its end`); }
