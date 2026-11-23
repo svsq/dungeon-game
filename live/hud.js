@@ -999,7 +999,11 @@
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
   // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
   const UP = '#8fd98a', DOWN = '#e0604f';
-  const EQUIPMENT_TOTAL_LABEL = { maxHp: 'hud.compare.tot', atk: 'hud.compare.tot.2', def: 'hud.compare.tot.3' };
+  const EQUIPMENT_TOTAL_LABEL = {
+    maxHp: () => TXT('hud.compare.tot'),
+    atk: () => TXT('hud.compare.tot.2'),
+    def: () => TXT('hud.compare.tot.3'),
+  };
   // a worn piece that adds nothing to a stat leaves the card's own line as the whole difference, so only stats the worn piece
   // also gives are listed; `dim` mutes the comparison of a piece that can't be worn yet, `compact` drops the stat rows
   function compare(S, it, slot, h, lines, o) {
@@ -1014,7 +1018,7 @@
     if (pw(it) !== pw(cur)) lines.push(['   ' + TXT('hud.compare.power', { p1: pw(cur), p2: pw(it) }), mute(C.gold), 19]);
     for (const { key, before, after, direction } of SIM.Q.equipmentComparison(h, S.meta, slot, it)) {
       if (!direction) continue;
-      lines.push([TXT('hud.compare.3', { p1: TXT(EQUIPMENT_TOTAL_LABEL[key]) + ' ' + before + ' → ' + after }), direction > 0 ? UP : DOWN, 20]);
+      lines.push([TXT('hud.compare.3', { p1: EQUIPMENT_TOTAL_LABEL[key]() + ' ' + before + ' → ' + after }), direction > 0 ? UP : DOWN, 20]);
     }
   }
   function tooltip(S, it, b, h, deal, at, box) {
