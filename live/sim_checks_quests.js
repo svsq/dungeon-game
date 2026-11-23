@@ -176,7 +176,7 @@
       if (news && (T.pages[T.pages.length - 1] !== D.KEEPER.away[D.KEEPER.away.length - 1] || !T.pages.includes(D.KEEPER.first[0]))) out.push('quest turn-in: the Keeper\'s news is not what the button\'s page tells');
       for (let i = 0; i < 8 && S.screen === 'talk' && q.st !== 'turned'; i++) { if (said()) { out.push('quest turn-in: the ' + role + ' says it before the button'); break; } step(S, { keys: ['KeyE'] }); }
       if (q.st !== 'turned' || S.screen !== 'talk' || !said()) out.push('quest turn-in: the ' + role + ' does not say it once pressed');
-      else if (!S.talk.pages.some((p) => p.includes(root.SIMX.rwLine(q.rw)))) out.push('quest turn-in: the ' + role + ' gives no reward once pressed' + (news ? ' (with news)' : '')); step(S, { keys: ['Escape'] }); }
+      else if (!S.talk.got || S.talk.got.rw !== root.SIMX.rwLine(q.rw)) out.push('quest turn-in: the ' + role + ' gives no reward once pressed' + (news ? ' (with news)' : '')); step(S, { keys: ['Escape'] }); }
     // TASKS 2103: the first board of a run with the smith still caged holds no offer of his or the Keeper's and shows an optional quest
     for (const sd of OFFER_SEEDS) { const R3 = newRun(S, 'campaign', sd, { town: 1 }), L3 = offersOf(R3), shown = boardOffers(R3).filter((o) => !o.of.q.story);
       if (L3.some((o) => o.from === 'keeper' || (R3.captives || {})[o.from])) out.push('quest give: seed ' + sd + ' deals an offer to a caged giver or the Keeper');
@@ -228,7 +228,7 @@
       if (mine().length) out.push(`turn-in all: ${tag}: ${mine().length} of the ${role}'s ${n0} quests left after the press`);
       if (presses > pages) out.push(`turn-in all: ${tag}: the ${role} took ${presses} presses on ${pages} pages`);
       if (questMark(R, role) === '?') out.push(`turn-in all: ${tag}: the ? stays over the ${role}`);
-      const told = S.screen === 'talk' ? S.talk.pages : []; if (n0 > 1 && !told.some((p) => R.quests.filter((q) => q.from === role).every((q) => p.includes('«' + D.QUESTS[q.key].name + '»')))) out.push(`turn-in all: ${tag}: no page names all ${n0} quests of the ${role}`);
+      const told = S.screen === 'talk' ? S.talk.pages : []; if (n0 > 1 && !told.some((p) => R.quests.filter((q) => q.from === role).every((q) => p.includes('«' + D.questName(q) + '»')))) out.push(`turn-in all: ${tag}: no page names all ${n0} quests of the ${role}`);
       for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); };
     // three quests of one giver: one press, one page with the three names and the summed reward
     { const R = run(41); R.offers = []; R.quests = []; const L = ['cull', 'named', 'fetch'].map((k) => { const q = takeQuest(S, R, newQuest(R, k, 2, 'porter')); q.st = 'done'; q.n = q.need; return q; });
@@ -236,7 +236,7 @@
       step(S, { keys: ['KeyE'] }); if (L.some((q) => q.st !== 'turned')) out.push('turn-in all: one press does not turn in all three quests');
       const P = S.talk ? S.talk.pages : [], gold = L.reduce((a, q) => a + (q.rw.gold || 0), 0), xp = L.reduce((a, q) => a + (q.rw.xp || 0), 0);
       const got = S.talk && S.talk.got, sum = SIMX.rwLine({ gold, xp });
-      if (!P.some((p) => L.every((q) => p.includes(D.QUESTS[q.key].name)))) out.push(`turn-in all: no page names the three quests (${JSON.stringify(P)})`);
+      if (!P.some((p) => L.every((q) => p.includes(D.questName(q))))) out.push(`turn-in all: no page names the three quests (${JSON.stringify(P)})`);
       if (!got || got.rw !== sum || got.pages < 1 || got.of !== P || P.some((p) => p.includes(sum))) out.push(`turn-in all: the summed reward ${sum} is not in its own block (${JSON.stringify(got && { rw: got.rw, pages: got.pages })})`);
       if (P.length > 1) out.push(`turn-in all: the porter's three quests are told on ${P.length} pages`);
       if (R.hero.gold - g0 !== gold) out.push(`turn-in all: ${R.hero.gold - g0} gold paid, not ${gold}`);
@@ -249,6 +249,13 @@
       if (R.quests.some((q) => q.st === 'done')) out.push(`turn-in all: seed ${sd} leaves ${R.quests.filter((q) => q.st === 'done').length} quests undone after a press at each giver`); }
     return out; }
   SIMX.checks.add('turnAllCheck', turnAllCheck);
+  // every boss quest of a run's story chain has a name of its own, none the plain template's, so the journal tells them apart
+  function bossQuestNamesCheck() { const out = [];
+    for (const mode of Object.keys(D.RUNS)) { const L = D.storyChain(mode).filter((c) => D.QUESTS[c.key].type === 'boss'), names = L.map((c) => D.questName(c));
+      if (new Set(names).size !== names.length) out.push(`boss quests: ${mode} repeats a name (${names.join(', ')})`);
+      L.forEach((c, i) => { if (names[i] === D.QUESTS[c.key].name) out.push(`boss quests: ${mode}'s boss of floor ${c.f} has no name of its own`); }); }
+    return out; }
+  SIMX.checks.add('bossQuestNamesCheck', bossQuestNamesCheck);
   SIMX.checks.add('questCheck', questCheck);
   SIMX.checks.add('questGiveCheck', questGiveCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

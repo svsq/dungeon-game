@@ -637,9 +637,9 @@
   function trkGeo(S, R) { const all = trkAll(S, R), nd = trkDone(R); if (!(all.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R), K = D.UI.kit;
     if (trkHidden(S)) { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true }); }
     const head = lw('qt_t', TXT('hud.tracker'), { size: TF.title }) + 2 * TK.pad + TK.headGap + btnW('qt_hide', TXT('hud.tracker.hide')) + (nd ? TK.btnGap + btnW('qt_fold', trkFoldLab(S, R)) : 0);
-    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.QUESTS[q.key].name, TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
+    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.questName(q), TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
     const Y = K.trkLay(W, mb[1] + mb[3], w, all.length);
-    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.QUESTS[q.key].name, Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
+    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.questName(q), Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
   const trkBox = (S, R) => { const g = trkGeo(S, R); return g && g.box; };
   // the heading's buttons in view px, from the last frame drawn: the page asks them on a click and turns the click into the sim's key,
   // so it swings at nothing
@@ -1643,7 +1643,7 @@
       if (ic) { KIT.nine('cell', c.x + 12, y + 16, 64, 64); icon(ic, c.x + 20, y + 24, 48); }
       const X = c.x + (ic ? 84 : 30), cw = U.text.x - U.gap - X;
       L.uiBox('bd_c' + i, X, y, cw, c.h, 0);
-      KIT.ink('bd_n' + i, Q.name, X, y + 26, { size: 24, fit: cw, col: gone ? I.off : Q.kind === 'story' ? I.r : I.t });
+      KIT.ink('bd_n' + i, D.questName(q), X, y + 26, { size: 24, fit: cw, col: gone ? I.off : Q.kind === 'story' ? I.r : I.t });
       KIT.ink('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 52, { size: 20, fit: cw, col: gone ? I.off : I.d });
       wrapLab('bd_x' + i, Q.text(q), U.text.x, y + 16, U.text.w, 20, gone ? INK.off : INK.t, gone ? INK.off : INK.r);
       KIT.ink('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 76, { size: 20, fit: cw, col: gone ? I.off : I.g });
@@ -1678,13 +1678,13 @@
     U.r.filter((b) => b.id.startsWith('q:')).forEach((b) => { const i = b.i, q = L0[i], Q = D.QUESTS[q.key], on = q === sel, lit = S.hover === b.id, [st, col] = QST[q.st];
       listRow('jr_r' + i, b, on, lit);
       // ten alike quests tell apart by their floor in the title and their goal under it (TASKS 1863 л); a done or turned-in one, its giver
-      const x0 = b.x + b.pad, x1 = b.x + b.w - b.pad, sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: Q.name, f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);
+      const x0 = b.x + b.pad, x1 = b.x + b.w - b.pad, sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: D.questName(q), f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);
       KIT.ink('jr_n' + i, nm, x0, b.y + 20, { size: 24, fit: x1 - x0 - sw - 16, col: lit || on ? I.r : q.st === 'turned' ? I.off : Q.kind === 'story' ? I.g : I.t });
       KIT.ink('jr_s' + i, st, x1, b.y + 21, { size: 20, al: 1, col });
       KIT.ink('jr_f' + i, sub, x0, b.y + 48, { size: 20, fit: x1 - x0, col: q.st === 'turned' ? I.off : I.d }); });
     const Q = D.QUESTS[sel.key], T0 = U.text, X = T0.x, Wd = T0.w, [st] = QST[sel.st]; let y = T0.y;
     if (sel.ic) { KIT.nine('cell', X, y - 28, 52, 52); icon(sel.ic, X + 6, y - 22, 40); }
-    KIT.ink('jr_dn', Q.name, X + (sel.ic ? 66 : 0), y, { size: 32, fit: Wd - (sel.ic ? 66 : 0), col: I.r, bold: true }); y += 40;
+    KIT.ink('jr_dn', D.questName(sel), X + (sel.ic ? 66 : 0), y, { size: 32, fit: Wd - (sel.ic ? 66 : 0), col: I.r, bold: true }); y += 40;
     KIT.ink('jr_dk', TXT('hud.journal.6', { p1: Q.kind === 'story' ? TXT('hud.journal.7') : '', p2: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—' }), X, y, { size: 20, col: I.d }); y += 44;
     y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 26, INK.t, INK.r) + 18;
     y += wrapLab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '' }) : ''), X, y, Wd, 22, INK.g) + 19;
