@@ -372,7 +372,7 @@
         if (R.shop.goods.length !== n0 || h.gold !== g.price - 1) out.push('a buy went through without enough gold');
         h.gold = g.price + 5; step(S, at('buy:0'));
         if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('a buy did not take its price or did not land in the bag');
-        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); if (D.BASES[g.it.b].slot) h.eq[D.BASES[g.it.b].slot] = Object.assign({}, g.it); step(S, at('sell:' + i));
+        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); step(S, at('sell:' + i));
         if (h.gold !== 5 + pr || h.bag[i] || !R.shop.back.some((q) => q.it.id === g.it.id && q.price === pr)) out.push('a sale did not pay or did not reach the buy-back row');
         step(S, at('back:0')); if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('buying back a sold item failed');
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
@@ -387,6 +387,8 @@
         const stronger = itemPower({ b: equipped.b, lvl: higherLevel, rar: epic, mods: { atk: 30, vit: 10 } });
         const wornAmulet = { b: 'amulet', lvl: 2, rar: epic, mods: { def: 2 } };
         h.eq.amulet = wornAmulet;
+        h.eq.ring = null;
+        const ringForEmptySlot = { ...stronger, b: 'ring' };
         const betterAmulet = { ...wornAmulet, lvl: wornAmulet.lvl + 1, mods: { ...wornAmulet.mods, atk: 8 } };
         const allGreen = [1, 1, 1], greenWithTwoRed = [1, -1, -1], attackOnly = [0, 1, 0];
         const checkTotals = (label, item, expected) => {
@@ -412,6 +414,8 @@
           ['higher level, one total red and one green', { ...betterAmulet, mods: { atk: betterAmulet.mods.atk } }, [0, 1, -1]],
           ['higher level, unchanged defense', { ...stronger, mods: { ...mixed.mods, atk: stronger.mods.atk, vit: equipped.mods.vit } }, [1, 1, 0], true],
           ['epic amulet level 3 vs epic level 2, only attack green', betterAmulet, attackOnly, true],
+          ['empty slot, epic ring', ringForEmptySlot, allGreen, true],
+          ['empty slot, rare ring', { ...ringForEmptySlot, rar: rare }, allGreen],
           ['equal level, only attack green', { ...betterAmulet, lvl: wornAmulet.lvl }, attackOnly],
           ['equal level, all totals green', itemPower({ ...stronger, lvl: wornLevel }), allGreen],
           ['lower level, all totals green', itemPower({ ...stronger, lvl: lowerLevel }), allGreen],

@@ -400,7 +400,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   }
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
   function trade(S, R, h) {
-    // a piece of rarity 4 asks before it goes (hud sellAsk): the bot is selling it, so it answers yes; clicked past the question it stayed open for good
+    // a sale of a wearable epic or better piece asks before it goes when it would be an upgrade for the hero (hud sellAsk): the bot is selling it, so it answers yes; clicked past the question it stayed open for good
     if (S.sellAsk) return click(D.UI.sellAsk().r.find((q) => q.id === 'sellYes'));
     const U = D.UI.shop(R.shop.goods.length, h.bag.length, S.bagTab), at = (id) => click(U.r.find((q) => q.id === id));
     // a piece in a pouch (TASKS 1687) is sold from its own tab

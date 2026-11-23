@@ -655,3 +655,11 @@ CART = { diag: 43, front: 54, trim: 7, stop: 22, floor: 0.68, reach: 14, span: 1
 | 27. Журнал, записки, доска, разговор на kit B | `ui_town.js` `JOURNAL_BOOK`, `JOURNAL`, `NOTES_LIST`, `BOARD`, `bookTabs`, `UI.note`, `UI.talk` `paper`; `ui_kit.js` `PORT.frames.talk`, `portIn(art)`; `hud.js` `jBook`, `listRow`, `journal`, `notes`, `note`, `board`, `talk`; `sim_ui.js` `SCREEN.notes` | `kitScreensCheck`, `portCheck`, `labelFitCheck`, `uiCheck` | переписать |
 | 27. Облики героя | `data_hero.js` `LOOK_IDS`, `LOOKS`, `lookOf`, `lookPick`; `sim_floor.js` `newRun`; `scene_hero.js`; `hud.js` `portraitOf`, `lookCells`; `ui_menu.js` `CLS_LOOK`; `sim_ui.js` `setLook`, `stepLook` | `lookCheck` | копировать данные + переписать |
 | Инструменты и QA | `index.html` (клики), `sandbox.cjs`, `scopecheck.cjs`, `tools/*`, `scene_qa.js` | — | пропустить |
+
+## 35. Продажа при пустом слоте, возврат из неудачного входа в город (2299, 2274, 2279)
+
+Правило из пункта 34 дополнено: если слот вещи пуст, `needsSaleConfirmation` не сравнивает уровни и итоги, а сразу спрашивает подтверждение, когда класс героя может носить вещь и редкость от эпической. Проверка `saleCases` в `sim_checks_combat.js` (эпическое кольцо при пустом слоте спрашивает, редкое продаётся сразу).
+
+Неудачный вход в город после гибели: флаг `fellFailed` теперь на забеге (`R.fellFailed`), а не ссылка в `S`, поэтому он переживает перезагрузку и сохранение. Пока герой мёртв, сообщение `sim_ui.fell.retry` обновляется каждый шаг и не гаснет. Повтор по Вводу, Пробелу (на геймпаде это кнопка B) или кнопке мыши, без автоповтора. У сообщения есть второй текст `sim_ui.fell.retry@pad`, его HUD показывает, когда говорит геймпад. Проверка `deathModeCheck` проходит игровой путь через `step`.
+
+Итоговые строки карточки вещи (здоровье, атака, защита) приглушаются через `mute`, как остальные строки, когда вещь выше уровня героя.

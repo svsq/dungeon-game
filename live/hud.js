@@ -11,6 +11,7 @@
   const onPad = () => !!(window.PAD && window.PAD.active), TX0 = globalThis.TXT;
   const PADK = new Map(Object.keys(TEXT.ru).filter((k) => k.endsWith('@pad')).map((k) => [k.slice(0, -4), k]));   // key → its pad twin, once
   const TXT = Object.assign((k, p) => { const kp = onPad() && PADK.get(k); return kp ? TX0(kp, p) : TX0(k, p); }, TX0);
+  const msgText = (msg) => SIM.Q.messageText(msg, onPad());
   const PAD_AB = ['Y', 'R1', 'L1'], PAD_POT = { hp_potion: '\u2191', mp_potion: '\u2193', scroll: '\u2190' };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const dotHalves = (str, size) => { const p = str.split(' · '), w = (q) => L.labelW(0, q.join(' · '), { size }); let k = 1, b = Infinity; for (let i = 1; i < p.length; i++) { const m = Math.max(w(p.slice(0, i)), w(p.slice(i))); if (m < b) { b = m; k = i; } } return [p.slice(0, k).join(' · '), p.slice(k).join(' · ')].filter(Boolean); };
@@ -81,7 +82,7 @@
   const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
-    const { size, ls } = msgLines(R.msg.s), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+    const { size, ls } = msgLines(msgText(R.msg)), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
     return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
   const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
   // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
@@ -500,7 +501,7 @@
     // floor banner
     // a boss's arrival plate gives way to its ribbon, or its name stood on the screen two and three times over (TASKS 1794)
     const named = boss && R.msg && R.msg.chapter === D.ENEMIES[boss.type].name;
-    if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
+    if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = msgText(R.msg);
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
       else {
       const { size, ls } = msgLines(s), lh = size + 8;
@@ -1018,7 +1019,7 @@
     if (pw(it) !== pw(cur)) lines.push(['   ' + TXT('hud.compare.power', { p1: pw(cur), p2: pw(it) }), mute(C.gold), 19]);
     for (const { key, before, after, direction } of SIM.Q.equipmentComparison(h, S.meta, slot, it)) {
       if (!direction) continue;
-      lines.push([TXT('hud.compare.3', { p1: EQUIPMENT_TOTAL_LABEL[key]() + ' ' + before + ' → ' + after }), direction > 0 ? UP : DOWN, 20]);
+      lines.push([TXT('hud.compare.3', { p1: EQUIPMENT_TOTAL_LABEL[key]() + ' ' + before + ' → ' + after }), mute(direction > 0 ? UP : DOWN), 20]);
     }
   }
   function tooltip(S, it, b, h, deal, at, box) {

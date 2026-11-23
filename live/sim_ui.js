@@ -33,8 +33,8 @@
   // share of his level's experience goes, never the level, and the death is counted as one
   function heroFell(S) { const R = S.run, h = R.hero; if (hardcore(R)) { endRun(S, 'dead'); return; }
     SIMX.callOff(S, R);
-    if (!SIMX.enterFloor(S, R, 0, undefined, 'portal')) { S.fellFailed = R; return; }
-    S.fellFailed = null;
+    if (!SIMX.enterFloor(S, R, 0, undefined, 'portal')) { R.fellFailed = true; R.msg = { s: TXT('sim_ui.fell.retry'), pad: TXT('sim_ui.fell.retry@pad'), t: S.t, d: 4 }; return; }
+    R.fellFailed = false;
     const lost = Math.min(h.xp, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss)), st = heroSt(S);
     h.xp -= lost; h.deadT = -1; h.deadRun = null; h.hp = st.maxHp; h.mp = D.clsOf(h).res === 'rage' ? 0 : st.maxMp; h.poison = 0; h.burn = 0; h.sunk = null; h.stag = null;
     if (!R.test) S.meta.deaths = (S.meta.deaths || 0) + 1; tally(S, R, 'deaths'); if (R.log) R.log.falls = (R.log.falls || 0) + 1; R.fellN = (R.fellN || 0) + 1;
@@ -543,12 +543,15 @@
     if (!D.wears(D.clsOf(hero).id, item.b)) return false;
     if ((item.rar ?? 0) < EPIC_RARITY) return false;
     const slot = D.BASES[item.b]?.slot;
-    const worn = slot && hero.eq[slot];
-    if (!worn || !(item.lvl > worn.lvl)) return false;
+    if (!slot) return false;
+    const worn = hero.eq[slot];
+    if (!worn) return true;
+    if (!(item.lvl > worn.lvl)) return false;
     const totals = SIMX.equipmentComparison(hero, meta, slot, item);
     if (totals.some(({ direction }) => direction < 0)) return false;
     return totals.some(({ direction }) => direction > 0);
   }
+  const messageText = (msg, padSpeaks) => (padSpeaks && msg.pad) || msg.s;
   function sellAsk(S, R, i, x, y) {
     const item = R.hero.bag[i];
     if (!item) return;
@@ -668,5 +671,5 @@
   }
 
   Object.assign(SIMX, { talkWalk, talkFirst, boardRows, shopLayout,
-    endRun, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
+    endRun, messageText, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
 })(typeof window !== 'undefined' ? window : globalThis);
