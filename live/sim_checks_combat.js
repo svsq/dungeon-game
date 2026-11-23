@@ -43,12 +43,13 @@
       return R.trauma;
     };
     R.en = [];
-    if (volley(1, 0) !== 0.2) out.push('fireball shake: an isolated blast loses its original pulse');
+    const FS = D.FIRE_SHAKE;
+    if (volley(1, 0) !== FS.add) out.push('fireball shake: an isolated blast loses its original pulse');
     const [x, y] = SIMX.hand(h), e = { id: R.nextId++, type: 'skeleton', x: x + 16, y: y + 24,
       hp: 1e6, max: 1e6, deadT: -1, st: 'chase', kbx: 0, kby: 0 };
     R.en = [e];
     const peak = volley(8, 0);
-    if (peak > 0.36 || peak <= 0.2 || e.hp >= e.max) out.push(`fireball shake: an eight-shot blast on a target gives ${peak} trauma and ${e.max - e.hp} damage`);
+    if (peak > FS.cap || peak <= FS.add || e.hp >= e.max) out.push(`fireball shake: an eight-shot blast on a target gives ${peak} trauma and ${e.max - e.hp} damage`);
     if (volley(8, 0.7) !== 0.7) out.push('fireball shake: a volley interferes with stronger preexisting trauma');
     return out;
   }

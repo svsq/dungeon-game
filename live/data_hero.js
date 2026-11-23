@@ -44,6 +44,9 @@
   // t: it leaves when the staff points at the target (raised by 0.2 s, TASKS 1115 critic: at the swing's 0.13 s it left a staff still
   // pointing sideways); tip: from the crystal, this far along the aim past the hand
   const BOLT = { spd: 620, life: 0.7, r: 7, kb: 0.6, t: 0.2, tip: 34 };
+  // a fire blast's camera shake: each blast adds `add`, and the blast's whole step (its pulse, the hits, kills and broken props in it)
+  // stays under `cap`; a split shard's smaller blast has its own pair. A shake already stronger before the blast is left as it was
+  const FIRE_SHAKE = { add: 0.2, cap: 0.36, shard: { add: 0.08, cap: 0.28 } };
   // a weapon's shot by its base's `shot` (TASKS 1120): the staff's bolt, a bow's arrow (drawn at 0.18 s, quicker and lighter)
   const SHOTS = { bolt: Object.assign({ k: 'bolt' }, BOLT), arrow: { k: 'arrow', spd: 760, life: 0.6, r: 6, kb: 0.4, t: 0.18, tip: 26 } };
   // the archer's abilities (TASKS 1120): the volley's fan (n arrows over `arc` degrees at `k` of a shot each); the trap (`root` s held,
@@ -209,5 +212,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, LOOK_IDS, LOOKS, lookPick, lookOf, looksShown, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
+  Object.assign(D, { TIPS, CLASSES, clsOf, LOOK_IDS, LOOKS, lookPick, lookOf, looksShown, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, FIRE_SHAKE, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
 })(typeof window !== 'undefined' ? window : globalThis);
