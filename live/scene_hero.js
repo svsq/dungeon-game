@@ -14,6 +14,10 @@
     it_longsword_held: [[0.012, 0.883], [0.218, 0.5], [0.905, 0.0], [0.967, 0.012], [1.0, 0.078], [0.539, 0.77], [0.136, 0.988], [0.086, 0.988]],
     it_axe_held: [[0.016, 0.874], [0.356, 0.207], [0.443, 0.096], [0.696, 0.027], [0.957, 0.31], [0.957, 0.429], [0.83, 0.613], [0.13, 0.973]],
     it_hammer_held: [[0.028, 0.856], [0.442, 0.156], [0.614, 0.0], [0.787, 0.088], [1.0, 0.332], [0.984, 0.444], [0.827, 0.6], [0.145, 0.984]] };
+  // where the fist closes on the held art's haft, which lies on the texture's anti-diagonal (x + y = 1): its x from the butt. A long haft is
+  // held near its butt cap, which shows just past the fist; gripped higher, the haft above the fist ran up along the forearm and read as
+  // growing out of the bracer, the wrist bent back along it
+  const HELD_GRIP = { it_axe_held: 0.16, it_hammer_held: 0.16 }, HELD_GRIP_DEFAULT = 0.22, heldGrip = (tex) => HELD_GRIP[tex] ?? HELD_GRIP_DEFAULT;
   // at ease a blade or a head hangs along the leg, but no lower than this above the soles (TASKS 2153: in the arch the long sword reached 38 px under them)
   // (TASKS 2201) going sideways the skirt's half over the trailing leg follows its thigh by ROBE_SWING (not look.robe), and the swing's lift
   // leaves the trailing foot by ROBE_KICK while it is still behind: the shin stood out past the skirt's back edge to the knee, 20 px² of
@@ -74,7 +78,7 @@
   const FB_RAISE = { a: -1.35, reach: 0.62, orbLow: 1.5, orbUp: 0.3 };
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
   // what the hero wears (TASKS 155): each slot picks the rig parts painted for its base (tools/gear.py), '' = the hero as first drawn
-  // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield rides the far forearm
+  // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield is held in the near (cape-side) hand
   // (the plate, gauntlets and iron boots in browned steel, TASKS 1791: the cold blue-grey made a grey knight of the late hero, lost on the magma's ash)
   const GEAR = { armor: { '': 'cl', leather_armor: 'le', plate_armor: 'pw', cloak: 'hd', robe: 'hd' }, gloves: { '': 'cl', leather_gloves: '', gauntlets: 'pw' },
     boots: { '': 'cl', boots: 'le', iron_boots: 'pw' }, helm: { leather_helm: 'le', knight_helm: 'kn' } };
@@ -87,6 +91,11 @@
   // (TASKS 2146) the orb in the world is the mage's approved small orb (art/char_refs/mage_orb_small_r4.png), not the bag icon on its stand
   // (TASKS 2170) 18 → 14 px: about the head's width, as on the refs; on the palm at 18 it covered the chest
   const SHIELD = { shield: ['it_shield', 30], buckler: ['it_buckler', 22], tower_shield: ['it_shield_t', 44], orb: ['orb_held', 14] }, SHIELD_AT = 0.8;
+  // the shield is held before the body, over the torso's cape-side edge, not hung at the hip under it: there, face on to the camera, it read
+  // as slung on the back in every side step. hand: its reach from the shoulder in arm lengths (forward, down); elbow: the upper arm's turn
+  // from plumb (rad), so the forearm comes forward toward the camera, shortened; swing: the share of the run's arm swing it keeps;
+  // squeeze: its face narrowed, turned toward the facing
+  const SHIELD_HOLD = { hand: [0.16, 0.76], elbow: -0.05, swing: 0.25, squeeze: 0.75 };
   const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', fist: 'gloves', cuff: 'gloves', shin: 'boots', foot: 'boots' };
   function gearOf(h) {
     const LK = D.lookOf(h), pn = LK.rig + '__', eq = h.eq || {}, b = (k) => (eq[k] ? eq[k].b : ''), tex = (n, sfx) => (sfx && window.ASSETS[pn + n + '_' + sfx] ? pn + n + '_' + sfx : pn + n);
@@ -408,11 +417,11 @@
     const palm = (A, tx, ty, ea, k) => { const l1 = dist2(A.S0, A.E0), l2 = dist2(A.E0, A.Hd0), E = [Math.sin(ea) * l1, Math.cos(ea) * l1];
       const r1 = Math.atan2(E[1], E[0]) - ang(A.S0, A.E0), r2 = Math.atan2(ty - E[1], tx - E[0]) - ang(A.E0, A.Hd0), k2 = Math.min(1, Math.hypot(tx - E[0], ty - E[1]) / l2), bend0 = A.r2 - A.r1;
       A.r1 += wrapPi(r1 - A.r1) * k; A.r2 = A.r1 + bend0 + wrapPi(r2 - r1 - bend0) * k; A.k2 += (k2 - A.k2) * k; A.r2h = r2; };
-    const oh = o.menu ? ORB_HOLD.menu : ORB_HOLD;
+    const shieldHeld = !!GR.shield && !orbInPalm, held = orbInPalm ? (o.menu ? Object.assign({}, ORB_HOLD, ORB_HOLD.menu) : ORB_HOLD) : shieldHeld ? SHIELD_HOLD : null;
     // (TASKS 2202) the orb's hand comes in to the body's axis through a turn inside its own hold, the elbow and the shortened forearm kept:
     // the turn's reach blended the hold's joint angles with its own and lifted the orb 13 px toward the shoulder for a frame at each end
-    const palmX = (k) => oh.hand[0] * armLen(arms.L) + (gx - hipDx - arms.L.Sp[0] - oh.hand[0] * armLen(arms.L)) * k;
-    if (orbInPalm) { const r10 = arms.L.r1; palm(arms.L, palmX(tuckL), oh.hand[1] * armLen(arms.L), oh.elbow, 1); const d = wrapPi(r10 - arms.L.r1) * ORB_HOLD.swing * run; arms.L.r1 += d; arms.L.r2 += d; }
+    const palmX = (k) => held.hand[0] * armLen(arms.L) + (gx - hipDx - arms.L.Sp[0] - held.hand[0] * armLen(arms.L)) * k;
+    if (held) { const r10 = arms.L.r1; palm(arms.L, palmX(tuckL), held.hand[1] * armLen(arms.L), held.elbow, 1); const d = wrapPi(r10 - arms.L.r1) * held.swing * run; arms.L.r1 += d; arms.L.r2 += d; }
     // the orb hand's pose already carries the turn's tuck: another pose on the arm brings back only its own share of it, by weight, so a
     // blow, a dash or a shot in the turn does not switch the tuck on in one frame
     let palmShare = 1;
@@ -498,7 +507,7 @@
     if (bowArm && !xbow && bowHand > 0 && bowHand < 1) { const PR = armJ(arms.R).Hd, PL = armJ(arms.L).Hd, m = SS(0, BOW_MEET, bowHand) * (1 - SS(1 - BOW_MEET, 1, bowHand));
       const G0 = [PR[0] + (PL[0] - PR[0]) * bowHand, PR[1] + (PL[1] - PR[1]) * bowHand], SL = arms.L.Sp, gL = Math.min(1, 0.97 * armLen(arms.L) / dist2(G0, SL)), G = [SL[0] + (G0[0] - SL[0]) * gL, SL[1] + (G0[1] - SL[1]) * gL];   // within the far arm's reach
       for (const A of [arms.L, arms.R]) { const P = armJ(A).Hd; reach(A, P[0] + (G[0] - P[0]) * m - A.Sp[0], P[1] + (G[1] - P[1]) * m - A.Sp[1], SS(0, 0.3, m)); } }
-    for (const [A, k] of [[arms.L, orbInPalm ? tuckL * (1 - palmShare) : tuckL], [arms.R, tuck]]) if (k > 0) { const Hd = armJ(A).Hd; reach(A, Hd[0] + (gx - hipDx - Hd[0]) * k - A.Sp[0], Hd[1] - A.Sp[1], SS(0, 0.3, k)); }
+    for (const [A, k] of [[arms.L, held ? tuckL * (1 - palmShare) : tuckL], [arms.R, tuck]]) if (k > 0) { const Hd = armJ(A).Hd; reach(A, Hd[0] + (gx - hipDx - Hd[0]) * k - A.Sp[0], Hd[1] - A.Sp[1], SS(0, 0.3, k)); }
     const jL = armJ(arms.L), jR = armJ(arms.R);
     // (TASKS 2180) each action's share of the arm over the body is eased in over FRONT_IN s from its start as well: a shot's or a blow's
     // envelope rises in 2–3 frames, and on its share alone the arm came over the chest in one or two; a blow or a shot that follows the
@@ -550,7 +559,7 @@
       const at = world ? [grid(at0[0], q % 2 ? nh : nw), grid(at0[1], q % 2 ? nw : nh)] : at0;
       L.sprite(tx, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(a), M.s(fX, 1)), w, h: hh, pivot: [w / 2, hh / 2], u: tinted(u, g.tint) }); };
     const drawFist = (u0) => { fistOne('R', u0); if (bowArm && !xbow && bowHand >= 0.5) fistOne('L', u0); };
-    // the shield is strapped across the far forearm, its face to the camera; from behind its plain back shows (darker)
+    // the shield is held in the near (cape-side) hand, its face to the camera; from behind its plain back shows (darker)
     // (TASKS 2153) in the arch's x3.2 the small world orb blurred into a blob: there it is the orb of the mage's reference
     const orbTex = (t) => (o.menu && window.ASSETS[t + '_menu'] ? t + '_menu' : t);
     const shield = (u) => { if (!GR.shield) return; const [tex, hh] = GR.shield, A = arms.L, E = R2U(jL.E[0], jL.E[1]), Hd = R2U(jL.Hd[0], jL.Hd[1]), ww = hh * G.tex(tex).w / G.tex(tex).h;
@@ -566,8 +575,8 @@
         L.sprite(orbTex(tex), 0, 0, { m: M.of(M.t(oc[0], oc[1]), M.r(fallR + bodyR)), w: ww * ok, h: hh * ok, pivot: [ww * ok / 2, hh * ok / 2], u: tinted(Object.assign({}, U, { alpha: u.alpha }), GR.shieldTint) }); L.joint(id, 'orb', oc);
         if (orbCup && backV < ORB_CUP.back) L.sprite(cup, 0, 0, { m: cm, w: cw, h: ch, pivot: [C.arm[0] * cw, C.arm[1] * ch], u: tinted(shade(u, 1, BACK_VIEW.armShade), GR.part('cupL').tint) }); return; }
       // (TASKS 2170) its middle near the fist that holds its grip: on the forearm's middle the buckler left the fist at its rim
-      const sk = SHIELD_AT + (1 - SHIELD_AT) * tuckL, c = [E[0] + sk * (Hd[0] - E[0]) - fX * 4 * (1 - tuckL), E[1] + sk * (Hd[1] - E[1])], back = backK > 0.5; L.joint(id, 'shield', c);
-      L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
+      const sk = SHIELD_AT + (1 - SHIELD_AT) * tuckL, c = [E[0] + sk * (Hd[0] - E[0]), E[1] + sk * (Hd[1] - E[1])], back = backK > 0.5; L.joint(id, 'shield', c);
+      L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX * SHIELD_HOLD.squeeze, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
     const scroll = () => { const Hd = R2U(jL.Hd[0], jL.Hd[1]), w = 22, hh = w * 177 / 228;
       L.sprite('it_scroll', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(fallR + bodyR - 0.35 * fX), M.s(fX, 1)), w, h: hh, pivot: [w * 0.45, hh * 0.55], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.5, readE) }) }); };
     const weapon = (uw = U) => { if (!W || SC.hide.weapon) return; const [tex0, len] = W, bowH = window.ASSETS[tex0 + '_h'], tex = shooter && bowH ? tex0 + '_h' : window.ASSETS[tex0 + '_held'] ? tex0 + '_held' : tex0, HdR = R2U(jR.Hd[0], jR.Hd[1]), HdL = R2U(jL.Hd[0], jL.Hd[1]), Hd = [...(bowHand < 0.5 ? HdR : HdL)], b0 = xbow ? 0.5 + arms.R.r1 * 0.5 : bowArm ? BOW_REST.ba + arms.R.r1 * BOW_REST.lean : pole ? pole.rest + arms.R.r1 * pole.lean : (shooter ? -1.18 : restA) + arms.R.r1 * 0.5, ba0 = bladeA !== null && !clubSwing ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
@@ -592,10 +601,10 @@
       // (TASKS 2160) at ease the blade hangs near plumb along the leg, as on the warrior's ref; its point leans toward the camera, so it
       // shortens: at full length the floor held it at 44°, pointing forward off the body
       if (!shooter && bladeA === null && whirlE === 0 && drop === 0) fsD *= 1 - (1 - GUARD.lowFs) * (1 - guard) * (1 - backV);
-      const tw = len, th = len * G.tex(tex).h / G.tex(tex).w, hull = HELD_HULL[tex];
+      const tw = len, th = len * G.tex(tex).h / G.tex(tex).w, hull = HELD_HULL[tex], grip = heldGrip(tex);
       if (hull && !shooter && bladeA === null && whirlE === 0 && drop === 0) {
         const low = (a) => { const c = Math.cos(a), sn = Math.sin(a); let y = -1e9;
-          for (const [fx, fy] of hull) { const x0 = (fx - 0.22) * tw, y0 = (fy - 0.78) * th, u = (x0 - y0) * Math.SQRT1_2 * fsD, v = (x0 + y0) * Math.SQRT1_2; y = Math.max(y, Hd[1] + sn * u + c * v); }
+          for (const [fx, fy] of hull) { const x0 = (fx - grip) * tw, y0 = (fy - 1 + grip) * th, u = (x0 - y0) * Math.SQRT1_2 * fsD, v = (x0 + y0) * Math.SQRT1_2; y = Math.max(y, Hd[1] + sn * u + c * v); }
           return y; };
         // (TASKS 2162) it tips toward the facing unless it clearly points back: by the sign of cos(sa) the near-plumb blade from behind
         // crossed over on the run's arm swing and flipped sides twice a stride, 30 px a frame
@@ -617,7 +626,7 @@
         axis = pole ? Math.atan2((pole.head[1] - pole.foot[1]) * th, (pole.head[0] - pole.foot[0]) * tw) + Math.PI / 4 : 0;
       // (TASKS 2180) a staff stands on the world's pixel grid and is sampled from its full-size texture: at a sub-pixel place its 2–3 px
       // crystal lost bright cells from one frame of the run to the next (a third of them running down)
-      const onGrid = (v) => (pole && L.SNAP && !L.pre ? 2 * Math.round((v - 1) / 2) + 1 : v), wm = M.of(M.t(onGrid(Hd[0]), onGrid(Hd[1])), M.r(sa), M.s(fsD, bow && fX > 0 ? -1 : 1), M.r(Math.PI / 4 - axis)), bg = bow ? BOW_GRIP[tex0] || [0.5, 0.5] : null, wpiv = bow ? [tw * bg[0], th * bg[1]] : pole ? [...along(0), ...along(1)] : [tw * 0.22, th * 0.78];
+      const onGrid = (v) => (pole && L.SNAP && !L.pre ? 2 * Math.round((v - 1) / 2) + 1 : v), wm = M.of(M.t(onGrid(Hd[0]), onGrid(Hd[1])), M.r(sa), M.s(fsD, bow && fX > 0 ? -1 : 1), M.r(Math.PI / 4 - axis)), bg = bow ? BOW_GRIP[tex0] || [0.5, 0.5] : null, wpiv = bow ? [tw * bg[0], th * bg[1]] : pole ? [...along(0), ...along(1)] : [tw * grip, th * (1 - grip)];
       L.sprite(fine(tex), 0, 0, { m: wm, w: tw, h: th, pivot: wpiv, u: pole ? Object.assign({}, uw, { snap: 2 * L.SNAP }) : uw });
       const tAt = (f) => M.ap(wm, [f[0] * tw - wpiv[0], f[1] * th - wpiv[1]]), ends = bow ? (NOCKS[tex0] || [[0.9, 0.15], [0.2, 0.87]]).map(tAt) : pole ? [pole.head, pole.foot].map(tAt) : null;
       const shaft = pole ? tAt([along(0)[0] / tw - (pole.head[1] - pole.foot[1]) * th / tw * (pole.across || 0), along(1)[0] / th + (pole.head[0] - pole.foot[0]) * tw / th * (pole.across || 0)]) : Hd;
@@ -646,7 +655,7 @@
         const as = Math.atan2(Math.sin(aimS), h.face * Math.cos(aimS)) + fallR + bodyR, ca = Math.cos(as), sa2 = Math.sin(as), AL = 36, ink = (c) => (o.id === 'occ' && L.sp && L.sp.ink ? L.sp.ink : c);
         L.solid(Hs[0], Hs[1], AL, 3, ink([0.16, 0.1, 0.06]), as, 0, 1.5, alpha); L.solid(Hs[0], Hs[1], AL, 1.5, ink([0.92, 0.8, 0.58]), as, 0, 0.75, alpha);
         L.solid(Hs[0] + ca * AL, Hs[1] + sa2 * AL, 6, 4, ink([0.8, 0.82, 0.86]), as, 0, 2, alpha); L.solid(Hs[0], Hs[1], 7, 4, ink([0.95, 0.9, 0.78]), as, 0, 2, alpha); } }
-      const tip = bow ? [Hd[0] + Math.cos(sa + Math.PI / 2 * fX) * 12, Hd[1] + Math.sin(sa + Math.PI / 2 * fX) * 12] : head || [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
+      const tip = bow ? [Hd[0] + Math.cos(sa + Math.PI / 2 * fX) * 12, Hd[1] + Math.sin(sa + Math.PI / 2 * fX) * 12] : head || [Hd[0] + Math.cos(sa) * len * (1 - grip) * fsD, Hd[1] + Math.sin(sa) * len * (1 - grip) * fsD];
       L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; };
     // (TASKS 2162) the turn swaps the drawn views in one frame while the pose eases on turnK: cross-faded over 4 frames the front face
     // showed through the back of the head, a double face at ×3
@@ -672,8 +681,7 @@
       const orbLate = orbInPalm && backK < 0.5;
       // (TASKS 2170) the forearm holding the orb comes forward across the waist: over the body, under the orb
       // (TASKS 2181) the near arm's forearm and hand come over the body in the front view: under the body the hand lay behind the belt
-      // pouch, half of the forearm hidden. A shield on it keeps its old place under the torso, as the author's sides left it: over the
-      // body it would cover the chest
+      // pouch, half of the forearm hidden. A shield on it comes over the body too, held before the torso's cape-side edge (SHIELD_HOLD)
       // (TASKS 2191) and so does its upper arm, with a shield too, over the torso's side strip drawn under it: under the torso the torso's
       // own edge, painted where the arm hung on the sheet, lay over the sleeve as a dark seam, and the arm turned out by NEAR_OUT and the
       // breath slid out from under a cut-out
@@ -685,7 +693,6 @@
         part('uarmL', A.S0, R2U(A.Sp[0], A.Sp[1]), sr, us, 1, bodyR, 1, '_sock');
         if (nearOver && A.r1 <= SOCK.fore && window.ASSETS[GR.part('farmL').tex + '_sock']) part('farmL', A.E0, R2U(E[0], E[1]), sr + A.r2 - A.r1, us, A.k2, bodyR, 1, '_sock'); }
       if (!castFront && !nearArm && !orbUp) { drawArm('L', Ufar, 'uf'); if (!orbLate) shield(Ufar); }
-      if (nearArm && !nearOver) { drawArm('L', Ufar, 'f'); shield(Ufar); }
       // (TASKS 2160) the cape hangs behind both legs, in the arch too: over the cape-side leg it cut that leg off at the knee
       drawLeg('L', Ufar);
       drawLeg('R', U);
@@ -705,13 +712,17 @@
       if (backK < 1 && GR.helm) L.sprite(helmTex, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
       if (backK > 0 && window.ASSETS[pn + 'body_back']) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, shade(U, LK.back?.sat ?? BACK_VIEW.bodySat, BACK_VIEW.bodyLift), { alpha: alpha * backK, snap: 2 * L.SNAP }, soft(pn + 'body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, shade(tinted(U, GR.helmTint), 1, BACK_VIEW.headLift), { alpha: alpha * backK }) }, bodyAt));
-      if (nearArm || orbUp) drawArm('L', Ufar, nearOver ? 'uf' : 'u', orbUp ? '_drape' : '');
+      // the shield held before the body is nearer the camera than the weapon arm: a blow's follow-through brings that fist and the blade
+      // back across it, and over it they read as passing in front of the shield. Only a whirl's sweep at its near arc passes in front
+      const shieldOverWeapon = nearArm && whirlE === 0;
+      if (nearArm || orbUp) { drawArm('L', Ufar, orbUp ? 'u' : 'uf', orbUp ? '_drape' : ''); if (nearArm && !shieldOverWeapon) shield(Ufar); }
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); if (!orbLate) shield(backK > 0.5 ? Ufar : U); if (readE > 0.3) scroll(); }
       if (orbLate && behind) shield(castFront ? U : Ufar);
       // (TASKS 2170) a rig with its near fist cut out (fistR) draws it again over the held weapon: the hilt or haft passes under the
       // fingers and shows above and below the fist in every pose, where the whole arm over the weapon hid the pommel under the wrist
       const Uo = over < 1 ? Object.assign({}, U, { alpha: U.alpha * over }) : U, armOver = () => { if (front > 0) drawArm('R', front < 1 ? Object.assign({}, Uo, { alpha: Uo.alpha * front }) : Uo); };
       if (over > 0) { if (fistOver) { armOver(); weapon(Uo); drawFist(Uo); } else if (grasp) { weapon(Uo); armOver(); } else { armOver(); weapon(Uo); } }
+      if (shieldOverWeapon) shield(Ufar);
       // (TASKS 2156) and after the near arm: on the run its forward swing passed over the orb for 3 frames of 12
       if (orbLate && !behind) { if (!castFront) drawArm('L', Ufar, 'f'); shield(castFront ? U : Ufar); }
     };
@@ -730,7 +741,7 @@
       const dT = [g.T[0] - g.A0[0], g.T[1] - g.A0[1]], fk = footK(side); J('heel' + side, R2S(g.A0[0] + (RG['heel' + side][0] - g.A0[0]) * fk + dT[0], RG['heel' + side][1] + dT[1])); J('toe' + side, R2S(g.A0[0] + (RG['toe' + side][0] - g.A0[0]) * fk + dT[0], RG['toe' + side][1] + dT[1])); J('ground' + side, [hx, hy + tg[side].dz * s]);
       const A = arms[side], j2 = side === 'L' ? jL : jR; J('sh' + side, R2U(A.Sp[0], A.Sp[1])); J('elbow' + side, R2U(j2.E[0], j2.E[1])); J('hand' + side, R2U(j2.Hd[0], j2.Hd[1])); }
   }
-  SC.drawHero = drawHero;
+  SC.drawHero = drawHero; SC.heldGrip = heldGrip;
 
   Object.assign(SCX, {
     HERO_H, SWING, TAU, wrapPi, swingPose, DEPTH_K, ARC_HALF, ARC_MID, whirlP, HERO, sinkOf, drawHero });

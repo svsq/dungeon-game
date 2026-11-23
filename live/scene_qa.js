@@ -13,6 +13,7 @@
     const FLOOD_STEPS = 600;
     const HELD_KINDS = [['sword', 'warrior'], ['longsword', 'warrior'], ['axe', 'warrior'], ['hammer', 'warrior'], ['staff', 'mage'], ['wand', 'mage'], ['shortbow', 'archer'], ['longbow', 'archer'], ['crossbow', 'archer']];
     const MAGE_KITS = ['', 'robe', 'leather_armor', 'cloak'].flatMap((a) => ['', 'circlet', 'leather_helm'].map((m) => [(a ? a.split('_')[0] : 'bare') + '_' + (m ? m.split('_')[0] : 'none'), a, m]));
+    const WARRIOR_SHIELD_KITS = [['sword', 'shield'], ['hammer', 'shield'], ['sword', 'buckler'], ['sword', 'tower_shield']];
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
       // look B's parts kit (R-41): every part in every state
@@ -27,6 +28,11 @@
       // TASKS 2153: every weapon kind in the arch and at rest in the world, in its class's hands
       ...HELD_KINDS.flatMap(([b, cls]) => [['menu_weapon_' + b, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls }); const R = S.saved; R.hero.eq.weapon = Object.assign(SIM.rollItem(R, 1, 0, 'weapon'), { b, id: R.nextId++ }); })],
         ['play_weapon_' + b, play((S) => { const h = S.run.hero; h.cls = cls; h.eq.weapon = Object.assign({}, h.eq.weapon, { b }); })]]),
+      // the warrior's shield held before him over the torso's edge, with a blade and with a hammer, and the buckler and the tower shield
+      // in the same hold, in the arch and at rest in the world
+      ...WARRIOR_SHIELD_KITS.flatMap(([b, sh]) => { const n = (sh === 'shield' ? '' : sh + '_') + b;
+        return [['menu_warrior_shield_' + n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'warrior' }); const R = S.saved, gear = (base, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b: base, id: R.nextId++ }); R.hero.eq.weapon = gear(b, 'weapon'); R.hero.eq.offhand = gear(sh, 'offhand'); })],
+          ['play_warrior_shield_' + n, play((S) => { const h = S.run.hero; h.cls = 'warrior'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b }); h.eq.offhand = { id: 0, b: sh, rar: 0, lvl: 1, mods: {}, def: 3 }; })]]; }),
       ['menu_weapon_wand_orb', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); const R = S.saved, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ }); R.hero.eq.weapon = gear('wand', 'weapon'); R.hero.eq.offhand = gear('orb', 'offhand'); })],
       // TASKS 2151: the mage's arch in every armour (none, robe, leather, hooded cloak) under every helm (none, circlet, leather helm)
       ...MAGE_KITS.map(([n, armor, helm]) => ['menu_continue_mage_' + n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); const R = S.saved, h = R.hero, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ });
