@@ -263,10 +263,11 @@
       // floor, half and half; both are the floor's, kept with it. near: E reaches round its basin
       fountain: { w: 2, minF: 1, room: 'treasure', ask: 1, odd: 1 / 3, solid: 40, near: 84,
         name: TXT('EVENTS.fountain.name'), say: TXT('EVENTS.fountain.say'), yes: TXT('EVENTS.fountain.yes'), no: TXT('EVENTS.fountain.no'), prompt: TXT('EVENTS.fountain.prompt') },
-      // the goblin's table (TASKS 365): one throw for a stake of stake[0] + stake[1] × depth gold, set as the floor is built (its question
-      // names it). The goblin keeps it with the chance odds[0], pays it back twice with odds[1], thrice otherwise (pay: what comes back).
-      // tag: how high over the spot its prompt stands, over the goblin's head
-      dice: { w: 2, minF: 1, room: 'treasure', ask: 1, stake: [20, 10], odds: [0.5, 0.35], pay: [0, 2, 3], solid: 30, near: 84, tag: 120,
+      // the goblin's table (TASKS 365): one throw of two dice of `faces` sides. The least stake is stake[0] + stake[1] × depth gold, set
+      // as the floor is built (its question names it); the player raises it by that much a step, up to bet.most steps. A double pays
+      // the stake back thrice, a sum of winSum or more twice, anything else the goblin keeps (pay: what comes back, lose, win, jack;
+      // with six faces that falls 1/2, 1/3, 1/6). tag: how high over the spot its prompt stands, over the goblin's head
+      dice: { w: 2, minF: 1, room: 'treasure', ask: 1, stake: [20, 10], bet: { most: 5 }, faces: 6, winSum: 8, pay: [0, 2, 3], solid: 30, near: 84, tag: 120,
         name: TXT('EVENTS.dice.name'), say: TXT('EVENTS.dice.say'), yes: TXT('EVENTS.dice.yes'), no: TXT('EVENTS.dice.no'), prompt: TXT('EVENTS.dice.prompt') },
       // the dark room (TASKS 365): no light in it but the hero's own, and the minimap never shows it, so no event mark either (it would
       // give it away). It starts as he steps in and ends with its pack down; every monster of its pack drops its loot `loot` times.
@@ -290,6 +291,7 @@
         name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
   // the cursed chest's text names the curse's own number, which EVENTS holds only once its table is built
   TXT.bind('EVENTS.hex.say', EVENTS); EVENTS.pool.hex.say = TXT('EVENTS.hex.say');
+  TXT.bind('EVENTS.dice.say', EVENTS.pool.dice); EVENTS.pool.dice.say = TXT('EVENTS.dice.say');
   // a pack's room per monster, in cells: a room's own pack (dungeon_fill.js) and a skull door's wave (TASKS 2132) never crowd it more
   const PACK_AREA = 9;
   EVENTS.trialWave = (i, n, depth) => { const P = EVENTS.pool.trial, [a, b] = P.size; return a + Math.round((b - a) * i / Math.max(1, n - 1)) + Math.floor(depth / P.perF); };

@@ -680,8 +680,10 @@
           L.glow(X, wy, W * 0.42, [0.35, 0.75, 0.85], (on ? 0.16 : 0.08) + 0.03 * Math.sin(t * 2.3), 2.2);
           for (let j = 0; j < 3; j++) { const q = (t * 0.6 + j / 3) % 1; L.ring(X, wy, 6 + 30 * q, 3 + 11 * q, [0.7, 0.92, 1], (on ? 0.5 : 0.3) * (1 - q), 0.14); }
           L.solid(X - 2, wy - 3 - 2 * Math.abs(Math.sin(t * 7)), 4, 4, [0.85, 0.97, 1], 0, 0, 0, on ? 0.8 : 0.5); }]); } }
+    // the dice before a throw, and on a table thrown in a save made before the throws kept their faces
+    const DICE_IDLE_FACES = [3, 5], DICE_FACES_BEFORE_THROWS = { lose: [1, 2], win: [4, 5], jack: [6, 6] };
     // the goblin's table (TASKS 365): the goblin stands at its left corner, at his station facing it, a heap of coins and two dice on
-    // its top; the dice show the throw once it is made. The goblin is the monsters' rig, standing still; its own art is TASKS 2023
+    // its top; the dice show the faces thrown once the throw is made. The goblin is the monsters' rig, standing still; its own art is TASKS 2023
     for (const E of R.events || []) { if (E.id !== 'dice' || !vis(E.x, E.y)) continue; const k = 1.25, [tw, th] = SZ('table'), gH = SZ('en_goblin')[1], face = 1;
       Y.push([E.y - 6, () => { const X = sx(E.x) - 50, Yg = sy(E.y) - 6;
         L.shadow(X, Yg + 2, 0.24 * gH, 6, 0.45);
@@ -689,7 +691,7 @@
       Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + 10, top = Yb - th * k * 0.78, [cw, ch] = SZ('dc_coins'), ck = 30 / Math.max(cw, ch);
         L.shadow(X, Yb, tw * k * 0.42, 8, 0.5); drawProp('table', X, Yb, { k });
         L.sprite('dc_coins', X - 24, top - ch * ck / 2, { w: cw * ck, h: ch * ck });
-        const pips = { lose: [1, 2], win: [4, 5], jack: [6, 6] }[E.st === 'done' && E.fate] || [3, 5];
+        const pips = E.st !== 'done' ? DICE_IDLE_FACES : E.faces || DICE_FACES_BEFORE_THROWS[E.fate] || DICE_IDLE_FACES;
         pips.forEach((n, i) => { const dx = X + 6 + i * 16, dy = top - 4 + i * 4; L.rrect(dx - 7, dy - 7, 14, 14, 2, [0.93, 0.88, 0.76], [0.74, 0.68, 0.56]);
           const P = { 1: [[0, 0]], 2: [[-3, -3], [3, 3]], 3: [[-3, -3], [0, 0], [3, 3]], 4: [[-3, -3], [3, -3], [-3, 3], [3, 3]], 5: [[-3, -3], [3, -3], [0, 0], [-3, 3], [3, 3]], 6: [[-3, -3], [3, -3], [-3, 0], [3, 0], [-3, 3], [3, 3]] }[n];
           for (const [px, py] of P) L.solid(dx + px - 1, dy + py - 1, 2, 2, n === 1 ? [0.6, 0.08, 0.06] : [0.12, 0.08, 0.06]); }); }]); }

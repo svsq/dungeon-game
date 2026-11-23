@@ -1957,10 +1957,13 @@
       R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; });
     for (const [nm, id, st, fate] of [['trial_ask', 'trial', 'ask'], ['blood_room', 'blood', 0], ['blood_ask', 'blood', 'ask'], ['blood_done', 'blood', 'done'], ['hex_room', 'hex', 0], ['hex_ask', 'hex', 'ask'], ['hex_done', 'hex', 'done'],
       ['fountain_room', 'fountain', 0], ['fountain_ask', 'fountain', 'ask'], ['fountain_heal', 'fountain', 'done', 'heal'], ['fountain_bless', 'fountain', 'done', 'bless'], ['fountain_hex', 'fountain', 'done', 'hex']]) { const S = evS(id, st, fate && ((R, E) => { E.fate = fate; R.hero.hp = 20; })); if (S.run && (S.run.events || []).some((q) => q.id === id)) states.push([nm, S]); }
-    // the goblin's table (TASKS 365): the table and its goblin as come upon, the question naming the stake, each of the three throws;
-    // and a hero short of the stake told so
-    for (const [nm, st, fate, gold] of [['dice_room', 0], ['dice_ask', 'ask'], ['dice_lose', 'done', 'lose'], ['dice_win', 'done', 'win'], ['dice_jack', 'done', 'jack'], ['dice_broke', 'ask', 0, 3]]) {
-      const S = evS('dice', st, (R, E) => { R.hero.gold = gold ?? 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.fate = fate; });
+    // the goblin's table (TASKS 365): the table and its goblin as come upon, the question naming the least stake, the stake raised two
+    // steps and raised to its top, each of the three throws by the faces that make it; and a hero short of the stake told so
+    const DICE_QA_FACES = { lose: [2, 3], win: [3, 6], jack: [4, 4] }, DICE_QA_RAISE = 2, DICE_QA_TOP = DATA.EVENTS.pool.dice.bet.most;
+    for (const [nm, st, fate, gold, raise] of [['dice_room', 0], ['dice_ask', 'ask'], ['dice_ask_raised', 'ask', 0, 0, DICE_QA_RAISE], ['dice_ask_top', 'ask', 0, 0, DICE_QA_TOP],
+      ['dice_lose', 'done', 'lose'], ['dice_win', 'done', 'win'], ['dice_jack', 'done', 'jack'], ['dice_broke', 'ask', 0, 3]]) {
+      const S = evS('dice', st, (R, E) => { R.hero.gold = gold || 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.faces = DICE_QA_FACES[fate].slice(); });
+      if (raise && S.run && S.screen === 'event') for (let i = 0; i < raise; i++) SIM.step(S, { keys: ['ArrowUp'] });
       // (past the winnings' flight into the gold counter: caught on its way in, a number of three wide stood over the counter's edge)
       if (st === 'done' && S.run) for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); if (S.run && (S.run.events || []).some((q) => q.id === 'dice')) states.push([nm, S]); }
     // the dark room (TASKS 365), its pack kept: from just outside its way in, inside it with the pack round the hero's lamp, and the

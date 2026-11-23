@@ -52,17 +52,31 @@
       else if (E.fate === 'bless') { h.bless = 1; h.blessTo = Math.max(h.blessTo || 0, R.floor); ev(S, { k: 'bless', x: h.x, y: h.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); }
       else { E.hex = 1; ev(S, { k: 'curse', x: h.x, y: h.y - 40 }); }
       R.msg = { s: E.fate === 'heal' ? TXT('EVENTS.fountain.heal') : E.fate === 'bless' ? TXT('EVENTS.fountain.bless') : TXT('EVENTS.fountain.hex'), t: S.t, d: 4 }; } };
-  // the goblin's table (TASKS 365): the stake is set as the floor is built, so the question can name it; with less gold than that the
-  // goblin asks nothing. The throw falls on the run's dice at «yes» (a save holds them), as the fountain's fate does
+  // the goblin's table (TASKS 365): the least stake is set as the floor is built, so the question can name it; with less gold than that
+  // the goblin asks nothing. The player raises it in the window by steps of that least stake, up to bet.most of them and the gold he
+  // holds. At «yes» each die falls on the run's dice (a save holds them, so a reload throws the same) and the faces alone decide
+  const DICE_FATES = ['lose', 'win', 'jack'];
+  // the throw's lines name two faces, so the table throws two dice
+  const DIE_COUNT = 2;
+  const DICE_LINE = { lose: (p) => TXT('EVENTS.dice.lose', p), win: (p) => TXT('EVENTS.dice.win', p), jack: (p) => TXT('EVENTS.dice.jack', p) };
+  const diceFate = (faces) => { const P = D.EVENTS.pool.dice, sum = faces.reduce((a, b) => a + b, 0);
+    return faces.every((f) => f === faces[0]) ? 'jack' : sum >= P.winSum ? 'win' : 'lose'; };
+  const diceThrow = (R) => Array.from({ length: DIE_COUNT }, () => 1 + Math.floor(SIMX.rnd(R) * D.EVENTS.pool.dice.faces));
+  const diceBetTop = (R, E) => Math.max(1, Math.min(D.EVENTS.pool.dice.bet.most, Math.floor(R.hero.gold / E.stake)));
+  const diceBet = (R, E) => E.stake * Math.min(E.betK || 1, diceBetTop(R, E));
   const DICE = {
     sayN: (E) => E.stake,
     setup(R, E) { const P = D.EVENTS.pool.dice; E.stake = Math.round(P.stake[0] + P.stake[1] * SIMX.dep(R)); },
     can(S, R, E) { if (R.hero.gold >= E.stake) return true; R.msg = { s: TXT('EVENTS.dice.broke', { n: E.stake }), t: S.t, d: 3 }; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y }); return false; },
-    reward(S, R, E) { const P = D.EVENTS.pool.dice, h = R.hero, n = Math.min(h.gold, E.stake);
-      if (!E.fate) { const q = SIMX.rnd(R); E.fate = q < P.odds[0] ? 'lose' : q < P.odds[0] + P.odds[1] ? 'win' : 'jack'; }
-      const back = n * P.pay[['lose', 'win', 'jack'].indexOf(E.fate)]; h.gold += back - n; R.goldTot += Math.max(0, back - n);
+    open(S, R, E) { E.betK = 1; },
+    bet: (R, E) => ({ n: diceBet(R, E), k: Math.min(E.betK || 1, diceBetTop(R, E)), top: diceBetTop(R, E), topN: E.stake * diceBetTop(R, E) }),
+    betStep(S, R, E, d) { const k = Math.min(E.betK || 1, diceBetTop(R, E)), next = Math.max(1, Math.min(diceBetTop(R, E), k + d));
+      if (next === k) { ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y }); return; } E.betK = next; ev(S, { k: 'ui', x: E.x, y: E.y }); },
+    reward(S, R, E) { const P = D.EVENTS.pool.dice, h = R.hero, n = diceBet(R, E);
+      if (!E.faces) E.faces = diceThrow(R); E.fate = diceFate(E.faces); E.bet = n;
+      const back = n * P.pay[DICE_FATES.indexOf(E.fate)]; h.gold += back - n; R.goldTot += Math.max(0, back - n);
       ev(S, { k: 'dice', x: E.x, y: E.y, fate: E.fate }); if (back) ev(S, { k: 'gold', x: h.x, y: h.y, n: back });
-      R.msg = { s: E.fate === 'lose' ? TXT('EVENTS.dice.lose') : E.fate === 'win' ? TXT('EVENTS.dice.win', { n: back }) : TXT('EVENTS.dice.jack', { n: back }), t: S.t, d: 4 }; } };
+      const [a, b] = E.faces; R.msg = { s: DICE_LINE[E.fate]({ a, b, n: back, bet: n }), t: S.t, d: 4 }; } };
   // the dark room (TASKS 365): it starts as the hero steps in (stepEvents) and ends as the last of its pack falls; the pack's loot
   // falls twice (lootK, in killEnemy)
   const darkFoes = (R, E) => R.en.filter((e) => e.room === E.room && e.deadT < 0 && !e.summ);
@@ -117,6 +131,8 @@
   function eventsArrive(R) { const h = R.hero; if ((R.events || []).some((E) => E.fate === 'bless')) { h.bless = 1; h.blessTo = Math.max(h.blessTo || 0, R.floor); } }
   const eventsOf = (R) => R.events || [];
   // an event's question, its {n} the rule's own number (sayN: the goblin's stake, the skull door's waves)
+  // an event's stake in its window, { n, k, top, topN } (n gold, k steps of top, topN gold at most), or null for an event with none
+  const eventBet = (R, E) => { const F = EVENT_RULES[E.id]; return F && F.bet ? F.bet(R, E) : null; };
   const eventSay = (E) => { const P = D.EVENTS.pool[E.id], F = EVENT_RULES[E.id] || {}; return F.sayN ? P.say.replace('{n}', F.sayN(E)) : P.say; };
   // the skull door's fight for the HUD (TASKS 2132): its wave, the one up or the next to rise, of how many
   const trialWaveOf = (R) => { const E = eventsOf(R).find((q) => q.id === 'trial' && q.st === 'on'); return E ? { n: Math.min(E.wave + 1, trialN(E)), of: trialN(E) } : null; };
@@ -128,6 +144,7 @@
   function eventUse(S, R, E) {
     const F = EVENT_RULES[E.id]; if (F && F.can && !F.can(S, R, E)) return;
     if (!D.EVENTS.pool[E.id].ask) { eventStart(S, R, E); return; }
+    if (F && F.open) F.open(S, R, E);
     R.evAsk = R.events.indexOf(E); S.screen = 'event'; S.focus = 'evNo'; S.hover = ''; ev(S, { k: 'ui', x: E.x, y: E.y }); }
   function eventStart(S, R, E) {
     if (E.st !== 'idle') return; const F = EVENT_RULES[E.id] || {}; E.st = 'on'; E.t0 = S.t; if (F.start) F.start(S, R, E);
@@ -142,5 +159,5 @@
   function stepEvents(S, R) { const h = R.hero;
     for (const E of eventsOf(R)) if (E.st === 'idle' && D.EVENTS.pool[E.id].walk && h.deadT < 0 && DG.roomAt(R.map, h.x, h.y) === E.room) eventStart(S, R, E);
     for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
-  Object.assign(SIMX, { EVENT_RULES, trialN, trialPay, eventSay, trialWaveOf, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
+  Object.assign(SIMX, { EVENT_RULES, DICE_FATES, diceFate, eventBet, trialN, trialPay, eventSay, trialWaveOf, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
 })(typeof window !== 'undefined' ? window : globalThis);

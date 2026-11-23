@@ -1767,16 +1767,20 @@
   }
   // an event's question (TASKS 361): its name, what it asks, and the two answers its entry words
   function eventAsk(S, R) {
-    const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], U = D.UI.event(), P = U.P;
+    const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], bet = SIM.Q.eventBet(R, E), U = D.UI.event(!!bet), P = U.P;
     dim(0.6); KIT.panel('event', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('ev_t', W / 2, P.y + 16, 460, P0.name, { h: 76, size: 36 });
     // the window keeps the longest question's size; a shorter one sits in the middle between the ribbon and the buttons (TASKS 2174: a
     // three-line question left a strip of 200 px under it)
-    const say = SIM.Q.eventSay(E), EV = { size: 26, top: 100, bot: 100 }, n = wrapWords(say.replace(/\*\*/g, ''), P.w - 96, EV.size).length, bh = n * (EV.size + 7) - 7;
+    const say = SIM.Q.eventSay(E), EV = { size: 26, top: 100, bot: bet ? U.textBot : 100 }, n = wrapWords(say.replace(/\*\*/g, ''), P.w - 96, EV.size).length, bh = n * (EV.size + 7) - 7;
     wrapLab('ev_s', say, P.x + 48, P.y + EV.top + Math.max(0, (P.h - EV.top - EV.bot - bh) / 2) + EV.size / 2, P.w - 96, EV.size, KIT.INK.cream);
     KIT.button('ev_yes', Object.assign({}, U.r[0], { label: P0.yes }), askSt(S, U, 'evYes'));
     KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
-    KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
+    if (bet) { const N = U.num, I = KIT.INK;
+      KIT.ink('ev_bet', TXT('hud.event.bet', { n: bet.n }), N.x + N.w / 2, N.y + N.h / 2 - 4, { size: 30, al: 0.5, col: I.cream, bold: true });
+      KIT.ink('ev_bet_top', TXT('hud.event.betTop', { n: bet.topN }), N.x + N.w / 2, N.y + N.h / 2 + 24, { size: 20, al: 0.5, col: '#a89880' });
+      for (const b of U.r.slice(2)) KIT.button('ev_' + b.id, b, askSt(S, U, b.id, b.id === 'evLess' ? bet.k > 1 : bet.k < bet.top)); }
+    KIT.light('ev_help', bet ? TXT('hud.event.betKeys') : TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   const bossName = (f) => (D.ENEMIES[D.stageOf('campaign', f).boss] || { name: '' }).name;
   // a hall's row has the key, as the hall stays open for good, the scroll's portal its scroll
