@@ -66,7 +66,7 @@
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
   // where world labels keep off: the top-left block (portrait, level, its bar, every row of effects, so a long list does not run under
   // labels; the stats under the portrait), the bottom panel and the key hints over it
-  let BPG = null, BFR = 0, BFL = null, ZN = null, MKB = [];
+  let BPG = null, BFB = 0, BFL = null, ZN = null, MKB = [];
   // a label tests its box at a dozen points against every part of the HUD: the parts are measured once a frame in world(), not
   // per point (review of PR 63); a screen drawn without the world measures them where it asks
   const bp = (S, R) => BPG || bpGeo(S, R), bfList = (R, GT) => BFL || buffList(R, GT);
@@ -91,7 +91,7 @@
   const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
   // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
   // label is free to sit where they would be
-  const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, BF.y + Math.max(1, BFR) * BF.dy + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
+  const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, Math.max(BF.y + BF.dy, BFB) + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
     [500, -I, 1420, 150, 'top'], MMB ? [MMB[0] - 4, -I, I, MMB[1] + MMB[3] + 4, 'minimap'] : [W - 260, -I, I, 440, 'minimap']];
     if (TRK) z.push([TRK[0] - 4, TRK[1] - 4, I, TRK[1] + TRK[3] + 4, 'tracker']);
     const play = !S || S.screen === 'play', kb = BPG && keysBox(), mb = msgBox(S);
@@ -136,7 +136,7 @@
       x = at ? Math.min(W - w - 8, at[0]) : up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = at ? Math.max(8, Math.min(H - h - 8, at[1])) : up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); KEYP = {}; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
+    G.bind(null); G.blend(); KEYP = {}; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFB = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
     if (R && V) world(S, R, t, V);
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
@@ -212,7 +212,7 @@
     L.rrect(x0 - 3, y - 1, 14, 14, 7, [1, 0.3, 0.18], [0.62, 0.04, 0.03]);
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
-  function measureHud(S, R) { MMB = mmBox(S, R); TRK = trkBox(S, R); BPG = bpGeo(S, R); BFL = buffList(R, S.t); BFR = Math.ceil(BFL.length / BF.per); ZN = hudZones(S); }
+  function measureHud(S, R) { MMB = mmBox(S, R); TRK = trkBox(S, R); BPG = bpGeo(S, R); BFL = buffList(R, S.t); BFB = bfPlace(BFL).bot; ZN = hudZones(S); }
   function world(S, R, t, V) {
     measureHud(S, R); MKB = [];
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
@@ -401,7 +401,7 @@
   // look B laid out as on ref_ui_hud_b (TASKS 1872, the player's decision over 1759's corner plate): the portrait, the level, its
   // bar and the effects in the top-left corner, the stats on a parchment sheet under them; the flasks, the skills, the potions and
   // the money on one leather panel at the bottom's middle
-  const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154, BF = { y: 76, dx: 72, dy: 72, per: 6, chip: 70, val: 56 }, STS = { y: HB.y + HB.h + 8, row: 32, n: 4, pad: 28 };
+  const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154, BF = { y: 76, dx: 72, dy: 72, per: 6, chip: 70, val: 56, small: 46 }, STS = { y: HB.y + HB.h + 8, row: 32, n: 4, pad: 28 };
   const potsOf = (R) => [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].concat(R.viaTown ? [['scroll', 'it_scroll', 'T']] : []);
   // the bottom panel from the state alone (world() keeps labels off it before it is drawn): its box and where each part starts. Its
   // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
@@ -547,15 +547,24 @@
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', v: TXT('hud.buff.sec', { n: Math.ceil(h.poison - GT) }), col: '#a6d86a', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
     return list;
   }
+  // the chips' places: the ones with a value or a clock first, in columns wide enough for the value line under them; then the
+  // powers, which carry neither, packed BF.small apart in rows of their own under those, so a long build keeps to fewer rows
+  const bfTall = (b) => !!b.v || b.left !== undefined;
+  function bfPlace(list) { const tall = list.filter(bfTall), small = list.filter((b) => !bfTall(b)), perSmall = Math.floor(BF.per * BF.dx / BF.small), at = new Map();
+    tall.forEach((b, i) => at.set(b, { x: TLX + (i % BF.per) * BF.dx, y: BF.y + Math.floor(i / BF.per) * BF.dy, h: BF.chip }));
+    const y0 = BF.y + Math.ceil(tall.length / BF.per) * BF.dy;
+    small.forEach((b, i) => at.set(b, { x: TLX + (i % perSmall) * BF.small, y: y0 + Math.floor(i / perSmall) * BF.small, h: BF.small }));
+    return { at, bot: y0 + Math.ceil(small.length / perSmall) * BF.small }; }
   function buffs(S, R, GT, statsBot) {
-    const list = bfList(R, GT);
+    const list = bfList(R, GT), P = bfPlace(list);
     // a gift sits in a round brass cell, the shield and the curses in square ones: the same item icons, told apart by their rim (TASKS 1862)
-    TIPY = Math.max(statsBot, BF.y + Math.ceil(list.length / BF.per) * BF.dy) + 8;
-    list.forEach((b, i) => { const x = TLX + (i % BF.per) * BF.dx, y = BF.y + Math.floor(i / BF.per) * BF.dy;
+    TIPY = Math.max(statsBot, P.bot) + 8;
+    list.forEach((b) => { const { x, y, h: ch } = P.at.get(b);
       if (b.gift) { L.rrect(x + 3, y + 3, 34, 34, 17, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]); KIT.part('ui_b_cell_round', [48, 48], x - 3, y - 3, { k: 46 / 96 }); }
       else { KIT.nine('cell', x, y, 40, 40, { u: { grade: b.bad ? [1, 1, 0, 1] : [1, 1.1, 0, 1] } }); if (b.bad) edge(x, y, 40, 40, [0.8, 0.2, 0.15], 2); }
       // the cell's box takes its value line under it too, the chip's whole column (TASKS 2173: +180% crossed a 40 px box)
-      L.uiBox('bf_' + b.id, x + 20 - BF.dx / 2, y, BF.dx, BF.chip, 4); tipAt(x - 4, y - 4, 48, BF.chip + 4, b.name, b.desc);
+      if (bfTall(b)) L.uiBox('bf_' + b.id, x + 20 - BF.dx / 2, y, BF.dx, ch, 4); else L.uiBox('bf_' + b.id, x - 3, y - 3, BF.small, BF.small, 0);
+      tipAt(x - 4, y - 4, 48, ch + 4, b.name, b.desc);
       if (b.src) L.sprite(b.ic, x + 4, y + 6, { w: 32, h: 28, src: b.src, u: b.u }); else if (window.ASSETS[b.ic]) icon(b.ic, x + (b.gift ? 6 : 3), y + (b.gift ? 6 : 3), b.gift ? 28 : 34);
       if (b.left !== undefined) { const f = Math.max(0, Math.min(1, 1 - b.left)); L.solid(x + 3, y + 3, 34, 34 * f, [0, 0, 0], 0, 0, 0, 0.55);
         if (b.left < 0.25 && Math.sin(GT * 18) > 0) L.rrect(x, y, 40, 40, 5, [1, 1, 1], [1, 1, 1], 0.12); }

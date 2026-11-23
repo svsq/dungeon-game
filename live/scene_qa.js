@@ -732,6 +732,11 @@
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
     states.push(['power_fire', fx((S, R, h) => { h.powers = { whirl_ring: 1, dash_trail: 1 }; R.fires = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 8800 + i, own: 'hero', who: 'hero', x: h.x + Math.cos(i * Math.PI / 4) * 100, y: h.y + Math.sin(i * Math.PI / 4) * 75, t0: S.t - 0.6, r: 26, ry: 0.7, t: 2, dmg: 0, per: 9, kind: 'flame' })); })]);
     states.push(['buffs', fx((S, R, h) => { worst(S); h.perks = Object.fromEntries(D.GIFTS.map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 99999, shieldUntil: S.t + 4, burn: S.t + 0.4, poison: S.t + 2.2 }); })]);
+    // a late build by the portrait (the author's mage of the 31st level): many powers packed small under the valued gifts and statuses,
+    // a shield on its clock among them
+    const BUILD_POWERS = 18, BUILD_GIFTS = 8;
+    states.push(['buffs_build', fx((S, R, h) => { h.powers = Object.fromEntries(D.GIFTS.filter((g) => g.power).slice(0, BUILD_POWERS).map((g) => [g.id, 1]));
+      h.perks = Object.fromEntries(D.GIFTS.filter((g) => !g.power && g.id !== 'bless').slice(0, BUILD_GIFTS).map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 400, shieldUntil: S.t + 4 }); })]);
     // the hero standing in lava, a quarter second after a burn tick (the scorch flash and smoke)
     for (let sd = 1; sd < 30; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); SIM.enterFloor(S, S.run, 5); const R = S.run, m = R.map, lv = [];
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) if (m.cells[y * m.W + x] === 3) lv.push([x, y]);
