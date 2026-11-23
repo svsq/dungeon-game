@@ -106,9 +106,10 @@
   function matchingFloor(R, f, M) {
     const floor = freshFloor(R, f, M), print = mapPrint(floor.map);
     if (M.gv === D.GEN_VERSION && M.mp && M.mp !== print) {
-      // Floors already visited with the old shelf placement keep their layout so their saved diff still applies.
-      const legacy = freshFloor(R, f, M, { ...M.gen, legacyLibraryPlacement: true });
-      if (mapPrint(legacy.map) === M.mp) return { floor: legacy, print: M.mp };
+      // Floors already visited with the old shelf placement keep their layout so their saved diff still applies; the floor's memo
+      // keeps the placement, so its next build (stashFloor, the next visit) is the old one at once and is never generated twice
+      const gen = { ...M.gen, legacyLibraryPlacement: true }, legacy = freshFloor(R, f, M, gen);
+      if (mapPrint(legacy.map) === M.mp) { M.gen = gen; return { floor: legacy, print: M.mp }; }
     }
     return { floor, print };
   }

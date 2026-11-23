@@ -199,6 +199,8 @@
           !Q.chests.some((c) => c.open && c.x === chest.x && c.y === chest.y) || Q.seen[7] !== 1 ||
           !Q.drops.some((d) => d.id === loot && d.n === 77))
         out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} loses its layout, open chest, explored cells or loose loot`);
+      // the old placement found once is kept in the floor's memo: the next build is the old one at once, not a new one thrown away
+      if (!(Q.memo[f].gen && Q.memo[f].gen.legacyLibraryPlacement)) out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} does not keep its old shelf placement, so every visit builds it twice`);
     }
     return out;
   }
