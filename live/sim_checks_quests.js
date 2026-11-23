@@ -216,7 +216,8 @@
     const P = JSON.parse(JSON.stringify(persist(S))); if (!P.run.quests || P.run.quests.length !== 4 || JSON.stringify(P.run.quests).length > 2000) out.push('quest: the quests do not travel in the save, or bloat it');
     return out;
   }
-  // town_game_r10 1: every quest ready for a giver goes in with one press, told on one page with what they paid together; on the first
+  // town_game_r10 1: every quest ready for a giver goes in with one press, told on one page, what they paid together in the talk's
+  // reward block (got) on that page and not in the words; on the first
   // board of a few seeds (all taken, all done) each giver with a ? is settled by the one press, his talk opened beside him
   function turnAllCheck() {
     const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; S.meta.keeperMet = 1; return S.run; };
@@ -234,7 +235,9 @@
       const xp0 = R.hero.xp, g0 = R.hero.gold, T = talkTo(R, 'porter'); if (!T || !T.act || T.act.k !== 'turn' || T.pages.length !== 1) out.push(`turn-in all: three of the porter's quests wait behind ${T ? T.pages.length : 0} pages`);
       step(S, { keys: ['KeyE'] }); if (L.some((q) => q.st !== 'turned')) out.push('turn-in all: one press does not turn in all three quests');
       const P = S.talk ? S.talk.pages : [], gold = L.reduce((a, q) => a + (q.rw.gold || 0), 0), xp = L.reduce((a, q) => a + (q.rw.xp || 0), 0);
-      if (!P.some((p) => L.every((q) => p.includes(D.QUESTS[q.key].name)) && p.includes(SIMX.rwLine({ gold, xp })))) out.push(`turn-in all: no page names the three quests with their summed reward (${JSON.stringify(P)})`);
+      const got = S.talk && S.talk.got, sum = SIMX.rwLine({ gold, xp });
+      if (!P.some((p) => L.every((q) => p.includes(D.QUESTS[q.key].name)))) out.push(`turn-in all: no page names the three quests (${JSON.stringify(P)})`);
+      if (!got || got.rw !== sum || got.pages < 1 || got.of !== P || P.some((p) => p.includes(sum))) out.push(`turn-in all: the summed reward ${sum} is not in its own block (${JSON.stringify(got && { rw: got.rw, pages: got.pages })})`);
       if (P.length > 1) out.push(`turn-in all: the porter's three quests are told on ${P.length} pages`);
       if (R.hero.gold - g0 !== gold) out.push(`turn-in all: ${R.hero.gold - g0} gold paid, not ${gold}`);
       for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); }

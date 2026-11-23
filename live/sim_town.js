@@ -422,12 +422,14 @@
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const L = (a.ids || [a.id]).map((id) => (R.quests || []).find((o) => o.id === id)).filter((q) => turnIn(S, R, q)); if (!L.length) return;
-    const nx = talkOf(R, T.role); T.pages = turnPages(T.role, L).concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
-  // the turn-in told once pressed: the thanks, the quests by name and what they paid together, on one page while it fits the window;
-  // a quest's own thanks (the story's) goes before the plain ones, and a long one keeps a page of its own
+    const nx = talkOf(R, T.role), pages = turnPages(T.role, L); T.pages = pages.concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null;
+    T.got = { of: T.pages, pages: pages.length, rw: rwSum(L) }; }
+  // the turn-in told once pressed: the thanks and the quests by name, on one page while it fits the window; a quest's own thanks (the
+  // story's) goes before the plain ones, and a long one keeps a page of its own. What they paid together is the talk's `got`, shown on
+  // these pages in a block of its own under the words
   function turnPages(role, L) { const SAY = D.QUEST_SAY[role], own = L.find((q) => q.key === 'rescue' || D.QUESTS[q.key].thanks), q0 = own || L[0];
     const thanks = own ? (own.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[own.key].thanks) : SAY.thanks[(q0.id || 0) % SAY.thanks.length];
-    const sum = TXT('sim_town.turnAll', { names: L.map((q) => '«' + D.QUESTS[q.key].name + '»').join(', '), p2: rwSum(L) }), one = thanks + ' ' + sum;
+    const sum = TXT('sim_town.turnAll', { names: L.map((q) => '«' + D.QUESTS[q.key].name + '»').join(', ') }), one = thanks + ' ' + sum;
     return one.length <= TALK_PAGE ? [one] : [thanks, sum]; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
