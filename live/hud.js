@@ -44,7 +44,7 @@
   const PF = D.UI.kit.PORT.frames, portrait = (tex, f, x, y, w, h) => { const P = D.UI.kit.portIn(f, x, y, w, h); L.sprite(tex, P.x, P.y, { w: P.w, h: P.h, src: P.src }); };
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
-  let MMB = null, TRK = null, VW = null, KEYP = {};
+  let MMB = null, TRK = null, KEYP = {};
   // an elite's label slot (TASKS 2032, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
   // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
   const ELS = new Map(), elSlot = (id) => { let s = ELS.get(id);
@@ -136,7 +136,7 @@
       x = at ? Math.min(W - w - 8, at[0]) : up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = at ? Math.max(8, Math.min(H - h - 8, at[1])) : up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); VW = V || null; KEYP = {}; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
+    G.bind(null); G.blend(); KEYP = {}; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
     if (R && V) world(S, R, t, V);
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
@@ -421,7 +421,7 @@
   // the parts a quest mark keeps off (TASKS 2125): all but the boss bar's strip, which the town never shows and which would turn every
   // giver near the top's middle small. For the check it measures the HUD from the state and the view, as world() does before drawing
   const markZones = () => (ZN || hudZones()).filter((z) => z[4] !== 'top');
-  HUD.markZones = (S, R, V) => { if (V) { W = SIM.VIEW.W; VH = H = SIM.VIEW.H; VW = V; measureHud(S, R); } return markZones(); };
+  HUD.markZones = (S, R, V) => { if (V) { W = SIM.VIEW.W; VH = H = SIM.VIEW.H; measureHud(S, R); } return markZones(); };
   function skillCell(id, x, y, s, A, r, cd, full, low, rage) {
     L.rrect(x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8, s * 0.4, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
     icon(A.icon, x + s * 0.17, y + s * 0.17, s * 0.66, { alpha: r ? 1 : 0.25, grade: r ? [1, 1, 0, 1] : [0, 0.5, 0, 1] });
@@ -632,16 +632,13 @@
   const trkAll = (S, R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done'));
   const TK = D.UI.kit.TRACKER, TF = TK.size, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
   const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
-  const aditBox = (R) => { const d = R.town && VW && R.map.decor.find((o) => o.role === 'adit'); if (!d) return null;
-    const [sw, sh] = SZ(d.n), s = (d.s || 1) * VW.k; return [VW.sx(d.x) - sw * s / 2, VW.sy(d.y) + 4 * VW.k - sh * s, sw * s, sh * s]; };
   const btnW = (id, s) => lw(id, s, { size: TF.btn }) + TK.btnPad, measure = (s, size) => L.labelW(0, s, { size });
-  // the width is the first rows' a cap leaves out too, so the box does not shift sideways as the camera moves the adit under it
+  // the width is the first rows' a cap leaves out too
   function trkGeo(S, R) { const all = trkAll(S, R), nd = trkDone(R); if (!(all.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R), K = D.UI.kit;
-    const chip = (fold) => { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, null, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true, fold }); };
-    if (trkHidden(S)) return chip(false);
+    if (trkHidden(S)) { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true }); }
     const head = lw('qt_t', TXT('hud.tracker'), { size: TF.title }) + 2 * TK.pad + TK.headGap + btnW('qt_hide', TXT('hud.tracker.hide')) + (nd ? TK.btnGap + btnW('qt_fold', trkFoldLab(S, R)) : 0);
     const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.QUESTS[q.key].name, TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
-    const Y = K.trkLay(W, mb[1] + mb[3], w, all.length, aditBox(R)); if (Y.fold) return chip(true);
+    const Y = K.trkLay(W, mb[1] + mb[3], w, all.length);
     return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.QUESTS[q.key].name, Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
   const trkBox = (S, R) => { const g = trkGeo(S, R); return g && g.box; };
   // the heading's buttons in view px, from the last frame drawn: the page asks them on a click and turns the click into the sim's key,

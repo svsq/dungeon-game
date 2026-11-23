@@ -1882,11 +1882,16 @@
     const legend = (R, id, slot) => Object.assign(SIM.rollItem(R, 12, 4, slot || D.BASES[legendB].slot), { id, b: legendB, rar: 4 });
     states.push(['long_names_journal', keeperS((S, R) => { R.offers = []; R.quests = []; const keys = longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4);
       keys.forEach((key, i) => R.quests.push({ id: 960 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: i ? 'taken' : 'done', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.jsel = 960; S.screen = 'journal'; S.hover = 'q:1'; })]);
-    // TASKS 2127 (town_game_r9 4): the long lines with the legend shut, the tracker in its place; with the legend's map open it drops
-    // onto the adit and folds into its «Задания: N» plate
-    const longTrk = (leg) => keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
-      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; if (!leg) { R.legAuto = 0; R.mapLeg = 0; } });
+    // TASKS 2127 (town_game_r9 4): the long lines with the legend shut, the tracker in its place; with the legend's map open it keeps
+    // its rows wherever it stands, the adit under it or not
+    const longTrk = (leg, then = () => {}) => keeperS((S, R, h) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
+      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; if (!leg) { R.legAuto = 0; R.mapLeg = 0; } then(S, R, h); });
     states.push(['long_names_tracker', longTrk(0)], ['long_names_tracker_adit', longTrk(1)]);
+    // the tracker at the town's edge by the adit, open and hidden by the player: the same as in the centre, only his button changes it
+    const TRACKER_EDGE_CELLS = 3;
+    const edgeTrk = (hide) => longTrk(0, (S, R, h) => { const d = R.map.decor.find((o) => o.role === 'adit'); S.meta.trkHide = hide; if (!d) return;
+      h.x = d.x; h.y = d.y + TRACKER_EDGE_CELLS * TILE; R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; });
+    states.push(['town_tracker_edge', edgeTrk(0)], ['town_tracker_edge_hidden', edgeTrk(1)], ['town_tracker_centre_hidden', longTrk(0, (S) => { S.meta.trkHide = 1; })]);
     states.push(['long_names_craft', craftS('forge', (S, R, h, it) => { Object.assign(it, legend(R, 950)); h.bag[4] = it; S.hover = 'do'; })]);
     // TASKS 1818: a boss's unique, the longest of name, power text and lore together, its power and lore wrapped under the affixes
     const uniqL = Object.values(D.UNIQUES).sort((a, b) => (b.name + b.lore + D.POWERS[b.power].desc).length - (a.name + a.lore + D.POWERS[a.power].desc).length)[0];
