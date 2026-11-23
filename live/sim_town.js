@@ -514,7 +514,7 @@
   // first fall, a long time below; each told once; nothing new, his idle pair
   function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = []; let hush = 0;
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
-    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
+    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.endDeaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     // the campaign's last boss is told by the end of the run, whose words his generic «someone must go down again» would contradict
     if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) { hush = 1; out.push(...K.boss(ENEMIES[R.lastBoss].name)); } }

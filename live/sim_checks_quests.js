@@ -237,7 +237,7 @@
       for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); };
     // three quests of one giver: one press, one page with the three names and the summed reward
     { const R = run(41); R.offers = []; R.quests = []; const L = ['cull', 'named', 'fetch'].map((k) => { const q = takeQuest(S, R, newQuest(R, k, 2, 'porter')); q.st = 'done'; q.n = q.need; return q; });
-      const xp0 = R.hero.xp, g0 = R.hero.gold, T = talkTo(R, 'porter'); if (!T || !T.act || T.act.k !== 'turn' || T.pages.length !== 1) out.push(`turn-in all: three of the porter's quests wait behind ${T ? T.pages.length : 0} pages`);
+      const g0 = R.hero.gold, T = talkTo(R, 'porter'); if (!T || !T.act || T.act.k !== 'turn' || T.pages.length !== 1) out.push(`turn-in all: three of the porter's quests wait behind ${T ? T.pages.length : 0} pages`);
       step(S, { keys: ['KeyE'] }); if (L.some((q) => q.st !== 'turned')) out.push('turn-in all: one press does not turn in all three quests');
       const P = S.talk ? S.talk.pages : [], gold = L.reduce((a, q) => a + (q.rw.gold || 0), 0), xp = L.reduce((a, q) => a + (q.rw.xp || 0), 0);
       const got = S.talk && S.talk.got, sum = SIMX.rwLine({ gold, xp });

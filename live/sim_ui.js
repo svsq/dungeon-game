@@ -14,7 +14,7 @@
     const test = !!R.test;
     S.meta.shards += bonus; if (!test) { S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win' && !R.campaignWon) S.meta.wins = (S.meta.wins || 0) + 1; }
     // what the Keeper of the Fire will speak of to the next hero (TASKS 1016)
-    if (!test) { if (how === 'dead' && !(R.log && R.log.abandon)) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id; }
+    if (!test) { if (how === 'dead' && !(R.log && R.log.abandon)) { S.meta.endDeaths = runEndDeaths(S.meta) + 1; S.meta.deaths = (S.meta.deaths || 0) + 1; } S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id; }
     // the records are the deepest floor reached, not the one the run ended on (TASKS 516: down to the 17th, back up to the 16th)
     const deep = Math.max(R.deepest || 0, R.floor);
     if (RUN(R) === D.RUNS.campaign && !test) { S.meta.best = Math.max(S.meta.best || 0, deep); tally(S, R, 'best', deep, 1); }
@@ -31,6 +31,9 @@
   // a death (TASKS 2104): hardcore's ends the run, as every death did before the modes. The normal mode's wakes the hero in the town,
   // by the way a scroll of return takes him (its portal left as it was), his floors and quests kept, his gear and gold with him; a
   // share of his level's experience goes, never the level, and the death is counted as one
+  // the deaths that ended a run, for the Keeper's «first death»: the normal mode's falls count in meta.deaths too, never here. A meta
+  // from before this count holds them all in deaths, less the normal falls its mode statistics tallied
+  const runEndDeaths = (M) => M.endDeaths ?? Math.max(0, (M.deaths || 0) - ((((M.stats || {}).mode || {}).normal || {}).deaths || 0));
   function heroFell(S) { const R = S.run, h = R.hero; if (hardcore(R)) { endRun(S, 'dead'); return; }
     SIMX.callOff(S, R);
     if (!SIMX.enterFloor(S, R, 0, undefined, 'portal')) { R.fellFailed = true; return; }

@@ -279,6 +279,9 @@
     const p1 = read(); if (p1[0] !== K.first[0] || S.screen !== 'play') out.push('talk: no first meeting, or the last page does not close the dialogue');
     talkTo(R, 'keeper'); const p2 = read(); if (!D.FOLK.keeper.lines.some((l) => l[0] === p2[0])) out.push('talk: with nothing new the Keeper does not fall back on his idle lines');
     endRun(S, 'dead'); R = run(32); talkTo(R, 'keeper'); const p3 = read(); if (p3[0] !== K.death1[0]) out.push('talk: the first death is not spoken of');
+    // the first death that ends a run is the first, however many falls of the normal mode came before it (they count in meta.deaths)
+    { const S4 = spawn(0, {}), FALLS = 3; S4.run = newRun(S4, 'campaign', 33, { town: 1, deathMode: 'hard' }); S4.meta.deaths = FALLS; S4.meta.stats = Object.assign(S4.meta.stats || {}, { mode: { normal: { deaths: FALLS } } });
+      endRun(S4, 'dead'); if (S4.meta.endDeaths !== 1) out.push(`talk: a first hardcore death after ${FALLS} normal falls counts as death ${S4.meta.endDeaths}`); }
     R.bossN = 1; R.lastBoss = 'boss_spider'; R.legend = 'Кольцо Бездны'; R.deepest = 6; enterFloor(S, R, 0, undefined, 'up'); talkTo(R, 'keeper'); const p4 = read();
     if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: a boss or a legendary is not spoken of');
     if (p4.includes(K.away[0])) out.push('talk: the long time below is told beside the boss slain, who already greets the hero back');
@@ -499,7 +502,7 @@
           worst = Math.max(worst, Math.abs(r[0] * u[1] - r[1] * u[0]) / l); } }
       if (!on) out.push(`cart: ${n} is never shown on a straight diagonal of the rails`);
       if (worst > 1) out.push(`cart: a near wheel of ${n} stands ${worst.toFixed(2)} px off the near rail on the diagonal`); }
-    // TASKS 2122: the change of view is a cross-fade of C.fade px of rails, 0.15-0.2 s at the top speed; at every s of the run the view more
+    // TASKS 2122: the change of view is a cross-fade of C.fade px of rails, 0.25-0.35 s at the top speed; at every s of the run the view more
     // than half shown has its wheels (the front one's slabs, the 3/4 one's near wheels) within a pixel of a drawn rail's axis; across the
     // fade the track's middle its wheels stand over, by each painting's alpha, moves no more than 3 px a 3 px step of s (the travel itself
     // is 2.8) and the box's top over the ground no more than 4 px a 1 px step (one frame threw it 13 px aside)
