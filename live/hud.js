@@ -88,15 +88,24 @@
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
     return toastBox(msgText(R.msg)); };
+  // the feed: pickups, trades and refusals, newest at the bottom, over the panel's left end; each row's text and plate, for the
+  // drawing and for the HUD's zone alike
+  const FEED = { x: 14, lift: 47, row: 34, h: 34, pad: 32, text: 16, size: 19 };
+  const feedText = (e) => (e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s
+    : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s);
+  const feedRows = (S, B) => { const feed = D.feedOf(S.ev, S.t);
+    return feed.map((e, i) => { const s = feedText(e); return { e, s, box: [FEED.x, B.y - FEED.lift - (feed.length - 1 - i) * FEED.row, lw('feed' + i, s, { size: FEED.size }) + FEED.pad, FEED.h] }; }); };
   const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
-  // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
-  // label is free to sit where they would be
+  // the parts of the HUD that world labels and quest marks keep off: the effects and the stats sheet by the portrait, the boss bar's
+  // strip at the top, the minimap, the tracker, the message card, the bottom panel; in play also the key hints, the crossed-out speaker
+  // and the feed's plates, which are drawn only there (on the pause a world label is free to sit where they would be)
   const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, Math.max(BF.y + BF.dy, BFB) + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
     [500, -I, 1420, 150, 'top'], MMB ? [MMB[0] - 4, -I, I, MMB[1] + MMB[3] + 4, 'minimap'] : [W - 260, -I, I, 440, 'minimap']];
     if (TRK) z.push([TRK[0] - 4, TRK[1] - 4, I, TRK[1] + TRK[3] + 4, 'tracker']);
     const play = !S || S.screen === 'play', kb = BPG && keysBox(), mb = msgBox(S);
     if (mb) z.push([mb[0] - 4, mb[1] - 4, mb[0] + mb[2] + 4, mb[1] + mb[3] + 4, 'card']);
-    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [])
+    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [],
+      play && S ? feedRows(S, BPG).map((q) => q.box.concat('feed')) : [])
       .forEach((b) => z.push([b[0] - 4, b[1] - 4, b[0] + b[2] + 4, b[1] + b[3] + 4, b[4]]));
     return z; };
   const underHud = (x, y) => (ZN || hudZones()).some((z) => x > z[0] && x < z[2] && y > z[1] && y < z[3]);
@@ -250,7 +259,7 @@
     // a giver off the screen has a small one at its edge, the map shows his mark either way; the HUD is drawn over the world, so a mark
     // that would lie under one of its parts is small and slid out of it (TASKS 2125)
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
-      const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ('town_' + f.role)[1], k, W, H, markZones()), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
+      const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ(D.folkSprite(f))[1], k, W, H, markZones()), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
       const x = at.x, y = at.y + bob, col = QMARK_TONE[mk].glow, bw = Q.box[0] * sc, bh = Q.box[1] * sc;
       const box = { i: f.i, x: x - bw / 2, y: at.y - bh / 2, w: bw, h: bh }; MKB.push(box); occupied.push(box);
       G.blend('add'); L.glow(x, y, Q.glow * sc, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
@@ -261,9 +270,9 @@
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
       if (b) { plate(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) { const FD = D.FOLK[f.role]; if (!FD.lines || !f.near || GT < f.sayT || GT - f.sayT >= D.FOLK_SAY) continue;
-      bubble('folk' + f.i, (f.sayS || FD.lines[f.sayN])[GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 48); }
+      bubble('folk' + f.i, (f.sayS || FD.lines[f.sayN])[GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ(D.folkSprite(f))[1] * k - 48); }
     // a townsman struck by the hero's blow says so (TASKS 1033), over whatever he was saying
-    if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) if (f.role !== 'hen' && GT - (f.hitT ?? -9) < 1.6) bubble('ouch' + f.i, SIM.FOLK_OUCH[f.ouch || 0], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 92);
+    if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) if (f.role !== 'hen' && GT - (f.hitT ?? -9) < 1.6) bubble('ouch' + f.i, SIM.FOLK_OUCH[f.ouch || 0], V.sx(f.x), V.sy(f.y) - SZ(D.folkSprite(f))[1] * k - 92);
     if (!R.town && S.screen === 'play') for (const C of Object.values(R.captives || {})) { if (C.x === undefined || R.floor !== D.CAPTIVES[C.who].f || (R.freed && R.freed[C.who]) || Math.hypot(C.x - h.x, C.y - h.y) > 320 || !seen(C.x, C.y)) continue; const cg = D.CAPTIVES[C.who].caged; bubble('cap_' + C.who, cg[Math.floor(GT / 5) % cg.length], V.sx(C.x), V.sy(C.y) - 150 * k); }
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
     const bars = [], fadeIn = S.ev.some((v) => v.k === 'floor' && GT - v.t < 0.9);
@@ -383,7 +392,7 @@
     if (SIM.Q.atGate(R, S)) { const o = SIM.Q.gateWays(R, S); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length !== 1 ? TXT('hud.world.ring.open') : o[0].k === 'boss' ? TXT('hud.world.ring.boss', { name: bossName(o[0].f), f: o[0].f }) : TXT('hud.world.29', { f: o[0].f })]; }
     // the giver E talks to before the service it stands by (TASKS 2128) shows his own plate
     if (S.screen === 'play' && m.town && SIM.Q.giverFirst(S, R)) pr = preSvc;
-    if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
+    if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ(D.folkSprite(f))[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
     if (!pr && tz) pr = [tz.x, tz.y - 46, TXT('hud.world.take', { p1: SIM.Q.itemName(tz.item) })];
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R, S).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
@@ -513,12 +522,8 @@
     else if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = msgText(R.msg);
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
       else toast(s, al); } }
-    // feed: pickups and refusals, newest at the bottom, over the panel's left end
-    const feed = D.feedOf(S.ev, S.t);
-    feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = B.y - 30 - (feed.length - 1 - i) * 34;
-      const s = e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s;
-      const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 32;
-      plate('feedbox' + i, 14, y - 17, w, 34, { a: 0.85 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
+    feedRows(S, B).forEach(({ e, s, box: [x, y, w, h] }, i) => { const al = 1 - L.SS(2.4, 3, S.t - e.t), col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold;
+      plate('feedbox' + i, x, y, w, h, { a: 0.85 * al }); lab('feed' + i, s, x + FEED.text, y + h / 2 + 1, { size: FEED.size, col, a: al }); });
     // the key hints over the panel's right end: the panel takes the bottom edge they stood on
     const ka = keysA(S);
     if (ka > 0) { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
@@ -638,17 +643,21 @@
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands. A done one is ticked in its
   // box, and a button on the heading folds the done ones away and back (TASKS 1992); the fold is the player's, kept in the meta
   const trkDone = (R) => SIM.Q.journalOf(R).filter((q) => q.st === 'done').length, trkFolded = (S, R) => !!S.meta.trkFold && trkDone(R) > 0;
-  const trkAll = (S, R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done'));
+  // a new hero's first goal (the talk with the Keeper) heads the list as a row of its own, not a quest
+  const trkGoal = (R) => { const g = SIM.Q.firstGoal(R); return g ? [{ goal: g, st: 'taken' }] : []; };
+  const trkQuestName = (q) => D.questName(q);
+  const trkName = (q) => (q.goal ? q.goal.name : trkQuestName(q)), trkLine = (q, R) => (q.goal ? q.goal.line : SIM.Q.questLine(q, R));
+  const trkAll = (S, R) => trkGoal(R).concat(SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done')));
   const TK = D.UI.kit.TRACKER, TF = TK.size, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
-  const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
+  const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: trkGoal(R).length + SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
   const btnW = (id, s) => lw(id, s, { size: TF.btn }) + TK.btnPad, measure = (s, size) => L.labelW(0, s, { size });
   // the width is the first rows' a cap leaves out too
   function trkGeo(S, R) { const all = trkAll(S, R), nd = trkDone(R); if (!(all.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R), K = D.UI.kit;
     if (trkHidden(S)) { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true }); }
     const head = lw('qt_t', TXT('hud.tracker'), { size: TF.title }) + 2 * TK.pad + TK.headGap + btnW('qt_hide', TXT('hud.tracker.hide')) + (nd ? TK.btnGap + btnW('qt_fold', trkFoldLab(S, R)) : 0);
-    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.questName(q), TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
+    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(trkName(q), TF.name), measure(trkLine(q, R), TF.line)))) + 2 * TK.pad;
     const Y = K.trkLay(W, mb[1] + mb[3], w, all.length);
-    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.questName(q), Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
+    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(trkName(q), Y.textW, TF.name, measure), line: K.trkFit(trkLine(q, R), Y.textW, TF.line, measure) })) }); }
   const trkBox = (S, R) => { const g = trkGeo(S, R); return g && g.box; };
   // the heading's buttons in view px, from the last frame drawn: the page asks them on a click and turns the click into the sim's key,
   // so it swings at nothing
@@ -665,10 +674,10 @@
     if (T.more) lab('qt_more', TXT('hud.tracker.more', { n: T.more }), x + P, T.moreY, { size: TF.line, col: C.dim });
     const by = T.titleY - TK.btnH / 2, hs = TXT('hud.tracker.hide'), hw = btnW('qt_hide', hs), hb = TRK_HIDE = [x + w - P - hw, by, hw, TK.btnH]; trkBtn('qt_hide', hs, hb, hov(hb));
     if (trkDone(R)) { const s = trkFoldLab(S, R), bw = btnW('qt_fold', s), b = TRK_FOLD = [hb[0] - TK.btnGap - bw, by, bw, TK.btnH]; trkBtn('qt_fold', s, b, hov(b)); }
-    T.list.forEach(({ q, name, line }, i) => { const { nameY, lineY } = T.rows[i], done = q.st === 'done', Q = D.QUESTS[q.key], B = TK.box, bx = x + P, bb = nameY - B / 2;
+    T.list.forEach(({ q, name, line }, i) => { const { nameY, lineY } = T.rows[i], done = q.st === 'done', story = !!q.goal || D.QUESTS[q.key].kind === 'story', B = TK.box, bx = x + P, bb = nameY - B / 2;
       L.rrect(bx, bb, B, B, 4, [0.07, 0.055, 0.05], [0.05, 0.04, 0.035]); for (const [a, b2, c, d] of [[0, 0, B, 2], [0, B - 2, B, 2], [0, 0, 2, B], [B - 2, 0, 2, B]]) L.solid(bx + a, bb + b2, c, d, done ? [0.56, 0.85, 0.54] : [0.55, 0.5, 0.44]);
       if (done) trkTick(bx, bb, B, [0.56, 0.85, 0.54]);
-      lab('qt_n' + i, name, T.textX, nameY, { size: TF.name, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('qt_n' + i, name, T.textX, nameY, { size: TF.name, col: done ? '#8fd98a' : story ? '#ffc070' : C.gold });
       lab('qt_l' + i, line, T.textX, lineY, { size: TF.line, col: done ? C.dim : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;

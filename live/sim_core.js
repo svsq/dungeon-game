@@ -174,10 +174,11 @@
     return [bx, by];
   }
   // out of solid props (feet ellipse against each prop's circle), through move() so the push never lands in a wall
+  const FEET_SQUASH = 1.6, inSolid = (x, y, r, s) => { const rr = s.r + r, dx = x - s.x, dy = (y - s.y) * FEET_SQUASH; return dx * dx + dy * dy < rr * rr; };
   function shove(m, o, r, mon, sol) {
-    for (const s of sol) { const rr = s.r + r; let dx = o.x - s.x; if (dx >= rr || dx <= -rr) continue; let dy = (o.y - s.y) * 1.6; if (dy >= rr || dy <= -rr) continue; let d = Math.hypot(dx, dy); if (d >= rr) continue;
+    for (const s of sol) { const rr = s.r + r; let dx = o.x - s.x; if (dx >= rr || dx <= -rr) continue; let dy = (o.y - s.y) * FEET_SQUASH; if (dy >= rr || dy <= -rr) continue; let d = Math.hypot(dx, dy); if (d >= rr) continue;
       if (d < 0.01) { dx = 0; dy = d = 1; }
-      move(m, o, s.x + dx / d * rr - o.x, s.y + dy / d * rr / 1.6 - o.y, r, mon); }
+      move(m, o, s.x + dx / d * rr - o.x, s.y + dy / d * rr / FEET_SQUASH - o.y, r, mon); }
   }
   // a point blocks the line only if the wall is there both at it and 8 px up: two actors hugging the same wall can still reach
   // each other along its face, and a line through a wall still crosses a whole blocked cell
@@ -316,6 +317,6 @@
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, VIEW, VIEW_H, viewFor, setView, uiDy,
     zoomOf, WIN, toPx, K, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
-    brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
+    brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, inSolid, solidC, pinch,
     losClear, overLava, doorLock, doorTwin, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
 })(typeof window !== 'undefined' ? window : globalThis);

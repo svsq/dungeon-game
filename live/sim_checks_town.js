@@ -175,18 +175,19 @@
   // TASKS 1015: the townsfolk over two minutes of a town with the hero out of the way: the walkers make their whole rounds on open
   // floor and never pass through each other, the porter lifts and sets down his crate, the anvil rings; walked up to, a townsperson
   // speaks a pair of lines, turns to the hero and a walker stops; every role's lines are pairs
+  const HEN_GAP_SLACK = 1;
   function folkCheck() {
     const out = [];
     for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 64))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
     for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
-      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0;
+      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0, henGap = Infinity;
       for (let i = 0; i < 120 * 120; i++) { const t0 = S.t; step(S, { keys: [] }); rings += S.ev.filter((e) => e.k === 'anvil' && e.t > t0).length;
         for (const f of F) { if ((!f.go || f.role === 'porter') && f.way >= 0) stops[f.i].add(f.way); stuck[f.i] = Math.max(stuck[f.i], f.stuck); henWalk[f.i] = f.dist;
           if (f.role === 'hen' && R.grain && S.t - R.grain.t < 6 && Math.hypot(f.x - R.grain.x, f.y - R.grain.y) < 24) fed = 1;
           if (f.role === 'porter') { loads.add(f.load); if (f.lift && lifts[lifts.length - 1]?.t !== f.t0) lifts.push({ k: f.lift, t: f.t0 });
             const st = m.town.npcs[f.i].route[f.way]; if (!f.go && st.act && f.t0 === S.t && !f.lift) empty++; } if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
-          for (const o of F) if (o.i > f.i) close = Math.min(close, Math.hypot(o.x - f.x, (o.y - f.y) * 1.4) / (folkR(o) + folkR(f))); } }
+          for (const o of F) if (o.i > f.i) { close = Math.min(close, Math.hypot(o.x - f.x, (o.y - f.y) * 1.4) / (folkR(o) + folkR(f))); if (f.role === 'hen' && o.role === 'hen') henGap = Math.min(henGap, Math.hypot(o.x - f.x, o.y - f.y)); } } }
       for (const f of F) { const n = m.town.npcs[f.i]; if (n.route && stops[f.i].size < n.route.length) out.push(`folk ${sd}: the ${f.role} reaches ${stops[f.i].size} of ${n.route.length} stops in two minutes`); }
       if (close < 0.8) out.push(`folk ${sd}: two townsfolk pass through each other (${close.toFixed(2)} of their radii)`);
       if (off) out.push(`folk ${sd}: a walker steps off the open floor ${off} times`);
@@ -201,6 +202,8 @@
       const hens = F.filter((f) => f.role === 'hen');
       for (const f of hens) if (henWalk[f.i] < 40) out.push(`folk ${sd}: a hen walks ${henWalk[f.i].toFixed(0)} px in two minutes`);
       if (!fed) out.push(`folk ${sd}: no hen comes to the child's grain`);
+      // the hens keep a sprite's width apart (a step's slack under it)
+      if (henGap < SIMX.HEN_APART - HEN_GAP_SLACK) out.push(`folk ${sd}: two hens come ${henGap.toFixed(1)} px apart, under ${SIMX.HEN_APART}`);
       { const q = hens[0], R0 = q.x; h.x = q.x - 40; h.y = q.y; for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (q.x - R0 < 15) out.push(`folk ${sd}: a hen does not scatter from the hero`); h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; }
       if (rings < 40) out.push(`folk ${sd}: the anvil rings ${rings} times in two minutes`);
       const smith = F.find((f) => f.role === 'smith'); h.x = smith.x - 50; h.y = smith.y + 10; const t0 = S.t; step(S, { keys: [] });
@@ -638,7 +641,35 @@
     { const [S3, R3] = fresh('hard', S2); if (SIMX.gateWays(R3, S3).length) out.push(`death mode: a hardcore run's ring offers ${JSON.stringify(SIMX.gateWays(R3, S3))}`); }
     return out;
   }
+  // open floor of the town the hero's body cannot reach from the spawn (the sim's own collision: walls by boxHit, the still solids by
+  // their feet ellipses; the townsfolk and the cart move, so they are left out) must be a pocket the walk grid cannot reach either,
+  // walled off by solid props' own cells, or lie under a solid prop's picture. A cell the walk grid reaches and the body does not is
+  // a gap that looks open and is too narrow to pass
+  const TOWN_REACH = { seeds: 8, step: 4, near: 2, pictureHalfWidth: 0.45, pictureHalfHeight: 0.5, footBelow: 8, pictureRoles: ['bench', 'exit_gate'] };
+  function townReachCheck() {
+    const out = [], Q = TOWN_REACH, G = Q.step, SIZES = require('./sandbox.cjs').sizes(), size = (d) => SIZES[d.alt || d.n] || [0, 0];
+    for (let sd = 1; sd <= Q.seeds; sd++) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', sd, { town: 1 }), m = R.map, W = m.W, H = m.H, still = SIMX.solids({ ...R, folk: [], cart: null });
+      const blocked = (x, y) => SIMX.boxHit(m, x, y, K.R, false, true) || still.some((o) => SIMX.inSolid(x, y, K.R, o));
+      const GW = Math.ceil(W * TILE / G), GH = Math.ceil(H * TILE / G), body = new Uint8Array(GW * GH), start = [Math.round(R.hero.x / G), Math.round(R.hero.y / G)], q = [start];
+      body[start[1] * GW + start[0]] = 1;
+      while (q.length) { const [a, b] = q.pop(); for (const [i, j] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const u = a + i, v = b + j, k = v * GW + u;
+        if (u < 0 || v < 0 || u >= GW || v >= GH || body[k]) continue; body[k] = 2; if (!blocked(u * G, v * G)) { body[k] = 1; q.push([u, v]); } } }
+      const bodyReaches = (tx, ty) => { const cx = Math.round((tx + 0.5) * TILE / G), cy = Math.round((ty + 0.5) * TILE / G);
+        for (let j = -Q.near; j <= Q.near; j++) for (let i = -Q.near; i <= Q.near; i++) if (body[(cy + j) * GW + cx + i] === 1) return true; return false; };
+      const ok = DG.townWalk(m), grid = new Uint8Array(W * H), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE), flood = [cellOf(R.hero)];
+      grid[flood[0]] = 1;
+      for (let i = 0; i < flood.length; i++) for (const d of [1, -1, W, -W]) { const n = flood[i] + d; if (!grid[n] && ok[n]) { grid[n] = 1; flood.push(n); } }
+      const pictures = m.decor.filter((d) => d.solid || Q.pictureRoles.includes(d.role));
+      const underPicture = (x, y) => pictures.some((d) => { const [w, h] = size(d), k = d.s || 1; return Math.abs(x - d.x) < w * k * Q.pictureHalfWidth && y < d.y + Q.footBelow && y > d.y - h * k * Q.pictureHalfHeight; });
+      const shut = [];
+      for (let k = 0; k < W * H; k++) { const tx = k % W, ty = Math.floor(k / W);
+        if (grid[k] && !bodyReaches(tx, ty) && !underPicture((tx + 0.5) * TILE, (ty + 0.5) * TILE)) shut.push([tx, ty]); }
+      if (shut.length) out.push(`town reach ${sd}: ${shut.length} open cells look reachable but the hero's body cannot get there ${JSON.stringify(shut)}`); }
+    return out;
+  }
   SIMX.checks.add('townCheck', townCheck);
+  SIMX.checks.add('townReachCheck', townReachCheck, { slow: true });
   SIMX.checks.add('deathModeCheck', deathModeCheck);
   SIMX.checks.add('folkHoldCheck', folkHoldCheck);
   SIMX.checks.add('cartCheck', cartCheck);

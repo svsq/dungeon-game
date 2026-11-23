@@ -100,7 +100,7 @@
   // the run in play put aside under «Продолжить» (the pause's «Сохранить и выйти в меню», the menu's «Выход»)
   function saveRun(S) { S.saved = S.run; S.run = null; S.saveN++; S.savedT = S.t; }
   // a run of the tests' screen is marked a test (TASKS 1878): it leaves no trace in the statistics or the run journals
-  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S), deathMode: town ? D.deathPick(S.meta) : undefined }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
+  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S), deathMode: town ? D.deathPick(S.meta) : undefined }); S.saved = null; if (town) Object.assign(S.run, { greet: 1, meetKeeper: 1 }); else S.run.test = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in

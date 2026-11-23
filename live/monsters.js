@@ -487,7 +487,7 @@
   };
 
   // a robed townsfolk rig (body to the hem, two-bone arms, a head on the neck): o.arms(side) → [r1, r2] poses the arms, o.lift
-  // raises the torso's parts (rig px), o.headR / o.headD turn and shift the head; at rest it only breathes.
+  // lowers the shoulders and the head (rig px, y down), o.headR / o.headD turn and shift the head; at rest it only breathes.
   // Walking (o.dist, o.vx, o.vy, TASKS 1031): the shoes below the hem are cut from the body and step in turn, phased by the distance
   // walked so a planted shoe holds the floor; the body rides up over each passing step, rocks a little and the hem swings after the
   // stepping leg. hem: the cut's row (a few rows of skirt go with the shoes, so a rising body leaves no gap); split: the column between

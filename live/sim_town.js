@@ -10,6 +10,10 @@
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
   // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
   const FOLK_R = { child: 9, hen: 8 }, folkR = (f) => FOLK_R[f.role] || 12;
+  // hens keep a sprite's width apart (about 25 px) in plain distance: by the bodies' gap alone they met 13.6 px apart, one over the other
+  const HEN_APART = 26;
+  // the ring round the grain the hens peck on, each at its own angle: wide enough that three hens keep HEN_APART there
+  const HEN_GRAIN_RING = [22, 16];
   const folkOf = (R) => R.folk || (R.folk = folkHere(R, D.folkInit(R.map.town.npcs)));
   const townOk = (m) => m.town.walkOk || Object.defineProperty(m.town, 'walkOk', { value: DG.townWalk(m), enumerable: false }).walkOk;
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
@@ -31,7 +35,7 @@
     if (sc) { const a = Math.atan2(f.y - sc.y, f.x - sc.x) + 0.6 * (henRnd(f.i, Math.floor(t)) - 0.5); f.next = t + 1 + henRnd(f.i, t); if (t - (f.scareL ?? -9) > 0.6) f.scareT = t; f.scareL = t;
       return (f.goal = { x: f.x + Math.cos(a) * 44, y: f.y + Math.sin(a) * 30, v: 80 }); }
     const gr = R.grain; if (gr && t - gr.t < 7 && Math.hypot(gr.x - f.x, gr.y - f.y) < 190 && (!f.goal || f.goal.k !== gr.t))
-      f.goal = { x: gr.x + 16 * Math.cos(f.i * 2.1), y: gr.y + 9 * Math.sin(f.i * 2.1), v: 42, k: gr.t };
+      f.goal = { x: gr.x + HEN_GRAIN_RING[0] * Math.cos(f.i * 2.1), y: gr.y + HEN_GRAIN_RING[1] * Math.sin(f.i * 2.1), v: 42, k: gr.t };
     if (f.goal && f.goal.k && t - f.goal.k > 7) f.goal = null;
     if (!f.goal && t >= (f.next || 0)) { const a = 2 * Math.PI * henRnd(f.i, t), r = 10 + 26 * henRnd(t, f.i);
       f.goal = { x: n.x + Math.cos(a) * r, y: n.y + Math.sin(a) * r * 0.6, v: 22 }; f.next = t + 2 + 3 * henRnd(f.i + 7, t); }
@@ -91,7 +95,7 @@
       if (!folkFree(R.map, x, y, folkR(f))) continue; const path = greetPath(R, f, x, y, false); if (path) return { x, y, path }; }
     return null; }
   function stepGreet(S, R, F) { const G = R.greet, t = S.t, h = R.hero, k = F.find((q) => q.role === 'keeper');
-    if (!G || G === 'done') return; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
+    if (!G || G === 'done') return; if (!k) delete R.meetKeeper; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
     if (G === 1) { R.greet = { st: 'wait', t0: t }; return; }
     const heroFace = () => { const hf = k.x >= h.x ? 1 : -1; if (hf !== h.face) { h.face = hf; h.faceT = t; } }, faceHero = () => { const nf = h.x >= k.x ? 1 : -1; if (nf !== k.face) { k.turnT = t; k.face = nf; } heroFace(); };
     // (a run loaded with his walk under way but the townsfolk made anew has him at the fire again: the walk starts over from there)
@@ -155,7 +159,8 @@
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
       if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }
       // round the others and the hero: try straight on, then wider and wider turns; nothing clear, it waits
-      const step = f.spd * DT, near = (x, y) => F.some((o) => o !== f && Math.hypot(o.x - x, (o.y - y) * 1.4) < r + folkR(o) + 3 && Math.hypot(o.x - x, (o.y - y) * 1.4) < Math.hypot(o.x - f.x, (o.y - f.y) * 1.4))
+      const hens = (o) => f.role === 'hen' && o.role === 'hen', apart = (o, x, y) => (hens(o) ? Math.hypot(o.x - x, o.y - y) - HEN_APART : Math.hypot(o.x - x, (o.y - y) * 1.4) - r - folkR(o) - 3);
+      const step = f.spd * DT, near = (x, y) => F.some((o) => o !== f && apart(o, x, y) < 0 && apart(o, x, y) < apart(o, f.x, f.y))
         || (Math.hypot(h.x - x, (h.y - y) * 1.4) < r + K.R + 4 && Math.hypot(h.x - x, (h.y - y) * 1.4) < Math.hypot(h.x - f.x, (h.y - f.y) * 1.4));
       let moved = false;
       for (const a of [0, 0.6, -0.6, 1.2, -1.2]) { const c = Math.cos(a), sn = Math.sin(a), vx = ux * c - uy * sn, vy = ux * sn + uy * c, x = f.x + vx * step, y = f.y + vy * step;
@@ -266,7 +271,7 @@
   // bus (ev → questOn), it is done when n reaches need, turned in in the town for its reward; it goes with the hero
   const QUEST_EV = new Set(['kill', 'clear', 'floor', 'qitem', 'qevent']);
   function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f, R.hero && R.hero.lvl) }; }
-  function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: TXT('sim_town.takeQuest.msg.s', { name: D.questName(q) }), t: S.t }; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
+  function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: TXT('sim_town.takeQuest.msg.s', { name: D.questName(q) }), t: S.t }; if (q.from === 'keeper') delete R.meetKeeper; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
   // how much one event moves a quest on
   function questStep(R, q, e) { const Q = D.QUESTS[q.key], deep = R.floor >= q.f && !R.town;
     if (Q.type === 'kill') return e.k === 'kill' && deep && !e.boss && (!Q.elite || e.elite) ? 1 : 0;
@@ -403,7 +408,11 @@
   const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
   // the mark over a townsman's head: ? a quest to turn in, ! one to take
   // (past the campaign's last boss the Keeper's own offers wait behind the end of the run, PR 29 review: no «!» over him for them)
-  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) ? '!' : '');
+  // a new hero's first visit has one goal, the talk with the Keeper: until his first quest is taken the others' offers keep their «!»
+  // (R.meetKeeper, armed with the welcome by startRun; a run saved without it has met him)
+  const meetKeeperFirst = (R) => !!(R.town && R.meetKeeper);
+  const firstGoal = (R) => (meetKeeperFirst(R) ? { name: TXT('sim_town.firstGoal'), line: TXT('sim_town.firstGoal.line', { p1: D.FOLK.keeper.name }) } : null);
+  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) && !(role !== 'keeper' && meetKeeperFirst(R)) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
@@ -658,7 +667,7 @@
   }
 
   Object.assign(SIMX, {
-    folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
+    folkR, HEN_APART, folkOf, folkFree, stepFolk, greetHold, meetKeeperFirst, firstGoal, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, stepCaptives, fleePath, dropStaleOffers, shopShut, craftShut, folkHere, questTalk, talkGotShown, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
