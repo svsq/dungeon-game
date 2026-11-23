@@ -53,9 +53,26 @@
     // opened in the frame never keeps the screen before it in its list (play's debug buttons, the menu's)
     // the screen is the one the step began on (re-review of PR 62: read after the step, a click that opened the codex filed the
     // pause's buttons under the codex)
-    let capOf = '';
-    const stepBegin = () => { P.cap = 1; rectsNow = []; got = 0; const S = io.play(); capOf = S ? S.screen : ''; };
-    const stepEnd = () => { P.cap = 0; if (got) { rects = rectsNow; rectsOf = capOf; } };
+    let capOf = '', saleQuestionWasOpen = false;
+    const stepBegin = () => {
+      P.cap = 1; rectsNow = []; got = 0;
+      const S = io.play();
+      capOf = S ? S.screen : '';
+      saleQuestionWasOpen = capOf === 'shop' && !!S.sellAsk;
+    };
+    const stepEnd = () => {
+      P.cap = 0;
+      if (got) { rects = rectsNow; rectsOf = capOf; }
+      if (!saleQuestionWasOpen) return;
+      const S = io.play();
+      if (S.screen !== 'shop' || S.sellAsk) return;
+      rects = SIM.Q.shopLayout(S.run, S.bagTab).r;
+      rectsOf = S.screen;
+      if (P.active) {
+        goTo(onBtns().find((button) => button.id === S.focus));
+        P.px = ptr.x; P.py = ptr.y;
+      }
+    };
 
     const down = (c) => { keys[c] = 1; pend.keys.push(c); held.add(c); };
     const up = (c) => { if (held.has(c)) { keys[c] = 0; held.delete(c); } };

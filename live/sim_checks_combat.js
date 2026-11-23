@@ -378,21 +378,49 @@
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
         const cg = R.shop.goods.find((q) => q.n); h.gold = 1e6; const c0 = cg.n; step(S, at('buy:' + R.shop.goods.indexOf(cg)));
         if (h.gold !== 1e6 || cg.n !== c0) out.push('a buy into a full bag took the gold');
-        // TASKS 1863 г, в, д, 1978: a legendary asks first; «Оставить» and Esc keep it with the shop open, «Продать» sells it; the right
-        // button sells as the left does, I leaves the shop open
-        const SA = UI.sellAsk(), sa = (id) => { const b = SA.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
-        h.bag[0] = Object.assign({}, h.eq.weapon, { id: 71000, lvl: h.eq.weapon.lvl + 1, rar: 0 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: an upgrade is sold on one press');
-        if (!S.sellAsk) out.push('shop: an upgrade sale does not ask');
-        step(S, sa('sellNo')); if (S.sellAsk || !h.bag[0] || h.gold !== g0) out.push('shop: «Оставить» does not keep the legendary');
-        step(S, at('sell:0')); step(S, { keys: ['Escape'] }); if (S.sellAsk || S.screen !== 'shop' || !h.bag[0]) out.push('shop: Esc on the sale\'s question does not just close the question');
-        step(S, at('sell:0')); step(S, sa('sellYes')); if (S.sellAsk || (h.bag[0] && h.bag[0].id === 71000)) out.push('shop: «Продать» does not sell the legendary');
-        if (S.focus !== 'sell:0' || h.bag[0]) out.push('shop: focus does not return to the emptied sale cell');
+        const rarity = (id) => D.RARITY.findIndex((entry) => entry.id === id);
+        const epic = rarity('epic'), rare = rarity('rare'), legendary = rarity('legendary');
+        const cell = 'sell:0', equipped = itemPower({ b: 'sword', lvl: h.lvl, rar: epic, mods: { hp: 5 } });
+        h.eq.weapon = equipped;
+        const stronger = { ...equipped, atk: equipped.atk + 1, mods: {} };
+        const directSales = [
+          ['other class', { ...stronger, b: 'staff', lvl: equipped.lvl + 1 }],
+          ['below epic', { ...stronger, rar: rare }],
+          ['no stat improvement', { ...equipped, lvl: equipped.lvl + 1, rar: legendary }],
+        ];
+        for (const [label, item] of directSales) {
+          h.bag[0] = { ...item, id: R.nextId++ };
+          step(S, at(cell));
+          if (S.sellAsk || h.bag[0]) out.push('shop: expected immediate sale for ' + label);
+          if (S.sellAsk) step(S, { keys: ['Escape'] });
+        }
+        const SA = UI.sellAsk(), sa = (id) => {
+          const button = SA.r.find((entry) => entry.id === id);
+          return { px: button.x + button.w / 2, py: button.y + button.h / 2, click: 1, keys: [] };
+        };
+        const outcomes = [
+          [sa('sellNo'), false],
+          [{ ...sa('sellNo'), click: 0, keys: ['Escape'] }, false],
+          [sa('sellYes'), true],
+        ];
+        for (const [input, sold] of outcomes) {
+          const item = { ...stronger, id: R.nextId++ }, gold = h.gold, price = D.sellPrice(item, SIMX.tradeDepth(R));
+          h.bag[0] = item;
+          step(S, at(cell));
+          if (!S.sellAsk || h.bag[0] !== item || h.gold !== gold) out.push('shop: an epic with one improved stat must ask before sale');
+          step(S, input);
+          if (S.sellAsk || S.screen !== 'shop' || h.bag[0] !== (sold ? null : item) || h.gold !== gold + (sold ? price : 0)) {
+            out.push('shop: incorrect outcome when closing the sale question');
+          }
+          step(S, { px: input.px, py: input.py, moved: false, keys: [] });
+          if (S.focus !== cell || S.hover !== cell) out.push('shop: focus does not stay on the original cell after ' + (sold ? 'sale' : 'decline'));
+        }
         { const U2 = UI.shop(R.shop.goods.length, h.bag.length), A = SA.A, inA = (b) => b.x >= A.x && b.y >= A.y && b.x + b.w <= A.x + A.w && b.y + b.h <= A.y + A.h;
           const hit = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y), parts = [SA.cell, SA.q, ...SA.r];
           if (!parts.every(inA)) out.push('shop: the sale\'s question leaves its sheet');
           if (parts.some((a, i) => parts.some((b, j) => j > i && hit(a, b)))) out.push('shop: the sale\'s question, its cell or its buttons overlap');
           if (U2.r.some((b) => (b.id === 'talk' || b.id === 'close') && hit(b, A))) out.push('shop: the sale\'s question sits over the merchant\'s buttons'); }
-        h.bag[1] = Object.assign({}, h.eq.weapon, { id: 71001, rar: 4 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell an equivalent legendary');
+        h.bag[1] = { ...equipped, id: R.nextId++ }; step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell an equivalent legendary');
         step(S, { keys: ['KeyI'] }); if (S.screen !== 'shop') out.push('shop: I closes it, only E and Esc should');
         step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('Esc does not close the shop'); } }
     // a jam in a two-cell corridor (TASKS 151): monsters queued behind the ones at the hero don't stand still for long, they leave;

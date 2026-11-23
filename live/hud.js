@@ -887,7 +887,7 @@
   }
   // ---------------- the merchant's screen ----------------
   function shop(S, R, t) {
-    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length, h.bag.length, S.bagTab), P = U.P, f = SIM.Q.tradeDepth(R);
+    const h = R.hero, sh = R.shop, U = SIM.Q.shopLayout(R, S.bagTab), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); KIT.panel('shop', P.x, P.y, P.w, P.h, 'leather');
     // the title on a ribbon over the shelf, as the chest's and the bag's are (TASKS 1891), the merchant's name and trade under it
     const scx = P.x + 268; KIT.banner('sh_t', scx, P.y + 12, 360, TXT('hud.shop.banner'), { h: 64, size: 32 });
@@ -999,6 +999,7 @@
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
   // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
   const UP = '#8fd98a', DOWN = '#e0604f';
+  const EQUIPMENT_TOTAL_LABEL = { maxHp: 'hud.compare.tot', atk: 'hud.compare.tot.2', def: 'hud.compare.tot.3' };
   // a worn piece that adds nothing to a stat leaves the card's own line as the whole difference, so only stats the worn piece
   // also gives are listed; `dim` mutes the comparison of a piece that can't be worn yet, `compact` drops the stat rows
   function compare(S, it, slot, h, lines, o) {
@@ -1011,10 +1012,10 @@
       lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), mute(d > 0 ? UP : DOWN), 19]); }
     const pw = (x) => { const U = x && D.UNIQUES[x.u]; return U ? D.POWERS[U.power].name : x && D.POWERS[x.pw] ? TXT('hud.compare.weak', { name: D.POWERS[x.pw].name }) : TXT('hud.compare.none'); };
     if (pw(it) !== pw(cur)) lines.push(['   ' + TXT('hud.compare.power', { p1: pw(cur), p2: pw(it) }), mute(C.gold), 19]);
-    const s0 = SIM.Q.stats(h, S.meta), s1 = SIM.Q.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
-    const tot = [[TXT('hud.compare.tot'), 'maxHp'], [TXT('hud.compare.tot.2'), 'atk'], [TXT('hud.compare.tot.3'), 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
-    if (tot.length) lines.push([TXT('hud.compare.3', { p1: tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · ') }),
-      mute(tot.every(([, k]) => s1[k] >= s0[k]) ? UP : tot.every(([, k]) => s1[k] <= s0[k]) ? DOWN : C.gold), 20]);
+    for (const { key, before, after, direction } of SIM.Q.equipmentComparison(h, S.meta, slot, it)) {
+      if (!direction) continue;
+      lines.push([TXT('hud.compare.3', { p1: TXT(EQUIPMENT_TOTAL_LABEL[key]) + ' ' + before + ' → ' + after }), direction > 0 ? UP : DOWN, 20]);
+    }
   }
   function tooltip(S, it, b, h, deal, at, box) {
     const bx = box || [10, 10, W - 10, H - 10], cons = SIM.Q.isCons(it), B = cons ? null : D.BASES[it.b];

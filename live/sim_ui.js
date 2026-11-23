@@ -508,14 +508,26 @@
     if (click && b && b.id === 'reroll') SIMX.rerollAltar(S, R, sh, x, y);
     return;
   };
+  const shopLayout = (run, tab) => UI.shop(run.shop.goods.length, run.hero.bag.length, tab);
+  function closeSaleQuestion(S, R, answer, x, y) {
+    const { i, id } = S.sellAsk, item = R.hero.bag[i];
+    S.sellAsk = null;
+    S.hover = S.focus = 'sell:' + i;
+    if (answer > 0 && item && item.id === id) sell(S, R, i);
+    else ev(S, { k: 'ui', x, y });
+  }
   SCREEN.shop = (S, inp, keys, x, y, click) => {
     const R = S.run, sh = R.shop;
-    if (S.sellAsk) { const a = askAnswer(S, UI.sellAsk(), keys, x, y, click, inp.moved), A = S.sellAsk, it = R.hero.bag[A.i];
-      if (a) { S.sellAsk = null; S.focus = 'sell:' + A.i; S.hover = ''; if (a > 0 && it && it.id === A.id) sell(S, R, A.i); else ev(S, { k: 'ui', x, y }); }
-      return; }
+    if (S.sellAsk) {
+      const answer = askAnswer(S, UI.sellAsk(), keys, x, y, click, inp.moved);
+      if (answer) closeSaleQuestion(S, R, answer, x, y);
+      return;
+    }
     if (splitStep(S, R, inp, keys, x, y, click)) return;
-    const U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    const b = D.hitUI(shopLayout(R, S.bagTab).r, x, y);
+    if (inp.moved || click || inp.rclick) S.focus = '';
+    S.hover = S.focus?.startsWith('sell:') ? S.focus : (b ? b.id : '');
+    if (keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; S.focus = ''; return; }
     if (click && b && inp.shift && ((b.id.startsWith('sell:') && splitOpen(S, R, b.id, 'sell', x, y)) || (b.id.startsWith('buy:') && splitOpen(S, R, b.id, 'buy', x, y)))) return;
     if (inp.rclick && b && b.id.startsWith('sell:')) { sellAsk(S, R, b.i, x, y); return; }
     if (!click || !b) return;
@@ -526,12 +538,22 @@
     if (b.id.startsWith('sell:')) sellAsk(S, R, b.i, x, y);
     return;
   };
-  const sellUpgrade = (h, it) => { const B = D.BASES[it.b]; if (!B || !B.slot) return false;
-    const cur = h.eq[B.slot]; if (!cur) return true;
-    const a = SIMX.itemMods(it), b = SIMX.itemMods(cur);
-    return it.lvl > cur.lvl || (it.atk || 0) > (cur.atk || 0) || (it.def || 0) > (cur.def || 0) || Object.keys(a).some((k) => a[k] > (b[k] || 0)); };
-  const sellAsk = (S, R, i, x, y) => { const it = R.hero.bag[i]; if (!it) return;
-    if (!sellUpgrade(R.hero, it)) sell(S, R, i); else { S.sellAsk = { i, id: it.id }; S.focus = 'sellNo'; S.hover = ''; ev(S, { k: 'ui', x, y }); } };
+  const EPIC_RARITY = D.RARITY.findIndex(({ id }) => id === 'epic');
+  function needsSaleConfirmation(hero, meta, item) {
+    if (!D.wears(D.clsOf(hero).id, item.b)) return false;
+    if ((item.rar ?? 0) < EPIC_RARITY) return false;
+    const slot = D.BASES[item.b]?.slot;
+    return !!slot && SIMX.equipmentComparison(hero, meta, slot, item).some(({ direction }) => direction > 0);
+  }
+  function sellAsk(S, R, i, x, y) {
+    const item = R.hero.bag[i];
+    if (!item) return;
+    if (!needsSaleConfirmation(R.hero, S.meta, item)) { sell(S, R, i); return; }
+    S.sellAsk = { i, id: item.id };
+    S.focus = 'sellNo';
+    S.hover = '';
+    ev(S, { k: 'ui', x, y });
+  }
   // one way out of every window (TASKS 1863 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
   // the rows stand as the board opened until it closes (TASKS 1885): a taken one stays in place with its button out, so the rows
@@ -641,6 +663,6 @@
     S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved, py }), keys, inp.px, py, inp.click); S.uiKey = uiKey(S); commitDraft(S);
   }
 
-  Object.assign(SIMX, { talkWalk, talkFirst, boardRows,
+  Object.assign(SIMX, { talkWalk, talkFirst, boardRows, shopLayout,
     endRun, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

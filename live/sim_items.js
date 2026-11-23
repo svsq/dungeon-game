@@ -134,6 +134,16 @@
     return out;
   }
 
+  const EQUIPMENT_TOTALS = ['maxHp', 'atk', 'def'];
+  function equipmentComparison(hero, meta, slot, item) {
+    const current = stats(hero, meta);
+    const replacement = stats({ ...hero, eq: { ...hero.eq, [slot]: item } }, meta);
+    return EQUIPMENT_TOTALS.map((key) => {
+      const before = Math.round(current[key]), after = Math.round(replacement[key]);
+      return { key, before, after, direction: Math.sign(after - before) };
+    });
+  }
+
   function propBoxes(R) { const m = R.map, out = [], add = (x, y, n, k = 1) => { if (D.PROP_W[n]) out.push([x, y, D.PROP_W[n] * k / 2, D.PROP_H[n] * k]); };
     for (const c of R.chests) add(c.x, c.y, 'chest', c.tier >= 2 ? 1.15 : 1); for (const p of R.pots) if (p.hp > 0) add(p.x, p.y, p.kind);
     for (const d of m.decor) if (!d.wall && (d.solid || ['shroom_a', 'shroom_b', 'skel_cv'].includes(d.n))) add(d.x, d.y, d.n, d.s || 1); for (const t of m.torches) if (t.kind !== 'wall') add(t.x, t.y, 'brazier', t.kind === 'fire' ? 1.35 : 1);
@@ -205,5 +215,5 @@
 
   Object.assign(SIMX, {
     sortItems, itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, uniqueItem, bossPrize, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
-    stats, hitFrame, propBoxes, behindProp, DROP_REST, stepDrops, takeItem, tossedNear });
+    stats, equipmentComparison, hitFrame, propBoxes, behindProp, DROP_REST, stepDrops, takeItem, tossedNear });
 })(typeof window !== 'undefined' ? window : globalThis);
