@@ -114,17 +114,17 @@
   // rest pose (an aim straight up is an uppercut), which keeps the wind-up short in every direction.
   const SWING = { pull: 0.09, follow: 0.09, end: 0.5, back: 0.35, over: 0.5 }, TAU = Math.PI * 2;
   const wrapPi = (a) => a - TAU * Math.floor((a + Math.PI) / TAU);
-  function swingPose(T, saRaw, arc, rest, from) {
+  function swingPose(T, saRaw, arc, rest, from, hit = SIM.K.HIT, recoveryEnd = SWING.end) {
     const sa = Math.PI / 2 + wrapPi(saRaw - Math.PI / 2), lo = sa - arc / 2, hi = sa + arc / 2;
     const dir = Math.abs(wrapPi(lo - rest)) <= Math.abs(wrapPi(hi - rest)) ? 1 : -1, start = dir > 0 ? lo : hi, end = dir > 0 ? hi : lo;
     const a0 = start - dir * SWING.back, th = arc + SWING.back, Ta = SWING.pull;
-    const Ts = Ta + (SIM.K.HIT - Ta) / Math.pow((arc / 2 + SWING.back) / th, 1 / 1.5), vEnd = 1.5 * th / (Ts - Ta), Tf = Ts + SWING.follow;
+    const Ts = Ta + (hit - Ta) / Math.pow((arc / 2 + SWING.back) / th, 1 / 1.5), vEnd = 1.5 * th / (Ts - Ta), Tf = Ts + SWING.follow;
     const follow = (x) => end + dir * SWING.over * (1 - Math.exp(-x * vEnd / SWING.over));   // leaves the strike at its speed, settles SWING.over past the arc
     let blade, k = 1, bend, fs = 1;
     if (T < Ta) { const q = SS(0, Ta, T), b0 = from ? from.blade : rest, k0 = from ? from.k : 0; k = k0 + (1 - k0) * q; blade = b0 + wrapPi(a0 - b0) * q; bend = 1.1; }
     else if (T < Ts) { const e = Math.pow((T - Ta) / (Ts - Ta), 1.5); blade = a0 + dir * th * e; bend = 1.1 - 0.95 * e; }
     else if (T < Tf) { blade = follow(T - Ts); bend = 0.15 + 0.15 * SS(Ts, Tf, T); }
-    else { const bf = follow(Tf - Ts), u = (T - Tf) / (SWING.end - Tf), q = SS(0, 1, u), d0 = wrapPi(rest - bf), d1 = d0 - Math.sign(d0) * TAU;
+    else { const bf = follow(Tf - Ts), u = (T - Tf) / (recoveryEnd - Tf), q = SS(0, 1, u), d0 = wrapPi(rest - bf), d1 = d0 - Math.sign(d0) * TAU;
       const via = (d, x) => { let t = wrapPi(x - bf); if (d < 0 && t > 0) t -= TAU; if (d > 0 && t < 0) t += TAU; return Math.abs(t) <= Math.abs(d); };   // the blade lowers past the hip
       blade = bf + (via(d0, Math.PI / 2) || Math.abs(d1) > 1.25 * Math.PI ? d0 : d1) * SS(0.15, 0.75, u); k = 1 - q; bend = 0.3; fs = 1 - 0.6 * SS(0, 0.2, u) * (1 - SS(0.6, 0.95, u)); }
     return { blade, k, bend, fs, dir, start, end, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
@@ -193,6 +193,9 @@
     if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(130 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const LK = D.lookOf(h), pn = LK.rig + '__', P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
+    const clubBase = D.BASES[st.wtype], club = clubBase?.club;
+    const clubEvent = club && o.events?.find((e) => e.k === 'swing' && e.kind === 'staffClub' && e.t === h.atkT);
+    const clubT = clubEvent ? GT - clubEvent.t : -1, clubSwing = clubT >= 0 && clubT < club.cooldown;
     const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && !['whirl', 'charge', 'cry'].includes(h.castK);
     // whirl: the hand and blade sweep a ground ellipse at waist height around the body from the aim, behind it while pointing away;
     // eased in from the current pose and out of a crouch
@@ -201,9 +204,9 @@
     // a turn mirrors the rig in one frame: narrowing it through a sliver read as a flat cut-out card spinning; the cape swings out instead
     // (the render's clock may trail the turn's stamp by a step: there it is the old facing, not the new one for a frame)
     // (TASKS 2156) only a melee swing still turns in one frame: its arcs are laid out for the facing it strikes in
-    const melee = swinging && !(D.clsOf(h).shoots || []).includes(st.wtype), fT = h.faceT ?? -9, inAct = [h.atkT, h.castT].some((t0) => fT - t0 > -0.05 && fT - t0 < SWING.end);
+    const melee = clubSwing || swinging && !(D.clsOf(h).shoots || []).includes(st.wtype), fT = h.faceT ?? -9, inAct = [h.atkT, h.castT].some((t0) => fT - t0 > -0.05 && fT - t0 < SWING.end);
     const turnT = GT - fT, turnD = TURN_T, turning = !o.menu && h.deadT < 0 && !melee && turnT >= -0.05 && turnT < turnD, turnK = turning ? SS(0, 0.04, turnT) * (1 - SS(turnD - 0.04, turnD, turnT)) : 0;
-    const face = turning && turnT < turnD / 2 ? -h.face : h.face, fX = face;
+    const face = clubSwing ? clubEvent.f : turning && turnT < turnD / 2 ? -h.face : h.face, fX = face;
     const tIn = turnD / 2 - TUCK_HOLD, tOut = turnD / 2 + TUCK_HOLD, tRel = inAct || whirlE > 0 ? TUCK_REL : tIn, tuckL = !o.menu && h.deadT < 0 && !melee && turnT >= 0 && turnT < tOut + tRel
       ? (turnT < tIn ? 1 - Math.cos(Math.PI / 2 * turnT / tIn) : turnT < tOut ? 1 : 1 - Math.sin(Math.PI / 2 * (turnT - tOut) / tRel)) : 0;
     // (TASKS 2162) in a whirl the free hand and the shield come in as in any turn (posed in rig space they mirrored across the body, the
@@ -232,14 +235,15 @@
     // (eased in and out, and slow enough that one frame's shudder is not a break in the pose, TASKS 1702)
     const cryShake = h.castK === 'cry' ? 0.04 * Math.sin(GT * 40) * SS(0.14, 0.26, castT) * (1 - SS(0.48, 0.6, castT)) : 0;
     const W = WEAPON[st.wtype];
-    // a class that shoots from this weapon (the mage's staff, TASKS 1115) does not swing it: the arm brings the staff up toward the aim,
+    // For a shot, the arm brings the weapon up toward the aim,
     // crystal first, over the bolt's frame (raised in the 0.13 s to it, the hand jumped 7 % of the height a frame), holds it a moment and lowers it; at rest it stands more upright than a blade
     // a shot follows the last one's envelope (the wand fires every 0.36 s: the new shot's raise starting at 0 dropped the staff in a frame)
     const shooter = (D.clsOf(h).shoots || []).includes(st.wtype), BT = D.SHOTS[(D.BASES[st.wtype] || {}).shot || 'bolt'].t, rise0 = (T) => { const x = Math.max(0, Math.min(1, T / BT)); return 0.5 * x * (2 - x) + 0.5 * x * x * (3 - 2 * x); }, shotEnv = (T) => (T >= 0 && T < SWING.end ? rise0(T) * (1 - SS(BT + 0.06, SWING.end - 0.02, T)) : 0);
     // a crossbow is not drawn: it is shouldered, its stock along the shot, the far hand under the fore-stock (TASKS 1711)
     const xbow = shooter && st.wtype === 'crossbow' && !!window.ASSETS[W[0] + '_h'], pole = shooter && !xbow && W ? POLE[W[0]] : null;
     const bowArm = shooter && !!(D.BASES[st.wtype] || {}).dex, drawE = bowArm && !xbow && swinging ? SS(0.02, BT, atkT) * (1 - SS(BT, BT + 0.08, atkT)) : 0;
-    const shootE = shooter && swinging ? Math.max(shotEnv(atkT), h.patkT < h.atkT ? shotEnv(GT - h.patkT) : 0, atkT < BT ? Math.min(1, shotEnv(GT - h.patkT) + shotEnv(atkT)) : 0) : 0;
+    const shooting = shooter && swinging && !clubEvent;
+    const shootE = shooting ? Math.max(shotEnv(atkT), h.patkT < h.atkT ? shotEnv(GT - h.patkT) : 0, atkT < BT ? Math.min(1, shotEnv(GT - h.patkT) + shotEnv(atkT)) : 0) : 0;
     // (a bow raised for the volley in 0.07 s jumped the hands 13 % of the height a frame, though its arrows leave at once, TASKS 1702)
     const castE = casting ? SS(0, h.castK === 'leap' ? 0.2 : bowArm ? 0.13 : h.castK === 'frost' ? 0.17 : 0.24, castT) * (1 - SS(0.3, 0.5, castT)) : 0;
     // (TASKS 1800) a shot or a cast is done with the body, not the arm alone: the torso leans back on the draw or the raise by `b`, is
@@ -252,9 +256,9 @@
     const stepOf = (T, rel) => { const e1 = backBy(rel, 0.45); return T >= 0 && T < e1 ? SS(0, 0.09, T) * (1 - SS(Math.min(rel + 0.2, e1 - 0.2), e1, T)) : 0; };
     const RB = !shooter ? [0.08, 0.14] : xbow ? [-0.05, -0.1] : bowArm ? [0.12, 0.1] : [0.07, 0.13];
     const CK = { frost: [0.08, 0.16, 0.07], fireball: [shooter ? 0.14 : 0.18, 0.1, 0.14], volley: [D.VOLLEY.loose, 0.12, 0.08] }[h.castK];
-    const pShot = shooter && h.patkT < h.atkT ? GT - h.patkT : -1, shotLean = shooter && swinging ? rangedOf(atkT, BT, RB[0], RB[1]) + rangedOf(pShot, BT, RB[0], RB[1]) * (1 - SS(0, 0.08, atkT)) : 0;
+    const pShot = shooter && h.patkT < h.atkT ? GT - h.patkT : -1, shotLean = shooting ? rangedOf(atkT, BT, RB[0], RB[1]) + rangedOf(pShot, BT, RB[0], RB[1]) * (1 - SS(0, 0.08, atkT)) : 0;
     const castLean = casting && CK ? rangedOf(castT, CK[0], CK[1], CK[2]) : 0;
-    const rangedLean = (shotLean + castLean) * h.face, rangedStep = Math.max(shooter && swinging ? Math.max(stepOf(atkT, BT), stepOf(pShot, BT)) : 0, casting && CK ? stepOf(castT, CK[0]) : 0) * (1 - run);
+    const rangedLean = (shotLean + castLean) * h.face, rangedStep = Math.max(shooting ? Math.max(stepOf(atkT, BT), stepOf(pShot, BT)) : 0, casting && CK ? stepOf(castT, CK[0]) : 0) * (1 - run);
     // the whirl turns the torso with the blade: it leans after it round the turn (its back view is shown while the blade is behind)
     const whirlLean = whirlE > 0 ? 0.15 * whirlE * Math.cos(whirlTh) : 0;
     const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face - 0.14 * cryPrep * face + cryShake - 0.16 * hop * face + rangedLean + whirlLean;
@@ -335,7 +339,7 @@
     let swingK = 0, bend = 0, bladeFs = 1, armA = 0, blowA = null;
     // the swing aims along shoulder → target (chest height at 0.8 reach), not along the raw aim from the feet, so the blade crosses
     // the body it hits even when the arm is raised for an uppercut
-    const swAim = (a) => { const sh = R2U(RG.shR[0], RG.shR[1] + hipDy), tx = hx + Math.cos(a) * st.reach * 0.8, ty = hy + Math.sin(a) * st.reach * 0.8 - 34, g = Math.atan2(ty - sh[1], tx - sh[0]);
+    const swAim = (a, reach = st.reach) => { const sh = R2U(RG.shR[0], RG.shR[1] + hipDy), tx = hx + Math.cos(a) * reach * 0.8, ty = hy + Math.sin(a) * reach * 0.8 - 34, g = Math.atan2(ty - sh[1], tx - sh[0]);
       return face > 0 ? g : Math.PI - g; };
     // (the thrust rises over 0.2 s: thrown out in 0.1 s the hand jumped 7–11 % of the height a frame, TASKS 1702)
     const chargeE = h.castK === 'charge' ? SS(0.02, 0.22, castT) * (1 - SS(0.3, 0.55, castT)) : 0, cryE = h.castK === 'cry' ? SS(0.08, 0.28, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
@@ -346,7 +350,11 @@
     // (TASKS 2156) the lowered blade hangs plumb from behind as the hands come in: at the back view's own pace it swung 18 px in a frame
     const guardA = BLADE_REST + (BACK_VIEW.blade - BLADE_REST) * backV, lowA = GUARD.low + (GUARD.backLow - GUARD.low) * Math.max(tuck, backF) * (1 - whirlE);
     const actT = Math.max(h.atkT ?? -9, h.whirlT ?? -9, h.castT ?? -9), guard = Math.max(guardOf(GT - actT), guardOf(GT - (h.patkT ?? -9))), restA = lowA + (guardA - lowA) * guard;
-    if (whirlE === 0 && swinging && !shooter) { const arcR = st.arc * Math.PI / 180, pT = GT - (h.patkT === undefined ? -9 : h.patkT);
+    if (clubSwing && pole) {
+      blowA = swAim(clubEvent.a, clubBase.reach);
+      const sw = swingPose(clubT, blowA, clubBase.arc * Math.PI / 180, pole.rest, null, club.windup, club.cooldown);
+      bladeA = sw.blade; armA = sw.arm; swingK = sw.k; bend = sw.bend; bladeFs = sw.fs;
+    } else if (whirlE === 0 && swinging && !shooter) { const arcR = st.arc * Math.PI / 180, pT = GT - (h.patkT === undefined ? -9 : h.patkT);
       const prev = pT < SWING.end && h.patkT < h.atkT ? swingPose(pT, swAim(h.patkA), arcR, guardA) : null;
       const sw = swingPose(atkT, swAim(h.atkA), arcR, guardA, prev || { blade: restA, k: 0 });
       bladeA = sw.blade; armA = sw.arm; swingK = sw.k; bend = sw.bend; bladeFs = sw.fs; blowA = swAim(h.atkA); }
@@ -376,12 +384,13 @@
     // (TASKS 2156) the staff is heavy: its arm barely swings on the run, or on the back swing the upper arm covered the crystal in 4 of 12 frames
     // (TASKS 2181) and drawn up by HOLD_RUN of the arm on the run: from the near plumb hold the swing dropped the fist under 0.46 H
     if (hold && W) reach(arms.R, hold[0] * (1 - tuckL) * armLen(arms.R), (hold[1] - HOLD_RUN * run) * armLen(arms.R), 1 - (pole ? POLE_SWING : 0.5) * run);
-    if (swingK > 0) {
+    const swingArm = () => {
       armR = arms.R; const w = wrapPi(armA - Math.PI / 2), r1 = w - 0.15 * Math.sin(w);   // ≈0.85·w near rest, yet periodic: no spin at ±π
       armR.r2 = armR.r2 + wrapPi(r1 + bend - armR.r2) * swingK; armR.r1 = armR.r1 + wrapPi(r1 - armR.r1) * swingK;
-    }
+    };
+    if (swingK > 0 && !clubSwing) swingArm();
     // a shot's weapon follows the aim the shot was loosed on, not the live pointer (TASKS 1153: a mouse turned in the wind-up parted staff and bolt); the kick belongs to what is being done
-    const aimS = shooter && swinging && shootE >= castE ? (h.face > 0 ? h.atkA : Math.PI - h.atkA) : aimL, kickT = castE > shootE ? castT : atkT;
+    const aimS = shooting && shootE >= castE ? (h.face > 0 ? h.atkA : Math.PI - h.atkA) : aimL, kickT = castE > shootE ? castT : atkT;
     // (TASKS 1800) the mage's three are three gestures: the shot a thrust down the aim, the frost the staff raised overhead and swept
     // down onto it, the fireball the free hand drawn in to the chest, then thrown at the aim
     // (TASKS 2156) and the staff raised high over it the while, crystal up: kept low it read as the plain shot's forward thrust
@@ -433,6 +442,7 @@
       const l = armLen(arms.L); reach(arms.L, 0.25 * l + Math.cos(aimL) * 0.6 * l, Math.sin(aimL) * 0.6 * l, castE);
       pose(arms.R, -0.25, 0.35, castE);
     }
+    if (clubSwing && swingK > 0) swingArm();
     // reading a scroll (TASKS 1032): the free hand holds it out before the chest, the sword arm lowered
     const readE = h.read && swingK === 0 && whirlE === 0 && castE === 0 ? SS(0, 0.3, GT - h.read.t0) : 0;
     if (readE > 0) { const l = armLen(arms.L); reach(arms.L, 0.6 * l, 0.12 * l, readE); pose(arms.R, -0.2, 0.3, readE); }
@@ -547,9 +557,9 @@
       L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
     const scroll = () => { const Hd = R2U(jL.Hd[0], jL.Hd[1]), w = 22, hh = w * 177 / 228;
       L.sprite('it_scroll', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(fallR + bodyR - 0.35 * fX), M.s(fX, 1)), w, h: hh, pivot: [w * 0.45, hh * 0.55], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.5, readE) }) }); };
-    const weapon = (uw = U) => { if (!W || SC.hide.weapon) return; const [tex0, len] = W, bowH = window.ASSETS[tex0 + '_h'], tex = shooter && bowH ? tex0 + '_h' : window.ASSETS[tex0 + '_held'] ? tex0 + '_held' : tex0, HdR = R2U(jR.Hd[0], jR.Hd[1]), HdL = R2U(jL.Hd[0], jL.Hd[1]), Hd = [...(bowHand < 0.5 ? HdR : HdL)], b0 = xbow ? 0.5 + arms.R.r1 * 0.5 : bowArm ? BOW_REST.ba + arms.R.r1 * 0.3 : pole ? pole.rest + arms.R.r1 * pole.lean : (shooter ? -1.18 : restA) + arms.R.r1 * 0.5, ba0 = bladeA !== null ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
+    const weapon = (uw = U) => { if (!W || SC.hide.weapon) return; const [tex0, len] = W, bowH = window.ASSETS[tex0 + '_h'], tex = shooter && bowH ? tex0 + '_h' : window.ASSETS[tex0 + '_held'] ? tex0 + '_held' : tex0, HdR = R2U(jR.Hd[0], jR.Hd[1]), HdL = R2U(jL.Hd[0], jL.Hd[1]), Hd = [...(bowHand < 0.5 ? HdR : HdL)], b0 = xbow ? 0.5 + arms.R.r1 * 0.5 : bowArm ? BOW_REST.ba + arms.R.r1 * 0.3 : pole ? pole.rest + arms.R.r1 * pole.lean : (shooter ? -1.18 : restA) + arms.R.r1 * 0.5, ba0 = bladeA !== null && !clubSwing ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
         pk0 = Math.max(shootE, shooter ? castE : 0), pk = atkT > BT ? pk0 * pk0 * (3 - 2 * pk0) : pk0, rise = shooter ? 0.15 * SS(BT - 0.01, BT + 0.05, kickT) * (1 - SS(BT + 0.05, BT + 0.25, kickT)) : 0,
-        bow = shooter && !xbow && !!(D.BASES[st.wtype] || {}).dex, ba1 = pk > 0 ? ba0 + wrapPi(aimG - (bow ? Math.PI / 2 : 0) - rise - ba0) * pk : ba0, ba2 = chargeE > 0 ? ba1 + wrapPi(aimL - ba1) * chargeE * (1 - swingK) : ba1, ba = cryE > 0 ? ba2 + wrapPi(-1.45 - ba2) * cryE : ba2;
+        bow = shooter && !xbow && !!(D.BASES[st.wtype] || {}).dex, ba1 = pk > 0 ? ba0 + wrapPi(aimG - (bow ? Math.PI / 2 : 0) - rise - ba0) * pk : ba0, ba2 = chargeE > 0 ? ba1 + wrapPi(aimL - ba1) * chargeE * (1 - swingK) : ba1, ba = clubSwing && pole ? bladeA + wrapPi(ba2 - pole.rest) * (1 - swingK) : cryE > 0 ? ba2 + wrapPi(-1.45 - ba2) * cryE : ba2;
       // (TASKS 2156) in a turn a raised weapon stands plumb at the mirror, so mirroring it does not swing its tip across
       // (TASKS 2192) and a lowered one hangs plumb under the hand, shortened to TURN_LOW so it clears the soles and the floor never tips
       // it to one side: pointed away from the camera it was cut to a tenth and hidden under the back view, gone for 3–4 frames
