@@ -6,7 +6,7 @@ const states=[],report=[];
 const base=(seed,f)=>{const S=SIM.spawn(0,{});S.run=SIM.newRun(S,'cave',seed);SIM.enterFloor(S,S.run,f);S.screen='play';const R=S.run,h=R.hero;R.en=[];R.pots=[];R.chests=[];R.msg=null;R.seen.fill(1);R.rseen.fill(1);h.ab.fireball=1;h.cd.fireball=0;h.mp=999;h.ifr=1e9;S.t=10;R.t=10;S.ev=[];return S;};
 const cast=(S,a)=>{const R=S.run,h=R.hero;h.aim=a;h.face=Math.cos(a)>=0?1:-1;R.cam=[h.x-960,h.y-540];const hand=SIM.hand(h);const inp={keys:[],px:hand[0]-R.cam[0]+Math.cos(a)*400,py:hand[1]-R.cam[1]+Math.sin(a)*400};SIM.step(S,{...inp,rclick:1});return inp;};
 let bridge=false;
-for(const seed of [3,7,1])for(let f=1;f<=4&&!bridge;f++) {
+for(const seed of [3,7,1,5])for(let f=1;f<=4&&!bridge;f++) {
   const S=base(seed,f),R=S.run,m=R.map,h=R.hero;
   for(const c of m.crossings.filter((c)=>c.kind==='bridge'&&!SIM.Q.crossingOnStones(m,c)))for(const post of c.posts) {
     if(bridge)break;

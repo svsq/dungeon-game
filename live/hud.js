@@ -79,10 +79,12 @@
   const msgLines = (s) => { const T = D.TOAST, parts = s.split('\n'), one = parts.length === 1 && lw('msg_m', s, { size: T.size }) <= T.one, size = one ? T.size : T.size2;
     return { size, ls: one ? [s] : parts.length > 1 ? parts.flatMap((q) => (lw('msg_m', q, { size }) <= T.one ? [q] : wrapWords(q, T.wrap, size))) : wrapWords(s, T.wrap, size) }; };
   // the floor's card while it is up (TASKS 1951 в): an elite's plate under it gives way, its own name read over the card's
-  const toastBox = (s) => { const { size, ls } = msgLines(s), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
-    return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
+  const toastLayout = (s) => { const { size, ls } = msgLines(s), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+    return { size, ls, lineHeight: size + 8, box: [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)] }; };
+  const toastBox = (s) => toastLayout(s).box;
   const fellRetryShown = SIM.Q.fellRetryShown;
-  const msgBox = (S) => { const R = S && S.run; if (R && fellRetryShown(S, R)) return toastBox(msgText(SIM.Q.fellRetryHint())); if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
+  const fellRetryText = (S, R) => fellRetryShown(S, R) ? msgText(SIM.Q.fellRetryHint()) : null;
+  const msgBox = (S) => { const R = S && S.run; const retryText = R && fellRetryText(S, R); if (retryText) return toastBox(retryText); if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
     return toastBox(msgText(R.msg)); };
@@ -503,11 +505,11 @@
     // floor banner
     // a boss's arrival plate gives way to its ribbon, or its name stood on the screen two and three times over (TASKS 1794)
     const named = boss && R.msg && R.msg.chapter === D.ENEMIES[boss.type].name;
-        const toast = (s, al) => { const { size, ls } = msgLines(s), lh = size + 8;
-      const w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
-      plate('msg_box', W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * lh, { a: al });
-      ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lh, { size, al: 0.5, col: C.gold, a: al })); };
-    if (fellRetryShown(S, R)) toast(msgText(SIM.Q.fellRetryHint()), 1);
+        const toast = (s, al) => { const { size, ls, lineHeight, box: [bx, by, bw, bh] } = toastLayout(s);
+      plate('msg_box', bx, by, bw, bh, { a: al });
+      ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lineHeight, { size, al: 0.5, col: C.gold, a: al })); };
+    const retryText = fellRetryText(S, R);
+    if (retryText) toast(retryText, 1);
     else if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = msgText(R.msg);
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
       else toast(s, al); } }

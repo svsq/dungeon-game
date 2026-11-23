@@ -386,10 +386,10 @@
       { const { S, R, h, foe, ok } = arena('mage');
         if (ok) {
           const club = BASES.staff.club, e = foe(200);
-          h.eq.weapon.atk = 1000; h.eq.weapon.mods.crit = -100;
+          h.eq.weapon.mods.crit = -100;
           Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
           step(S, { keys: [], press: 1, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
-          const clubStart = h.atkT; h.eq.weapon.b = 'sword';
+          const clubStart = h.atkT; h.eq.weapon.b = 'wand';
           for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) step(S, { keys: [] });
           const hit = S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id);
           if (!hit || hit.t - clubStart < club.windup || hit.t - clubStart > club.windup + 2 * DT || S.ev.some((q) => q.k === 'bolt')) out.push('class mage: a club blow changes its shape when the weapon is swapped before its hit frame'); } }

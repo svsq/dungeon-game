@@ -545,7 +545,7 @@
       if (h.deadT < 0 || h.hp !== 0 || h.xp !== XP || R.floor !== floor || (S.meta.deaths || 0) !== deaths) out.push('death mode: failed town entry changes the dead hero');
       const hint = SIMX.fellRetryHint(), shown = (state) => SIMX.fellRetryShown(state, state.run);
       if (!R.fellFailed || !shown(S)) out.push('death mode: failed town entry does not flag the run or show the retry hint');
-      if (SIMX.messageText(hint, true) !== TXT('sim_ui.fell.retry@pad') || SIMX.FELL_RETRY_KEYS.some((key) => !SIMX.messageText(hint, false).includes(TXT('sim_ui.fell.key.' + key)))) out.push('death mode: the retry hint does not follow the input method or name every retry key');
+      if (SIMX.messageText(hint, true) !== TXT('sim_ui.fell.retry@pad') || SIMX.FELL_RETRY_KEYS.some((key) => !SIMX.messageText(hint, false).includes(SIMX.FELL_RETRY_KEY_NAMES[key]()))) out.push('death mode: the retry hint does not follow the input method or name every retry key');
       S.t = h.deadT + 2; step(S, { keys: [] }); if (!R.fellFailed || h.deadT < 0) out.push('death mode: failed town entry retries without a key');
       S.t += 60; R.msg = { s: 'other', t: S.t, d: 1 }; step(S, { keys: [] }); S.t += 60; step(S, { keys: [] });
       if (!shown(S)) out.push('death mode: the retry hint goes away while the hero is dead or under another message');

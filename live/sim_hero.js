@@ -210,9 +210,9 @@
   }
 
   // ---------------- the world step (screen 'play') ----------------
-  const FELL_DELAY_SECONDS = 1.6, FELL_RETRY_KEYS = ['Enter', 'Space'];
+  const FELL_DELAY_SECONDS = 1.6, FELL_RETRY_KEY_NAMES = { Enter: () => TXT('sim_ui.fell.key.Enter'), Space: () => TXT('sim_ui.fell.key.Space') }, FELL_RETRY_KEYS = Object.keys(FELL_RETRY_KEY_NAMES);
   const fellRetryShown = (S, R) => S.screen === 'play' && !!R.fellFailed && R.hero.deadT >= 0;
-  const fellRetryHint = () => ({ s: TXT('sim_ui.fell.retry', { keys: FELL_RETRY_KEYS.map((key) => TXT('sim_ui.fell.key.' + key)).join(', ') }), pad: TXT('sim_ui.fell.retry@pad') });
+  const fellRetryHint = () => ({ s: TXT('sim_ui.fell.retry', { keys: FELL_RETRY_KEYS.map((key) => FELL_RETRY_KEY_NAMES[key]()).join(', ') }), pad: TXT('sim_ui.fell.retry@pad') });
   function stepPlay(S, inp, keys) {
     const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t; R.play = (R.play ?? (R.log ? R.log.fl.reduce((n, L) => n + L.time, 0) : 0)) + DT; tally(S, R, 'time', DT);   // saves from before the counter resume from the journal's per-floor time
     SIMX.stepArena(S, R);
@@ -445,5 +445,5 @@
 
   Object.assign(SIMX, {
     heroSt, heroRoll, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, killHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
-    stepPlay, fellRetryHint, fellRetryShown, FELL_RETRY_KEYS });
+    stepPlay, fellRetryHint, fellRetryShown, FELL_RETRY_KEYS, FELL_RETRY_KEY_NAMES });
 })(typeof window !== 'undefined' ? window : globalThis);

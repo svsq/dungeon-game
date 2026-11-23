@@ -370,7 +370,8 @@
       else { const U = UI.shop(R.shop.goods.length), at = (id) => { const b = U.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
         const rarity = (id) => D.RARITY.findIndex((entry) => entry.id === id);
         const epic = rarity('epic'), rare = rarity('rare'), legendary = rarity('legendary');
-        const g = R.shop.goods.find((q) => !q.n && (q.it.rar || 0) < epic), n0 = R.shop.goods.length, gi = R.shop.goods.indexOf(g); h.gold = g.price - 1; step(S, at('buy:' + gi));
+        const g = R.shop.goods.find((q) => !q.n && (q.it.rar || 0) < epic); if (!g) throw new Error('shop check: the stock holds no good below epic to buy');
+        const n0 = R.shop.goods.length, gi = R.shop.goods.indexOf(g); h.gold = g.price - 1; step(S, at('buy:' + gi));
         if (R.shop.goods.length !== n0 || h.gold !== g.price - 1) out.push('a buy went through without enough gold');
         h.gold = g.price + 5; step(S, at('buy:' + gi));
         if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('a buy did not take its price or did not land in the bag');

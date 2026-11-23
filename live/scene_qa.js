@@ -1381,8 +1381,9 @@
     transitions.hero_hurt = eventT(clear, (S) => { const h = S.run.hero; h.hurtT = S.t; h.hurtX = 1; });
     transitions.hero_turn = eventT(clear, (S) => { const h = S.run.hero; h.face = -h.face; h.faceT = S.t; });
     // whirl and cast need the pointer held on one aim: the sim re-aims the hero every step
+    const AIM_FIRE_FRAME = 5;
     const aimT = (a, fire) => { const fr = []; let S = play(clear); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
-      if (i === MAGE_FIRST_PRESS) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } fire(S, h); } fr.push(S); S = structuredClone(S);
+      if (i === AIM_FIRE_FRAME) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, keys: [] }); } return fr; };
     const whirl = (S, h) => { h.whirlT = h.castT = S.t; h.castK = 'whirl'; h.whirlA = h.aim; S.ev.push({ k: 'whirl', t: S.t, x: h.x, y: h.y, a: h.aim, r: D.abRank('whirl', 1).r }); };
     // TASKS 177: the whirl's circle on screen is its reach: skeletons at the edge of the damage zone, right, left and below (the zone is squeezed ×1.3 in depth)
@@ -2192,7 +2193,7 @@
       out.cycles[n] = cyc(dx, dy, asMageOrb(wb)); out.sprites[n] = mageSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asMageOrb(wb)(S); if (dy < 0) S.run.hero.back = 1; }); }
     const MAGE_FIRST_PRESS = 5, QA_FRAME_S = 2 * SIM.DT, framesOf = (seconds) => Math.ceil(seconds / QA_FRAME_S), FOE_FAR_TRIGGERS = 2;
     const mageT = (a0, fire, press, turn, each) => { const fr = []; let S = play((S) => { clear(S); asMage(S); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
-      if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (fire) fire(S, h); } if (each) each(S, h, i); fr.push(S); S = structuredClone(S);
+      if (i === MAGE_FIRST_PRESS) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (fire) fire(S, h); } if (each) each(S, h, i); fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [MAGE_FIRST_PRESS] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, keys: [] }); } return fr; };
     const frost = (S, h) => { h.castT = S.t; h.castK = 'frost'; S.ev.push({ k: 'frost', t: S.t, x: h.x, y: h.y, a: h.aim, r: D.abRank('frost', 1).r, arc: D.FROST.arc }); };
     for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) { transitions['hero_mage_shoot_' + n] = mageT(a, null, 1); transitions['hero_mage_frost_' + n] = mageT(a, frost); transitions['hero_mage_cast_' + n] = mageT(a, cast); }
