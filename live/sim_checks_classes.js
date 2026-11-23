@@ -321,7 +321,9 @@
         let ok = false; for (let k = 0; k < m.W * m.H && !ok; k++) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
           if (cell(m, k % m.W, Math.floor(k / m.W)) === 1 && open(x, y - TILE, 200) && open(x, y - TILE, -120) && open(x, y, 200) && open(x, y, -120)) { h.x = x; h.y = y; ok = true; } }
         R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0];   // (steps without a pointer leave the camera NaN)
-        return { S, R, h, foe, ok }; };
+        const SHOULDER_AIM_DROP = 8;
+        const stepAimedAt = (target, input = {}) => step(S, { keys: [], ...input, ...toPx(R, target.x, h.y - SIMX.RIG.shoulder + SHOULDER_AIM_DROP) });
+        return { S, R, h, foe, ok, stepAimedAt }; };
       { const { S, R, h, foe, ok } = arena('mage');
         if (h.cls !== 'mage' || D.clsOf(h).abs.map((a) => a.id).join() !== 'fireball,shield,frost') out.push('class mage: not fireball, shield and ice wave');
         if (!ok) out.push('class mage: no open floor beside the start to test the ice wave');
@@ -339,14 +341,14 @@
         const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
         if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
         if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); }
-      { const { S, R, h, foe, ok } = arena('mage');
+      { const { S, R, h, foe, ok, stepAimedAt } = arena('mage');
         if (!ok) out.push('class mage: no open floor to test the staff club');
         else {
           const staff = BASES.staff, club = staff.club, e = foe(200), far = 200, near = club.trigger - 8;
           h.eq.weapon.mods.crit = -100;
           const tick = (distance, press = true) => {
             Object.assign(e, { x: h.x + distance, y: h.y, st: 'idle', kbx: 0, kby: 0 });
-            step(S, { keys: [], press, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
+            stepAimedAt(e, { press });
           };
           const swing = (kind) => S.ev.some((q) => q.k === 'swing' && q.kind === kind && q.t === h.atkT);
           const waitForHit = (distance, windup) => {
@@ -380,37 +382,44 @@
           tick(far);
           if (h.atkT === clubStart || !S.ev.some((q) => q.k === 'swing' && q.shot && q.t === h.atkT)) out.push('class mage: the staff does not resume shooting once both cooldowns expire');
         } }
-      { const { S, R, h, foe, ok } = arena('mage');
+      { const { S, R, h, foe, ok, stepAimedAt } = arena('mage');
         if (ok) {
-          const club = BASES.staff.club, e = foe(200), POWER = '__clubPower', LEECH = 10, ONHIT = 3, LOW_HP = 1, ATTACK_GROWTH = 3, ROLL_SPREAD = 0.1;
-          h.eq.weapon.mods.crit = -100; h.eq.weapon.mods.leech = LEECH; h.eq.weapon.mods.onhit = ONHIT;
-          grant(h, POWER, { trig: 'hit', fx: 'mana', v: 0 });
-          const blow = (weaponAttack) => {
-            h.eq.weapon.atk = weaponAttack; h.cd.staffClub = 0; h.hp = LOW_HP; S.ev = [];
+          const club = BASES.staff.club, e = foe(200), POWER = '__clubPower', CRIT_POWER = '__clubCritPower', LEECH = 10, ONHIT = 3, LOW_HP = 1, ATTACK_GROWTH = 3, ROLL_SPREAD = 0.1;
+          const NO_CRIT = -100, CRIT_OVER_CAP = 500, CRIT_TRIES = 24;
+          h.eq.weapon.mods.leech = LEECH; h.eq.weapon.mods.onhit = ONHIT;
+          grant(h, POWER, { trig: 'hit', fx: 'mana', v: 0 }); grant(h, CRIT_POWER, { trig: 'crit', fx: 'mana', v: 0 });
+          const blow = (weaponAttack, critChance) => {
+            // the last blow's hit-stop would hold this one's press
+            h.eq.weapon.atk = weaponAttack; h.eq.weapon.mods.crit = critChance; h.cd.staffClub = 0; h.hp = LOW_HP; R.freeze = 0; S.ev = [];
             Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
-            step(S, { keys: [], press: 1, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
-            for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) step(S, { keys: [] });
-            return { hit: S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id), stat: stats(h, S.meta), healed: h.hp - LOW_HP, powers: S.ev.filter((q) => q.k === 'power' && q.id === POWER).length };
+            stepAimedAt(e, { press: 1 });
+            for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) stepAimedAt(e);
+            return { hit: S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id), stat: stats(h, S.meta), healed: h.hp - LOW_HP, powers: hits(S, POWER), critPowers: hits(S, CRIT_POWER) };
           };
-          const weak = blow(100), strong = blow(100 * ATTACK_GROWTH);
-          delete D.POWERS[POWER];
-          for (const { hit, stat, healed, powers } of [weak, strong]) {
+          const weak = blow(100, NO_CRIT), strong = blow(100 * ATTACK_GROWTH, NO_CRIT);
+          // the crit chance is capped below certainty, so the crit blow is the first of a few tries that rolls one
+          let critical = null; for (let n = 0; n < CRIT_TRIES && !critical?.hit?.crit; n++) critical = blow(100, CRIT_OVER_CAP);
+          delete D.POWERS[POWER]; delete D.POWERS[CRIT_POWER];
+          for (const { hit, stat, healed, powers, critPowers } of [weak, strong]) {
             const expected = stat.atk * club.atkFactor;
             if (!hit || hit.n < Math.round(expected * (1 - ROLL_SPREAD)) || hit.n > Math.round(expected * (1 + ROLL_SPREAD))) out.push('class mage: the club blow does not follow the hero attack');
             else if (healed < hit.n * stat.leech / 100 + stat.onhit - 1e-6 || powers !== 1) out.push('class mage: the club blow loses its leech, on-hit heal or power');
+            else if (critPowers) out.push('class mage: a club blow that does not crit fires an on-crit power');
           }
           if (weak.hit && strong.hit && strong.hit.n <= weak.hit.n) out.push('class mage: a stronger hero hits with the club for no more');
+          if (!critical.hit?.crit) out.push(`class mage: the club never crits at the cap in ${CRIT_TRIES} blows`);
+          else if (critical.critPowers !== 1 || critical.powers !== 1) out.push(`class mage: a club crit fires its on-crit power ${critical.critPowers} times and its on-hit power ${critical.powers} times, not once each`);
         } }
       for (const [cls, kind] of [['warrior', 'melee'], ['archer', 'shot']]) { const { S, h, ok } = arena(cls);
         if (ok && SIMX.attackShape(h, stats(h, S.meta), null).kind !== kind) out.push(`class ${cls}: the attack shape is not a ${kind}`); }
-      { const { S, R, h, foe, ok } = arena('mage');
+      { const { S, R, h, foe, ok, stepAimedAt } = arena('mage');
         if (ok) {
           const club = BASES.staff.club, e = foe(200);
           h.eq.weapon.mods.crit = -100;
           Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
-          step(S, { keys: [], press: 1, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
+          stepAimedAt(e, { press: 1 });
           const clubStart = h.atkT; h.eq.weapon.b = 'wand';
-          for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) step(S, { keys: [] });
+          for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) stepAimedAt(e);
           const hit = S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id);
           if (!hit || hit.t - clubStart < club.windup || hit.t - clubStart > club.windup + 2 * DT || S.ev.some((q) => q.k === 'bolt')) out.push('class mage: a club blow changes its shape when the weapon is swapped before its hit frame'); } }
       // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
