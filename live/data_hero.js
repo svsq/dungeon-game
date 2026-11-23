@@ -10,7 +10,7 @@
     { id: 'frost', name: TXT('ABILITIES.frost.name'), icon: 'ab_frost', key: '3', unlock: 4, mp: 20, cd: 8, desc: TXT('ABILITIES.frost.desc') },
     { id: 'charge', name: TXT('ABILITIES.charge.name'), icon: 'ab_charge', key: '2', unlock: 2, mp: 0, cd: 8, desc: TXT('ABILITIES.charge.desc') },
     { id: 'cry', name: TXT('ABILITIES.cry.name'), icon: 'ab_cry', key: '3', unlock: 4, mp: 40, cd: 20, desc: TXT('ABILITIES.cry.desc') },
-    { id: 'volley', name: TXT('ABILITIES.volley.name'), icon: 'ab_volley', key: '1', unlock: 1, mp: 10, cd: 4, desc: TXT('ABILITIES.volley.desc') },
+    { id: 'volley', name: TXT('ABILITIES.volley.name'), icon: 'ab_volley', key: '1', unlock: 1, mp: 10, cd: 0.5, desc: TXT('ABILITIES.volley.desc') },
     { id: 'trap', name: TXT('ABILITIES.trap.name'), icon: 'ab_trap', key: '2', unlock: 2, mp: 15, cd: 8, desc: TXT('ABILITIES.trap.desc') },
     { id: 'leap', name: TXT('ABILITIES.leap.name'), icon: 'ab_leap', key: '3', unlock: 4, mp: 12, cd: 7, desc: TXT('ABILITIES.leap.desc') },
   ];
@@ -44,6 +44,9 @@
   // t: it leaves when the staff points at the target (raised by 0.2 s, TASKS 1115 critic: at the swing's 0.13 s it left a staff still
   // pointing sideways); tip: from the crystal, this far along the aim past the hand
   const BOLT = { spd: 620, life: 0.7, r: 7, kb: 0.6, t: 0.2, tip: 34 };
+  // a fire blast's camera shake: each blast adds `add`, and the blast's whole step (its pulse, the hits, kills and broken props in it)
+  // stays under `cap`; a split shard's smaller blast has its own pair. A shake already stronger before the blast is left as it was
+  const FIRE_SHAKE = { add: 0.2, cap: 0.36, shard: { add: 0.08, cap: 0.28 } };
   // a weapon's shot by its base's `shot` (TASKS 1120): the staff's bolt, a bow's arrow (drawn at 0.18 s, quicker and lighter)
   const SHOTS = { bolt: Object.assign({ k: 'bolt' }, BOLT), arrow: { k: 'arrow', spd: 760, life: 0.6, r: 6, kb: 0.4, t: 0.18, tip: 26 } };
   // the archer's abilities (TASKS 1120): the volley's fan (n arrows over `arc` degrees at `k` of a shot each); the trap (`root` s held,
@@ -69,7 +72,7 @@
   const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4, miss: 3, prep: 0.06 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };
   // the volley's fan closes on the cursor (TASKS 1161): `w` px across where it points, at most `arc`°, at least `min`°; the trap is set at
   // the cursor within `far` px and holds the monster's blow as well as its feet; the leap carries him `spd` × the dash's time; the fan leaves `loose` s after the key
-  const VOLLEY = { n: 5, arc: 50, min: 4, w: 36, k: 0.7, loose: 0.13 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };
+  const VOLLEY = { n: 5, arc: 50, min: 8, w: 60, k: 0.7, loose: 0.13 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   const AB_NUMS = { shield: { dur: SHIELD_T }, volley: VOLLEY, trap: TRAP };
   TXT.bake(ABILITIES.filter((A) => A.id in AB_NUMS), 'desc', (A) => `ABILITIES.${A.id}.desc`, (A) => AB_NUMS[A.id]);
@@ -82,7 +85,7 @@
   // warrior's cape from behind is the front cape's red, dulled to 0.8 it read browner (ΔE 6-8), and stood still over the walking legs
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 5, sp: 1 },
-      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.2, 0.97] }, back: { sat: 1, swing: 0.08 } } },
+      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'whirl', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.2, 0.97] }, back: { sat: 1, swing: 0.08 } } },
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 5, sp: 1 }, intK: { spell: 0, hp: 0 }, strK: { atk: 0.3, poise: 2 },
@@ -209,5 +212,5 @@
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, LOOK_IDS, LOOKS, lookPick, lookOf, looksShown, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
+  Object.assign(D, { TIPS, CLASSES, clsOf, LOOK_IDS, LOOKS, lookPick, lookOf, looksShown, NAME_MAX, NAME_CHAR, heroNames, heroName, liveFor, metaFor, statFull, classesReady, ABILITIES, CRIT, ASPD, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, FIRE_SHAKE, SHOTS, MAGE_ATK, MAGE_SPELL, POISE, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftDesc, heroDmgK, giftCost, rerollCost, xpNeed, DONATE });
 })(typeof window !== 'undefined' ? window : globalThis);

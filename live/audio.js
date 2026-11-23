@@ -409,5 +409,7 @@
     ambience(S);
   }
 
-  window.AUDIO = { update, start: init, get live() { return live; }, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
+  // the page's error screen stops every sound, the beds' loops too, as nothing updates them any more
+  const silence = () => { if (ctx && ctx.state === 'running') ctx.suspend(); };
+  window.AUDIO = { update, start: init, silence, get live() { return live; }, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();

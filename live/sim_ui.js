@@ -14,7 +14,7 @@
     const test = !!R.test;
     S.meta.shards += bonus; if (!test) { S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win' && !R.campaignWon) S.meta.wins = (S.meta.wins || 0) + 1; }
     // what the Keeper of the Fire will speak of to the next hero (TASKS 1016)
-    if (!test) { if (how === 'dead' && !(R.log && R.log.abandon)) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id; }
+    if (!test) { if (how === 'dead' && !(R.log && R.log.abandon)) { S.meta.endDeaths = runEndDeaths(S.meta) + 1; S.meta.deaths = (S.meta.deaths || 0) + 1; } S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id; }
     // the records are the deepest floor reached, not the one the run ended on (TASKS 516: down to the 17th, back up to the 16th)
     const deep = Math.max(R.deepest || 0, R.floor);
     if (RUN(R) === D.RUNS.campaign && !test) { S.meta.best = Math.max(S.meta.best || 0, deep); tally(S, R, 'best', deep, 1); }
@@ -31,6 +31,9 @@
   // a death (TASKS 2104): hardcore's ends the run, as every death did before the modes. The normal mode's wakes the hero in the town,
   // by the way a scroll of return takes him (its portal left as it was), his floors and quests kept, his gear and gold with him; a
   // share of his level's experience goes, never the level, and the death is counted as one
+  // the deaths that ended a run, for the Keeper's «first death»: the normal mode's falls count in meta.deaths too, never here. A meta
+  // from before this count holds them all in deaths, less the normal falls its mode statistics tallied
+  const runEndDeaths = (M) => M.endDeaths ?? Math.max(0, (M.deaths || 0) - ((((M.stats || {}).mode || {}).normal || {}).deaths || 0));
   function heroFell(S) { const R = S.run, h = R.hero; if (hardcore(R)) { endRun(S, 'dead'); return; }
     SIMX.callOff(S, R);
     if (!SIMX.enterFloor(S, R, 0, undefined, 'portal')) { R.fellFailed = true; return; }
@@ -66,7 +69,7 @@
   const isFull = (S) => S.saves.every((r, i) => r || (i === S.slot && (S.run || S.saved)));
   function loadSaves(S, P) { const n = D.SAVE_SLOTS, list = Array.isArray(P.saves) ? P.saves.slice(0, n) : [];
     S.saves = Array.from({ length: n }, (_, i) => (list[i] && list[i].map ? list[i] : null));
-    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateKept(R, 'loadSaves'); SIMX.mendArches(R); SIMX.regate(R); }
+    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateKept(R, 'loadSaves'); SIMX.dropStaleOffers(R); SIMX.mendArches(R); SIMX.regate(R); }
     S.slot = Number.isInteger(P.slot) && P.slot >= 0 && P.slot < n ? P.slot : 0;
     if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; }
     pickLatest(S); }
@@ -97,7 +100,7 @@
   // the run in play put aside under «Продолжить» (the pause's «Сохранить и выйти в меню», the menu's «Выход»)
   function saveRun(S) { S.saved = S.run; S.run = null; S.saveN++; S.savedT = S.t; }
   // a run of the tests' screen is marked a test (TASKS 1878): it leaves no trace in the statistics or the run journals
-  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S), deathMode: town ? D.deathPick(S.meta) : undefined }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
+  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S), deathMode: town ? D.deathPick(S.meta) : undefined }); S.saved = null; if (town) Object.assign(S.run, { greet: 1, meetKeeper: 1 }); else S.run.test = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in
@@ -432,11 +435,13 @@
     S.split = { id, key: it.id, act, hi, n: act === 'take' ? Math.ceil(it.n / 2) : 1 }; S.focus = 'spOk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return true; };
   const carry = (S, R, id, n, x, y) => { S.drag = { from: id, x, y, n, carry: 1 }; ev(S, { k: 'ui', x, y }); };
   const halfOff = (S, R, id, x, y) => { const q = stackOf(S, R, id); if (!q || q.it) return false; carry(S, R, id, Math.ceil(q.n / 2), x, y); return true; };
+  // a − / + pair: +1, −1 or 0 for this step's click
+  const clickStep = (b, click, less, more) => (b && click ? (b.id === more ? 1 : 0) - (b.id === less ? 1 : 0) : 0);
   // true while the question is up: it takes the step's input
   function splitStep(S, R, inp, keys, x, y, click) { const A = S.split; if (!A) return false; const q = cellItem(S, R, A.id), it = q && (q.it || q);
     if (!it || it.id !== A.key) { S.split = null; S.focus = ''; return true; }
     const U = UI.split(), b = D.hitUI(U.r, x, y), P = U.A; S.hover = b ? b.id : '';
-    const d = (b && click && b.id === 'spPlus' ? 1 : 0) - (b && click && b.id === 'spMinus' ? 1 : 0) - (inp.wheel || 0) + (keys.ArrowRight || keys.ArrowUp ? 1 : 0) - (keys.ArrowLeft || keys.ArrowDown ? 1 : 0);
+    const d = clickStep(b, click, 'spMinus', 'spPlus') - (inp.wheel || 0) + (keys.ArrowRight || keys.ArrowUp ? 1 : 0) - (keys.ArrowLeft || keys.ArrowDown ? 1 : 0);
     // a step past an end answers (town_game_r10 2: it was silent): the refusal's sound, and the count shakes (A.bump, the time and the side)
     if (d) { const n = Math.max(1, Math.min(A.hi, A.n + d)); if (n !== A.n) { A.n = n; ev(S, { k: 'ui', x, y }); } else { A.bump = { t: S.t, d: Math.sign(d) }; ev(S, { k: 'nope', x, y }); } }
     const out = click && !(x >= P.x && x < P.x + P.w && y >= P.y && y < P.y + P.h);
@@ -497,8 +502,15 @@
     if (a > 0) { S.focus = ''; if (campaignDone(R)) finishRun(S); else { if (R.log) R.log.abandon = 1; endRun(S, 'dead'); } }
   };
   // an event's question (TASKS 361): «Да» starts it, «Нет», E or Escape walk away, and it can be asked again
+  // An event with a stake takes ↑↓, W/S, the wheel and its − and + buttons for it; the pointer over − or + leaves the answer in focus
+  const eventBetDelta = (b, click, inp, keys) => clickStep(b, click, 'evLess', 'evMore') - (inp.wheel || 0) + (keys.ArrowUp || keys.KeyW ? 1 : 0) - (keys.ArrowDown || keys.KeyS ? 1 : 0);
   SCREEN.event = (S, inp, keys, x, y, click) => {
-    const R = S.run, E = R && SIMX.eventsOf(R)[R.evAsk], a = E && E.st === 'idle' ? askAnswer(S, UI.event(), Object.assign({}, keys, { Escape: keys.Escape || keys.KeyE }), x, y, click, inp.moved) : -1;
+    const R = S.run, E = R && SIMX.eventsOf(R)[R.evAsk], F = E && SIMX.EVENT_RULES[E.id], bet = !!(F && F.betStep), U = UI.event(bet);
+    let onStep = false;
+    if (bet && E.st === 'idle') { const b = D.hitUI(U.r, x, y), d = eventBetDelta(b, click, inp, keys); onStep = !!b && (b.id === 'evLess' || b.id === 'evMore');
+      if (d) F.betStep(S, R, E, Math.sign(d));
+      if (onStep && click) { S.hover = b.id; return; } }
+    const a = E && E.st === 'idle' ? askAnswer(S, U, Object.assign({}, keys, { Escape: keys.Escape || keys.KeyE }), x, y, click, inp.moved && !onStep) : -1;
     if (!a) return; S.screen = 'play'; S.focus = ''; if (R) R.evAsk = undefined; if (a > 0) SIMX.eventStart(S, R, E); };
   SCREEN.altar = (S, inp, keys, x, y, click) => {
     const R = S.run, sh = R.shrines[R.altar], U = UI.altar(sh && sh.gifts ? sh.gifts.length : 3), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
@@ -671,5 +683,5 @@
   }
 
   Object.assign(SIMX, { talkWalk, talkFirst, boardRows, shopLayout,
-    endRun, messageText, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
+    endRun, runEndDeaths, messageText, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

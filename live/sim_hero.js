@@ -367,7 +367,7 @@
     // T reads the scroll of return (TASKS 1026: behind the bag alone, a novice never found it)
     if (keys.KeyT) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); if (i >= 0) SIMX.useItem(S, R, i); else ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.stepPlay.s') }); }
     if (keys.KeyR) SIMX.usePotion(S, R, 'mp_potion');
-    if (R.msgNext && S.t >= R.msgNext.t) { R.msg = R.msgNext; R.msgNext = null; }
+    if (R.msgNext && !R.msgNext.afterTalk && S.t >= R.msgNext.t) { R.msg = R.msgNext; R.msgNext = null; }
     if (keys.KeyE) SIMX.interact(S, R);
     if (R.map !== m) return;
     if (h.read && R.hero === h) SIMX.readStep(S, R, ix || iy ? 1 : 0, dashing);
@@ -403,6 +403,7 @@
     for (const q of m.circles || []) if (q.bless && !q.used && h.hp > 0 && Math.hypot(h.x - q.x, (h.y - q.y) * 1.6) < 1.6 * TILE && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) {
       q.used = 1; h.bless = 1; h.blessTo = R.floor + 1; ev(S, { k: 'bless', x: q.x, y: q.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); R.msg = { s: TXT('sim_hero.sanctum.msg'), t: S.t }; }
     if (R.events && R.events.length) SIMX.stepEvents(S, R);
+    if (R.captives) SIMX.stepCaptives(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
     if (R.chests.length) { SIMX.stepChestTraps(S, R); SIMX.stepBossChests(S, R); }

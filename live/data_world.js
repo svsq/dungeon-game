@@ -16,13 +16,13 @@
   const FLICK = { deep: { base: 0.85, waves: [[0.05, 1.45, 3.7], [0.03, 3.7, 1.3]] }, town: { base: 0.85, waves: [[0.035, 0.6, 3.7], [0.021, 1.3, 1.3]] }, fireball: 9 };
   const BIOMES = {
     dungeon: { name: TXT('BIOMES.dungeon.name'), rock: [0.05, 0.04, 0.052], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], litSat: 1.0, floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
-      tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
+      tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'slime', 'skel_archer'], old: ['skeleton', 'goblin', 'spider'], from: { slime: 2, skel_archer: 2 }, props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
     crypt: { name: TXT('BIOMES.crypt.name'), rock: [0.034, 0.05, 0.04], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0], amb: [0.09, 0.10, 0.09], ambK: 0.7, ambLvl: 1.2, torch: [0.35, 1.0, 0.4], candle: [1.0, 0.62, 0.26], candleR: 0.6, candleP: 0.5, fill: 0.08, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
-      tint: [0.95, 1.0, 0.96], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
+      tint: [0.95, 1.0, 0.96], roster: ['skeleton', 'cultist', 'ghost', 'spider', 'skel_archer', 'skel_mage'], old: ['skeleton', 'cultist', 'ghost', 'spider'], from: { skel_archer: 3, skel_mage: 3 }, props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
     lava: { name: TXT('BIOMES.lava.name'), rock: [0.064, 0.032, 0.022], vein: [1.0, 0.38, 0.08, 0.02], seam: 1.4, amb: [0.14, 0.09, 0.05], ambK: 0.7, ambLvl: 2.5, torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
-      tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
+      tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute', 'skel_ember', 'imp'], old: ['goblin', 'skeleton', 'cultist', 'brute'], from: { skel_ember: 5, imp: 5 }, lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
     arcane: { name: TXT('BIOMES.arcane.name'), rock: [0.036, 0.04, 0.068], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.11, 0.10, 0.09], ambK: 0.7, ambLvl: 1.6, torch: [0.16, 0.38, 1.0], candle: [1.0, 0.62, 0.26], hearth: [1.7, 3.6], sconce: 0.75, candleR: 1, fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
-      tint: [0.94, 0.96, 1.03], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
+      tint: [0.94, 0.96, 1.03], roster: ['ghost', 'skeleton', 'cultist', 'brute', 'fire_priest'], old: ['ghost', 'skeleton', 'cultist', 'brute'], from: { fire_priest: 7 }, tints: { fire_priest: [0.72, 0.86, 1.3, 0.7] }, props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
     // cave: natural rock instead of masonry (scene.js caveBake, TASKS 303), lit cold (305): its own light is the mushrooms' (shroom)
     // and the crystals' (gem) glow, fire only by the camp and the merchant; ambK: how much of the dark's colour is the biome's
     // ambient rather than the common cool one; its props (TASKS 306) dress its halls to the ROOM_PLANS that have `cave`; its monsters
@@ -202,7 +202,7 @@
   // hero comes in with the archers (and from the 3rd floor a mage) at the far end behind them; shore, drowned in the hall's shallows;
   // hall, slimes in a big hall (area in cells); bones, the old dungeon's kinds, now and then with an archer or a mage at the back.
   // eel: the chance of an eel in a hall's deep water and in each lake between halls, by floor
-  const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: [...BIOMES.dungeon.roster] };
+  const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: [...BIOMES.dungeon.old] };
   // the magma caves' packs by role (TASKS 412), each a hall's pick by weight once its kinds have come (BIOMES.magma.from: the 1st
   // floor skeletons, goblins and archers, the 2nd smouldering skeletons and cultists, the 3rd fire priests and demons). plan: in
   // order, [kinds (a kind twice is drawn twice as often), how many, where, keep (cut last when the hall is small)]: near, a few steps in from the way the hero comes; back, the far end; any. The first entry is
@@ -263,10 +263,11 @@
       // floor, half and half; both are the floor's, kept with it. near: E reaches round its basin
       fountain: { w: 2, minF: 1, room: 'treasure', ask: 1, odd: 1 / 3, solid: 40, near: 84,
         name: TXT('EVENTS.fountain.name'), say: TXT('EVENTS.fountain.say'), yes: TXT('EVENTS.fountain.yes'), no: TXT('EVENTS.fountain.no'), prompt: TXT('EVENTS.fountain.prompt') },
-      // the goblin's table (TASKS 365): one throw for a stake of stake[0] + stake[1] × depth gold, set as the floor is built (its question
-      // names it). The goblin keeps it with the chance odds[0], pays it back twice with odds[1], thrice otherwise (pay: what comes back).
-      // tag: how high over the spot its prompt stands, over the goblin's head
-      dice: { w: 2, minF: 1, room: 'treasure', ask: 1, stake: [20, 10], odds: [0.5, 0.35], pay: [0, 2, 3], solid: 30, near: 84, tag: 120,
+      // the goblin's table (TASKS 365): one throw of two dice of `faces` sides. The least stake is stake[0] + stake[1] × depth gold, set
+      // as the floor is built (its question names it); the player raises it by that much a step, up to bet.most steps. A double pays
+      // the stake back thrice, a sum of winSum or more twice, anything else the goblin keeps (pay: what comes back, lose, win, jack;
+      // with six faces that falls 1/2, 1/3, 1/6). tag: how high over the spot its prompt stands, over the goblin's head
+      dice: { w: 2, minF: 1, room: 'treasure', ask: 1, stake: [20, 10], bet: { most: 5 }, faces: 6, winSum: 8, pay: [0, 2, 3], solid: 30, near: 84, tag: 120,
         name: TXT('EVENTS.dice.name'), say: TXT('EVENTS.dice.say'), yes: TXT('EVENTS.dice.yes'), no: TXT('EVENTS.dice.no'), prompt: TXT('EVENTS.dice.prompt') },
       // the dark room (TASKS 365): no light in it but the hero's own, and the minimap never shows it, so no event mark either (it would
       // give it away). It starts as he steps in and ends with its pack down; every monster of its pack drops its loot `loot` times.
@@ -290,10 +291,20 @@
         name: TXT('EVENTS.library.name'), prompt: TXT('EVENTS.library.prompt') } } };
   // the cursed chest's text names the curse's own number, which EVENTS holds only once its table is built
   TXT.bind('EVENTS.hex.say', EVENTS); EVENTS.pool.hex.say = TXT('EVENTS.hex.say');
+  TXT.bind('EVENTS.dice.say', EVENTS.pool.dice); EVENTS.pool.dice.say = TXT('EVENTS.dice.say');
   // a pack's room per monster, in cells: a room's own pack (dungeon_fill.js) and a skull door's wave (TASKS 2132) never crowd it more
   const PACK_AREA = 9;
   EVENTS.trialWave = (i, n, depth) => { const P = EVENTS.pool.trial, [a, b] = P.size; return a + Math.round((b - a) * i / Math.max(1, n - 1)) + Math.floor(depth / P.perF); };
   EVENTS.trialArea = (depth) => Math.max(EVENTS.pool.trial.area, PACK_AREA * EVENTS.trialWave(1, 2, depth));
+  // the room floors' own packs (the campaign's 1st–8th), after CAVE_PACKS and MAGMA_PACKS: a combat room takes one with the chance
+  // `share`, drawn by its weight `w` among those whose first kind its floor's roster holds (BIOMES[*].from); a plan's entries are
+  // [kinds, [least, most]] in order, the room filled up from the last entry's kinds; every other room keeps the plain fill of the
+  // biome's `old` kinds. The kinds moved in from the caves and the magma come only so, a small share of the floors' monsters
+  const ROOM_PACKS = { share: 0.3, byBiome: {
+    dungeon: { volley: { w: 2, plan: [[['skel_archer'], [1, 1]], [['skeleton', 'goblin'], [1, 2]]] }, ooze: { w: 1, plan: [[['slime'], [2, 3]], [['goblin'], [0, 1]]] } },
+    crypt: { volley: { w: 2, plan: [[['skel_archer'], [1, 2]], [['skeleton'], [1, 2]]] }, rite: { w: 1, plan: [[['skel_mage'], [1, 1]], [['skeleton', 'ghost'], [1, 2]]] } },
+    lava: { ember: { w: 1, plan: [[['skel_ember'], [2, 2]], [['skeleton', 'goblin'], [1, 2]]] }, spark: { w: 1, plan: [[['imp'], [2, 3]], [['goblin'], [0, 1]]] } },
+    arcane: { pyre: { w: 1, plan: [[['fire_priest'], [1, 1]], [['skeleton', 'cultist', 'ghost'], [1, 2]]] } } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
@@ -392,5 +403,9 @@
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2, rest: 'wreck_cv_broken' };
   for (const b of Object.values(BIOMES)) b.flick = b.flick || FLICK.deep;
-  Object.assign(D, { FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BOSS_CHEST, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  // the merchant's goods along a back wall are drawn wider than PROP_W lays them (it keeps them apart as the floor is filled, so
+  // it stays as it is); the wall they stand against is the drawn width's. One width for the generator's wall spans and their check
+  const SHOP_PROP_W = { shop_shelf: 72, shop_armor: 47, shop_weapons: 65 };
+  const backPropWidth = (n) => SHOP_PROP_W[n] || PROP_W[n];
+  Object.assign(D, { ROOM_PACKS, SHOP_PROP_W, backPropWidth, FLICK, PACK_AREA, STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BOSS_CHEST, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, EVENTS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

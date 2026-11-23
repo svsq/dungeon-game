@@ -724,7 +724,7 @@
     for (const runSeed of [1, 77]) for (let f = 1; f <= D.RUNS.campaign.chapter; f++) {
       const m = DG.genFloor(runSeed * 31 + f * 1013, f, { mode: 'campaign', runSeed, town: 1 });
       for (const d of m.decor) {
-        const room = m.rooms[d.r], width = D.PROP_W[d.n];
+        const room = m.rooms[d.r], width = D.backPropWidth(d.n);
         if (!d.solid || d.wall || !width || !room || d.secret !== undefined) continue;
         const row = Math.floor(d.y / TILE), centre = Math.floor(d.x / TILE);
         if (row !== room.y || cell(m, centre, row - 1) !== 0) continue;
@@ -800,7 +800,7 @@
   }
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
-  const GEN_PRINT = { 34: 'b7a355cecbaeeced', 35: 'edd1cbff1ee0d267', 36: '527b8453fdd5c2c5', 37: '5dff955eb1297435', 38: 'e60a42b935688c8a' };
+  const GEN_PRINT = { 34: 'b7a355cecbaeeced', 35: 'edd1cbff1ee0d267', 36: '527b8453fdd5c2c5', 37: '5dff955eb1297435', 38: 'e60a42b935688c8a', 39: '86a5cd49dc6d1735' };
   function genPrintCheck() { const h = require('crypto').createHash('sha1');
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);
@@ -830,4 +830,32 @@
   SIMX.checks.add('backWallPropCheck', backWallPropCheck);
   SIMX.checks.add('floorModCheck', floorModCheck, { slow: true });
   SIMX.checks.add('genPrintCheck', genPrintCheck);
+  // no pier to nowhere: on the magma caves' floors and the campaign's magma chapter every bridge over lava or the chasm lands at both its ends
+  const LAVA_BRIDGE_SEEDS = 12;
+  const bridgeLands = (m, c) => (c.chasm ? DG.chasmBridgeLands(m, c) : !c.lava || !c.span || DG.lavaBridgeLands(m, c));
+  function lavaBridgeCheck() { const out = [], C = D.RUNS.campaign, magmaFrom = (C.chapters || []).find((c) => c.run === 'magma').from;
+    const floors = [['magma', [1, 2, 3, 4]], ['campaign', Array.from({ length: C.floors - magmaFrom + 1 }, (_, i) => magmaFrom + i)]];
+    for (const [mode, fs] of floors) for (let sd = 1; sd <= LAVA_BRIDGE_SEEDS; sd++) for (const f of fs) {
+      const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 });
+      for (const c of m.crossings || []) if (c.kind === 'bridge' && !bridgeLands(m, c)) out.push(`${c.chasm ? 'chasm' : 'lava'} bridge: ${mode} ${sd} f${f}: the bridge at ${c.cells[0]} lands nowhere at an end`); }
+    return out; }
+  SIMX.checks.add('lavaBridgeCheck', lavaBridgeCheck, { slow: true });
+  // the kinds moved into the campaign's 1st–8th: each in its biome's roster from its planned floor on and not before, every room pack
+  // of ROOM_PACKS made of existing kinds its biome holds, a shooter by the 2nd floor; on laid floors the moved kinds come, and only as
+  // a small share of the monsters
+  const MOVED_SEEDS = 6, MOVED_SHARE = 0.35, SHOOTER_BY = 2, SHOOTERS = ['archer', 'caster'];
+  function roomPacksCheck() { const out = [], C = 'campaign', FLOORS = D.RUNS.campaign.chapter;
+    const MOVED = Object.fromEntries(Array.from({ length: FLOORS }, (_, i) => D.stageOf(C, i + 1).biome).map((b) => [b, D.BIOMES[b].from || {}]));
+    for (let f = 1; f <= FLOORS; f++) { const b = D.stageOf(C, f).biome, R0 = D.rosterAt(b, f);
+      for (const [t, from] of Object.entries(MOVED[b] || {})) if (R0.includes(t) !== (f >= from)) out.push(`room packs: the ${b} roster of floor ${f} ${R0.includes(t) ? 'has' : 'lacks'} ${t} (planned from ${from})`); }
+    for (const [b, packs] of Object.entries(D.ROOM_PACKS.byBiome)) { if (!D.BIOMES[b]) { out.push(`room packs: no biome ${b}`); continue; }
+      for (const [id, P] of Object.entries(packs)) for (const [kinds] of P.plan) for (const t of kinds) if (!D.ENEMIES[t] || !D.BIOMES[b].roster.includes(t)) out.push(`room packs: ${b}.${id} names ${t}, not a kind of its roster`); }
+    if (!Array.from({ length: SHOOTER_BY }, (_, i) => D.rosterAt(D.stageOf(C, i + 1).biome, i + 1)).flat().some((t) => SHOOTERS.includes(D.ENEMIES[t].kind))) out.push(`room packs: no shooter in the rosters of floors 1–${SHOOTER_BY}`);
+    const moved = new Set(Object.values(MOVED).flatMap((o) => Object.keys(o))), seen = new Set(); let all = 0, mv = 0;
+    for (let sd = 1; sd <= MOVED_SEEDS; sd++) for (let f = 1; f <= FLOORS; f++) { const b = D.stageOf(C, f).biome, m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: C, runSeed: sd, from: 1, town: 1 });
+      for (const e of m.enemies) { if (D.BOSSES[e.type]) continue; all++; if ((MOVED[b] || {})[e.type]) { mv++; seen.add(e.type); } } }
+    for (const t of moved) if (!seen.has(t)) out.push(`room packs: no ${t} on ${MOVED_SEEDS} seeds of the campaign's 1st–${FLOORS}th`);
+    if (mv > MOVED_SHARE * all) out.push(`room packs: the moved kinds are ${mv} of ${all} monsters, over ${MOVED_SHARE * 100} %`);
+    return out; }
+  SIMX.checks.add('roomPacksCheck', roomPacksCheck, { slow: true });
 })(typeof window !== 'undefined' ? window : globalThis);

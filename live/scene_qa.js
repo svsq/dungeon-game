@@ -710,6 +710,8 @@
     states.push(['hud_folded', play((S) => { const R = S.run; R.msg = null; R.enteredT = S.t - 20; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['hud_town_folded', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); const R = S.run, h = R.hero; R.msg = null; S.ev = []; R.enteredT = S.t - 20; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
     states.push(['town_legend_shut', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); const R = S.run, h = R.hero; R.msg = null; S.ev = []; R.enteredT = S.t - 1; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
+    // a new hero's first visit before the Keeper's talk: one goal in the tracker, the «!» over the Keeper alone
+    states.push(['town_first_goal', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); const R = S.run, h = R.hero; R.meetKeeper = 1; R.greet = 'done'; R.msg = null; S.ev = []; R.enteredT = S.t - 20; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
     states.push(['hud_boss_arrival', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; R.msg = { chapter: D.ENEMIES.boss.name, s: D.ENEMIES.boss.title, t: S.t - 0.8, d: 3 }; })]);
     states.push(['hud_mute', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 0.6; })], ['hud_muted', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 9; })]);
@@ -732,6 +734,11 @@
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
     states.push(['power_fire', fx((S, R, h) => { h.powers = { whirl_ring: 1, dash_trail: 1 }; R.fires = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 8800 + i, own: 'hero', who: 'hero', x: h.x + Math.cos(i * Math.PI / 4) * 100, y: h.y + Math.sin(i * Math.PI / 4) * 75, t0: S.t - 0.6, r: 26, ry: 0.7, t: 2, dmg: 0, per: 9, kind: 'flame' })); })]);
     states.push(['buffs', fx((S, R, h) => { worst(S); h.perks = Object.fromEntries(D.GIFTS.map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 99999, shieldUntil: S.t + 4, burn: S.t + 0.4, poison: S.t + 2.2 }); })]);
+    // a late build by the portrait (the author's mage of the 31st level): many powers packed small under the valued gifts and statuses,
+    // a shield on its clock among them
+    const BUILD_POWERS = 18, BUILD_GIFTS = 8;
+    states.push(['buffs_build', fx((S, R, h) => { h.powers = Object.fromEntries(D.GIFTS.filter((g) => g.power).slice(0, BUILD_POWERS).map((g) => [g.id, 1]));
+      h.perks = Object.fromEntries(D.GIFTS.filter((g) => !g.power && g.id !== 'bless').slice(0, BUILD_GIFTS).map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 400, shieldUntil: S.t + 4 }); })]);
     // the hero standing in lava, a quarter second after a burn tick (the scorch flash and smoke)
     for (let sd = 1; sd < 30; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); SIM.enterFloor(S, S.run, 5); const R = S.run, m = R.map, lv = [];
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) if (m.cells[y * m.W + x] === 3) lv.push([x, y]);
@@ -1132,7 +1139,7 @@
           if (m.cells[k] !== 1 || m.cells[k + 1] !== 6 || m.block.includes(k)) continue;
           let end = k + 1; while (end < k + 10 && m.cells[end] === 6) end++;
           if (end - k < 5 || m.cells[end] !== 1 || Math.floor(k / m.W) !== Math.floor(end / m.W)) continue;
-          const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999; h.cls = 'mage';   // (the warrior's right click is the charge now, TASKS 1130)
+          const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999; h.cls = 'mage';   // (the fireball is the mage's right click: the class's own, data_hero.js rclick)
           R.en = []; R.pots = []; R.chests = []; R.proj = []; R.msg = null; R.freeze = R.trauma = 0; S.ev = []; R.seen.fill(1); R.rseen.fill(1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
           SIM.step(S, { keys: [], rclick: 1, px: SCX.W, py: SCX.H / 2 });
           let n = 0; const pending = [];
@@ -1596,11 +1603,18 @@
         transitions['folk_' + role + '_go'] = run((S, R, f, rt) => { atStop(R, f, 0); const b = rt[0], c = rt[1]; Object.assign(f, { face: c.x >= b.x ? 1 : -1, turnT: undefined, walked: 1, load: carry, lift: carry ? 'take' : 0 }); const c0 = D.folkClock(role, f.i, S.t + 0.4); S.t -= ((c0.u - 0.45 + 1) % 1) * c0.per; f.t0 = S.t - SIMX.folkPause(f, b) + 0.4; }, 90);
         folkSubj['folk_' + role + '_go'] = 'npc' + i; }
       folkCycT['folk_' + role + '_right'] = st / v; folkSubj['folk_' + role + '_right'] = 'npc' + i; folkSpr['folk_' + role + '_right'] = Object.keys(ASSETS).filter((a) => a.startsWith(nm + '__')); }
-    // each hen from the town's first frame on, the real sim at 1/60 s, the camera held on it: its first step turns it (town_motion_r9 7)
-    for (const hn of folkS().run.folk.filter((q) => q.role === 'hen')) { let S = folkS((S, R) => camOn(R, R.folk.find((q) => q.i === hn.i))); const cam = S.run.cam.slice(), fr = [], nm = 'folk_hen_enter_' + hn.i;
-      for (let k = 0; k < 72; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
-      transitions[nm] = fr; folkSubj[nm] = 'npc' + hn.i; }
+    // the real sim at 1/60 s from S on, the camera held where S has it
+    const simFrames = (S, frames) => { const cam = S.run.cam.slice(), fr = [];
+      for (let k = 0; k < frames; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
+      return fr; };
+    // each hen from the town's first frame on, the camera on it: its first step turns it (town_motion_r9 7)
+    const HEN_ENTER_FRAMES = 72;
+    for (const hn of folkS().run.folk.filter((q) => q.role === 'hen')) { const nm = 'folk_hen_enter_' + hn.i;
+      transitions[nm] = simFrames(folkS((S, R) => camOn(R, R.folk.find((q) => q.i === hn.i))), HEN_ENTER_FRAMES); folkSubj[nm] = 'npc' + hn.i; }
     { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'hen'); i = f.i; camOn(R, f); }); folkSubj.folk_hen_peck = 'npc' + i; const henFps = 12; loops.folk_hen_peck = Array.from({ length: Math.ceil(SCX.HEN_PECK_PERIOD * henFps) + 1 }, (_, k) => { const S = structuredClone(base); S.t += k / henFps; return S; }); }
+    // a hen startled by the hero, the real sim at 1/60 s, the camera held on it: it hops and beats its wings, then runs off
+    { const HEN_SCARE_FRAMES = 60, HERO_OFF = 40; let i = 0; const S = folkS((S, R, m, h) => { const f = folkAt(R, 'hen'); i = f.i; camOn(R, f); h.x = f.x - HERO_OFF; h.y = f.y; });
+      transitions.folk_hen_scare = simFrames(S, HEN_SCARE_FRAMES); folkSubj.folk_hen_scare = 'npc' + i; }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 120 }); const p = SCX.railPts(R.map)[4]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_roll = 'cart'; loops.folk_cart_roll = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 6; return S; }); }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 40 }); const p = SCX.railPts(R.map)[2]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_turn = 'cart'; loops.folk_cart_turn = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 3; return S; }); }
     // the end of the rails, where the cart waits at the bin most of its round (TASKS 2090): its last stretch, then at rest
@@ -1779,7 +1793,15 @@
     states.push(['town_enchant_full', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }, { k: 'leech', v: 3 }, { k: 'mspd', v: 6 }, { k: 'crit', v: 4 }, { k: 'atk', v: 5 }]; })]);
     // a word with the townsfolk (TASKS 1016, 1023): the prompt by the Keeper; his dialogue on its longest page; the guard's line
     states.push(['captive_cage', climbS(1, (S, R, m, h) => { h.x = R.captives.merchant.x + 50; h.y = R.captives.merchant.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
-    states.push(['captive_freed', climbS(1, (S, R, m, h) => { h.x = R.captives.merchant.x + 50; h.y = R.captives.merchant.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); R.freed = { merchant: 1 }; R.msg = { s: TXT('sim_town.captive.free'), t: S.t - 1, d: 5 }; })]);
+    // each captive freed: his thanks in the talk window by his open cage, then on his run off (CAPTIVE_RUN_AT s into it) and gone in dust
+    const CAPTIVE_RUN_AT = 0.5, CAPTIVE_GONE_AT = 0.2;
+    const captiveS = (who, f, stage) => climbS(f, (S, R, m, h) => { if (D.CAPTIVES[who].boss) SIMX.captiveBoss(S, R, R.en.find((e) => D.BOSSES[e.type])); const C = R.captives[who]; if (!C || C.x === undefined) return;
+      h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); SIMX.interact(S, R); if (stage === 'talk') return;
+      SIM.step(S, { keys: ['Escape'] }); SIM.step(S, { keys: [] }); if (!C.flee) return;
+      const until = stage === 'run' ? CAPTIVE_RUN_AT : (D.captiveFleeAt(C.flee, 1e3).dist - D.captiveFleeAt(C.flee, 1e3).over * D.CAPTIVE_FLEE.speed) / D.CAPTIVE_FLEE.speed + CAPTIVE_GONE_AT;
+      while (S.t - C.flee.t < until) SIM.step(S, { keys: [] }); });
+    states.push(['captive_freed', captiveS('merchant', 1, 'talk')]);
+    for (const [who, f] of [['merchant', 1], ['smith', 3], ['enchanter', 4]]) for (const stage of ['talk', 'run', 'gone']) states.push([`captive_${stage}_${who}`, captiveS(who, f, stage)]);
     const noteWorst = () => D.NOTES.list.reduce((a, n) => (n.text.length > a.text.length ? n : a));
     states.push(['captive_smith', climbS(3, (S, R, m, h) => { const C = R.captives.smith; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['captive_enchanter', climbS(4, (S, R, m, h) => { const b = R.en.find((e) => D.BOSSES[e.type]); SIMX.captiveBoss(S, R, b); const C = R.captives.enchanter; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
@@ -1835,10 +1857,12 @@
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     // TASKS 2125: the porter's «?» with him under the open legend's map, and with him past the right edge at the tracker's height
-    const porterAt = (sx, sy, leg, zoom) => climbS(0, (S, R) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }]; R.legAuto = 0; R.mapLeg = leg;
+    // (feed: that many plates in the feed over the panel's left end, which the mark keeps off as a part of the HUD)
+    const porterAt = (sx, sy, leg, zoom, feed = 0) => climbS(0, (S, R) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }]; R.legAuto = 0; R.mapLeg = leg;
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const p = R.folk.find((f) => f.role === 'porter'), h = R.hero, z = (S.meta.zoom = R.zoom = zoom);
-      R.cam = [h.x - SCX.VW / 2 / z, h.y - 30 - SCX.VH / 2 / z]; p.x = R.cam[0] + sx / z; p.y = R.cam[1] + sy / z; });
-    states.push(['town_quest_marks_hud', porterAt(1760, 330, 1, 1)], ['town_quest_marks_edge', porterAt(2040, 420, 0, 1.5)]);
+      R.cam = [h.x - SCX.VW / 2 / z, h.y - 30 - SCX.VH / 2 / z]; p.x = R.cam[0] + sx / z; p.y = R.cam[1] + sy / z; S.ev = Array.from({ length: feed }, (_, i) => ({ k: 'pickup', s: TXT('QA.thing'), rar: i, t: S.t - i * 0.1 })); });
+    const FEED_PLATES = 3;
+    states.push(['town_quest_marks_hud', porterAt(1760, 330, 1, 1)], ['town_quest_marks_edge', porterAt(2040, 420, 0, 1.5)], ['town_quest_marks_feed', porterAt(160, 900, 0, 1, FEED_PLATES)]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
       const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge' } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);
@@ -1883,11 +1907,16 @@
     const legend = (R, id, slot) => Object.assign(SIM.rollItem(R, 12, 4, slot || D.BASES[legendB].slot), { id, b: legendB, rar: 4 });
     states.push(['long_names_journal', keeperS((S, R) => { R.offers = []; R.quests = []; const keys = longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4);
       keys.forEach((key, i) => R.quests.push({ id: 960 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: i ? 'taken' : 'done', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.jsel = 960; S.screen = 'journal'; S.hover = 'q:1'; })]);
-    // TASKS 2127 (town_game_r9 4): the long lines with the legend shut, the tracker in its place; with the legend's map open it drops
-    // onto the adit and folds into its «Задания: N» plate
-    const longTrk = (leg) => keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
-      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; if (!leg) { R.legAuto = 0; R.mapLeg = 0; } });
+    // TASKS 2127 (town_game_r9 4): the long lines with the legend shut, the tracker in its place; with the legend's map open it keeps
+    // its rows wherever it stands, the adit under it or not
+    const longTrk = (leg, then = () => {}) => keeperS((S, R, h) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
+      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; if (!leg) { R.legAuto = 0; R.mapLeg = 0; } then(S, R, h); });
     states.push(['long_names_tracker', longTrk(0)], ['long_names_tracker_adit', longTrk(1)]);
+    // the tracker at the town's edge by the adit, open and hidden by the player: the same as in the centre, only his button changes it
+    const TRACKER_EDGE_CELLS = 3;
+    const edgeTrk = (hide) => longTrk(0, (S, R, h) => { const d = R.map.decor.find((o) => o.role === 'adit'); S.meta.trkHide = hide; if (!d) return;
+      h.x = d.x; h.y = d.y + TRACKER_EDGE_CELLS * TILE; R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; });
+    states.push(['town_tracker_edge', edgeTrk(0)], ['town_tracker_edge_hidden', edgeTrk(1)], ['town_tracker_centre_hidden', longTrk(0, (S) => { S.meta.trkHide = 1; })]);
     states.push(['long_names_craft', craftS('forge', (S, R, h, it) => { Object.assign(it, legend(R, 950)); h.bag[4] = it; S.hover = 'do'; })]);
     // TASKS 1818: a boss's unique, the longest of name, power text and lore together, its power and lore wrapped under the affixes
     const uniqL = Object.values(D.UNIQUES).sort((a, b) => (b.name + b.lore + D.POWERS[b.power].desc).length - (a.name + a.lore + D.POWERS[a.power].desc).length)[0];
@@ -1958,10 +1987,13 @@
       R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; });
     for (const [nm, id, st, fate] of [['trial_ask', 'trial', 'ask'], ['blood_room', 'blood', 0], ['blood_ask', 'blood', 'ask'], ['blood_done', 'blood', 'done'], ['hex_room', 'hex', 0], ['hex_ask', 'hex', 'ask'], ['hex_done', 'hex', 'done'],
       ['fountain_room', 'fountain', 0], ['fountain_ask', 'fountain', 'ask'], ['fountain_heal', 'fountain', 'done', 'heal'], ['fountain_bless', 'fountain', 'done', 'bless'], ['fountain_hex', 'fountain', 'done', 'hex']]) { const S = evS(id, st, fate && ((R, E) => { E.fate = fate; R.hero.hp = 20; })); if (S.run && (S.run.events || []).some((q) => q.id === id)) states.push([nm, S]); }
-    // the goblin's table (TASKS 365): the table and its goblin as come upon, the question naming the stake, each of the three throws;
-    // and a hero short of the stake told so
-    for (const [nm, st, fate, gold] of [['dice_room', 0], ['dice_ask', 'ask'], ['dice_lose', 'done', 'lose'], ['dice_win', 'done', 'win'], ['dice_jack', 'done', 'jack'], ['dice_broke', 'ask', 0, 3]]) {
-      const S = evS('dice', st, (R, E) => { R.hero.gold = gold ?? 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.fate = fate; });
+    // the goblin's table (TASKS 365): the table and its goblin as come upon, the question naming the least stake, the stake raised two
+    // steps and raised to its top, each of the three throws by the faces that make it; and a hero short of the stake told so
+    const DICE_QA_RAISE = 2, DICE_QA_TOP = DATA.EVENTS.pool.dice.bet.most;
+    for (const [nm, st, fate, gold, raise] of [['dice_room', 0], ['dice_ask', 'ask'], ['dice_ask_raised', 'ask', 0, 0, DICE_QA_RAISE], ['dice_ask_top', 'ask', 0, 0, DICE_QA_TOP],
+      ['dice_lose', 'done', 'lose'], ['dice_win', 'done', 'win'], ['dice_jack', 'done', 'jack'], ['dice_broke', 'ask', 0, 3]]) {
+      const S = evS('dice', st, (R, E) => { R.hero.gold = gold || 500; R.hero.x = E.x + 62; R.hero.y = E.y + 44; if (fate) E.faces = SIM.Q.diceFacesOf(fate); });
+      if (raise && S.run && S.screen === 'event') for (let i = 0; i < raise; i++) SIM.step(S, { keys: ['ArrowUp'] });
       // (past the winnings' flight into the gold counter: caught on its way in, a number of three wide stood over the counter's edge)
       if (st === 'done' && S.run) for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); if (S.run && (S.run.events || []).some((q) => q.id === 'dice')) states.push([nm, S]); }
     // the dark room (TASKS 365), its pack kept: from just outside its way in, inside it with the pack round the hero's lamp, and the

@@ -279,7 +279,9 @@
     const sat = e.type === 'skeleton' ? 0.4 : e.type === 'skel_archer' || e.type === 'skel_mage' || e.type === 'skel_ember' ? 0.7 : 0.95, val = (E.val || 1) * (1 - 0.3 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
     const fresh = e.coffinT !== undefined && e.deadT < 0 ? 1 - SS(D.COFFIN.rise, D.COFFIN.rise + 0.6, GT - e.coffinT) : 0;
     const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat + 0.2 * fresh, val * (1 + 0.4 * fresh), 0, 1.05];
-    const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
+    // a kind may wear its own tint in a biome it was moved into (BIOMES[*].tints: the halls' fire priest)
+    const run = SC.state && SC.state.run, biomeTint = run && run.map && ((D.BIOMES[run.map.biome] || {}).tints || {})[e.type];
+    const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = biomeTint || E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
     // (in the magma caves a monster keeps its own colour, TASKS 1046: the caves' and crypt's take-back turned a priest's skull lilac
     // and a golem's torso blue-grey away from the lava; the lit pass holds the light on it)
     const tint = lt && !(SC.state && SC.state.run && SC.state.run.map && SC.state.run.map.cliff) && !MONSTERS.rigOf(e.type) ? HERO.fireTint(e.x, e.y, own) : own;   // (a rig's light is bleached by the lit pass, TASKS 1790)   // (no run on the title screen: TASKS 1046 left it black)

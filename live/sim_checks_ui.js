@@ -6,7 +6,7 @@
   const { fight, noWelcome } = SIMX.checks.kit;
   const mid = (S, b) => ({ px: b.x + b.w / 2, py: b.y + b.h / 2 + SIMX.uiDy(S.screen) });
   const press = (S, b) => { const p = mid(S, b); step(S, Object.assign({ keys: [], click: 1, press: 1 }, p)); step(S, Object.assign({ keys: [] }, p)); };
-  const townRun = () => { const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes(S.meta).find((b) => b.id === 'go')); if (S.run) S.run.greet = 'done'; return S; };
+  const townRun = () => { const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes(S.meta).find((b) => b.id === 'go')); if (S.run) { S.run.greet = 'done'; delete S.run.meetKeeper; } return S; };
   function checkGateFocus(out) {
     const S = townRun(), R = S.run, g = R.map.town.svc.exitGate, P = mid({ screen: 'leave' }, UI.leave().r[0]), at = (keys) => step(S, Object.assign({ keys }, P));
     for (let i = 0; i < 30; i++) at([]);
@@ -385,43 +385,30 @@
     for (const [where, T] of [['a floor', playing('warrior').S], ['the town', townRun()]]) { const h0 = T.meta.trkHide ? 1 : 0; T.screen = 'play';
       step(T, { keys: ['TrkHide'] }); if ((T.meta.trkHide ? 1 : 0) === h0) out.push(`tracker: the hide key does not hide it on ${where}`);
       T.screen = 'pause'; step(T, { keys: ['TrkHide'] }); if ((T.meta.trkHide ? 1 : 0) !== h0) out.push(`tracker: the hide key does not show it again on the pause on ${where}`); } }
-  // TASKS 2110: the tracker stands still under the minimap wherever the hero walks; over the town's adit it only drops rows, and its
-  // plate keeps off the adit at any count of quests unless even one row cannot fit. Its width keeps under a quarter of the view however
-  // long a line, every drawn line (rows, «и ещё N») sits inside its box, a fitted line ends inside its right edge, and hidden it is a
-  // small chip. Windows from the author's 2576×1456 down to 800×600
-  function checkTrkAdit(out) { const K = UI.kit, T = K.TRACKER, h0 = SIMX.VIEW.H; if (!K.trkLay || !K.trkFit) { out.push('tracker: no shared layout (UI.kit.trkLay, trkFit)'); return; }
-    const fs = require('fs'), path = require('path'), src = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
-    const px = /"adit_tw": \{"w": (\d+), "h": (\d+)/.exec(src('assets.js')), ht = /\badit_tw: (\d+)/.exec(src('sizes.js'));
-    if (!px || !ht) { out.push('tracker: the adit\'s painting size is not found in assets.js / sizes.js'); return; }
-    const W = SIMX.VIEW.W, sh = +ht[1], sw = Math.round(sh * px[1] / px[2]), hit = (a, b) => a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1];
-    const plate = (L) => [L.x - T.out, L.y - T.out, L.w + 2 * T.out, L.h + 2 * T.out], wins = [[2576, 1456], [1920, 1080], [1600, 900], [1366, 768], [1280, 720], [1024, 768], [800, 600]];
-    const cap = K.trkMaxW(W), half = T.textH / 2, measure = (s, size) => String(s).length * size * 0.6;
+  // the tracker stands still under the minimap wherever the hero walks, and only the player folds or hides it: its layout takes no
+  // place in the world, so the town's centre and its edge give the same box with the same rows. Its width keeps under a quarter of the
+  // view however long a line, every drawn line (rows, «и ещё N») sits inside its box, a fitted line ends inside its right edge, and
+  // hidden it is a small chip. Windows from the author's 2576×1456 down to 800×600
+  function checkTrkPlace(out) { const K = UI.kit, T = K.TRACKER, h0 = SIMX.VIEW.H; if (!K.trkLay || !K.trkFit) { out.push('tracker: no shared layout (UI.kit.trkLay, trkFit)'); return; }
+    const W = SIMX.VIEW.W, cap = K.trkMaxW(W), half = T.textH / 2, measure = (s, size) => String(s).length * size * 0.6, wins = [[2576, 1456], [1920, 1080], [1600, 900], [1366, 768], [1280, 720], [1024, 768], [800, 600]];
+    if (K.trkLay.length !== 5) out.push(`tracker: its layout takes ${K.trkLay.length} inputs, not the view, the minimap's foot, the width, the count and «hidden»`);
     if (cap > W / 4) out.push(`tracker: its width ceiling ${cap} px is over a quarter of the view's ${W}`);
-    const longest = Object.values(D.QUESTS).map((q) => q.name).concat(['«Ларец с накладными» · 3-й этаж · в тайной комнате', 'Нитежуй Гостеприимный · 3-й этаж · в тайной комнате за водопадом']);
-    for (const s of longest) for (const size of [T.size.name, T.size.line]) { const L = K.trkLay(W, 400, 4000, 6, null), f = K.trkFit(s, L.textW, size, measure);
+    const storyNames = Object.keys(D.RUNS).flatMap((mode) => D.storyChain(mode).map((c) => D.questName(c))), longest = Object.values(D.QUESTS).map((q) => q.name).concat(storyNames, ['«Ларец с накладными» · 3-й этаж · в тайной комнате', 'Нитежуй Гостеприимный · 3-й этаж · в тайной комнате за водопадом']);
+    for (const s of longest) for (const size of [T.size.name, T.size.line]) { const L = K.trkLay(W, 400, 4000, 6), f = K.trkFit(s, L.textW, size, measure);
       if (measure(f, size) > L.textW || L.textX + L.textW > L.x + L.w) { out.push(`tracker: the line «${s}» runs past its right edge (${(L.textX + measure(f, size) - L.x - L.w).toFixed(0)} px)`); break; } }
-    const test = (tag, vh, mmBot, w, n, adit) => { const L = K.trkLay(W, mmBot, w, n, adit), F = K.trkLay(W, mmBot, w, n, null), bot = L.y + L.h;
-      if (L.x !== F.x || L.y !== F.y || L.w !== F.w) return `tracker: ${tag} moves it to ${L.x},${L.y} from its place ${F.x},${F.y} under the minimap`;
+    const test = (tag, vh, mmBot, w, n) => { const L = K.trkLay(W, mmBot, w, n), bot = L.y + L.h;
+      if (L.x !== W - T.right - L.w || L.y !== mmBot + T.gap) return `tracker: ${tag} stands at ${L.x},${L.y}, not under the minimap`;
       if (L.w > cap || L.w < Math.min(w, T.minW)) return `tracker: ${tag} is ${L.w} px wide, over its ceiling ${cap}`;
-      if (L.fold && (!n || L.h !== T.chip || L.n)) return `tracker: ${tag} folds to a ${L.w}×${L.h} box with ${L.n} rows, not to its chip`;
-      if (L.n + L.more !== n || L.n > T.rows || (L.n < Math.min(1, n) && !L.fold) || L.rows.length !== L.n) return `tracker: ${tag} shows ${L.n} rows and ${L.more} more of ${n} quests`;
+      if (L.n + L.more !== n || L.n !== Math.min(T.rows, n) || L.rows.length !== L.n) return `tracker: ${tag} shows ${L.n} rows and ${L.more} more of ${n} quests`;
       let top = L.titleY + half; for (const r of L.rows) { if (r.nameY - half < top - 0.5 || r.lineY - r.nameY < T.textH - 0.5) return `tracker: ${tag} draws a row over the line above it`; top = r.lineY + half; }
       if (L.more && L.moreY - half < top - 0.5) return `tracker: ${tag} draws «и ещё ${L.more}» over its last row`;
       if ((L.more ? L.moreY + half : top) > bot + 0.5) return `tracker: ${tag} draws its last line ${((L.more ? L.moreY + half : top) - bot).toFixed(0)} px under the box's foot`;
       if (bot > vh) return `tracker: ${tag} runs ${bot - vh} px off the view's bottom`;
-      if (L.n && hit(plate(L), adit)) return `tracker: ${tag} covers the adit with ${L.n} rows`;
-      const C = K.trkLay(W, mmBot, 160, n, adit, true); if (C.h > T.chip || C.w > cap || (L.n && C.h * 2 > L.h) || C.x !== W - T.right - C.w || C.y !== L.y) return `tracker: ${tag} hidden is a ${C.w}×${C.h} chip at ${C.x},${C.y}, not a small one in its place`;
+      const C = K.trkLay(W, mmBot, 160, n, true); if (C.h > T.chip || C.w > cap || (L.n && C.h * 2 > L.h) || C.x !== W - T.right - C.w || C.y !== L.y) return `tracker: ${tag} hidden is a ${C.w}×${C.h} chip at ${C.x},${C.y}, not a small one in its place`;
       return null; };
-    const town = townRun().run, m = town.map, d = m.decor.find((o) => o.role === 'adit'), walk = DG.townWalk(m), sc = d && (d.s || 1);
-    if (!d) { out.push('tracker: the town has no adit to keep off'); return; }
-    try { for (const [ww, wh] of wins) { const vh = SIMX.setView(SIMX.viewFor(ww, wh)), boxes = [];
-      for (const z of D.ZOOMS) { const aw = sw * sc * z, ah = sh * sc * z; for (let ax = -aw; ax < W; ax += 40) for (let ay = -ah; ay < vh; ay += 20) boxes.push([`adit at ${ax.toFixed(0)},${ay.toFixed(0)} ×${z}`, [ax, ay, aw, ah]]); }
-      for (const z of [1, D.ZOOMS[D.ZOOMS.length - 1]]) { town.zoom = z; const aw = sw * sc * z, ah = sh * sc * z;
-        for (let k = 0; k < walk.length; k += 5) { if (!walk[k]) continue; const cx = k % m.W, cy = Math.floor(k / m.W);
-          town.hero.x = (cx + 0.5) * TILE; town.hero.y = (cy + 0.5) * TILE; town.camLook = [0, 0]; SIMX.snapCam(town);
-          boxes.push([`the hero on the town's cell ${cx},${cy} ×${z}`, [(d.x - town.cam[0]) * z - aw / 2, (d.y - town.cam[1]) * z + 4 * z - ah, aw, ah]]); } }
-      for (const mmBot of [240, 360, 480, 620]) for (const w of [200, 420, 860, 2000]) for (let n = 0; n <= 7; n++) for (const [at, adit] of boxes) {
-        const e = test(`${ww}×${wh}, minimap foot ${mmBot}, width ${w}, ${n} quests, ${at}`, vh, mmBot, w, n, adit); if (e) { out.push(e); return; } } } }
+    try { for (const [ww, wh] of wins) { const vh = SIMX.setView(SIMX.viewFor(ww, wh));
+      for (const mmBot of [240, 360, 480, 620]) for (const w of [200, 420, 860, 2000]) for (let n = 0; n <= 7; n++) {
+        const e = test(`${ww}×${wh}, minimap foot ${mmBot}, width ${w}, ${n} quests`, vh, mmBot, w, n); if (e) { out.push(e); return; } } } }
     finally { SIMX.setView(h0); } }
   // TASKS 2117: every way in the ring of stones keeps its name and its line inside its row, and the death modes' lines on the
   // statistics page inside it, measured by the font the page draws them in (UI.kit.face and the TTF's advances), not by letters
@@ -490,7 +477,7 @@
       for (const p of qt.pages) { const n = (p.match(/\*\*/g) || []).length;
         if (n % 2 || /\*/.test(p.replace(/\*\*/g, ''))) out.push(`key words: ${role}/${key} leaves a mark open: ${p.slice(0, 80)}`);
         for (const f of Object.values(D.FOLK)) if (f.name && p.includes(f.name) && !p.includes('**' + f.name + '**') && !new RegExp('\\p{L}' + f.name + '|' + f.name + '\\p{L}', 'u').test(p)) out.push(`key words: ${role}/${key} leaves ${f.name} unmarked`); }
-      if (!qt.pages[qt.pages.length - 1].startsWith('**«' + D.QUESTS[qt.act.key].name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
+      if (!qt.pages[qt.pages.length - 1].startsWith('**«' + qt.act.name + '».**')) out.push(`key words: ${role}/${qt.act.key}'s last page does not open with its title`); }
     { const k = D.FOLK.child.name, s = SIMX.keyNames(k + k + ' ' + k); if (s !== k + k + ' **' + k + '**') out.push(`key words: a short name marks a longer word it is part of: ${s}`); } }
   // the scene has no node entry, so the hero's drawing runs in a sandbox (live/sandbox.cjs) with its sprites' placements recorded
   // (TASKS 1896): on the world's grid the face snap holds the body still through a sub-pixel step, under L.pre (the menu's arch,
@@ -780,7 +767,13 @@
     finally { SIMX.setView(h0); }
     if (first) out.push(first + (under ? ` (${under} of ${marks} marks under the HUD)` : ''));
     // the share the r10 critic counted: of the givers whose head is on the screen, how many show the small mark (34 % before the nudge)
-    if (headSmall > heads * Q.headSmall) out.push(`quest mark: ${headSmall} of ${heads} givers with the head on the screen show a small mark, over ${Q.headSmall * 100} %`); }
+    if (headSmall > heads * Q.headSmall) out.push(`quest mark: ${headSmall} of ${heads} givers with the head on the screen show a small mark, over ${Q.headSmall * 100} %`);
+    // the feed's plates over the panel's left end are a part of the HUD in play, one zone a plate (pickups: repeated refusals merge into one)
+    { const FEED_ROWS = 2, view = { cx: R.cam[0], cy: R.cam[1], sx: (x) => (x - R.cam[0]) * R.zoom, sy: (y) => (y - R.cam[1]) * R.zoom, k: R.zoom };
+      S.ev = Array.from({ length: FEED_ROWS }, (_, i) => ({ k: 'pickup', s: TXT('QA.thing'), rar: i, t: S.t - i * DT }));
+      const feed = page.HUD.markZones(S, R, view).filter((z) => z[4] === 'feed'), panel = page.HUD.markZones(S, R, view).find((z) => z[4] === 'panel');
+      if (feed.length !== FEED_ROWS || !panel || feed.some((z) => z[3] > panel[1] + 1 || z[0] > panel[0] + 1)) out.push(`quest mark: the feed's plates make ${feed.length} HUD zones of ${FEED_ROWS}, or not over the panel's left end ${JSON.stringify(feed)}`);
+      S.ev = []; } }
   // town_game_r10 2, 3: the quantity window's «−» at 1 and «+» at the top are dim and inert, a step past an end answers with the
   // refusal's sound and a shake of the count, the top is written «из N»; its keys and the ring's lie on their own plates
   function checkSplitEnds(out) {
@@ -868,7 +861,7 @@
   SIMX.checks.add('camAimCheck', checkCamAim);
   SIMX.checks.add('purseCheck', checkPurse);
   SIMX.checks.add('trkFoldCheck', checkTrkFold);
-  SIMX.checks.add('trkAditCheck', checkTrkAdit);
+  SIMX.checks.add('trkPlaceCheck', checkTrkPlace);
   SIMX.checks.add('labelFitCheck', checkLabelFit);
   SIMX.checks.add('testEndCheck', checkTestEnd);
   SIMX.checks.add('strCheck', checkStrUse);
