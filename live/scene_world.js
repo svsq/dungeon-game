@@ -619,10 +619,26 @@
     // standing lights (TASKS 194): their fires ride the prop when it is knocked
     m.decor.forEach((d, i) => { const S0 = STAND[d.n]; if (!S0 || !vis(d.x, d.y) || !known(d.x, d.y) || hid(d)) return; const j = jig('d' + i), col = d.n === 'torch_stand' ? torchCol(m, d) : CANDLE;
       Y.push([d.y + 1, () => flames(S0.map(([ox, up, w, hh], k) => [sx(d.x) + ox + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(d.y) + 4 - up, w, hh, col, d.x + 7 * k]))]); });
-    for (const cap of Object.values(R.captives || {})) { if (cap.x === undefined || R.floor !== D.CAPTIVES[cap.who].f || R.town || !vis(cap.x, cap.y)) continue; const X = sx(cap.x), Y0 = sy(cap.y), out = !!(R.freed && R.freed[cap.who]), look = Math.max(-1, Math.min(1, (h.x - cap.x) / 120));
-      if (!out && cap.who !== 'merchant') drawFolkRig({ i: 90 + cap.who.length, y: cap.y - 1, dist: 0, vx: 0, vy: 0 }, null, 'town_' + cap.who, X + 5, Y0 - 6, 64, look < 0 ? -1 : 1, GT, Y, {});
-      Y.push([cap.y, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); if (!out && cap.who === 'merchant') L.inked(() => MONSTERS.merchant({ id: 'captive', x: X + 5, y: Y0 - 6, H: 64, t: GT, look, near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
-        drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]); }
+    // a captive's height in view px; the merchant's hop on his run (its height and the run's px per hop) and the dust of it and of his going
+    const CAPTIVE_H = 64, CAPTIVE_HOP = { h: 5, stride: 34, dust: 10, dustCol: [0.42, 0.36, 0.3], dustA: 0.35, puffs: 4, puffGap: 12, puffUp: 16 };
+    // a captive's figure: the townsfolk rig walking by `run` (his distance and heading), or the merchant's own figure, whose rig has
+    // no legs to walk on, hopping along with dust at his feet
+    const captiveFigure = (cap, X, Yg, ySort, face, run, look = face) => {
+      const f = { i: 90 + cap.who.length, y: ySort, dist: run ? run.dist : 0, vx: run ? run.vx : 0, vy: run ? run.vy : 0 };
+      if (cap.who !== 'merchant') { drawFolkRig(f, null, 'town_' + cap.who, X, Yg, CAPTIVE_H, face, GT, Y, {}); return; }
+      const hop = run ? CAPTIVE_HOP.h * Math.abs(Math.sin(run.dist / CAPTIVE_HOP.stride * Math.PI)) : 0;
+      Y.push([ySort, () => { L.inked(() => MONSTERS.merchant({ id: 'captive', x: X, y: Yg - hop, H: CAPTIVE_H, t: GT, look: run ? face : look, near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+        if (run) L.puff(X, Yg - 2, CAPTIVE_HOP.dust, CAPTIVE_HOP.dustCol, CAPTIVE_HOP.dustA, 7); }]); };
+    // a captive in his cage; freed, he stands by it while he talks with the hero, then runs off along his path and is gone at its end
+    // in a puff of dust
+    for (const cap of Object.values(R.captives || {})) { if (cap.x === undefined || R.floor !== D.CAPTIVES[cap.who].f || R.town) continue; const out = !!(R.freed && R.freed[cap.who]);
+      const run = out && cap.flee ? D.captiveFleeAt(cap.flee, GT - cap.flee.t) : null, here = !out || cap.talk;
+      if (run && vis(run.x, run.y)) { if (!run.done) captiveFigure(cap, sx(run.x), sy(run.y), run.y, run.vx < 0 ? -1 : 1, run);
+        else if (run.over < D.CAPTIVE_FLEE.puff) { const q = run.over / D.CAPTIVE_FLEE.puff, X = sx(run.x), Yp = sy(run.y);
+          Y.push([run.y, () => { for (let j = 0; j < CAPTIVE_HOP.puffs; j++) L.puff(X + (j - (CAPTIVE_HOP.puffs - 1) / 2) * CAPTIVE_HOP.puffGap, Yp - CAPTIVE_HOP.puffUp * (1 + q), CAPTIVE_HOP.dust * (1 + q), CAPTIVE_HOP.dustCol, CAPTIVE_HOP.dustA * (1 - q), 41 + j); }]); } }
+      if (!vis(cap.x, cap.y)) continue; const X = sx(cap.x), Y0 = sy(cap.y), look = Math.max(-1, Math.min(1, (h.x - cap.x) / 120));
+      if (here) captiveFigure(cap, X + 5, Y0 - 6, cap.y - 1, look < 0 ? -1 : 1, null, look);
+      Y.push([cap.y, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]); }
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
@@ -680,8 +696,10 @@
           L.glow(X, wy, W * 0.42, [0.35, 0.75, 0.85], (on ? 0.16 : 0.08) + 0.03 * Math.sin(t * 2.3), 2.2);
           for (let j = 0; j < 3; j++) { const q = (t * 0.6 + j / 3) % 1; L.ring(X, wy, 6 + 30 * q, 3 + 11 * q, [0.7, 0.92, 1], (on ? 0.5 : 0.3) * (1 - q), 0.14); }
           L.solid(X - 2, wy - 3 - 2 * Math.abs(Math.sin(t * 7)), 4, 4, [0.85, 0.97, 1], 0, 0, 0, on ? 0.8 : 0.5); }]); } }
+    // the dice before a throw, and on a table thrown in a save made before the throws kept their faces
+    const DICE_IDLE_FACES = [3, 5], DICE_FACES_BEFORE_THROWS = { lose: [1, 2], win: [4, 5], jack: [6, 6] };
     // the goblin's table (TASKS 365): the goblin stands at its left corner, at his station facing it, a heap of coins and two dice on
-    // its top; the dice show the throw once it is made. The goblin is the monsters' rig, standing still; its own art is TASKS 2023
+    // its top; the dice show the faces thrown once the throw is made. The goblin is the monsters' rig, standing still; its own art is TASKS 2023
     for (const E of R.events || []) { if (E.id !== 'dice' || !vis(E.x, E.y)) continue; const k = 1.25, [tw, th] = SZ('table'), gH = SZ('en_goblin')[1], face = 1;
       Y.push([E.y - 6, () => { const X = sx(E.x) - 50, Yg = sy(E.y) - 6;
         L.shadow(X, Yg + 2, 0.24 * gH, 6, 0.45);
@@ -689,7 +707,7 @@
       Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + 10, top = Yb - th * k * 0.78, [cw, ch] = SZ('dc_coins'), ck = 30 / Math.max(cw, ch);
         L.shadow(X, Yb, tw * k * 0.42, 8, 0.5); drawProp('table', X, Yb, { k });
         L.sprite('dc_coins', X - 24, top - ch * ck / 2, { w: cw * ck, h: ch * ck });
-        const pips = { lose: [1, 2], win: [4, 5], jack: [6, 6] }[E.st === 'done' && E.fate] || [3, 5];
+        const pips = E.st !== 'done' ? DICE_IDLE_FACES : E.faces || DICE_FACES_BEFORE_THROWS[E.fate] || DICE_IDLE_FACES;
         pips.forEach((n, i) => { const dx = X + 6 + i * 16, dy = top - 4 + i * 4; L.rrect(dx - 7, dy - 7, 14, 14, 2, [0.93, 0.88, 0.76], [0.74, 0.68, 0.56]);
           const P = { 1: [[0, 0]], 2: [[-3, -3], [3, 3]], 3: [[-3, -3], [0, 0], [3, 3]], 4: [[-3, -3], [3, -3], [-3, 3], [3, 3]], 5: [[-3, -3], [3, -3], [0, 0], [-3, 3], [3, 3]], 6: [[-3, -3], [3, -3], [-3, 0], [3, 0], [-3, 3], [3, 3]] }[n];
           for (const [px, py] of P) L.solid(dx + px - 1, dy + py - 1, 2, 2, n === 1 ? [0.6, 0.08, 0.06] : [0.12, 0.08, 0.06]); }); }]); }

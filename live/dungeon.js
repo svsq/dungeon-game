@@ -12,25 +12,26 @@
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
-  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch; 36: the town's rails end on the diagonal, TASKS 2090, the sweeper's round and the niches, 2094, 2100; 37: the skull door's waves on its record and its room big enough for its last wave, TASKS 2132; 38: the mason's stops in front of the cart and the bin, TASKS 2141); selfCheck holds the generator's print to its version
-  const GEN_VERSION = 38;
+  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch; 36: the town's rails end on the diagonal, TASKS 2090, the sweeper's round and the niches, 2094, 2100; 37: the skull door's waves on its record and its room big enough for its last wave, TASKS 2132; 38: the mason's stops in front of the cart and the bin, TASKS 2141; 39: a lava bridge with an end on no floor goes back to lava, the room floors' own packs of the moved kinds, the rubble off the soul altar's path, its older floors kept by sim_floor.js GEN_LEGACY); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 39;
   // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
   const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
   // (set by the sim), 6 deep water (blocks walking and knockback, not projectiles or sight)
 
+  // the cell codes a way may pass through (floor, a shut door, deep water): what a shelf by a room's wall must leave open
+  const PASSAGE_CELLS = new Set([1, 5, 6]), isPassageCell = (c) => PASSAGE_CELLS.has(c);
   // a room's shape (TASKS 374): its box (x, y, w, h) is its core, where everything set against a wall or in rows stands, and
   // `wings`, boxes of floor joined to it (a cross's arms, an L's foot, a round hall's caps), are its floor as well
   const inRm = (r, x, y, p = 0) => (x >= r.x - p && x < r.x + r.w + p && y >= r.y - p && y < r.y + r.h + p) || (!!r.wings && r.wings.some(([a, b, c, d]) => x >= a - p && x < a + c + p && y >= b - p && y < b + d + p));
   const rectsOf = (r) => [[r.x, r.y, r.w, r.h], ...(r.wings || [])];
 
-  const SHOP_BACK_WIDTH = { shop_shelf: 72, shop_armor: 47, shop_weapons: 65 };
   function backWallPropSpans(m) {
     const rows = [];
     if (m.town) return rows;
     const isWall = (x, y) => { const c = m.cells[(y - 1) * m.W + x]; return c === 0 || c === 4; };
     for (const d of m.decor || []) {
-      const width = SHOP_BACK_WIDTH[d.n] || D.PROP_W[d.n];
+      const width = D.backPropWidth(d.n);
       if (!d.solid || d.wall || !width) continue;
       const x = Math.floor(d.x / TILE), y = Math.floor(d.y / TILE), room = m.rooms?.[d.r], secret = m.secrets?.[d.secret];
       if ((!room || y !== room.y || !inRm(room, x, y)) && secret?.dir !== 'u') continue;
@@ -273,8 +274,7 @@
         const left = Math.floor((X - half) / TILE), right = Math.floor((X + half) / TILE);
         for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
           if (inRm(r, cx, cy)) continue;
-          const c = m.cells[cy * W + cx];
-          if (c === 1 || c === 5 || c === 6) return true;
+          if (isPassageCell(m.cells[cy * W + cx])) return true;
         }
         return false;
       };
@@ -427,7 +427,7 @@
     routeClear: 2.5,
     npcs: [['smith', 37, 11.4], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 32, 12], ['porter', 32, 14], ['sweeper', 11, 25], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.9, 31.4]],
     // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1609)
-    rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
+    rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [50, 27], [31, 11]],
     // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1611, 1609)
     grates: [[24.6, 27.4], [29.4, 27.4], [35.4, 27.4]], ivy: [[13, 27.6], [21, 27.6], [32.5, 27.6], [38, 27.6], [6, 11.6], [6, 23.6], [38, 15.6], [46, 21.6]],
     // ruin stubs the seed picks some of, and spots for the small decor
@@ -553,7 +553,7 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
+  root.DUNGEON = { isPassageCell, lavaBridgeLands: (m, c) => DGX.lavaBridgeLands(m, c), chasmBridgeLands: (m, c) => DGX.chasmBridgeLands(m, c), onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });

@@ -5,8 +5,12 @@
     interact, K, newQuest, newRun, offerOf, persist, questMark, railLen, REWARD, rollItem, runCompletion, spawn, startRun, stats, step, stockShop, takeQuest,
     TILE, tradeDepth, turnIn, UI } = SIMX;
   const { noWelcome, noQuests } = SIMX.checks.kit;
+  // no heap of rubble lies on the way to the soul altar, within this many cells of it (the author, 23.11.2026)
+  const RUBBLE_ALTAR_CLEAR = 3;
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+    { const m = DG.genTown(31), altar = m.decor.find((d) => d.n === 'altar');
+      for (const r of m.decor.filter((d) => d.role === 'rubble')) if (altar && Math.hypot(r.x - altar.x, r.y - altar.y) < RUBBLE_ALTAR_CLEAR * TILE) out.push(`town: a heap of rubble lies by the soul altar at ${Math.round(r.x)},${Math.round(r.y)}`); }
     for (let sd = 1; sd <= 8; sd++) { const m = DG.genTown(sd * 977), go = (k) => m.cells[k] === 1, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
       const seen = new Uint8Array(m.W * m.H), q = [at(m.spawn)]; seen[q[0]] = 1;
       for (let i = 0; i < q.length; i++) for (const d of [1, -1, m.W, -m.W]) { const n = q[i] + d; if (!seen[n] && go(n)) { seen[n] = 1; q.push(n); } }
@@ -279,6 +283,12 @@
     const p1 = read(); if (p1[0] !== K.first[0] || S.screen !== 'play') out.push('talk: no first meeting, or the last page does not close the dialogue');
     talkTo(R, 'keeper'); const p2 = read(); if (!D.FOLK.keeper.lines.some((l) => l[0] === p2[0])) out.push('talk: with nothing new the Keeper does not fall back on his idle lines');
     endRun(S, 'dead'); R = run(32); talkTo(R, 'keeper'); const p3 = read(); if (p3[0] !== K.death1[0]) out.push('talk: the first death is not spoken of');
+    // the first death that ends a run is the first, however many falls of the normal mode came before it (they count in meta.deaths)
+    { const S4 = spawn(0, {}), FALLS = 3; S4.run = newRun(S4, 'campaign', 33, { town: 1, deathMode: 'hard' }); S4.meta.deaths = FALLS; S4.meta.stats = Object.assign(S4.meta.stats || {}, { mode: { normal: { deaths: FALLS } } });
+      endRun(S4, 'dead'); if (S4.meta.endDeaths !== 1) out.push(`talk: a first hardcore death after ${FALLS} normal falls counts as death ${S4.meta.endDeaths}`); }
+    // a meta saved before the count of run-ending deaths has only meta.deaths: its first death is still told as the first
+    { const S5 = spawn(0, {}); S5.run = newRun(S5, 'campaign', 34, { town: 1 }); Object.assign(S5.meta, { deaths: 1, lastEnd: 'dead', endTold: 0, keeperMet: 1 }); delete S5.meta.endDeaths;
+      if (!SIMX.keeperPages(S5, S5.run).includes(K.death1[0])) out.push('talk: a meta of an old save does not get the first death told'); }
     R.bossN = 1; R.lastBoss = 'boss_spider'; R.legend = 'Кольцо Бездны'; R.deepest = 6; enterFloor(S, R, 0, undefined, 'up'); talkTo(R, 'keeper'); const p4 = read();
     if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: a boss or a legendary is not spoken of');
     if (p4.includes(K.away[0])) out.push('talk: the long time below is told beside the boss slain, who already greets the hero back');
@@ -499,7 +509,7 @@
           worst = Math.max(worst, Math.abs(r[0] * u[1] - r[1] * u[0]) / l); } }
       if (!on) out.push(`cart: ${n} is never shown on a straight diagonal of the rails`);
       if (worst > 1) out.push(`cart: a near wheel of ${n} stands ${worst.toFixed(2)} px off the near rail on the diagonal`); }
-    // TASKS 2122: the change of view is a cross-fade of C.fade px of rails, 0.15-0.2 s at the top speed; at every s of the run the view more
+    // TASKS 2122: the change of view is a cross-fade of C.fade px of rails, 0.25-0.35 s at the top speed; at every s of the run the view more
     // than half shown has its wheels (the front one's slabs, the 3/4 one's near wheels) within a pixel of a drawn rail's axis; across the
     // fade the track's middle its wheels stand over, by each painting's alpha, moves no more than 3 px a 3 px step of s (the travel itself
     // is 2.8) and the box's top over the ground no more than 4 px a 1 px step (one frame threw it 13 px aside)
@@ -590,17 +600,27 @@
         step(S, { keys: [] }); S.focus = 'go'; step(S, { keys: ['Enter'] });
         if (!S.run || S.run.deathMode !== 'normal') out.push(`death mode: the run started after the checkbox plays ${S.run && S.run.deathMode}`); } }
     if (!bossF) { out.push('death mode: the campaign has no boss floor'); return out; }
-    { const [S, R] = fresh('normal'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]);
-      R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 1; die(S, R); enterFloor(S, R, bossF); const b2 = R.en.find((e) => D.BOSSES[e.type]);
-      if ((R.arena && R.arena.active) || !b2 || b2.hp !== b2.max || b2.deadT >= 0) out.push('death mode: a boss fight the hero fell in is still on, or the boss not whole, when he comes back'); }
+    // every kind of boss: the hero falls while its move is half done (in the wind-up and as it strikes), behind its barrier, its webs
+    // on the floor; back on its floor the fight starts over with the boss as it was laid, no move, barrier or web of that fight left
+    for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const kind = D.stageOf('campaign', f).boss; if (!kind) continue;
+      for (const st of ['bwind', 'strike']) { const tag = `death mode: ${kind} on floor ${f} called off in ${st}`, [S, R] = fresh('normal'); enterFloor(S, R, f); const b = R.en.find((e) => D.BOSSES[e.type]);
+        if (!b) { out.push(`${tag}: no boss`); continue; }
+        R.arena = { active: 1, room: b.room, t0: S.t }; const mv = D.bossPhase(b).moves[0];
+        Object.assign(b, { hp: 1, st, mv, t0: S.t, fired: 1, hitDone: 1, chain: 1, shove: 1, nextMove: mv, moveI: 3, phase: D.BOSSES[kind].phases.length - 1, shield: 10, shieldUntil: S.t + 60, shieldT: S.t, x: b.hx + TILE, y: b.hy });
+        (R.map.webs = R.map.webs || []).push({ x: b.x, y: b.y, v: 0, s: 1, f: 0, torn: 0, boss: b.id }); die(S, R); enterFloor(S, R, f); const b2 = R.en.find((e) => D.BOSSES[e.type]);
+        const left = b2 ? SIMX.BOSS_FIGHT_FIELDS.filter((k) => b2[k] !== undefined) : [];
+        if ((R.arena && R.arena.active) || !b2 || b2.hp !== b2.max || b2.deadT >= 0 || b2.st !== 'idle' || b2.phase !== 0 || b2.moveI !== 0 || b2.x !== b2.hx || b2.y !== b2.hy || left.length) out.push(`${tag}: the fight is still on, or the boss is not as laid (${left.join(', ')})`);
+        if ((R.map.webs || []).some((w) => w.boss === (b2 || b).id)) out.push(`${tag}: its webs stay on the floor`); } }
     const [S, R] = fresh('hard'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]); R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIMX.killEnemy(S, R, b);
     if (!(R.slain || []).includes(bossF)) { out.push(`death mode: the boss of floor ${bossF} leaves the hero's run no slain floor (${JSON.stringify(R.slain)})`); return out; }
     if (JSON.stringify(S.meta.portals || []) !== '[]') out.push(`death mode: a boss slain writes a hall into the meta (${JSON.stringify(S.meta.portals)})`);
-    // 2213: the hall is the hero's own: the run keeps it through a save, and a new run (a new hero) of the same player has none
-    const [S3, R3] = fresh('normal'); R3.slain = [bossF]; const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S3))));
+    // the hall is the hero's own: the run keeps it through a save (its slain floors restored with it and read by the ring), and a new
+    // run (a new hero) of the same player has none
+    const [S3, R3] = fresh('normal'); R3.slain = [bossF]; const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S3)))), kept = S2.saved;
+    if (!kept || JSON.stringify(kept.slain) !== JSON.stringify([bossF])) out.push(`death mode: a save keeps the slain floors ${JSON.stringify(kept && kept.slain)}, not [${bossF}]`);
     S2.meta.portals = [bossF];
     if (SIMX.gateWays(fresh('normal', S2)[1], S2).length || SIMX.gateWays(fresh('hard', S2)[1], S2).length) out.push('death mode: a new run opens a hall for a boss the hero has not slain (an old meta.portals included)');
-    const [, R2] = [0, fresh('normal', S2)[1]]; R2.slain = [bossF]; const o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
+    const R2 = kept || fresh('normal', S2)[1]; S2.run = R2; S2.saved = null; S2.screen = 'play'; const o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
     if (!go || o.some((q) => q.k !== 'boss')) out.push(`death mode: a normal run that slew the boss has the ring offering ${JSON.stringify(o)}`);
     // TASKS 2111: a portal keeps its origin for its label (none in an old save = the scroll's); one left by an open hall's gate is
     // that hall's way twice, so the ring hides it, and going by the hall closes it

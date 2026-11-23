@@ -4,6 +4,32 @@
   const DGX = root.DGX, {
     D, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, riverAt, riverOk, riverWays, straightRuns,
     wayRooms, shuffleBy } = DGX;
+  // how far past a bridge's end its landing is looked for, as DUNGEON.bridgeLands does
+  const LANDING_REACH = 4;
+  const walkCell = (c) => c === 1 || c === 4 || c === 5;
+  // an end of a bridge lands when either of its two lanes meets floor or another crossing past it, over lava only, within LANDING_REACH
+  function bridgeEndLands(cells, W, c, end, dir, others) { const [, , v0] = c.span, hor = c.axis === 'x';
+    return [v0, v0 + 1].some((v) => { for (let n = 1; n <= LANDING_REACH; n++) { const u = end + n * dir, k = hor ? v * W + u : u * W + v;
+      if (others.has(k) || walkCell(cells[k])) return true; if (cells[k] !== 3) return false; } return false; }); }
+  // the walkable cells reached from `from`, the cells `ban` left out
+  function reachCount(cells, W, H, from, ban) { const seen = new Uint8Array(W * H), q = [from]; seen[from] = 1;
+    for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (n >= 0 && n < W * H && !seen[n] && !ban.has(n) && walkCell(cells[n])) { seen[n] = 1; q.push(n); } }
+    return q.length; }
+  function dropDeadEndBridges(GF, crossings, lavaUnder, lava, start) { const { cells, W, H } = GF, s0 = start.cy * W + start.cx;
+    for (let i = crossings.length - 1; i >= 0; i--) { const c = crossings[i]; if (c.kind !== 'bridge' || !c.lava || !c.span) continue;
+      const own = new Set(c.cells), others = new Set(crossings.filter((o) => o !== c).flatMap((o) => o.cells)), [u0, u1] = c.span;
+      if (bridgeEndLands(cells, W, c, u0, -1, others) && bridgeEndLands(cells, W, c, u1, 1, others)) continue;
+      if (reachCount(cells, W, H, s0, own) !== reachCount(cells, W, H, s0, new Set()) - c.cells.filter((k) => walkCell(cells[k])).length) continue;
+      for (const k of c.cells) { cells[k] = 3; lava.push([k % W, Math.floor(k / W)]); const j = lavaUnder.indexOf(k); if (j >= 0) lavaUnder.splice(j, 1); }
+      crossings.splice(i, 1); } }
+  // a laid floor's lava bridge lands at both its ends (the self-check's question)
+  DGX.lavaBridgeLands = (m, c) => { const others = new Set((m.crossings || []).filter((o) => o !== c).flatMap((o) => o.cells));
+    return bridgeEndLands(m.cells, m.W, c, c.span[0], -1, others) && bridgeEndLands(m.cells, m.W, c, c.span[1], 1, others); };
+  // a laid floor's chasm bridge lands at both its ends: past the deck's farthest cells along its axis lies a cell walked off it
+  // (the floor of a plateau, a pad of rock, another deck)
+  DGX.chasmBridgeLands = (m, c) => { const W = m.W, own = new Set(c.cells), hor = c.axis === 'x', u = (k) => (hor ? k % W : Math.floor(k / W)), step = hor ? 1 : W;
+    const us = c.cells.map(u), lo = Math.min(...us), hi = Math.max(...us), lands = (end, dir) => c.cells.some((k) => u(k) === end && !own.has(k + dir * step) && walkCell(m.cells[k + dir * step]));
+    return lands(lo, -1) && lands(hi, 1); };
   DGX.terrain = (GF) => {
     const {
       AR, FM, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
@@ -1077,6 +1103,9 @@
       const ad = doors.filter((d) => d.arena);
       if (strict && !cave && ad.some((d, i) => ad.some((o, j) => j > i && o.dir === d.dir && Math.abs(o.x - d.x) + Math.abs(o.y - d.y) < 4 * TILE))) return null;
     }
+    // a bridge over lava with an end that reaches no floor (a lava cave's water crossing whose shallows turned to lava, a deck run into
+    // the rock) is a pier to nowhere: it goes back to lava unless the floor it touches would fall apart without it
+    if (!opts.legacyBridges) dropDeadEndBridges(GF, crossings, lavaUnder, lava, start);
     // the magma caves' halls (TASKS 434, data.js MAGMA_HALLS): the big plateaus off the way to the stairs, dead ends first, each a
     // kind its floor's roster has, no kind twice; their own stream, so the rest of the floor is laid out as before
     const HL = D.MAGMA_HALLS, circles = [];

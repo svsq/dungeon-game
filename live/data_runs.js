@@ -111,6 +111,9 @@
       lay,
       ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}), ...(N.arch && c && c.size && c.size[lf - 1] ? { size: c.size[lf - 1] } : {}) }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
+  // the kinds a room floor's plain fill, its ambushes and its named foes draw from: its biome's `old` ones where it names them (the
+  // rest come in their own ROOM_PACKS); a cave's or the magma's floor draws from its whole roster (their `old` is their packs' filler)
+  const oldAt = (biome, f) => { const B = BIOMES[biome], O = !B.cave && B.old; return rosterAt(biome, f).filter((t) => !O || O.includes(t)); };
 
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
   // (a floor's modifier, TASKS 381, after its name: «Этаж 3 — Крипты · Затопленный»)
@@ -121,5 +124,5 @@
     return (M.names || {})[f] || T || st.N.title || BIOMES[st.biome].name; };
   // (the powers agree with a feminine monster, TASKS 1045: «Кровожадный призывающий лавовая саламандра»)
 
-  Object.assign(D, { RUNS, runOf, wanderAt, stageOf, rosterAt, placeName, floorName });
+  Object.assign(D, { RUNS, runOf, wanderAt, stageOf, rosterAt, oldAt, placeName, floorName });
 })(typeof window !== 'undefined' ? window : globalThis);

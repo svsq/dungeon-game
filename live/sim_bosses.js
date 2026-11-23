@@ -81,7 +81,13 @@
   // a hero fallen in a boss's fight in the normal mode (TASKS 2104): the fight is called off and the boss goes back to its post
   // whole, so the floor kept is no sealed hall and the fight starts over when he comes back
   function callOff(S, R) { const b = R.arena && R.arena.active && R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0); if (!b) return;
-    unseal(S, R, b); Object.assign(b, { hp: b.max, st: 'idle', x: b.hx, y: b.hy, vx: 0, vy: 0, kbx: 0, kby: 0, phase: 0, t0: -9, cdT: 0, burn: 0 }); R.arena = null; }
+    unseal(S, R, b); bossFresh(b); R.map.webs = (R.map.webs || []).filter((w) => w.boss !== b.id); R.arena = null; }
+  // what a fight leaves on a boss: its move under way and the move's own clocks, its barrier, the hero's marks on it; a boss called off
+  // loses them all and stands at its post as it was laid, whole
+  const BOSS_FIGHT_FIELDS = ['mv', 'fired', 'hitDone', 'chain', 'shove', 'travel', 'targetD', 'vol', 'chargeD', 'nextMove', 'openUntil', 'nearT', 'stompT',
+    'shield', 'shieldUntil', 'shieldT', 'weakT', 'rootT'];
+  const BOSS_AT_POST = { st: 'idle', vx: 0, vy: 0, kbx: 0, kby: 0, phase: 0, moveI: 0, t0: -9, cdT: 0, burn: 0, burnT: 0, aimA: 0, seenT: 0 };
+  function bossFresh(b) { for (const k of BOSS_FIGHT_FIELDS) delete b[k]; Object.assign(b, BOSS_AT_POST, { hp: b.max, x: b.hx, y: b.hy }); }
   // the portal home a chapter boss leaves (TASKS 383): in its hall, kept clear of the stairs and the altar so E never picks the wrong one
   function bossGate(R, e) { const r = R.map.rooms[e.room], cx = (r.x + r.w / 2) * TILE, cy = (r.y + r.h / 2) * TILE, far = [R.map.exit, ...(R.map.down ? [R.map.down] : []), ...R.shrines];
     let best = null, bd = -1;
@@ -402,6 +408,6 @@
   // foot, so the prop draws after it) inside its box cannot be seen, so it hops to the nearest open spot instead
 
   Object.assign(SIMX, {
-    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, stepBossChests, bossGate, regate, gateNear, callOff, hallGate, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
+    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, stepBossChests, bossGate, regate, gateNear, callOff, hallGate, bossWebs, bossFresh, BOSS_FIGHT_FIELDS, arenaPath, bossLava, bossRaise, bossEggs,
     beginBossMove, bossThink, roar, bossSummon, wideClear, colossusRise, colossusStep, poolOk, colossusBoulder, colossusRain, stepBossMove, crackSpan });
 })(typeof window !== 'undefined' ? window : globalThis);

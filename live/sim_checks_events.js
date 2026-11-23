@@ -246,26 +246,52 @@
       for (let i = 0; i < 90; i++) { R.rs = (i * 7919 + 13) | 0; E.st = 'idle'; delete E.fate; delete E.hex; SIMX.eventStart(S, R, E); n[E.fate] = (n[E.fate] || 0) + 1; }
       if (!(n.heal >= 45 && n.heal <= 75 && n.bless >= 6 && n.hex >= 6)) out.push(`fountain: 90 drinks fall ${JSON.stringify(n)}, not about two in three healing`); }
   }
-  // the goblin's table (TASKS 365) in each run: its stake set with the floor and named; with less gold the goblin asks nothing; «no»
-  // takes nothing; «yes» takes the stake and pays back none, twice or thrice by the throw, one `qevent`; it asks no more and stands
-  // in the way; a save keeps the throw. Thrown on the run's dice, the three fall about as the odds say
+  // the goblin's table (TASKS 365) in each run: its least stake set with the floor and named; with less gold the goblin asks nothing;
+  // «no» takes nothing; «yes» takes the stake and pays back none, twice or thrice by the faces thrown, one `qevent`, its line naming
+  // the faces; it asks no more and stands in the way; a save keeps the throw
   function checkDicePlay(out) {
     const P = D.EVENTS.pool.dice;
-    for (const [mode, o] of MODES) for (const [i, fate] of ['lose', 'win', 'jack'].entries()) { const tag = `goblin's table ${mode}${o.town ? ' (town)' : ''} ${fate}`, { S, R, E, key, ask } = evRun(mode, o, 'dice'), h = R && R.hero;
+    for (const [mode, o] of MODES) for (const [i, fate] of SIMX.DICE_FATES.entries()) { const tag = `goblin's table ${mode}${o.town ? ' (town)' : ''} ${fate}`, { S, R, E, key, ask } = evRun(mode, o, 'dice'), h = R && R.hero;
       if (!E) { out.push(`${tag}: no floor of 1–4 lays it asked for`); break; }
       if (E.stake !== Math.round(P.stake[0] + P.stake[1] * SIMX.dep(R))) out.push(`${tag}: its stake is ${E.stake}`);
       h.gold = E.stake - 1; key('KeyE'); if (S.screen === 'event' || h.gold !== E.stake - 1 || E.st !== 'idle') out.push(`${tag}: a hero short of the stake is asked, or loses gold`);
       h.gold = 1000; key('KeyE'); if (S.screen !== 'event') out.push(`${tag}: E with the stake in hand asks nothing (${S.screen})`); key('Enter');
       if (h.gold !== 1000 || E.st !== 'idle') out.push(`${tag}: «no» leaves ${h.gold} gold, it ${E.st}`);
-      E.fate = fate; ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
-      if (h.gold !== want || E.st !== 'done' || q.length !== 1) out.push(`${tag}: «yes» leaves ${h.gold} gold of ${want}, it ${E.st}, ${q.length} qevent`);
+      const faces = SIMX.diceFacesOf(fate); E.faces = faces.slice(); ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
+      if (h.gold !== want || E.st !== 'done' || E.fate !== fate || q.length !== 1) out.push(`${tag}: «yes» on ${faces} leaves ${h.gold} gold of ${want}, it ${E.st} ${E.fate}, ${q.length} qevent`);
+      if (!R.msg || !faces.every((f) => R.msg.s.includes(String(f)))) out.push(`${tag}: the throw's line does not name ${faces} (${R.msg && R.msg.s})`);
       key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the table asks again`);
       if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the table does not stand in the way`);
-      if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.fate !== fate) out.push(`${tag}: a save forgets the throw`); } }
-    { const { S, R, E } = evRun('campaign', {}, 'dice'); if (!E) return; const n = { lose: 0, win: 0, jack: 0 };
-      for (let i = 0; i < 200; i++) { R.rs = (i * 7919 + 13) | 0; R.hero.gold = 1000; E.st = 'idle'; delete E.fate; SIMX.eventStart(S, R, E); n[E.fate]++; }
-      if (Math.abs(n.lose - 200 * P.odds[0]) > 25 || Math.abs(n.win - 200 * P.odds[1]) > 25 || n.jack < 12) out.push(`goblin's table: 200 throws fall ${JSON.stringify(n)}`); }
+      if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.fate !== fate || String(b.faces) !== String(faces)) out.push(`${tag}: a save forgets the throw`); } }
+    checkDiceRule(out); checkDiceStake(out); checkDiceShortGold(out); checkDiceThrows(out);
   }
+  // the rule on every pair of faces: a double is the jackpot, a sum of winSum or more a win, anything else a loss
+  function checkDiceRule(out) { const P = D.EVENTS.pool.dice;
+    for (let a = 1; a <= P.faces; a++) for (let b = 1; b <= P.faces; b++) { const want = a === b ? 'jack' : a + b >= P.winSum ? 'win' : 'lose';
+      if (SIMX.diceFate([a, b]) !== want) out.push(`goblin's table: ${a} and ${b} make ${SIMX.diceFate([a, b])}, the rule says ${want}`); } }
+  // the stake in the window: it opens at the least stake, ↑ raises it by that much a step up to bet.most steps and no more than the
+  // gold held, ↓ never takes it under one step, and «yes» plays the stake chosen
+  function checkDiceStake(out) { const P = D.EVENTS.pool.dice, { R, E, key } = evRun('campaign', {}, 'dice'); if (!E) return; const h = R.hero, betN = () => SIMX.eventBet(R, E).n;
+    h.gold = E.stake * (P.bet.most + 3); key('KeyE'); if (betN() !== E.stake) out.push(`goblin's table: the window opens at ${betN()}, not the least stake ${E.stake}`);
+    for (let i = 0; i < P.bet.most + 2; i++) key('ArrowUp'); if (betN() !== E.stake * P.bet.most) out.push(`goblin's table: ↑ past the top stands at ${betN()}, not ${E.stake * P.bet.most}`);
+    for (let i = 0; i < P.bet.most + 2; i++) key('ArrowDown'); if (betN() !== E.stake) out.push(`goblin's table: ↓ past the bottom stands at ${betN()}, not ${E.stake}`);
+    key('Escape'); const held = 2; h.gold = E.stake * held + 1; key('KeyE');
+    for (let i = 0; i < P.bet.most; i++) key('ArrowUp'); const top = SIMX.eventBet(R, E); if (top.n !== E.stake * held || top.top !== held) out.push(`goblin's table: with gold for ${held} steps the stake goes to ${top.n}`);
+    const g0 = h.gold; E.faces = SIMX.diceFacesOf('win'); key('ArrowLeft'); key('Enter');
+    if (h.gold !== g0 + E.stake * held * (P.pay[SIMX.DICE_FATES.indexOf('win')] - 1) || E.bet !== E.stake * held) out.push(`goblin's table: a won stake of ${held} steps leaves ${h.gold} gold of ${g0}`); }
+  // a window left open with less gold than the least stake (a reload, a load) stakes only the gold held, so a loss leaves none, never a debt
+  function checkDiceShortGold(out) { const { R, E, key } = evRun('campaign', {}, 'dice'); if (!E) return; const h = R.hero;
+    h.gold = E.stake; key('KeyE'); const short = E.stake - 1; h.gold = short; E.faces = SIMX.diceFacesOf('lose'); key('ArrowLeft'); key('Enter');
+    if (E.st !== 'done' || h.gold !== 0 || E.bet !== short) out.push(`goblin's table: a lost stake with ${short} gold of ${E.stake} leaves ${h.gold} gold, bet ${E.bet}`); }
+  // thrown on the run's dice, each die shows every face, the fate follows the faces, and the three fall about as the faces say
+  function checkDiceThrows(out) { const P = D.EVENTS.pool.dice, { S, R, E } = evRun('campaign', {}, 'dice'); if (!E) return;
+    const N = 600, n = { lose: 0, win: 0, jack: 0 }, seen = [new Set(), new Set()], odds = { lose: 0, win: 0, jack: 0 };
+    for (let a = 1; a <= P.faces; a++) for (let b = 1; b <= P.faces; b++) odds[SIMX.diceFate([a, b])] += 1 / (P.faces * P.faces);
+    for (let i = 0; i < N; i++) { R.rs = (i * 7919 + 13) | 0; R.hero.gold = 1000; E.st = 'idle'; delete E.fate; delete E.faces; SIMX.eventStart(S, R, E);
+      if (!E.faces || E.fate !== SIMX.diceFate(E.faces)) { out.push(`goblin's table: throw ${i} shows ${E.faces} for ${E.fate}`); return; }
+      E.faces.forEach((f, k) => seen[k].add(f)); n[E.fate]++; }
+    seen.forEach((s, k) => { if (s.size !== P.faces || Math.min(...s) !== 1 || Math.max(...s) !== P.faces) out.push(`goblin's table: die ${k + 1} showed only ${[...s].sort()} in ${N} throws`); });
+    const slack = 0.06 * N; for (const f of SIMX.DICE_FATES) if (Math.abs(n[f] - N * odds[f]) > slack) out.push(`goblin's table: ${N} throws fall ${JSON.stringify(n)}, the faces give ${JSON.stringify(odds)}`); }
   // the dark room (TASKS 365) in each run, its pack kept: idle until the hero steps into it, then on; off the minimap (darkMask holds
   // its box, no event mark); its pack drops twice (an elite of it two heaps of gold, one elsewhere); the last of it down ends it with
   // one `qevent`; the floor left and come back to and a save keep it done
@@ -383,7 +409,7 @@
         const r = m.rooms[d.r], y = Math.floor(d.y / TILE);
         const left = Math.floor((d.x - half) / TILE), right = Math.floor((d.x + half) / TILE);
         for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
-          if (!DG.inRm(r, cx, cy) && [1, 5, 6].includes(m.cells[cy * m.W + cx]))
+          if (!DG.inRm(r, cx, cy) && DG.isPassageCell(m.cells[cy * m.W + cx]))
             out.push(`library seed ${seed} f${floor}: a shelf overlaps the corridor at ${cx},${cy}`);
         }
       }
