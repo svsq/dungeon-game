@@ -810,4 +810,16 @@
   SIMX.checks.add('hazardCheck', hazardCheck, { slow: true });
   SIMX.checks.add('heroDeathCheck', heroDeathCheck);
   SIMX.checks.add('aspdCheck', aspdCheck);
+  // every prop of the breakable registry is struck alike by a blow (hitProps) and stops a bolt (boltPropAt) while it stands, and
+  // neither once broken; a bolt passes a plain prop of the same place
+  function breakableCheck() { const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 41); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, GAP = 40, BOLT_R = 4, BLOW_R = 30;
+    R.en = []; R.pots = []; const at = { x: h.x + GAP, y: h.y };
+    for (const n of Object.keys(SIMX.BREAKABLE)) { const sec = { open: 0 }, d = { n, x: at.x, y: at.y, solid: 1 }; if (!SIMX.BREAKABLE[n].of(m, d)) { m.secrets = (m.secrets || []).concat(sec); d.secret = m.secrets.length - 1; }
+      m.decor = m.decor.filter((o) => !(Math.hypot(o.x - at.x, o.y - at.y) < 3 * GAP)).concat(d); const i = m.decor.indexOf(d);
+      if (!SIMX.breakable(m, d) || !SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push(`breakable: a standing ${n} does not stop a bolt`);
+      S.ev = []; R.propHit = {}; hitProps(S, R, h.x, h.y, BLOW_R + GAP); if (!S.ev.some((e) => e.k === 'prop' && e.i === 'd' + i)) out.push(`breakable: a blow does not strike a standing ${n}`);
+      d.broken = 1; if (SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push(`breakable: a broken ${n} still stops a bolt`);
+      d.n = 'statue'; delete d.broken; if (SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push('breakable: a bolt stops on a prop that does not break'); m.decor.splice(i, 1); }
+    return out; }
+  SIMX.checks.add('breakableCheck', breakableCheck);
 })(typeof window !== 'undefined' ? window : globalThis);
