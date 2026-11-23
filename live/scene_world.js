@@ -263,7 +263,7 @@
       if (!vis((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 260)) continue;
       if (c.lava && c.kind === 'slabs') { basaltSlabs(c); continue; }
       if (c.lava && c.kind === 'arch') { stoneArch(c); continue; }
-      if (c.look === 'stones' || (c.kind === 'bridge' && !c.lava && !c.chasm && !DUNGEON.bridgeLands(m, c, wetSet, dryCrossings))) { fordStones(c); continue; }
+      if (SIM.Q.crossingOnStones(m, c)) { fordStones(c); continue; }
       planks(c, bandX); }
     // a strand of moss hanging from the lip of a rock face, one art pixel wide: dark at its root, yellow-green at its tip, a leaf
     // pixel now and then to either side; it sways more the lower it hangs. Painted strands drawn this small melted into the rock

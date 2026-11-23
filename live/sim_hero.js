@@ -306,7 +306,7 @@
         hits[id] = S.t; ev(S, { k: 'prop', x: fx, y: d.y, i: id, n: d.n, mat: fungus ? 'fungus' : D.PROP_MAT[d.n] || 'bone', scale: d.s || 1, touch: 1, s: h.x < d.x ? 1 : -1 });
       });
     }
-    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
+    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: SIMX.deckAt(m, Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE)) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     const Cl = D.clsOf(h), weapon = BASES[st.wtype], shoots = (Cl.shoots || []).includes(st.wtype);
     const staffClub = shoots && weapon?.club;
     const meleeArc = st.arc * Math.PI / 180, meleeReach = st.reach;

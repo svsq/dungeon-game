@@ -73,7 +73,7 @@
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]);
       if (tp && B.spill) TL.push([d.x, d.y - up, 190 * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * flick(d.x), 1.4]); }
     // a cave bridge's fire posts (TASKS 306): the crossing's warm light, on the deck and in the water under it
-    for (const c of m.crossings || []) for (const p of c.posts || []) if (p.fire) { const f = flick(p.x + p.y);
+    for (const c of m.crossings || []) if (!SIM.Q.crossingOnStones(m, c)) for (const p of c.posts || []) if (p.fire) { const f = flick(p.x + p.y);
       // the pool lies on the deck and the water round the post's foot, the small bright one at the flame over the post's top, so
       // the post itself is not burnt out by a light at its middle
       TL.push([p.x, p.y + 30, 190, B.torch, 0.95 * f, 3.0]); TL.push([p.x, p.y - BRIDGE.up - 50, 44, B.torch.map((v) => 0.4 + 0.6 * v), 1.1 * f, 2.6]); }

@@ -33,6 +33,7 @@
       const bridge = m.crossings.find((c) => c.kind === 'bridge');
       const wet = new Set(m.water), deck = new Set(m.crossings.filter((c) => c.kind === 'bridge' || c.kind === 'ford').flatMap((c) => c.cells));
       if (!bridge || DG.bridgeLands(m, bridge, wet, deck) !== lands || bridge.cells.some((k) => m.cells[k] !== 1)) out.push(`cave ${sd} f9: wrong landing classification or a bridge off the floor`);
+      else if (SIMX.crossingOnStones(m, bridge) === lands || SIMX.deckAt(m, bridge.cells[0]) !== lands) out.push(`cave ${sd} f9: a bridge ${lands ? 'with' : 'without'} landings takes the wrong deck, step material or lights`);
     }
     // the water caves' floors (TASKS 301) are held to the campaign's rules
     // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
