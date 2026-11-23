@@ -545,7 +545,9 @@
     const slot = D.BASES[item.b]?.slot;
     const worn = slot && hero.eq[slot];
     if (!worn || !(item.lvl > worn.lvl)) return false;
-    return SIMX.equipmentComparison(hero, meta, slot, item).every(({ direction }) => direction > 0);
+    const totals = SIMX.equipmentComparison(hero, meta, slot, item);
+    if (totals.some(({ direction }) => direction < 0)) return false;
+    return totals.some(({ direction }) => direction > 0);
   }
   function sellAsk(S, R, i, x, y) {
     const item = R.hero.bag[i];

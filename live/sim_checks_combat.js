@@ -385,28 +385,41 @@
         h.eq.weapon = equipped;
         const mixed = itemPower({ b: equipped.b, lvl: lowerLevel, rar: epic, mods: { hp: 60 } });
         const stronger = itemPower({ b: equipped.b, lvl: higherLevel, rar: epic, mods: { atk: 30, vit: 10 } });
-        const allGreen = [1, 1, 1], oneGreen = [1, -1, -1];
+        const wornAmulet = { b: 'amulet', lvl: 2, rar: epic, mods: { def: 2 } };
+        h.eq.amulet = wornAmulet;
+        const betterAmulet = { ...wornAmulet, lvl: wornAmulet.lvl + 1, mods: { ...wornAmulet.mods, atk: 8 } };
+        const allGreen = [1, 1, 1], greenWithTwoRed = [1, -1, -1], attackOnly = [0, 1, 0];
         const checkTotals = (label, item, expected) => {
-          const directions = SIMX.equipmentComparison(h, S.meta, 'weapon', item).map(({ direction }) => direction);
+          const directions = SIMX.equipmentComparison(h, S.meta, D.BASES[item.b].slot, item).map(({ direction }) => direction);
           if (directions.join() !== expected.join()) out.push('shop: unexpected total directions for ' + label);
+        };
+        const trySale = (label, candidate, confirm) => {
+          const item = { ...candidate, id: R.nextId++ }, gold = h.gold;
+          h.bag[0] = item;
+          step(S, at(cell));
+          if (confirm) {
+            if (!S.sellAsk || h.bag[0] !== item || h.gold !== gold) out.push('shop: expected sale confirmation for ' + label);
+          } else if (S.sellAsk || h.bag[0]) out.push('shop: expected immediate sale for ' + label);
+          return item;
         };
         const upgrade = 'higher level, all totals green';
         checkTotals(upgrade, stronger, allGreen);
-        const directSales = [
+        const saleCases = [
           ['other class', itemPower({ ...stronger, b: 'staff' }), allGreen],
           ['below epic', itemPower({ ...stronger, rar: rare }), allGreen],
-          ['epic level 3 vs legendary level 5, one total green', mixed, oneGreen],
-          ['higher level, one total green', itemPower({ ...mixed, lvl: higherLevel }), oneGreen],
-          ['higher level, unchanged defense', { ...stronger, mods: { ...mixed.mods, atk: stronger.mods.atk, vit: equipped.mods.vit } }, [1, 1, 0]],
+          ['epic level 3 vs legendary level 5, one total green', mixed, greenWithTwoRed],
+          ['higher level, two totals red', itemPower({ ...mixed, lvl: higherLevel }), greenWithTwoRed],
+          ['higher level, one total red and one green', { ...betterAmulet, mods: { atk: betterAmulet.mods.atk } }, [0, 1, -1]],
+          ['higher level, unchanged defense', { ...stronger, mods: { ...mixed.mods, atk: stronger.mods.atk, vit: equipped.mods.vit } }, [1, 1, 0], true],
+          ['epic amulet level 3 vs epic level 2, only attack green', betterAmulet, attackOnly, true],
+          ['equal level, only attack green', { ...betterAmulet, lvl: wornAmulet.lvl }, attackOnly],
           ['equal level, all totals green', itemPower({ ...stronger, lvl: wornLevel }), allGreen],
           ['lower level, all totals green', itemPower({ ...stronger, lvl: lowerLevel }), allGreen],
-          ['no stat improvement', { ...equipped, lvl: higherLevel }, [0, 0, 0]],
+          ['higher level, all totals unchanged', { ...equipped, lvl: higherLevel }, [0, 0, 0]],
         ];
-        for (const [label, item, expected] of directSales) {
+        for (const [label, item, expected, confirm = false] of saleCases) {
           checkTotals(label, item, expected);
-          h.bag[0] = { ...item, id: R.nextId++ };
-          step(S, at(cell));
-          if (S.sellAsk || h.bag[0]) out.push('shop: expected immediate sale for ' + label);
+          trySale(label, item, confirm);
           if (S.sellAsk) step(S, { keys: ['Escape'] });
         }
         const SA = UI.sellAsk(), sa = (id) => {
@@ -419,10 +432,7 @@
           [sa('sellYes'), true],
         ];
         for (const [input, sold] of outcomes) {
-          const item = { ...stronger, id: R.nextId++ }, gold = h.gold, price = D.sellPrice(item, SIMX.tradeDepth(R));
-          h.bag[0] = item;
-          step(S, at(cell));
-          if (!S.sellAsk || h.bag[0] !== item || h.gold !== gold) out.push('shop: expected sale confirmation for ' + upgrade);
+          const gold = h.gold, item = trySale(upgrade, stronger, true), price = D.sellPrice(item, SIMX.tradeDepth(R));
           step(S, input);
           if (S.sellAsk || S.screen !== 'shop' || h.bag[0] !== (sold ? null : item) || h.gold !== gold + (sold ? price : 0)) {
             out.push('shop: incorrect outcome when closing the sale question');
