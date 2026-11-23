@@ -543,7 +543,9 @@
     if (!D.wears(D.clsOf(hero).id, item.b)) return false;
     if ((item.rar ?? 0) < EPIC_RARITY) return false;
     const slot = D.BASES[item.b]?.slot;
-    return !!slot && SIMX.equipmentComparison(hero, meta, slot, item).some(({ direction }) => direction > 0);
+    const worn = slot && hero.eq[slot];
+    if (!worn || !(item.lvl > worn.lvl)) return false;
+    return SIMX.equipmentComparison(hero, meta, slot, item).every(({ direction }) => direction > 0);
   }
   function sellAsk(S, R, i, x, y) {
     const item = R.hero.bag[i];

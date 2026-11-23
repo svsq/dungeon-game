@@ -380,15 +380,30 @@
         if (h.gold !== 1e6 || cg.n !== c0) out.push('a buy into a full bag took the gold');
         const rarity = (id) => D.RARITY.findIndex((entry) => entry.id === id);
         const epic = rarity('epic'), rare = rarity('rare'), legendary = rarity('legendary');
-        const cell = 'sell:0', equipped = itemPower({ b: 'sword', lvl: h.lvl, rar: epic, mods: { hp: 5 } });
+        const cell = 'sell:0', lowerLevel = 3, wornLevel = 5, higherLevel = wornLevel + 1;
+        const equipped = itemPower({ b: 'sword', lvl: wornLevel, rar: legendary, mods: { vit: 5 } });
         h.eq.weapon = equipped;
-        const stronger = { ...equipped, atk: equipped.atk + 1, mods: {} };
+        const mixed = itemPower({ b: equipped.b, lvl: lowerLevel, rar: epic, mods: { hp: 60 } });
+        const stronger = itemPower({ b: equipped.b, lvl: higherLevel, rar: epic, mods: { atk: 30, vit: 10 } });
+        const allGreen = [1, 1, 1], oneGreen = [1, -1, -1];
+        const checkTotals = (label, item, expected) => {
+          const directions = SIMX.equipmentComparison(h, S.meta, 'weapon', item).map(({ direction }) => direction);
+          if (directions.join() !== expected.join()) out.push('shop: unexpected total directions for ' + label);
+        };
+        const upgrade = 'higher level, all totals green';
+        checkTotals(upgrade, stronger, allGreen);
         const directSales = [
-          ['other class', { ...stronger, b: 'staff', lvl: equipped.lvl + 1 }],
-          ['below epic', { ...stronger, rar: rare }],
-          ['no stat improvement', { ...equipped, lvl: equipped.lvl + 1, rar: legendary }],
+          ['other class', itemPower({ ...stronger, b: 'staff' }), allGreen],
+          ['below epic', itemPower({ ...stronger, rar: rare }), allGreen],
+          ['epic level 3 vs legendary level 5, one total green', mixed, oneGreen],
+          ['higher level, one total green', itemPower({ ...mixed, lvl: higherLevel }), oneGreen],
+          ['higher level, unchanged defense', { ...stronger, mods: { ...mixed.mods, atk: stronger.mods.atk, vit: equipped.mods.vit } }, [1, 1, 0]],
+          ['equal level, all totals green', itemPower({ ...stronger, lvl: wornLevel }), allGreen],
+          ['lower level, all totals green', itemPower({ ...stronger, lvl: lowerLevel }), allGreen],
+          ['no stat improvement', { ...equipped, lvl: higherLevel }, [0, 0, 0]],
         ];
-        for (const [label, item] of directSales) {
+        for (const [label, item, expected] of directSales) {
+          checkTotals(label, item, expected);
           h.bag[0] = { ...item, id: R.nextId++ };
           step(S, at(cell));
           if (S.sellAsk || h.bag[0]) out.push('shop: expected immediate sale for ' + label);
@@ -407,7 +422,7 @@
           const item = { ...stronger, id: R.nextId++ }, gold = h.gold, price = D.sellPrice(item, SIMX.tradeDepth(R));
           h.bag[0] = item;
           step(S, at(cell));
-          if (!S.sellAsk || h.bag[0] !== item || h.gold !== gold) out.push('shop: an epic with one improved stat must ask before sale');
+          if (!S.sellAsk || h.bag[0] !== item || h.gold !== gold) out.push('shop: expected sale confirmation for ' + upgrade);
           step(S, input);
           if (S.sellAsk || S.screen !== 'shop' || h.bag[0] !== (sold ? null : item) || h.gold !== gold + (sold ? price : 0)) {
             out.push('shop: incorrect outcome when closing the sale question');
