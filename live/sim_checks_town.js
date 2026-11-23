@@ -5,8 +5,12 @@
     interact, K, newQuest, newRun, offerOf, persist, questMark, railLen, REWARD, rollItem, runCompletion, spawn, startRun, stats, step, stockShop, takeQuest,
     TILE, tradeDepth, turnIn, UI } = SIMX;
   const { noWelcome, noQuests } = SIMX.checks.kit;
+  // no heap of rubble lies on the way to the soul altar, within this many cells of it (the author, 23.11.2026)
+  const RUBBLE_ALTAR_CLEAR = 3;
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+    { const m = DG.genTown(31), altar = m.decor.find((d) => d.n === 'altar');
+      for (const r of m.decor.filter((d) => d.role === 'rubble')) if (altar && Math.hypot(r.x - altar.x, r.y - altar.y) < RUBBLE_ALTAR_CLEAR * TILE) out.push(`town: a heap of rubble lies by the soul altar at ${Math.round(r.x)},${Math.round(r.y)}`); }
     for (let sd = 1; sd <= 8; sd++) { const m = DG.genTown(sd * 977), go = (k) => m.cells[k] === 1, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
       const seen = new Uint8Array(m.W * m.H), q = [at(m.spawn)]; seen[q[0]] = 1;
       for (let i = 0; i < q.length; i++) for (const d of [1, -1, m.W, -m.W]) { const n = q[i] + d; if (!seen[n] && go(n)) { seen[n] = 1; q.push(n); } }

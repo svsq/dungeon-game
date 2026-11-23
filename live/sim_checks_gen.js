@@ -830,4 +830,13 @@
   SIMX.checks.add('backWallPropCheck', backWallPropCheck);
   SIMX.checks.add('floorModCheck', floorModCheck, { slow: true });
   SIMX.checks.add('genPrintCheck', genPrintCheck);
+  // no pier to nowhere: on the magma caves' floors and the campaign's magma chapter every bridge over lava lands at both its ends
+  const LAVA_BRIDGE_SEEDS = 12;
+  function lavaBridgeCheck() { const out = [], C = D.RUNS.campaign, magmaFrom = (C.chapters || []).find((c) => c.run === 'magma').from;
+    const floors = [['magma', [1, 2, 3, 4]], ['campaign', Array.from({ length: C.floors - magmaFrom + 1 }, (_, i) => magmaFrom + i)]];
+    for (const [mode, fs] of floors) for (let sd = 1; sd <= LAVA_BRIDGE_SEEDS; sd++) for (const f of fs) {
+      const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 });
+      for (const c of m.crossings || []) if (c.kind === 'bridge' && c.lava && c.span && !DG.lavaBridgeLands(m, c)) out.push(`lava bridge: ${mode} ${sd} f${f}: the bridge at ${c.span.join(',')} lands nowhere at an end`); }
+    return out; }
+  SIMX.checks.add('lavaBridgeCheck', lavaBridgeCheck, { slow: true });
 })(typeof window !== 'undefined' ? window : globalThis);

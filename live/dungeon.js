@@ -427,7 +427,7 @@
     routeClear: 2.5,
     npcs: [['smith', 37, 11.4], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 32, 12], ['porter', 32, 14], ['sweeper', 11, 25], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.9, 31.4]],
     // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1609)
-    rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
+    rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [50, 27], [31, 11]],
     // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1611, 1609)
     grates: [[24.6, 27.4], [29.4, 27.4], [35.4, 27.4]], ivy: [[13, 27.6], [21, 27.6], [32.5, 27.6], [38, 27.6], [6, 11.6], [6, 23.6], [38, 15.6], [46, 21.6]],
     // ruin stubs the seed picks some of, and spots for the small decor
@@ -553,7 +553,7 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { isPassageCell, onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
+  root.DUNGEON = { isPassageCell, lavaBridgeLands: (m, c) => DGX.lavaBridgeLands(m, c), onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
