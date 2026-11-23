@@ -6,8 +6,8 @@ Each fist is cut from its half of the sheet: the rows above and below it, where 
 inside it go transparent (the real haft shows there), and the canvas is widened on the fingers' side so the rod runs down its middle
 column: drawHero centres the fist on the grip and turns it along the weapon. It is sampled down to HEIGHT px on the art's own grid (the
 commonest opaque colour of each cell) and recoloured from the glove it belongs to: each pixel takes the colour of the drawn hand
-(farmR<sfx>_menu below HAND_TOP) at the same luminance rank within its material (steel or leather, by OKLab chroma), the outline its
-darkest. The world fists (3 x 4 cells of the world grid) stay as they are pixelled.
+(farmR<sfx>_menu below HAND_TOP) at the same luminance rank within its material (steel or leather, by OKLab chroma; small patches of rust
+inside a plate count as its steel), the outline its darkest. The world fists (3 x 4 cells of the world grid) stay as they are pixelled.
   python3 tools/warrior_grip_fist.py run          art/gen/hero__fistR{,_pw}_menu.png; old ones in art/old/<name>-before-grip.png; prints the prep line
   python3 tools/warrior_grip_fist.py sheet out.png  the new fists x8 on a haft, beside the old ones"""
 import os, shutil, sys
@@ -23,6 +23,9 @@ ROD_GREY, ROD_SPREAD, STEEL_CHROMA, OUTLINE_L = (100, 170), 12, 0.035, 0.22
 ROW_K, TONES = 2, 4
 # the rod alone sticks out over the fist's top for at least this many sheet rows: its columns are read there, as steel is grey too
 ROD_ROWS = 20
+# a patch of the fist off steel's chroma, inside a steel plate and under this share of the fist's body, is the sheet's rust: it takes
+# the plate's steel, or it came out as brown specks on the gauntlet's fingers; the glove's leather is one patch far over it
+SPECK_SHARE = 0.1
 
 def oklab(rgb):
     c = rgb / 255.0; c = np.where(c > 0.04045, ((c + 0.055) / 1.055) ** 2.4, c / 12.92)
@@ -66,12 +69,30 @@ def tones(px, k):
     order = np.argsort(oklab(c)[:, 0]); rank = np.empty(k, int); rank[order] = np.arange(k)
     return c[order], rank[lab]
 
+def rust_to_steel(steel, body):
+    """steel (2-D) with every 4-connected patch of body's non-steel pixels that touches steel and is under SPECK_SHARE of body made steel"""
+    out, seen, H, W = steel.copy(), np.zeros_like(steel), *steel.shape
+    for y0, x0 in zip(*np.nonzero(body & ~steel)):
+        if seen[y0, x0]: continue
+        patch, stack, touches = [], [(y0, x0)], False; seen[y0, x0] = True
+        while stack:
+            y, x = stack.pop(); patch.append((y, x))
+            for v, u in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                if not (0 <= v < H and 0 <= u < W) or not body[v, u]: continue
+                if steel[v, u]: touches = True
+                elif not seen[v, u]: seen[v, u] = True; stack.append((v, u))
+        if touches and len(patch) < SPECK_SHARE * body.sum():
+            for y, x in patch: out[y, x] = True
+    return out
+
 def recolour(fist, ref):
     """the fist's tones per material ranked by luminance onto the drawn hand's tones of that material; the darkest pixels its outline"""
     rp = ref[ref[..., 3] > 127][:, :3].astype(float); rl = oklab(rp); out = fist.copy(); m = fist[..., 3] > 127
     fp = fist[m][:, :3].astype(float); fl = oklab(fp); res = np.zeros_like(fp)
     steel = lambda L: np.hypot(L[:, 1], L[:, 2]) < STEEL_CHROMA
     rs, fs, outline = steel(rl), steel(fl), fl[:, 0] < OUTLINE_L
+    grid, body = np.zeros(m.shape, bool), np.zeros(m.shape, bool); grid[m] = fs; body[m] = ~outline
+    fs = rust_to_steel(grid, body)[m]
     res[outline] = rp[np.argmin(rl[:, 0])]
     for kind in (True, False):
         sel, pool = (fs == kind) & ~outline, (rs == kind) & (rl[:, 0] >= OUTLINE_L)

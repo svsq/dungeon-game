@@ -1,7 +1,7 @@
 // live/sandbox.cjs — render files and generated data run in Node for the self-check (TASKS 1896, 2086): the scene is render code with
 // no node entry, and the logic layer may not stand up a page for it (tools/layercheck.cjs), so the sandbox is a file of live/ that the
 // checks and the tools alike load (it was tools/scenebox.cjs).
-// heroBox(D, SIM, sizes) → { drawHero, L, calls }: L and G are stubs, and each sprite's placement (its matrix's x, or its x) goes into calls;
+// heroBox(D, SIM, sizes) → { drawHero, SC, L, calls }: SC is the scene's shared table the hero file fills; L and G are stubs, and each sprite's placement (its matrix's x, or its x) goes into calls;
 // with sizes (assets()) the textures have their real sizes and only the painted ones exist
 // monsterBox(D) → MONSTERS as monsters.js builds it over the same stubs; rigs() → RIGS as rigs.js leaves it.
 const fs = require('fs'), vm = require('vm'), path = require('path');
@@ -16,7 +16,7 @@ function stage(D, SIM, sizes) {
   box.window = box; box.DATA = D; box.LIB = L; box.SCX = { D, L, M, SC: {}, SS: L.SS }; vm.createContext(box); vm.runInContext(src('rigs.js'), box);
   return { box, L, calls };
 }
-function heroBox(D, SIM, sizes) { const { box, L, calls } = stage(D, SIM, sizes); vm.runInContext(src('scene_hero.js'), box); return { drawHero: box.SCX.drawHero, L, calls }; }
+function heroBox(D, SIM, sizes) { const { box, L, calls } = stage(D, SIM, sizes); vm.runInContext(src('scene_hero.js'), box); return { drawHero: box.SCX.drawHero, SC: box.SCX.SC, L, calls }; }
 function monsterBox(D) { const { box } = stage(D, null); vm.runInContext(src('monsters.js'), box); return box.MONSTERS; }
 // rigs() → window.RIGS as the page has it once live/rigs.js has run: the file is run, not parsed, so all it assigns counts
 // hudBox(D, SIM, fontW) → HUD as hud.js leaves it, over stub drawing: its geometry (HUD.markZones) measures text by fontW, the

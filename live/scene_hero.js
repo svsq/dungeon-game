@@ -78,7 +78,7 @@
   const FB_RAISE = { a: -1.35, reach: 0.62, orbLow: 1.5, orbUp: 0.3 };
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
   // what the hero wears (TASKS 155): each slot picks the rig parts painted for its base (tools/gear.py), '' = the hero as first drawn
-  // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield rides the far forearm
+  // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield is held in the near (cape-side) hand
   // (the plate, gauntlets and iron boots in browned steel, TASKS 1791: the cold blue-grey made a grey knight of the late hero, lost on the magma's ash)
   const GEAR = { armor: { '': 'cl', leather_armor: 'le', plate_armor: 'pw', cloak: 'hd', robe: 'hd' }, gloves: { '': 'cl', leather_gloves: '', gauntlets: 'pw' },
     boots: { '': 'cl', boots: 'le', iron_boots: 'pw' }, helm: { leather_helm: 'le', knight_helm: 'kn' } };
@@ -559,7 +559,7 @@
       const at = world ? [grid(at0[0], q % 2 ? nh : nw), grid(at0[1], q % 2 ? nw : nh)] : at0;
       L.sprite(tx, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(a), M.s(fX, 1)), w, h: hh, pivot: [w / 2, hh / 2], u: tinted(u, g.tint) }); };
     const drawFist = (u0) => { fistOne('R', u0); if (bowArm && !xbow && bowHand >= 0.5) fistOne('L', u0); };
-    // the shield is strapped across the far forearm, its face to the camera; from behind its plain back shows (darker)
+    // the shield is held in the near (cape-side) hand, its face to the camera; from behind its plain back shows (darker)
     // (TASKS 2153) in the arch's x3.2 the small world orb blurred into a blob: there it is the orb of the mage's reference
     const orbTex = (t) => (o.menu && window.ASSETS[t + '_menu'] ? t + '_menu' : t);
     const shield = (u) => { if (!GR.shield) return; const [tex, hh] = GR.shield, A = arms.L, E = R2U(jL.E[0], jL.E[1]), Hd = R2U(jL.Hd[0], jL.Hd[1]), ww = hh * G.tex(tex).w / G.tex(tex).h;
@@ -575,7 +575,7 @@
         L.sprite(orbTex(tex), 0, 0, { m: M.of(M.t(oc[0], oc[1]), M.r(fallR + bodyR)), w: ww * ok, h: hh * ok, pivot: [ww * ok / 2, hh * ok / 2], u: tinted(Object.assign({}, U, { alpha: u.alpha }), GR.shieldTint) }); L.joint(id, 'orb', oc);
         if (orbCup && backV < ORB_CUP.back) L.sprite(cup, 0, 0, { m: cm, w: cw, h: ch, pivot: [C.arm[0] * cw, C.arm[1] * ch], u: tinted(shade(u, 1, BACK_VIEW.armShade), GR.part('cupL').tint) }); return; }
       // (TASKS 2170) its middle near the fist that holds its grip: on the forearm's middle the buckler left the fist at its rim
-      const sk = SHIELD_AT + (1 - SHIELD_AT) * tuckL, c = [E[0] + sk * (Hd[0] - E[0]) - fX * 4 * (1 - tuckL), E[1] + sk * (Hd[1] - E[1])], back = backK > 0.5; L.joint(id, 'shield', c);
+      const sk = SHIELD_AT + (1 - SHIELD_AT) * tuckL, c = [E[0] + sk * (Hd[0] - E[0]), E[1] + sk * (Hd[1] - E[1])], back = backK > 0.5; L.joint(id, 'shield', c);
       L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX * SHIELD_HOLD.squeeze, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
     const scroll = () => { const Hd = R2U(jL.Hd[0], jL.Hd[1]), w = 22, hh = w * 177 / 228;
       L.sprite('it_scroll', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(fallR + bodyR - 0.35 * fX), M.s(fX, 1)), w, h: hh, pivot: [w * 0.45, hh * 0.55], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.5, readE) }) }); };
@@ -712,13 +712,17 @@
       if (backK < 1 && GR.helm) L.sprite(helmTex, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
       if (backK > 0 && window.ASSETS[pn + 'body_back']) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, shade(U, LK.back?.sat ?? BACK_VIEW.bodySat, BACK_VIEW.bodyLift), { alpha: alpha * backK, snap: 2 * L.SNAP }, soft(pn + 'body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, shade(tinted(U, GR.helmTint), 1, BACK_VIEW.headLift), { alpha: alpha * backK }) }, bodyAt));
-      if (nearArm || orbUp) { drawArm('L', Ufar, orbUp ? 'u' : 'uf', orbUp ? '_drape' : ''); if (nearArm) shield(Ufar); }
+      // the shield held before the body is nearer the camera than the weapon arm: a blow's follow-through brings that fist and the blade
+      // back across it, and over it they read as passing in front of the shield. Only a whirl's sweep at its near arc passes in front
+      const shieldOverWeapon = nearArm && whirlE === 0;
+      if (nearArm || orbUp) { drawArm('L', Ufar, orbUp ? 'u' : 'uf', orbUp ? '_drape' : ''); if (nearArm && !shieldOverWeapon) shield(Ufar); }
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); if (!orbLate) shield(backK > 0.5 ? Ufar : U); if (readE > 0.3) scroll(); }
       if (orbLate && behind) shield(castFront ? U : Ufar);
       // (TASKS 2170) a rig with its near fist cut out (fistR) draws it again over the held weapon: the hilt or haft passes under the
       // fingers and shows above and below the fist in every pose, where the whole arm over the weapon hid the pommel under the wrist
       const Uo = over < 1 ? Object.assign({}, U, { alpha: U.alpha * over }) : U, armOver = () => { if (front > 0) drawArm('R', front < 1 ? Object.assign({}, Uo, { alpha: Uo.alpha * front }) : Uo); };
       if (over > 0) { if (fistOver) { armOver(); weapon(Uo); drawFist(Uo); } else if (grasp) { weapon(Uo); armOver(); } else { armOver(); weapon(Uo); } }
+      if (shieldOverWeapon) shield(Ufar);
       // (TASKS 2156) and after the near arm: on the run its forward swing passed over the orb for 3 frames of 12
       if (orbLate && !behind) { if (!castFront) drawArm('L', Ufar, 'f'); shield(castFront ? U : Ufar); }
     };
@@ -737,7 +741,7 @@
       const dT = [g.T[0] - g.A0[0], g.T[1] - g.A0[1]], fk = footK(side); J('heel' + side, R2S(g.A0[0] + (RG['heel' + side][0] - g.A0[0]) * fk + dT[0], RG['heel' + side][1] + dT[1])); J('toe' + side, R2S(g.A0[0] + (RG['toe' + side][0] - g.A0[0]) * fk + dT[0], RG['toe' + side][1] + dT[1])); J('ground' + side, [hx, hy + tg[side].dz * s]);
       const A = arms[side], j2 = side === 'L' ? jL : jR; J('sh' + side, R2U(A.Sp[0], A.Sp[1])); J('elbow' + side, R2U(j2.E[0], j2.E[1])); J('hand' + side, R2U(j2.Hd[0], j2.Hd[1])); }
   }
-  SC.drawHero = drawHero;
+  SC.drawHero = drawHero; SC.heldGrip = heldGrip;
 
   Object.assign(SCX, {
     HERO_H, SWING, TAU, wrapPi, swingPose, DEPTH_K, ARC_HALF, ARC_MID, whirlP, HERO, sinkOf, drawHero });

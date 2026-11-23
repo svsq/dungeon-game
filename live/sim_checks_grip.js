@@ -79,7 +79,7 @@
   // turned toward the camera (drawn under FACING of its length) points its pommel at the camera, hidden in the fist, and only the axis counts.
   // A long haft (BUTT) is held near its butt: past the fist it shows no more than its cap, or it ran up along the forearm
   function warriorFistCheck(out) {
-    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, TIP = 0.78, FACING = 0.6, SHIELD_GRIP = 0.3, BUTT = { axe: 4, hammer: 4 }, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const SB = require('./sandbox.cjs'), { drawHero, L, SC } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, FACING = 0.6, SHIELD_GRIP = 0.3, BUTT = { axe: 4, hammer: 4 }, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const seen = new Set(), texels = (q) => texelsOf(L, q);
     const POSES = [['rest', 0, 10, -9], ['rest', 0, 11.3, -9], ['run', 150, 10, -9], ['run', 150, 10.4, -9], ['blow', 0, 10.06, 10], ['blow', 0, 10.15, 10], ['blow', 0, 10.3, 10], ['blow', 0, 10.6, 10]];
     let counted = 0;
@@ -104,22 +104,27 @@
       const over = new Set(wpn.map(cell).filter((k) => fc.has(k))).size;
       if (over < OVER) say(`the fist lies over ${over} px of the ${wb}`);
       const along = (p) => (p[0] - c[0]) * u[0] + (p[1] - c[1]) * u[1], fa = fist.map(along), lo = Math.min(...fa), hi = Math.max(...fa), wa = wpn.filter((p) => !fc.has(cell(p))).map(along);
-      const fs = len / (TIP * spr[wi].o.w);
+      const fs = len / ((1 - SC.heldGrip(spr[wi].n.replace(/_menu$/, ''))) * spr[wi].o.w);
       if (fs >= FACING && (!wa.some((a) => a > hi + PAST) || !wa.some((a) => a < lo - PAST))) say(`the ${wb} does not show on both sides of the fist (fist ${lo.toFixed(1)}..${hi.toFixed(1)} px along it, drawn ${fs.toFixed(2)} of its length)`);
       else if (BUTT[wb] && wa.length && lo - Math.min(...wa) > BUTT[wb]) say(`the ${wb}'s haft runs ${(lo - Math.min(...wa)).toFixed(1)} px past the fist toward its butt (at most ${BUTT[wb]}): it reads as growing out of the bracer`);
     }
-    // the shield on the far forearm: the hand that holds its grip lies behind it, near its middle, and the shield is drawn over that hand
-    for (const ob of ['shield', 'buckler', 'tower_shield']) for (const face of [1, -1]) for (const menu of [0, 1]) for (const [act, vx, GT] of POSES.filter((p) => p[0] !== 'blow')) {
+    // the shield in the near (cape-side) hand: the hand that holds its grip lies behind it, near its middle, and the shield is drawn over that hand;
+    // held before the body it is drawn over the weapon's fist too, through a blow as well (its follow-through brings the fist across it)
+    for (const ob of ['shield', 'buckler', 'tower_shield']) for (const face of [1, -1]) for (const menu of [0, 1]) for (const [act, vx, GT, atkT] of POSES) {
+      if (menu && act === 'blow') continue;
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'warrior' }); S.run = R; R.hero.eq.weapon = { id: 0, b: 'sword', rar: 0, lvl: 1, mods: {}, atk: 6 };
       R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
-      const h = Object.assign({}, R.hero, { vx, vy: 0, gp: GT * 4, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
+      const h = Object.assign({}, R.hero, { vx, vy: 0, gp: GT * 4, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT, atkA: 0, aim: 0, patkT: -9, castT: -9, whirlT: -9 });
       const J = {}, spr = [], tag = `warrior ${ob} ${act} face ${face}${menu ? ' in the arch' : ''} at ${GT}`;
       L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};
       drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
       const si = spr.findIndex((q) => /^it_(shield|buckler)/.test(q.n)), ai = spr.findIndex((q) => /^hero__farmL/.test(q.n));
-      if (si < 0 || ai < 0) { out.push(`warrior fist: ${tag}: the shield or the far forearm is not drawn`); continue; }
+      if (si < 0 || ai < 0) { out.push(`warrior fist: ${tag}: the shield or the near forearm is not drawn`); continue; }
+      const body = spr.findIndex((q) => /^hero__body$/.test(q.n)), fi = spr.findIndex((q) => /^hero__fistR/.test(q.n));
+      if (body >= 0 && si > body && fi > si) out.push(`warrior fist: ${tag}: the weapon's fist is drawn over the shield held before the body`);
+      if (act === 'blow') continue;
       const r = d(J.shield, J.handL) / spr[si].o.h;
-      if (si < ai || r > SHIELD_GRIP) out.push(`warrior fist: ${tag}: the far hand is ${r.toFixed(2)} of the shield's height from its middle${si < ai ? ', drawn over it' : ''}`);
+      if (si < ai || r > SHIELD_GRIP) out.push(`warrior fist: ${tag}: the near hand is ${r.toFixed(2)} of the shield's height from its middle${si < ai ? ', drawn over it' : ''}`);
     }
     if (counted < 64) out.push(`warrior fist: only ${counted} frames hold the weapon in front of the body`);
     fistsOnGrid(out, 'warrior', ['sword', 'longsword', 'axe', 'hammer'], 'warrior fist');
