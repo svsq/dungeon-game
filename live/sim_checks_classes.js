@@ -343,7 +343,6 @@
         if (!ok) out.push('class mage: no open floor to test the staff club');
         else {
           const staff = BASES.staff, club = staff.club, e = foe(200), far = 200, near = club.trigger - 8;
-          h.eq.weapon.atk = 1000;
           h.eq.weapon.mods.crit = -100;
           const tick = (distance, press = true) => {
             Object.assign(e, { x: h.x + distance, y: h.y, st: 'idle', kbx: 0, kby: 0 });
@@ -371,7 +370,7 @@
           if (S.ev.some((q) => q.k === 'hit' && q.kind === 'staffClub')) out.push('class mage: staff club hits before the windup');
           waitForHit(near, club.windup);
           const hit = S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id);
-          if (!hit || hit.t - clubStart < club.windup || hit.n !== hp - e.hp || hit.n < Math.round(staff.atk * 0.9) || hit.n > Math.round(staff.atk * 1.1) || R.proj.length) out.push('class mage: staff club does not land as a base-damage melee hit');
+          if (!hit || hit.t - clubStart < club.windup || hit.n !== hp - e.hp || hit.n < Math.round(stats(h, S.meta).atk * club.atkFactor * 0.9) || hit.n > Math.round(stats(h, S.meta).atk * club.atkFactor * 1.1) || R.proj.length) out.push('class mage: staff club does not land as a melee hit of the hero attack times the club factor');
           tick(near);
           if (h.atkT !== clubStart) out.push('class mage: staff club repeats during recovery');
           while (S.t + DT < clubCd) tick(far, false);
@@ -380,6 +379,27 @@
           while (S.t + DT < orbCd) tick(far, false);
           tick(far);
           if (h.atkT === clubStart || !S.ev.some((q) => q.k === 'swing' && q.shot && q.t === h.atkT)) out.push('class mage: the staff does not resume shooting once both cooldowns expire');
+        } }
+      { const { S, R, h, foe, ok } = arena('mage');
+        if (ok) {
+          const club = BASES.staff.club, e = foe(200), POWER = '__clubPower', LEECH = 10, ONHIT = 3, LOW_HP = 1, ATTACK_GROWTH = 3, ROLL_SPREAD = 0.1;
+          h.eq.weapon.mods.crit = -100; h.eq.weapon.mods.leech = LEECH; h.eq.weapon.mods.onhit = ONHIT;
+          grant(h, POWER, { trig: 'hit', fx: 'mana', v: 0 });
+          const blow = (weaponAttack) => {
+            h.eq.weapon.atk = weaponAttack; h.cd.staffClub = 0; h.hp = LOW_HP; S.ev = [];
+            Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
+            step(S, { keys: [], press: 1, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
+            for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) step(S, { keys: [] });
+            return { hit: S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id), stat: stats(h, S.meta), healed: h.hp - LOW_HP, powers: S.ev.filter((q) => q.k === 'power' && q.id === POWER).length };
+          };
+          const weak = blow(100), strong = blow(100 * ATTACK_GROWTH);
+          delete D.POWERS[POWER];
+          for (const { hit, stat, healed, powers } of [weak, strong]) {
+            const expected = stat.atk * club.atkFactor;
+            if (!hit || hit.n < Math.round(expected * (1 - ROLL_SPREAD)) || hit.n > Math.round(expected * (1 + ROLL_SPREAD))) out.push('class mage: the club blow does not follow the hero attack');
+            else if (healed < hit.n * stat.leech / 100 + stat.onhit - 1e-6 || powers !== 1) out.push('class mage: the club blow loses its leech, on-hit heal or power');
+          }
+          if (weak.hit && strong.hit && strong.hit.n <= weak.hit.n) out.push('class mage: a stronger hero hits with the club for no more');
         } }
       for (const [cls, kind] of [['warrior', 'melee'], ['archer', 'shot']]) { const { S, h, ok } = arena(cls);
         if (ok && SIMX.attackShape(h, stats(h, S.meta), null).kind !== kind) out.push(`class ${cls}: the attack shape is not a ${kind}`); }

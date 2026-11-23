@@ -327,7 +327,7 @@
     }
     const strike = h.atkT >= 0 && !h.atkHit ? SIMX.attackShape(h, st, h.atkClub) : null;
     if (strike && t - h.atkT >= strike.frame) {
-      const clubBase = BASES[h.atkClub], { kind: attackKind, arc, reach } = strike;
+      const club = BASES[h.atkClub]?.club, { kind: attackKind, arc, reach } = strike;
       h.atkHit = 1;
       const ranged = attackKind === 'shot';
       if (ranged) {
@@ -337,11 +337,11 @@
         if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
         ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
       } else {
-        const hitStats = clubBase ? { ...st, atk: clubBase.atk } : st;
+        const hitStats = club ? { ...st, atk: st.atk * club.atkFactor } : st;
         for (const e of R.en) {
           if (!inMeleeArc(m, h, e, h.atkA, arc, reach + ENEMIES[e.type].r + K.R)) continue;
           const [dmg, c] = heroRoll(R, h, hitStats);
-          heroHit(S, R, e, dmg, c, h.x, h.y, st.kb, clubBase ? 'staffClub' : undefined);
+          heroHit(S, R, e, dmg, c, h.x, h.y, st.kb, club ? 'staffClub' : undefined);
         }
       }
       const propReach = reach + 10;
