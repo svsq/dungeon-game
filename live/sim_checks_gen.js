@@ -1,7 +1,7 @@
 // live/sim_checks_gen.js — selfCheck's parts for the level generator: floors, floor types and modifiers, props, the generator's print. Node only, like sim_checks.js.
 (function (root) {
   const SIMX = root.SIMX, {
-    addFire, cell, crustAt, D, DG, DT, ENEMIES, enterFloor, flow, heroSt, hitEnemy, hitProps, inRoom1, inStart, K, newRun, onLava, openChest, rnd,
+    addFire, boxHit, cell, crustAt, D, DG, DT, ENEMIES, enterFloor, flow, heroSt, hitEnemy, hitProps, inRoom1, inStart, K, mapw, newRun, onLava, openChest, rnd,
     secretMask, spawn, step, TILE, toPx, under, who } = SIMX;
   const { swing } = SIMX.checks.kit;
   // secrets, loot tables and completion stats, played through the sim
@@ -698,6 +698,42 @@
       if (!S.ev.some((e) => e.k === 'prop' && e.i === 't' + bi && e.mat === 'metal' && e.s === -1)) out.push('prop check: a blow from the right does not knock the brazier'); }
     return out;
   }
+  function backWallPropCheck() {
+    const out = [];
+    for (const runSeed of [1, 77]) for (let f = 1; f <= D.RUNS.campaign.chapter; f++) {
+      const m = DG.genFloor(runSeed * 31 + f * 1013, f, { mode: 'campaign', runSeed, town: 1 });
+      for (const d of m.decor) {
+        const room = m.rooms[d.r], width = D.PROP_W[d.n];
+        if (!d.solid || d.wall || !width || !room || d.secret !== undefined) continue;
+        const row = Math.floor(d.y / TILE), centre = Math.floor(d.x / TILE);
+        if (row !== room.y || cell(m, centre, row - 1) !== 0) continue;
+        const left = d.x - width / 2, right = d.x + width / 2, y = (row + 0.5) * TILE;
+        for (let col = Math.floor(left / TILE); col * TILE < right; col++) {
+          if (cell(m, col, row - 1) !== 0 || cell(m, col, row) !== 1) continue;
+          const x = (Math.max(left, col * TILE) + Math.min(right, (col + 1) * TILE)) / 2;
+          if (!boxHit(m, x, y, K.R, false)) out.push(`back wall prop: seed ${runSeed} f${f}, ${d.n} leaves ${col},${row} open`);
+        }
+      }
+    }
+
+    const W = 7, H = 6, room = { x: 1, y: 2, w: W - 2, h: H - 3 };
+    const cells = Array.from({ length: W * H }, (_, k) => DG.inRm(room, k % W, Math.floor(k / W)) ? 1 : 0);
+    const shelf = { x: Math.floor(W / 2) * TILE, y: (room.y + 1) * TILE - K.R / 2, n: 'bookshelf', r: 0, solid: 1 };
+    const m = { W, H, cells, rooms: [room], decor: [shelf], block: [] };
+    const side = shelf.x + TILE, behind = (room.y + 0.5) * TILE;
+    const blocked = () => boxHit(m, side, behind, K.R, false);
+    if (!blocked()) out.push('back wall prop: the outer part of a bookshelf leaves a gap');
+    const sideCol = Math.floor(side / TILE);
+    mapw.setCell(m, (room.y - 1) * W + sideCol, 1);
+    const passageX = (sideCol + 0.5) * TILE;
+    if (boxHit(m, passageX, behind, K.R, false)) out.push('back wall prop: a shelf blocks the neighbouring passage');
+    mapw.setCell(m, (room.y - 1) * W + sideCol, 0);
+    if (!blocked()) out.push('back wall prop: closing the passage leaves a gap behind the shelf');
+    shelf.solid = 0;
+    mapw.blockDrop(m, room.y * W + Math.floor(shelf.x / TILE));
+    if (blocked()) out.push('back wall prop: a broken bookshelf still blocks the floor');
+    return out;
+  }
   // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
   // 2nd that are no boss's, about half of them, each of the five, no flood on the fire floors; each one does what it says over the
   // same floor laid without it; the banner names it; gold and a hoard's ambush answer it in the sim
@@ -770,6 +806,7 @@
   SIMX.checks.add('branchCheck', branchCheck, { slow: true });
   SIMX.checks.add('magmaKindsCheck', magmaKindsCheck);
   SIMX.checks.add('propCheck', propCheck);
+  SIMX.checks.add('backWallPropCheck', backWallPropCheck);
   SIMX.checks.add('floorModCheck', floorModCheck, { slow: true });
   SIMX.checks.add('genPrintCheck', genPrintCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

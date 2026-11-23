@@ -24,6 +24,26 @@
   const inRm = (r, x, y, p = 0) => (x >= r.x - p && x < r.x + r.w + p && y >= r.y - p && y < r.y + r.h + p) || (!!r.wings && r.wings.some(([a, b, c, d]) => x >= a - p && x < a + c + p && y >= b - p && y < b + d + p));
   const rectsOf = (r) => [[r.x, r.y, r.w, r.h], ...(r.wings || [])];
 
+  const SHOP_BACK_WIDTH = { shop_shelf: 72, shop_armor: 47, shop_weapons: 65 };
+  function backWallPropSpans(m) {
+    const rows = [];
+    if (m.town) return rows;
+    const isWall = (x, y) => { const c = m.cells[(y - 1) * m.W + x]; return c === 0 || c === 4; };
+    for (const d of m.decor || []) {
+      const width = SHOP_BACK_WIDTH[d.n] || D.PROP_W[d.n];
+      if (!d.solid || d.wall || !width) continue;
+      const x = Math.floor(d.x / TILE), y = Math.floor(d.y / TILE), room = m.rooms?.[d.r], secret = m.secrets?.[d.secret];
+      if ((!room || y !== room.y || !inRm(room, x, y)) && secret?.dir !== 'u') continue;
+      if (!isWall(x, y)) continue;
+      const left = d.x - width / 2, right = d.x + width / 2;
+      for (let col = Math.floor(left / TILE); col * TILE < right; col++) {
+        if (col < 0 || col >= m.W || !isWall(col, y)) continue;
+        (rows[y] ||= []).push([Math.max(left, col * TILE), Math.min(right, (col + 1) * TILE), d.y]);
+      }
+    }
+    return rows;
+  }
+
   function genFloor(seed, floor, opts = {}) {
     // a floor without a secret room is rerolled a few times before one is accepted, unless it meant to have none
     // deprecated: kept for the map hash (GEN_PRINT, mapPrint); not ported to Godot (m.loose)
@@ -533,7 +553,7 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands };
+  root.DUNGEON = { onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });

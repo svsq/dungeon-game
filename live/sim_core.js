@@ -133,10 +133,27 @@
   // a skeleton mage's ball of water (TASKS 311) slows the hero it soaks for a while
   const ORB = ENEMIES.skel_mage.orb, soaked = (S, h) => S.t < (h.slowT ?? -9);
   const gooAt = (m, o) => (m.goo || []).find((g) => g.rNow > 4 && Math.abs(o.x - g.x) < g.rNow && Math.abs(o.y - g.y) < g.rNow * 0.6);
-  // feet box against the grid, axis by axis (slides along walls); the middles of its front and back edges too, or a body wider
-  // than a two-cell wall (the boss) straddles it with its corners on both sides
-  const boxHit = (m, x, y, r, mon, lavaOk) => solidAt(m, x - r, y - r * 0.6, mon, lavaOk) || solidAt(m, x + r, y - r * 0.6, mon, lavaOk) || solidAt(m, x - r, y + r * 0.4, mon, lavaOk) || solidAt(m, x + r, y + r * 0.4, mon, lavaOk)
-    || solidAt(m, x, y - r * 0.6, mon, lavaOk) || solidAt(m, x, y + r * 0.4, mon, lavaOk);
+  const WALL_PROP_SPANS = new WeakMap();
+  function backWallPropHit(m, left, top, right, bottom) {
+    let wallProps = WALL_PROP_SPANS.get(m);
+    const revision = rev(m);
+    if (!wallProps || wallProps.revision !== revision) {
+      wallProps = { revision, rows: DG.backWallPropSpans(m) };
+      WALL_PROP_SPANS.set(m, wallProps);
+    }
+    for (let y = Math.floor(top / TILE); y <= Math.floor(bottom / TILE); y++) {
+      if (wallProps.rows[y]?.some(([lo, hi, base]) => left < hi && right > lo && top < base)) return true;
+    }
+    return false;
+  }
+  // Include the middles of the front and back edges so a body wider than a two-cell wall cannot straddle it.
+  function boxHit(m, x, y, r, mon, lavaOk) {
+    const left = x - r, right = x + r, top = y - r * 0.6, bottom = y + r * 0.4;
+    return solidAt(m, left, top, mon, lavaOk) || solidAt(m, right, top, mon, lavaOk) ||
+      solidAt(m, left, bottom, mon, lavaOk) || solidAt(m, right, bottom, mon, lavaOk) ||
+      solidAt(m, x, top, mon, lavaOk) || solidAt(m, x, bottom, mon, lavaOk) ||
+      (!mon && backWallPropHit(m, left, top, right, bottom));
+  }
   function move(m, o, dx, dy, r, mon, lavaOk = (!mon && !m.cliff) || onLava(m, o)) {
     // steps of at most 8 px: the boss's roar shoved the hero 150 px in one move, through a shut door (TASKS 219)
     const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 8);
