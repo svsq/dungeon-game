@@ -262,7 +262,7 @@
   // elites: the first that many of it rise elites (a skull door's last wave, TASKS 2132)
   function summonPack(S, R, ri0, n, summ, some, elites = 0) {
     const m = R.map, h = R.hero, f = dep(R), room = m.rooms[ri0];
-    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
+    const roster = D.oldAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
     if (!roster.length) return 0;
     const group = Array.from({ length: n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = SIMX.solids(R), block = new Set(m.block || []);
     const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;

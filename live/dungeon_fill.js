@@ -163,6 +163,13 @@
           holdLegs(); } } }
     // (the waystones, TASKS 1009 and 1359, are gone; the map keeps `way: null` below, for its JSON is hashed: GEN_PRINT, a save's mapPrint; deprecated, not ported)
     const kf = Math.min(ST.n, floor + ST.early), roster = D.rosterAt(biome, kf), lvl = depth;
+    // a room floor's plain fill and its own packs (data.js ROOM_PACKS); a floor laid before them (opts.legacyRosters) fills every room
+    // from the whole roster of its biome as it was
+    const legacyRosters = !!opts.legacyRosters, plain = legacyRosters ? D.BIOMES[biome].old || roster : D.oldAt(biome, kf), RP = !cave && !legacyRosters && D.ROOM_PACKS[biome];
+    const roomPack = (n) => { if (!RP || R() >= D.ROOM_PACKS.share) return null; const has = (t) => roster.includes(t), opts2 = Object.values(RP).filter((P) => P.plan[0][0].some(has));
+      if (!opts2.length) return null; let roll = R() * opts2.reduce((a, P) => a + P.w, 0), P = opts2[opts2.length - 1]; for (const o of opts2) if ((roll -= o.w) < 0) { P = o; break; }
+      const out = []; for (const [kinds, [lo, hi]] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) out.push(pick(ks)); }
+      const last = P.plan[P.plan.length - 1][0].filter(has); while (out.length < n && last.length) out.push(pick(last)); return out.slice(0, n); };
     const bridged = new Set(crossings.flatMap((c) => c.cells));
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
         && !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 2 * TILE); });
@@ -438,10 +445,10 @@
         const kp = r.kind && MX ? MX[r.kind].pop || 1 : 1;
         n = Math.max(r.kind === 'ledge' ? 0 : 1, Math.round(n * D.BAL.pop * ST.pop * (plat ? TY.pop : 1) * (LY ? LY.pop : 1) * kp * (FM.pop || 1)));
         if (r.islet) n = 0;   // (a hoard's islet, TASKS 476: no pack could reach it)
-        const pack = pick(roster), guard = r.type === 'exit' && !!ST.guard;
+        const pack = pick(cave ? roster : plain), guard = r.type === 'exit' && !!ST.guard, own = cave || r.type !== 'combat' ? null : roomPack(n);
         if (cave) { if (n > 0) cavePack(r, n + (r.hall ? HL.kinds[r.hall].extra : 0), guard); }
         else for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
-          let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
+          let type = own && own[i] ? own[i] : R() < 0.6 ? pack : pick(plain); if (!(own && own[i]) && type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // a drowned lies in the room's shallows (TASKS 307); a room with none takes another of the roster
           if (ENEMIES[type].lurk) { const q = shallowIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
           // an eel in its deep water; a room with none takes another
@@ -462,7 +469,7 @@
         // the arena's cover (TASKS 413): basalt slabs round the ring's middle, clear of the lake, the ways in and the altar
         if (plat) { const L = AR.arena, a0 = R() * 6.283; let n = 0;
           for (let i = 0; i < 24 && n < L.cover; i++) { const a = a0 + i * 6.283 / L.cover + (i >= L.cover ? 0.3 : 0), rr = 0.62, x = Math.round(r.cx + 0.5 + Math.cos(a) * (L.lake[0] + (r.w / 2 - L.lake[0]) * rr) - 0.5), y = Math.round(r.cy + 0.5 + Math.sin(a) * (L.lake[1] + (r.h / 2 - L.lake[1]) * rr) - 0.5);
-            if (!free(x, y, 1) || doorway(x, y) || Math.abs(x - sx) <= 2 && Math.abs(y - sy) <= 2 || wide.some(([ex, ey, eh]) => Math.abs(ey - y) <= 1 && Math.abs(ex - wx(x)) < eh + half('basalt_a') + 4)) continue; claim(x, y, 'basalt_a'); decor.push({ x: wx(x), y: wy(y), n: n % 2 ? 'basalt_b' : 'basalt_a', solid: 1, r: r.id, cover: 1 }); n++; } } for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
+            if (!free(x, y, 1) || doorway(x, y) || Math.abs(x - sx) <= 2 && Math.abs(y - sy) <= 2 || wide.some(([ex, ey, eh]) => Math.abs(ey - y) <= 1 && Math.abs(ex - wx(x)) < eh + half('basalt_a') + 4)) continue; claim(x, y, 'basalt_a'); decor.push({ x: wx(x), y: wy(y), n: n % 2 ? 'basalt_b' : 'basalt_a', solid: 1, r: r.id, cover: 1 }); n++; } } for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick((cave ? roster : plain).filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
       // chests
       // a locked room pays for its key: one chest of the secret rooms' tier and another of the hoards', often a heap of gold
       const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.islet || r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (runFloor === 1 ? 1 : 0) : r.pocket && !cave ? (R() < 0.55 ? 1 : 0) : R() < 0.2 && !way.has(r.id) ? 1 : 0);
@@ -534,7 +541,7 @@
     // a river's ways over (TASKS 428) and the chasm's bridges (429) are where packs wait: on the bank past each one, two to seven steps on from its end, two of the
     // floor's kinds stand where none of the plateau's own pack does yet
     if (riverY.length || ftype === 'chasm' || MIX) { const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], dry = (x, y) => !N8.some(([i, j]) => at(x + i, y + j) === 3);
-      const kinds = roster.filter((t) => !ENEMIES[t].lurk && !ENEMIES[t].deep && !D.BOSSES[t] && ENEMIES[t].kind !== 'salamander');
+      const kinds = (cave ? roster : plain).filter((t) => !ENEMIES[t].lurk && !ENEMIES[t].deep && !D.BOSSES[t] && ENEMIES[t].kind !== 'salamander');
       for (const c of crossings) { if (!(c.river || c.chasm) || !kinds.length) continue; const own = new Set(c.cells);
         const ends = c.cells.flatMap((k) => [1, -1, W, -W].map((o) => k + o)).filter((k) => cells[k] === 1 && !own.has(k) && fromStart[k] >= 0);
         if (!ends.length) continue; const end = ends.reduce((a, b) => (fromStart[b] > fromStart[a] ? b : a)), ex = end % W, ey = Math.floor(end / W);

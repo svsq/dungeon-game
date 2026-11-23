@@ -354,7 +354,7 @@
   function nameElites(R) { for (const e of R.en) { if (!e.elite || e.title || e.nm || D.BOSSES[e.type]) continue; const s = nickOf(e.type, nickHash(R, e)); if (s) e.nm = s; } }
   // the named quest's foe is drawn off its floor's roster when offered, so the townsman can name it before the floor exists
   // (none tied to the lava: no foe can be made one, and on near a third of the magma floors none stands where a quest may name it)
-  const namedPool = (R, f) => D.rosterAt(STAGE(R, f).biome, f).filter((t) => D.ELITE_GROUP[t] && !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake && !ENEMIES[t].tether);
+  const namedPool = (R, f) => D.oldAt(STAGE(R, f).biome, f).filter((t) => D.ELITE_GROUP[t] && !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake && !ENEMIES[t].tether);
   const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
   function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
   const isFree = (R, w) => !!(R.freed && R.freed[w]), capOf = (R, w) => (R.captives || {})[w];

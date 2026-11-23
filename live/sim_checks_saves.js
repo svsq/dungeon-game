@@ -182,8 +182,10 @@
     const out = [], S = spawn(0, {}), f = 2;
     S.run = newRun(S, 'campaign', 10, { town: 1, allFree: 1 }); S.screen = 'play';
     const R = S.run;
-    enterFloor(S, R, f, { legacyLibraryPlacement: true });
-    R.memo[f].gen = null;
+    // a floor laid by the generator of version 38 before the library's shelves kept off the passages: its memo as that game kept it
+    const OLD_GEN = 38;
+    enterFloor(S, R, f, { legacyLibraryPlacement: true, legacyBridges: true, legacyRosters: true });
+    R.memo[f].gen = null; R.memo[f].gv = OLD_GEN;
     const { mp } = R.memo[f], shelf = R.map.decor.find((d) => d.lib), chest = R.chests[0], loot = R.nextId++;
     if (!shelf || !chest) return ['old library save: no original shelf or chest on the floor'];
     chest.open = 1; R.seen[7] = 1;
@@ -200,12 +202,26 @@
           !Q.drops.some((d) => d.id === loot && d.n === 77))
         out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} loses its layout, open chest, explored cells or loose loot`);
       // the old placement found once is kept in the floor's memo: the next build is the old one at once, not a new one thrown away
-      if (!(Q.memo[f].gen && Q.memo[f].gen.legacyLibraryPlacement)) out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} does not keep its old shelf placement, so every visit builds it twice`);
+      if (!(Q.memo[f].gen && Q.memo[f].gen.legacyLibraryPlacement) || Q.memo[f].gv !== D.GEN_VERSION) out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} does not keep its old shelf placement, so every visit builds it twice`);
     }
     return out;
   }
   SIMX.checks.add('oldSaveCheck', oldSaveCheck);
   SIMX.checks.add('librarySaveCheck', librarySaveCheck);
+  // a floor kept by the generator of version 38 (before the room packs and the dead-end bridges' change) is built again as it was laid,
+  // by GEN_LEGACY, on a floor the new generator lays otherwise: its open chest and its dead stay, its memo takes the new version
+  function oldGenSaveCheck() { const out = [], S = spawn(0, {}), f = 2, OLD_GEN = 38;
+    S.run = newRun(S, 'campaign', 12, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run;
+    enterFloor(S, R, f, { legacyBridges: true, legacyRosters: true }); const M = R.memo[f]; M.gen = null; M.gv = OLD_GEN;
+    const { mp } = M, chest = R.chests[0], foe = R.en.find((e) => !D.BOSSES[e.type]);
+    if (!chest || !foe) return ['old generator save: no chest or monster on the floor'];
+    chest.open = 1; foe.hp = 0; foe.deadT = S.t; enterFloor(S, R, 0);
+    const T = spawn(1, JSON.parse(JSON.stringify(persist(S)))); loadSlot(T, T.slot); const Q = T.run; enterFloor(T, Q, f);
+    const QM = Q.memo[f];
+    if (QM.mp !== mp || QM.gv !== D.GEN_VERSION || !Q.chests.some((c) => c.open && c.x === chest.x && c.y === chest.y) || !Q.en.some((e) => e.id === foe.id && e.deadT >= 0))
+      out.push(`old generator save: a floor of version ${OLD_GEN} is not kept as it was laid (print ${QM.mp === mp ? 'kept' : 'lost'}, version ${QM.gv})`);
+    return out; }
+  SIMX.checks.add('oldGenSaveCheck', oldGenSaveCheck);
   SIMX.checks.add('floorFailCheck', floorFailCheck);
   SIMX.checks.add('awayCheck', awayCheck);
   SIMX.checks.add('climbCheck', climbCheck, { slow: true });
