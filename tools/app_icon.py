@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Desktop app icon from the hero portrait: desktop/build/icon.png (1024), icon.icns, icon.ico.
+"""Desktop app icon from the full source frame: desktop/build/icon.png (1024), icon.icns, icon.ico.
 
-python3 tools/app_icon.py [--preview sheet.png]
+python3 tools/app_icon.py [--source art/gen/app_icon_v6.png] [--preview sheet.png]
 """
 import argparse
 import os
@@ -13,27 +13,24 @@ import tempfile
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "art/gen/portrait.png")
+DEFAULT_SOURCE = "art/gen/app_icon_v6.png"
 OUT = os.path.join(ROOT, "desktop/build")
-# Head and collar; at 32 px and below a closer face crop, or the eyes vanish into the hair.
-CROP = (200, 40, 920, 760)
-CROP_SMALL = (300, 140, 840, 680)
 ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
 ICNS = [(16, 1), (16, 2), (32, 1), (32, 2), (128, 1), (128, 2), (256, 1), (256, 2), (512, 1), (512, 2)]
 
 
 def make(size, src):
-    face = src.crop(CROP_SMALL if size <= 32 else CROP)
     # The source is painted, not on a true grid, so area resampling beats nearest when shrinking.
-    method = Image.LANCZOS if size >= face.width else Image.BOX
-    return face.resize((size, size), method)
+    method = Image.LANCZOS if size >= src.width else Image.BOX
+    return src.resize((size, size), method)
 
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--source", default=DEFAULT_SOURCE)
     ap.add_argument("--preview")
     a = ap.parse_args()
-    face = Image.open(SRC).convert("RGB")
+    face = Image.open(os.path.join(ROOT, a.source)).convert("RGB")
     os.makedirs(OUT, exist_ok=True)
     make(1024, face).save(os.path.join(OUT, "icon.png"))
     make(256, face).save(os.path.join(OUT, "icon.ico"), sizes=[(s, s) for s in ICO_SIZES],
