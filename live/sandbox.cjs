@@ -27,7 +27,10 @@ function hudBox(D, SIM, fontW) { const size = { w: 10, h: 10 }, L = new Proxy({ 
   const box = { Math, Object, Array, JSON, Number, String, Set, Map, WeakMap, Float32Array, Float64Array, Infinity, console, SIM, DATA: D, TEXT: globalThis.TEXT, TXT: globalThis.TXT, LIB: L, G: new Proxy({ w: 1920, h: 1080, oy: 0, tex: () => size }, { get: (t, k) => (k in t ? t[k] : () => size) }), ASSETS: new Proxy({}, { get: () => size }) };
   box.window = box; box.globalThis = box; vm.createContext(box); for (const f of ['sizes.js', 'hud_kit.js', 'hud.js']) vm.runInContext(src(f), box, { filename: f });
   return { HUD: box.HUD, SIZES: box.SIZES, KIT: box.KIT, L, page: box }; }
-function rigs() { const page = {}; page.window = page; vm.createContext(page); vm.runInContext(src('rigs.js'), page); return page.RIGS; }
+const pageGlobal = (files, name) => { const page = {}; page.window = page; vm.createContext(page); for (const f of files) vm.runInContext(src(f), page); return page[name]; };
+const rigs = () => pageGlobal(['rigs.js'], 'RIGS');
 // assets() → window.ASSETS as assets.js leaves it: each texture's size, for a sandbox that places sprites by their real proportions
-function assets() { const page = {}; page.window = page; vm.createContext(page); vm.runInContext(src('assets.js'), page); return page.ASSETS; }
-module.exports = { heroBox, monsterBox, rigs, hudBox, assets };
+const assets = () => pageGlobal(['assets.js'], 'ASSETS');
+// sizes() → window.SIZES as sizes.js leaves it over the real textures: each sprite's display size in view px
+const sizes = () => pageGlobal(['assets.js', 'sizes.js'], 'SIZES');
+module.exports = { heroBox, monsterBox, rigs, hudBox, assets, sizes };

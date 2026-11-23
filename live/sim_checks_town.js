@@ -618,7 +618,35 @@
     { const [S3, R3] = fresh('hard', S2); if (SIMX.gateWays(R3, S3).length) out.push(`death mode: a hardcore run's ring offers ${JSON.stringify(SIMX.gateWays(R3, S3))}`); }
     return out;
   }
+  // open floor of the town the hero's body cannot reach from the spawn (the sim's own collision: walls by boxHit, the still solids by
+  // their feet ellipses; the townsfolk and the cart move, so they are left out) must be a pocket the walk grid cannot reach either,
+  // walled off by solid props' own cells, or lie under a solid prop's picture. A cell the walk grid reaches and the body does not is
+  // a gap that looks open and is too narrow to pass
+  const TOWN_REACH = { seeds: 8, step: 4, near: 2, pictureHalfWidth: 0.45, pictureHalfHeight: 0.5, footBelow: 8, pictureRoles: ['bench', 'exit_gate'] };
+  function townReachCheck() {
+    const out = [], Q = TOWN_REACH, G = Q.step, SIZES = require('./sandbox.cjs').sizes(), size = (d) => SIZES[d.alt || d.n] || [0, 0];
+    for (let sd = 1; sd <= Q.seeds; sd++) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', sd, { town: 1 }), m = R.map, W = m.W, H = m.H, still = SIMX.solids({ ...R, folk: [], cart: null });
+      const blocked = (x, y) => SIMX.boxHit(m, x, y, K.R, false, true) || still.some((o) => SIMX.inSolid(x, y, K.R, o));
+      const GW = Math.ceil(W * TILE / G), GH = Math.ceil(H * TILE / G), body = new Uint8Array(GW * GH), start = [Math.round(R.hero.x / G), Math.round(R.hero.y / G)], q = [start];
+      body[start[1] * GW + start[0]] = 1;
+      while (q.length) { const [a, b] = q.pop(); for (const [i, j] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const u = a + i, v = b + j, k = v * GW + u;
+        if (u < 0 || v < 0 || u >= GW || v >= GH || body[k]) continue; body[k] = 2; if (!blocked(u * G, v * G)) { body[k] = 1; q.push([u, v]); } } }
+      const bodyReaches = (tx, ty) => { const cx = Math.round((tx + 0.5) * TILE / G), cy = Math.round((ty + 0.5) * TILE / G);
+        for (let j = -Q.near; j <= Q.near; j++) for (let i = -Q.near; i <= Q.near; i++) if (body[(cy + j) * GW + cx + i] === 1) return true; return false; };
+      const ok = DG.townWalk(m), grid = new Uint8Array(W * H), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE), flood = [cellOf(R.hero)];
+      grid[flood[0]] = 1;
+      for (let i = 0; i < flood.length; i++) for (const d of [1, -1, W, -W]) { const n = flood[i] + d; if (!grid[n] && ok[n]) { grid[n] = 1; flood.push(n); } }
+      const pictures = m.decor.filter((d) => d.solid || Q.pictureRoles.includes(d.role));
+      const underPicture = (x, y) => pictures.some((d) => { const [w, h] = size(d), k = d.s || 1; return Math.abs(x - d.x) < w * k * Q.pictureHalfWidth && y < d.y + Q.footBelow && y > d.y - h * k * Q.pictureHalfHeight; });
+      const shut = [];
+      for (let k = 0; k < W * H; k++) { const tx = k % W, ty = Math.floor(k / W);
+        if (grid[k] && !bodyReaches(tx, ty) && !underPicture((tx + 0.5) * TILE, (ty + 0.5) * TILE)) shut.push([tx, ty]); }
+      if (shut.length) out.push(`town reach ${sd}: ${shut.length} open cells look reachable but the hero's body cannot get there ${JSON.stringify(shut)}`); }
+    return out;
+  }
   SIMX.checks.add('townCheck', townCheck);
+  SIMX.checks.add('townReachCheck', townReachCheck, { slow: true });
   SIMX.checks.add('deathModeCheck', deathModeCheck);
   SIMX.checks.add('folkHoldCheck', folkHoldCheck);
   SIMX.checks.add('cartCheck', cartCheck);
