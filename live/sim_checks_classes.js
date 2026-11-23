@@ -386,10 +386,12 @@
           h.eq.weapon.mods.crit = -100; h.eq.weapon.mods.leech = LEECH; h.eq.weapon.mods.onhit = ONHIT;
           grant(h, POWER, { trig: 'hit', fx: 'mana', v: 0 });
           const blow = (weaponAttack) => {
-            h.eq.weapon.atk = weaponAttack; h.cd.staffClub = 0; h.hp = LOW_HP; S.ev = [];
+            // the last blow's hit-stop would hold this one's press; every step carries the pointer, as one without leaves the aim NaN
+            h.eq.weapon.atk = weaponAttack; h.cd.staffClub = 0; h.hp = LOW_HP; R.freeze = 0; S.ev = [];
             Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
-            step(S, { keys: [], press: 1, ...toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8) });
-            for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) step(S, { keys: [] });
+            const pointer = () => toPx(R, e.x, h.y - SIMX.RIG.shoulder + 8);
+            step(S, { keys: [], press: 1, ...pointer() });
+            for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) step(S, { keys: [], ...pointer() });
             return { hit: S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id), stat: stats(h, S.meta), healed: h.hp - LOW_HP, powers: S.ev.filter((q) => q.k === 'power' && q.id === POWER).length };
           };
           const weak = blow(100), strong = blow(100 * ATTACK_GROWTH);
