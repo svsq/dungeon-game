@@ -114,6 +114,7 @@
     'hud.inv.11': 'Очки навыков: {sp}',
     'hud.inv.12': 'Способности',
     'hud.inv.13': 'ранг {r} / {AB_MAX}',
+    'hud.inv.13.mastery': 'ранг {r} / {AB_MAX}, мастерство +{pct}%',
     'UI.inv.reset': 'Сбросить',
     'hud.inv.mastery': 'Мастерство {n}: +{pct}% к урону и здоровью',
     'hud.inv.14': 'с {unlock} уровня',

@@ -2,7 +2,7 @@
 // A pass of SC.render (ARCHITECTURE.md §4.3): it reads the frame's shared values from F and leaves there what later passes use.
 (function () {
   const SCX = window.SCX, {
-    BAKE, D, DECK, EN_TEX, GLOW_COL, HERO, L, OCC_SOLIDS, PILLAR_T, PROP_BAS, RIM, SC, SS, SZ, TILE, TOWN_LIGHT, drawHero, lavaGlowTex,
+    BAKE, D, DECK, enemyDrawnSize, GLOW_COL, HERO, L, OCC_SOLIDS, PILLAR_T, PROP_BAS, RIM, SC, SS, TILE, TOWN_LIGHT, drawHero, lavaGlowTex,
     lavaNearTex, modCol, sinkOf, submerged, swimOf, topTex, veinTex, voidTex, waterTex } = SCX;
   SCX.lightPass = (F) => {
     const {
@@ -130,10 +130,10 @@
       try { if (m.cliff) { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f }); for (const [x, y, w, hh] of OCC_SOLIDS) L.solid(x, y, w, hh, [0, 0, 0]); }
         L.sp.ink = m.cliff ? [1, 1, 1] : [0, 0, 0];
         for (const e of occEn) {
-          const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
+          const E = D.ENEMIES[e.type], [, H] = enemyDrawnSize(e);
           const sub = E.lake ? submerged(e, E, GT) : 0, sw0 = swimOf(e, GT), U = Object.assign(sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {}, sw0 > 0 && e.type === 'salamander' && SCX.LAVA_CLIP ? SCX.swimClip(sw0) : {});   // (clipped as its body is, TASKS 1156: unclipped here it bleached the bank in a grey veil)
           L.sp = SP0; SP0.ink = ink([1, HERO.lavaNear(e.x, e.y), 1]);   // (green: how near the lava it stands, by its feet: TASKS 1035; a rig's own draw may clear L.sp)
-          const PO = SCX.livePose(e, E, GT); MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: PO.lean, crouch: PO.crouch, flinch: PO.flinch, fallR: 0, U, Ufar: U, t, rise: 1 - sub, swim: swimOf(e, GT) }); }
+          const PO = SCX.livePose(e, E, GT); MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * H * 1.02, GT, { id: 'occ', H, face: e.face, lean: PO.lean, crouch: PO.crouch, flinch: PO.flinch, fallR: 0, U, Ufar: U, t, rise: 1 - sub, swim: swimOf(e, GT) }); }
         // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
         L.sp = SP0; SP0.ink = ink([1, HERO.lavaNear(h.x, h.y), 0]);   // (blue: a monster, not the hero, TASKS 1055)
         // (not while he is under the lava: his raised blade left a pale patch over it in the mask, TASKS 1058)

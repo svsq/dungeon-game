@@ -37,7 +37,10 @@
   const POLE = { it_staff: { foot: [0.074, 0.973], head: [0.96, 0.054], grip: [0.65, 0.25], rest: -1.53, lean: 0.1, across: 0.0226 } };
   // (TASKS 2145) a bow at rest is held out a little from the hip and stands near upright, its lower tip by the near foot: at the hip's
   // height and canted 33° the lower limb crossed both legs to the floor
-  const BOW_REST = { ba: -1.8 }, BOW_MEET = 0.4;
+  const BOW_REST = { ba: -1.8, lean: 0.3 }, BOW_MEET = 0.4;
+  // the charge's arms: the near one bent in before the chest (turn at the shoulder, rad, + is back; bend of the elbow), and the castT
+  // span over which the dash's own arm pose comes back once the charge has let go of the arms
+  const CHARGE_ARMS = { near: -0.25, nearBend: 0.6, release: [0.3, 0.55] };
   // (TASKS 2177) the weapon arm at ease under the torso (look.arm.behind) comes over it as an action raises it, cross-faded over this
   // much of the action's envelope: switched in one frame the arm popped over the chest
   const ARM_FRONT = 0.35, FRONT_IN = 0.1, FRONT_OFF = { on: 0.5, blow: 0.01, cast: 0.99 };
@@ -130,6 +133,10 @@
     return { blade, k, bend, fs, dir, start, end, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
   }
   const DEPTH_K = 0.65;   // the 3/4 camera's squeeze of floor depth
+  // the crossbow lies on the floor plane, but squeezed by the camera's own depth its stock aimed down shrank to a crossbar at the hip
+  // and the shot's direction was lost: it is squeezed less, and its bolt is drawn heavy enough to read (w, core: the shaft's and its
+  // light core's thickness, head: the steel head's length and width, px)
+  const XBOW = { depth: 0.85, bolt: { w: 3.5, core: 1.6, head: [6, 4] } };
   // seen from behind (TASKS 2011): the resting blade is held up and away, so it stands steeper and foreshortened behind the body
   // instead of the front view's flat cut-out poking out of the cape; the arms hang in the cape's shade (the shirt's white cuffs were
   // the brightest thing on him); the feet point away, heels to the camera, so they narrow about the ankle; the cape's broad red
@@ -342,7 +349,7 @@
     const swAim = (a, reach = st.reach) => { const sh = R2U(RG.shR[0], RG.shR[1] + hipDy), tx = hx + Math.cos(a) * reach * 0.8, ty = hy + Math.sin(a) * reach * 0.8 - 34, g = Math.atan2(ty - sh[1], tx - sh[0]);
       return face > 0 ? g : Math.PI - g; };
     // (the thrust rises over 0.2 s: thrown out in 0.1 s the hand jumped 7–11 % of the height a frame, TASKS 1702)
-    const chargeE = h.castK === 'charge' ? SS(0.02, 0.22, castT) * (1 - SS(0.3, 0.55, castT)) : 0, cryE = h.castK === 'cry' ? SS(0.08, 0.28, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
+    const chargeE = h.castK === 'charge' ? SS(0.02, 0.22, castT) * (1 - SS(CHARGE_ARMS.release[0], CHARGE_ARMS.release[1], castT)) : 0, cryE = h.castK === 'cry' ? SS(0.08, 0.28, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
     // (TASKS 2192) the breath and the shout as one envelope: the arm's layer follows it, on the larger of the two it dipped under ARM_FRONT
     // where one hands over to the other and the arm under the body showed for a frame
     const cryK = h.castK === 'cry' ? SS(0, 0.08, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
@@ -423,7 +430,7 @@
       if (cryPrep > 0 || cryE > 0) { const w = SS(0.08, 0.28, castT);
         const arc = (A, x0, y0, x1, y1) => { const a0 = Math.atan2(y0, x0), a = a0 + (Math.atan2(y1, x1) - a0) * w, r = (Math.hypot(x0, y0) + (Math.hypot(x1, y1) - Math.hypot(x0, y0)) * w) * l; reach(A, r * Math.cos(a), r * Math.sin(a), cryK); };
         arc(arms.R, 0.3, 0.35, 0.25, -0.9); arc(arms.L, 0.1, 0.35, -0.15, -0.85); takePalm(cryK); }
-      if (chargeE > 0) { reach(arms.R, 0.2 * l + Math.cos(aimL) * 0.8 * l, Math.sin(aimL) * 0.8 * l - 0.05 * l, chargeE * (1 - swingK)); pose(arms.L, 0.6, 0.3, chargeE); takePalm(chargeE); }
+      if (chargeE > 0) { reach(arms.R, 0.2 * l + Math.cos(aimL) * 0.8 * l, Math.sin(aimL) * 0.8 * l - 0.05 * l, chargeE * (1 - swingK)); pose(arms.L, CHARGE_ARMS.near, CHARGE_ARMS.nearBend, chargeE); takePalm(chargeE); }
     } else if (shootE > 0 || (shooter && castE > 0)) {   // (a mage casts through his staff too: no free-hand push, no lowered blade)
       const l = armLen(arms.R), pe = Math.max(shootE, castE), kick = 0.1 * l * SS(BT - 0.01, BT + 0.05, kickT) * (1 - SS(BT + 0.05, BT + 0.25, kickT));
       // (aimed high the shouldered hand reaches as far as a bow's: tucked closer the elbow flipped over on the lowering)
@@ -434,7 +441,7 @@
       if (orbCast) reach(arms.R, 0.15 * l + Math.cos(aimS) * 0.45 * l, Math.sin(aimS) * 0.45 * l + 0.2 * l, pe); else reach(arms.R, tx, ty, mageG === 'fireball' && !pole ? 0.35 * pe : pe);
       // a bow is drawn (TASKS 1125 critic): the far hand takes the string at the stave and pulls it back along the aim through the
       // wind-up, lets it snap home on the loose
-      if (xbow) { const dl = 14 / s / Math.hypot(Math.cos(aimS), Math.sin(aimS) / DEPTH_K); reach(arms.L, RG.shR[0] - RG.shL[0] + tx + Math.cos(aimS) * dl, RG.shR[1] - RG.shL[1] + ty + Math.sin(aimS) * dl, pe); }
+      if (xbow) { const dl = 14 / s / Math.hypot(Math.cos(aimS), Math.sin(aimS) / XBOW.depth); reach(arms.L, RG.shR[0] - RG.shL[0] + tx + Math.cos(aimS) * dl, RG.shR[1] - RG.shL[1] + ty + Math.sin(aimS) * dl, pe); }
       // (TASKS 2146) the far arm takes the bow out to the aim and the near hand draws the string to the cheek, as a right-handed archer
       // seen from his right does; both hands meet at the grip on the raise, where the bow passes from one to the other
       else if (bowArm) { const dl = 0.72 * l * drawE; reach(arms.L, RG.shR[0] - RG.shL[0] + tx, RG.shR[1] - RG.shL[1] + ty, pe); reach(arms.R, tx - Math.cos(aimS) * dl, ty - Math.sin(aimS) * dl, pe); bowHand = SS(0, 0.9, pe); }
@@ -450,7 +457,10 @@
     // reading a scroll (TASKS 1032): the free hand holds it out before the chest, the sword arm lowered
     const readE = h.read && swingK === 0 && whirlE === 0 && castE === 0 ? SS(0, 0.3, GT - h.read.t0) : 0;
     if (readE > 0) { const l = armLen(arms.L); reach(arms.L, 0.6 * l, 0.12 * l, readE); pose(arms.R, -0.2, 0.3, readE); takePalm(readE); }
-    if (dashE > 0 && Math.max(shootE, shooter ? castE : 0) < 0.05) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); takePalm(dashE); }   // (a leap's shot keeps its bow arm, TASKS 1125, and so does the leap's own raised bow: both at once jerked the hands, TASKS 1702)
+    // a charge is a lunge, not a fall: its whole run keeps the blade out to the aim and the near fist braced, the dash's thrown-back arms
+    // left both spread and the blade hanging back in the far hand
+    const dashArmE = dashE * (h.castK === 'charge' ? SS(CHARGE_ARMS.release[0], CHARGE_ARMS.release[1], castT) : 1);
+    if (dashArmE > 0 && Math.max(shootE, shooter ? castE : 0) < 0.05) { pose(arms.L, 0.55 * dashF, 0.45, dashArmE); pose(arms.R, 0.55 * dashF, 0.45, dashArmE); takePalm(dashArmE); }   // (a leap's shot keeps its bow arm, TASKS 1125, and so does the leap's own raised bow: both at once jerked the hands, TASKS 1702)
     // (TASKS 2192) the mage's staff or wand arm keeps its elbow's bend as the blow throws it back: unbent from the fist at the chest (2181)
     // the grip swung 7.6 px a frame, five times the warrior's
     if (hurtE > 0 && swingK === 0) { pose(arms.L, -0.45, 0.5, hurtE); takePalm(hurtE); pose(arms.R, -0.3, shooter && !bowArm ? arms.R.r2 - arms.R.r1 : 0.45, hurtE); }
@@ -560,7 +570,7 @@
       L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
     const scroll = () => { const Hd = R2U(jL.Hd[0], jL.Hd[1]), w = 22, hh = w * 177 / 228;
       L.sprite('it_scroll', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(fallR + bodyR - 0.35 * fX), M.s(fX, 1)), w, h: hh, pivot: [w * 0.45, hh * 0.55], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.5, readE) }) }); };
-    const weapon = (uw = U) => { if (!W || SC.hide.weapon) return; const [tex0, len] = W, bowH = window.ASSETS[tex0 + '_h'], tex = shooter && bowH ? tex0 + '_h' : window.ASSETS[tex0 + '_held'] ? tex0 + '_held' : tex0, HdR = R2U(jR.Hd[0], jR.Hd[1]), HdL = R2U(jL.Hd[0], jL.Hd[1]), Hd = [...(bowHand < 0.5 ? HdR : HdL)], b0 = xbow ? 0.5 + arms.R.r1 * 0.5 : bowArm ? BOW_REST.ba + arms.R.r1 * 0.3 : pole ? pole.rest + arms.R.r1 * pole.lean : (shooter ? -1.18 : restA) + arms.R.r1 * 0.5, ba0 = bladeA !== null && !clubSwing ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
+    const weapon = (uw = U) => { if (!W || SC.hide.weapon) return; const [tex0, len] = W, bowH = window.ASSETS[tex0 + '_h'], tex = shooter && bowH ? tex0 + '_h' : window.ASSETS[tex0 + '_held'] ? tex0 + '_held' : tex0, HdR = R2U(jR.Hd[0], jR.Hd[1]), HdL = R2U(jL.Hd[0], jL.Hd[1]), Hd = [...(bowHand < 0.5 ? HdR : HdL)], b0 = xbow ? 0.5 + arms.R.r1 * 0.5 : bowArm ? BOW_REST.ba + arms.R.r1 * BOW_REST.lean : pole ? pole.rest + arms.R.r1 * pole.lean : (shooter ? -1.18 : restA) + arms.R.r1 * 0.5, ba0 = bladeA !== null && !clubSwing ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
         pk0 = Math.max(shootE, shooter ? castE : 0), pk = shotT > BT ? pk0 * pk0 * (3 - 2 * pk0) : pk0, rise = shooter ? 0.15 * SS(BT - 0.01, BT + 0.05, kickT) * (1 - SS(BT + 0.05, BT + 0.25, kickT)) : 0,
         bow = shooter && !xbow && !!(D.BASES[st.wtype] || {}).dex, ba1 = pk > 0 ? ba0 + wrapPi(aimG - (bow ? Math.PI / 2 : 0) - rise - ba0) * pk : ba0, ba2 = chargeE > 0 ? ba1 + wrapPi(aimL - ba1) * chargeE * (1 - swingK) : ba1, ba = clubSwing && pole ? bladeA + wrapPi(ba2 - pole.rest) * (1 - swingK) : cryE > 0 ? ba2 + wrapPi(-1.45 - ba2) * cryE : ba2;
       // (TASKS 2156) in a turn a raised weapon stands plumb at the mirror, so mirroring it does not swing its tip across
@@ -594,11 +604,11 @@
           sa += to * f1; } }
       // the crossbow is painted from above: laid on the floor plane along its screen angle, it shortens aiming at or away from the
       // camera and shows its prod across the shot from every side; a bolt lies on it but for a moment after the loose
-      if (xbow) { const th0 = Math.atan2(Math.sin(sa) / DEPTH_K, Math.cos(sa)), at = (fx) => { const lx = (fx - 0.3) * tw; return [Hd[0] + Math.cos(th0) * lx, Hd[1] + DEPTH_K * Math.sin(th0) * lx]; };
-        L.sprite(fine(tex), 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.s(1, DEPTH_K), M.r(th0)), w: tw, h: th, pivot: [tw * 0.3, th * 0.5], u: U });
+      if (xbow) { const th0 = Math.atan2(Math.sin(sa) / XBOW.depth, Math.cos(sa)), at = (fx) => { const lx = (fx - 0.3) * tw; return [Hd[0] + Math.cos(th0) * lx, Hd[1] + XBOW.depth * Math.sin(th0) * lx]; };
+        L.sprite(fine(tex), 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.s(1, XBOW.depth), M.r(th0)), w: tw, h: th, pivot: [tw * 0.3, th * 0.5], u: U });
         if (drop === 0 && !(swinging && atkT >= BT && atkT < BT + 0.3)) { const [a0, a1] = [at(0.33), at(0.86)], bl = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]), ba3 = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]), ink = (c) => (o.id === 'occ' && L.sp && L.sp.ink ? L.sp.ink : c);
-          L.solid(a0[0], a0[1], bl, 2.5, ink([0.16, 0.1, 0.06]), ba3, 0, 1.25, alpha); L.solid(a0[0], a0[1], bl, 1.2, ink([0.92, 0.8, 0.58]), ba3, 0, 0.6, alpha); L.solid(a1[0], a1[1], 4, 3, ink([0.8, 0.82, 0.86]), ba3, 0, 1.5, alpha); }
-        gripAt = drop === 0 ? { p: [...Hd], a: Math.atan2(DEPTH_K * Math.sin(th0), Math.cos(th0)) - fX * Math.PI / 2 } : null;
+          const B = XBOW.bolt; L.solid(a0[0], a0[1], bl, B.w, ink([0.16, 0.1, 0.06]), ba3, 0, B.w / 2, alpha); L.solid(a0[0], a0[1], bl, B.core, ink([0.92, 0.8, 0.58]), ba3, 0, B.core / 2, alpha); L.solid(a1[0], a1[1], B.head[0], B.head[1], ink([0.8, 0.82, 0.86]), ba3, 0, B.head[1] / 2, alpha); }
+        gripAt = drop === 0 ? { p: [...Hd], a: Math.atan2(XBOW.depth * Math.sin(th0), Math.cos(th0)) - fX * Math.PI / 2 } : null;
         const tip = at(0.9); L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; return; }
       // a bow is held by the middle of its stave and turned across the shot (TASKS 1125); until the loose an arrow lies on it along the aim
       // (mirrored across its stave facing right, so its string faces the archer, not the target; turned over on the raise it went

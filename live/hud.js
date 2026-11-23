@@ -816,9 +816,10 @@
   // a skill's number at a rank, as its card's line says it
   const abD = (A, r, st, R) => { const k = D.abRank(A.id, r).k; return A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor); };
   const abDesc = (A, r, st, R) => A.desc.replace('{d}', abD(A, r, st, R)).replace('{t}', nf(D.abRank(A.id, r).t)).replace('{w}', Math.round((1 - D.CRY.weak) * 100));
+  const abRankLine = (h, A, r) => !r ? TXT('hud.inv.14', { unlock: A.unlock }) : r >= D.AB_MAX && h.mast ? TXT('hud.inv.13.mastery', { r, AB_MAX: D.AB_MAX, pct: nf(h.mast * D.MASTERY.pct) }) : TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX });
   // the next rank against this one, a line for each number that moves; a fork the rank opens is said before the press
   function abTip(h, A, r, st, R, pend, forkAt) {
-    if (r >= D.AB_MAX) return [TXT('hud.abtip.max', { r })];
+    if (r >= D.AB_MAX) return [TXT('hud.abtip.max', { r }), [D.ranksFull(h) ? TXT('hud.abtip.mastery', { step: nf(D.MASTERY.pct) }) : TXT('hud.abtip.masteryLater', { AB_MAX: D.AB_MAX })]];
     const n = r + 1, a = D.abRank(A.id, Math.max(1, r)), b = D.abRank(A.id, n), pc = A.desc.includes('{d}%') ? '%' : '', out = [];
     if (!r) out.push(abDesc(A, 1, st, R));
     else { const d0 = abD(A, r, st, R), d1 = abD(A, n, st, R); if (d1 !== d0) out.push(TXT('hud.abtip.power', { a: d0 + pc, b: d1 + pc }));
@@ -882,7 +883,7 @@
       plate('ab_' + i, b.x, b.y, b.w, b.h, { k: 0.4, grade: S.hover === b.id && can ? [1, 0.85, 0, 1.05] : DARK });
       icon(A.icon, b.x + 16, b.y + 22, 70, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 98, b.y + 46, { size: 22, fit: b.w - 110, col: C.text });
-      lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 98, b.y + 78, { size: 20, col: r ? C.gold : C.dim });
+      lab('ab_r' + i, abRankLine(h, A, r), b.x + 98, b.y + 78, { size: 20, fit: b.w - 110, col: r ? C.gold : C.dim });
       const ds = abDesc(A, r, st, R), parts = ds.split(': '), forkAt = r < D.AB_MAX && D.FORKS[A.id] && D.FORK_RANKS.includes(r + 1);
       const chosen = D.FORK_RANKS.map((q) => { const n = (h.forks || {})[D.forkKey(A.id, q)]; return n >= 0 ? D.POWERS[D.FORKS[A.id][q][n]].name : ''; }).filter(Boolean).join(', ');
       // the next rank's fork shows on the card before the press (TASKS 1857), not only as «Ждёт выбора» after it
@@ -1877,7 +1878,8 @@
     const up = S.meta.up || {}, available = D.metaFor(S.meta.cls).filter((m) => (up[m.id] || 0) < m.max), affordable = available.find((m) => m.cost(up[m.id] || 0) <= S.meta.shards), next = affordable || available.slice().sort((a, b) => a.cost(up[a.id] || 0) - b.cost(up[b.id] || 0))[0];
     const rank = ['I', 'II', 'III', 'IV', 'V'], goal = next ? next.name + ' ' + rank[up[next.id] || 0] : '';
     const line = affordable ? TXT('hud.end.line', { goal }) : next ? TXT('hud.end.line.2', { goal, p2: next.cost(up[next.id] || 0) - S.meta.shards }) : TXT('hud.end.line.3');
-    wrap('e_goal', line, bx + 30, by + 566, 1000, 25, I.g);
+    const goalH = wrap('e_goal', line, bx + 30, by + 566, 1000, 25, I.g), unlockShortfall = D.nextUnlockShortfall(S.meta);
+    if (unlockShortfall) wrap('e_unlock', TXT('hud.end.unlock', { n: unlockShortfall }), bx + 30, by + 566 + goalH, 1000, 25, I.g);
     for (const b of D.UI.end(r.log, r.town)) KIT.button('eb_' + b.id, b, stN(S, b.id, b.on), b.id === 'again' ? 'wax' : 'parch');
     // what the journal button gives (TASKS 1863 и): a file, so the player knows where it went
     if (S.hover === 'log' && r.log) lab('eb_log_tip', TXT('hud.end.logTip'), W / 2, 1030, { size: 22, al: 0.5, col: C.dim });

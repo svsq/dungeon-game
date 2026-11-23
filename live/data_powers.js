@@ -118,10 +118,13 @@
     ...[['w_axe', 40], ['w_hammer', 70], ['m_wand', 40], ['m_ash', 70], ['a_long', 40], ['a_cross', 70]].map(([ref, cost]) => ({ id: 'k_' + ref, kind: 'kit', ref, cost })),
   ];
   const isOpen = (meta, kind, ref) => { const U = UNLOCKS.find((q) => q.kind === kind && q.ref === ref); return !U || !!((meta || {}).open || {})[U.id]; };
+  // the shards still wanting for the cheapest discovery on sale; 0 once one is affordable or none is left to buy
+  const nextUnlockShortfall = (meta) => { const open = (meta || {}).open || {}, costs = UNLOCKS.filter((U) => U.cost && !open[U.id]).map((U) => U.cost);
+    return costs.length ? Math.max(0, Math.min(...costs) - ((meta || {}).shards || 0)) : 0; };
   const kitsOf = (cls, meta) => KITS.filter((k) => k.cls === cls && (meta === undefined || isOpen(meta, 'kit', k.id)));
   const kitOf = (meta, cls) => { const list = kitsOf(cls, meta || {}), id = ((meta || {}).kit || {})[cls]; return list.find((k) => k.id === id) || list[0]; };
   // the codex (TASKS 395): what a page of it lists; an entry opens on first meeting (sim_unlocks)
   const CODEX_TABS = ['m', 'it', 'p'], CODEX_PAGE = 36;
   const codexList = (tab) => (tab === 'm' ? Object.keys(D.ENEMIES).map((k) => ({ k, name: D.ENEMIES[k].name })) : tab === 'it' ? Object.keys(D.BASES).map((k) => ({ k, name: D.BASES[k].name, icon: D.BASES[k].icon })) : D.GIFTS.filter((g) => g.power).map((g) => ({ k: g.id, name: g.name, icon: g.icon })));
-  Object.assign(D, { bakePowerDescs, SHARDS, EPIC_POWER, epicPool, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
+  Object.assign(D, { bakePowerDescs, SHARDS, EPIC_POWER, epicPool, CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, nextUnlockShortfall, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);

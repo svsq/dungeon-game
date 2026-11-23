@@ -123,6 +123,15 @@
     hleap: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.25, f0: 500, f1: 2200, q: 1.5 }),
     hland: (o) => noise(o, { d: 0.05, v: 0.14, type: 'lowpass', f0: 900, f1: 300 }),
     shield_break: (o) => { tone(o, { type: 'triangle', f0: 1800, f1: 500, d: 0.14, v: 0.14 }); noise(o, { d: 0.12, v: 0.16, f0: 4000, f1: 1500, q: 1 }); },
+    // placeholders until the real audio: a world event must never be silent
+    tug_warn: (o, e) => { tone(o, { type: 'triangle', f0: 220, f1: 660, a: e.d * 0.8, d: e.d * 0.2, v: 0.08 }); noise(o, { a: e.d * 0.8, d: e.d * 0.2, v: 0.08, f0: 400, f1: 1600, q: 3 }); },
+    tug: (o) => { noise(o, { a: 0.01, d: 0.3, v: 0.3, f0: 1800, f1: 300, q: 1.5 }); tone(o, { type: 'sawtooth', f0: 330, f1: 110, d: 0.25, v: 0.06 }); },
+    ward_break: (o) => { tone(o, { type: 'triangle', f0: 1100, f1: 300, d: 0.18, v: 0.14 }); noise(o, { d: 0.14, v: 0.16, f0: 2400, f1: 800, q: 1 }); },
+    barrier: (o) => { tone(o, { f0: 80, f1: 120, a: 0.08, d: 0.7, v: 0.2 }); tone(o, { type: 'triangle', f0: 240, f1: 360, a: 0.08, d: 0.6, v: 0.05, det: 12 }); },
+    curse: (o) => { tone(o, { type: 'sawtooth', f0: 300, f1: 150, a: 0.03, d: 0.4, v: 0.06, det: -30 }); noise(o, { a: 0.05, d: 0.35, v: 0.12, type: 'lowpass', f0: 900, f1: 250 }); },
+    chill: (o) => { noise(o, { a: 0.01, d: 0.3, v: 0.18, type: 'highpass', f0: 4500, f1: 2000 }); tone(o, { type: 'triangle', f0: 2093, d: 0.25, v: 0.03 }); },
+    blink: (o) => { tone(o, { f0: 1600, f1: 400, d: 0.1, v: 0.06 }); tone(o, { f0: 400, f1: 1600, t: now() + 0.1, d: 0.1, v: 0.05 }); },
+    clear: (o) => [392, 494, 587].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.09, d: 0.4, v: 0.05 })),
     cast: (o) => { noise(o, { a: 0.02, d: 0.3, v: 0.3, type: 'bandpass', f0: 500, f1: 1800, q: 1 }); tone(o, { type: 'sawtooth', f0: 160, f1: 320, d: 0.2, v: 0.05 }); },
     // a fuse (an explosive corpse, a smouldering skeleton, TASKS 411): a hiss rising to the burst, sputtering ever faster
     fuse: (o, e) => { noise(o, { a: 0.05, d: e.d, v: 0.18, type: 'highpass', f0: 1400, f1: 4200 });
