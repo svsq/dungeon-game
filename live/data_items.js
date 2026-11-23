@@ -13,7 +13,7 @@
     longsword: { slot: 'weapon', cls: WR, name: TXT('BASES.longsword.name'), icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
     axe: { slot: 'weapon', cls: WR, name: TXT('BASES.axe.name'), icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
     hammer: { slot: 'weapon', cls: WR, name: TXT('BASES.hammer.name'), icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
-    staff: { slot: 'weapon', cls: MG, name: TXT('BASES.staff.name'), icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
+    staff: { slot: 'weapon', cls: MG, name: TXT('BASES.staff.name'), icon: 'it_staff', atk: 4.2, spd: 0.90, arc: 110, reach: 61, spell: 0.35, spellAtk: 6 },
     shield: { slot: 'offhand', cls: WR, name: TXT('BASES.shield.name'), icon: 'it_shield', def: 4, w: 1 / 3 },
     buckler: { slot: 'offhand', cls: WR, name: TXT('BASES.buckler.name'), icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
     tower_shield: { slot: 'offhand', cls: WR, name: TXT('BASES.tower_shield.name'), icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },
@@ -49,7 +49,7 @@
   const clsNames = (b) => ((BASES[b] || {}).cls || []).map((c) => D.CLASSES[c].name).join(', ');
   // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
-  const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
+  const ITEM_BAL = { version: 3, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   // the chance of a find above the hero's level: `base`, `per` more for each floor he is ahead of it, at most `cap`; at most `up` levels above
   const LOOT_OVER = { base: 0.04, per: 0.06, cap: 0.3, up: 4 };
   const CONSUMABLES = {

@@ -1,0 +1,34 @@
+profile | run | n | wins | stuck | deaths by floor 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 | minhp | hurt | dodges | hp pot | mp pot | minmp | time | lvl after floor 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+mage | 1 | 40 | 95% | 2 | 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 | 38% | 151 | 49 | 1.5 | 0.1 | 37% | 30m | 2 4 5 7 8 9 10 12 13 14 16 17 18 19 20 - | past f8 98% | past f12 98%
+
+stuck 2, hung 0
+  mage seed 17 run 1 f4 idle at 55,32 goal fight,35,34
+  mage seed 37 run 1 f16 idle at 57,49 goal fight,41,28
+
+profile | run | min hp by floor | hits by floor | hp pot by floor | mp pot by floor | damage share mob / elite / bolt / trap / dot | top source by floor
+mage | 1 | 65 58 67 61 68 64 70 60 77 75 73 59 65 60 57 - | 2 1 6 7 10 12 8 13 5 6 7 8 18 16 21 - | 0.2 0.0 0.1 0.2 0.0 0.1 0.0 0.1 0.0 0.0 0.0 0.1 0.1 0.1 0.1 - | 0.1 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 - | 7% / 37% / 31% / 22% / 4% | elite trap elite bolt trap trap trap trap trap elite elite bolt elite elite elite -
+
+profile | run | health taken per run, % of max, by monster | killing blows
+mage | 1 | spike 301, cultist 172, skel_archer 101, skeleton 74, goblin 73, imp 69, skel_ember 61, burn 43, brute 38, skel_mage 35 | -
+
+profile | run | trips home | scrolls read (found, bought) | quests taken | turned in | gold spent | hp pot bought
+mage | 1 | 14.4 | 13.8 (4.1, 2.9) | 16.5 | 14.2 | 22753 | 2.4
+
+profile | run | shards found | end reward | gifts | full categories by floor | secrets found by floor | hp pot left
+mage | 1 | 358.9 | 144.4 | 7.7 | 1.1 1.1 0.9 0.8 0.9 0.7 0.9 0.7 1.2 1.3 1.1 1.2 1.2 0.9 0.9 - | 6 11 8 9 7 4 9 25 28 26 23 36 43 15 17 - | 17.1 (found 11.0, bought 2.4)
+
+profile | run | altar floor: bank / tier-2 price / can pay
+mage | 1 | f2: 25 / 10 / 100%  f4: 36 / 13 / 100%  f5: 29 / 14 / 100%  f6: 40 / 16 / 97%  f7: 32 / 17 / 90%  f8: 53 / 18 / 100%  f10: 65 / 21 / 100%  f11: 53 / 23 / 100%  f12: 78 / 24 / 100%  f14: 88 / 28 / 100%  f15: 82 / 30 / 95%
+
+profile | run | floor / boss: reached / died / fight s (median) / health lost / hp potions / held by pools s
+mage | 1 | 2 | 40 / 0% / 8 / 0% / 0.0 / 0.0
+mage | 1 | 4 | 39 / 0% / 11 / 15% / 0.0 / 0.0
+mage | 1 | 6 | 39 / 0% / 6 / 0% / 0.0 / 0.0
+mage | 1 | 8 | 39 / 0% / 7 / 21% / 0.0 / 0.0
+mage | 1 | 12 | 39 / 0% / 10 / 22% / 0.0 / 0.0
+
+profile | run | blow % of max hp by floor: mob p50 | heavy p50 | mob p90 | elite p90 | levels gained by floor
+mage | 1 | - - - - - - - - - - - - 3 22 22 - | - - - - - - - - - - - - - - - - | - - - - - - - - - - - - 19 33 33 - | 28 - 22 26 24 - 28 26 24 24 32 27 33 33 33 - | 1.3 1.5 1.4 1.5 0.9 1.2 1.3 1.9 1.2 0.9 1.5 1.6 0.7 1.0 1.6 -
+
+profile | run | ability uses per run (share of all uses) | powers held at the end (share of runs)
+mage | 1 | fireball 321 (79%), frost 80 (20%), shield 7 (2%) | th_mage 100%, shield_mirror 79%, f_fireball_6a 61%, f_fireball_3b 58%, dash_trail 58%, f_shield_6b 53%, f_shield_3b 50%, f_shield_3a 50%, f_shield_6a 47%, f_fireball_3a 42%, f_fireball_6b 39%, frost_brittle 39%, fire_pierce 34%, fire_blaze 21%, rl_fifth 16%, rl_scroll 13%, shield_burst 13%, frost_freeze 11%, rl_phalanx 8%, ev_glacier 5%, frost_step 3%
