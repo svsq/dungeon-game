@@ -27,6 +27,9 @@
       // TASKS 2153: every weapon kind in the arch and at rest in the world, in its class's hands
       ...HELD_KINDS.flatMap(([b, cls]) => [['menu_weapon_' + b, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls }); const R = S.saved; R.hero.eq.weapon = Object.assign(SIM.rollItem(R, 1, 0, 'weapon'), { b, id: R.nextId++ }); })],
         ['play_weapon_' + b, play((S) => { const h = S.run.hero; h.cls = cls; h.eq.weapon = Object.assign({}, h.eq.weapon, { b }); })]]),
+      // the warrior's shield held before him over the torso's edge, with a blade and with a hammer, in the arch and at rest in the world
+      ...['sword', 'hammer'].flatMap((b) => [['menu_warrior_shield_' + b, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'warrior' }); const R = S.saved, gear = (base, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b: base, id: R.nextId++ }); R.hero.eq.weapon = gear(b, 'weapon'); R.hero.eq.offhand = gear('shield', 'offhand'); })],
+        ['play_warrior_shield_' + b, play((S) => { const h = S.run.hero; h.cls = 'warrior'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b }); h.eq.offhand = { id: 0, b: 'shield', rar: 0, lvl: 1, mods: {}, def: 3 }; })]]),
       ['menu_weapon_wand_orb', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); const R = S.saved, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ }); R.hero.eq.weapon = gear('wand', 'weapon'); R.hero.eq.offhand = gear('orb', 'offhand'); })],
       // TASKS 2151: the mage's arch in every armour (none, robe, leather, hooded cloak) under every helm (none, circlet, leather helm)
       ...MAGE_KITS.map(([n, armor, helm]) => ['menu_continue_mage_' + n, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: 'mage' }); const R = S.saved, h = R.hero, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ });

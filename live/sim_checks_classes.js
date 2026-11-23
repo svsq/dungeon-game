@@ -797,13 +797,14 @@
     heroArmPose(out, drawHero, L);
   }
   // (TASKS 2181) the arms against the class sheets, in shares of the height (soles to the top), as tools/measure/chars_ref/reach.py counts
-  // them: at ease the near (cape-side) hand hangs at least OUT outside its shoulder and its forearm is drawn over the body unless a shield
-  // rides it (under the body the warrior's hand lay behind the belt pouch, 0.004 H out); the far fist of the weapon arm stands in its class's
+  // them: at ease the near (cape-side) hand hangs at least OUT outside its shoulder and its forearm is drawn over the body (under the body
+  // the warrior's hand lay behind the belt pouch, 0.004 H out); a shield on it is held before the body, its hand at least SHIELD_FWD in
+  // front of the shoulder and the shield drawn after the body (hung at the hip under it, it read as slung on the back); the far fist of the weapon arm stands in its class's
   // band FIST with the forearm at most FORE degrees off plumb (2177 bent it 51–58° out from behind the torso; the sheets: warrior 5°, archer
   // 36°), the mage's at his chest; the orb's palm out beside the body (it lay on the chest, 0.12 H inside); on the run no hand reaches more
   // than RUN_REACH from its shoulder nor drops under RUN_HAND (0.337 and 0.450 before)
   function heroArmPose(out, drawHero, L) {
-    const OUT = 0.03, FIST = { warrior: [0.45, 0.5], archer: [0.46, 0.52], mage: [0.62, 0.72] }, FORE = { warrior: 25, archer: 42 }, ORB = { out: 0.03, h: [0.58, 0.66] }, RUN_REACH = 0.33, RUN_HAND = 0.46, FPS = 60, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const OUT = 0.03, SHIELD_FWD = 0.02, FIST = { warrior: [0.45, 0.5], archer: [0.46, 0.52], mage: [0.62, 0.72] }, FORE = { warrior: 25, archer: 42 }, ORB = { out: 0.03, h: [0.58, 0.66] }, RUN_REACH = 0.33, RUN_HAND = 0.46, FPS = 60, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const KITS = [['warrior', 'sword'], ['archer', 'shortbow'], ['mage', 'staff'], ['mage', 'staff', 'orb'], ['warrior', 'sword', 'shield']], seen = new Set();
     for (const [cls, wb, ob] of KITS) for (const face of [1, -1]) for (const menu of [0, 1]) for (const run of [0, 1]) {
       if (menu && run) continue;
@@ -821,6 +822,9 @@
           if (hh(s) < RUN_HAND && !(cls === 'mage' && s === 'R')) say(`the ${s} hand drops to ${hh(s).toFixed(3)} of the height (at least ${RUN_HAND})`); }
           continue; }
         if (ob === 'orb') { if (dx('L') < ORB.out || hh('L') < ORB.h[0] || hh('L') > ORB.h[1]) say(`the orb's palm is ${dx('L').toFixed(3)} out of the shoulder at ${hh('L').toFixed(3)} of the height (out ${ORB.out}, ${ORB.h.join('..')})`); }
+        else if (ob === 'shield') { const body = spr.findIndex((n) => n.startsWith(pn + 'body')), sh = spr.findIndex((n) => /^it_shield/.test(n));
+          if (-dx('L') < SHIELD_FWD) say(`the shield hand stands ${(-dx('L')).toFixed(3)} of the height before its shoulder (at least ${SHIELD_FWD}): the shield hangs at the hip`);
+          if (sh < body) say('the shield is drawn under the body, as if slung on the back'); }
         else { if (dx('L') < OUT) say(`the near hand hangs ${dx('L').toFixed(3)} of the height out of its shoulder (at least ${OUT})`);
           const body = spr.findIndex((n) => n.startsWith(pn + 'body')), fa = spr.findIndex((n) => n.startsWith(pn + 'farmL') && !n.includes('_sock'));
           if (!ob && fa < body) say('the near forearm is drawn under the body'); }

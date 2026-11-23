@@ -76,9 +76,10 @@
   // and in the arch, with each of his four weapons, the near fist (hero__fistR, drawn after the weapon) lies over the weapon's own pixels, the
   // weapon's axis (grip → tip) runs within AXIS screen px of the fist's centre, and the weapon shows past the fist on both sides of it.
   // A blow that takes the weapon behind his back draws it under the body: those frames are skipped, as long as enough are counted; a blade
-  // turned toward the camera (drawn under FACING of its length) points its pommel at the camera, hidden in the fist, and only the axis counts
+  // turned toward the camera (drawn under FACING of its length) points its pommel at the camera, hidden in the fist, and only the axis counts.
+  // A long haft (BUTT) is held near its butt: past the fist it shows no more than its cap, or it ran up along the forearm
   function warriorFistCheck(out) {
-    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, TIP = 0.78, FACING = 0.6, SHIELD_GRIP = 0.3, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), AXIS = 2, OVER = 4, PAST = 1, TIP = 0.78, FACING = 0.6, SHIELD_GRIP = 0.3, BUTT = { axe: 4, hammer: 4 }, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
     const seen = new Set(), texels = (q) => texelsOf(L, q);
     const POSES = [['rest', 0, 10, -9], ['rest', 0, 11.3, -9], ['run', 150, 10, -9], ['run', 150, 10.4, -9], ['blow', 0, 10.06, 10], ['blow', 0, 10.15, 10], ['blow', 0, 10.3, 10], ['blow', 0, 10.6, 10]];
     let counted = 0;
@@ -105,6 +106,7 @@
       const along = (p) => (p[0] - c[0]) * u[0] + (p[1] - c[1]) * u[1], fa = fist.map(along), lo = Math.min(...fa), hi = Math.max(...fa), wa = wpn.filter((p) => !fc.has(cell(p))).map(along);
       const fs = len / (TIP * spr[wi].o.w);
       if (fs >= FACING && (!wa.some((a) => a > hi + PAST) || !wa.some((a) => a < lo - PAST))) say(`the ${wb} does not show on both sides of the fist (fist ${lo.toFixed(1)}..${hi.toFixed(1)} px along it, drawn ${fs.toFixed(2)} of its length)`);
+      else if (BUTT[wb] && wa.length && lo - Math.min(...wa) > BUTT[wb]) say(`the ${wb}'s haft runs ${(lo - Math.min(...wa)).toFixed(1)} px past the fist toward its butt (at most ${BUTT[wb]}): it reads as growing out of the bracer`);
     }
     // the shield on the far forearm: the hand that holds its grip lies behind it, near its middle, and the shield is drawn over that hand
     for (const ob of ['shield', 'buckler', 'tower_shield']) for (const face of [1, -1]) for (const menu of [0, 1]) for (const [act, vx, GT] of POSES.filter((p) => p[0] !== 'blow')) {
