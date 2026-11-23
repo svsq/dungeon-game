@@ -72,6 +72,7 @@
       ['tests_full_ask', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.slot = 0; S.screen = 'tests'; S.newAsk = 'magma'; S.focus = 'no'; })],
       ['play', play()],
       ['play_worst', play((S) => { worst(S); S.run.msg = { s: TXT('QA.states.msg.s'), t: S.t - 1 }; })],
+      ['play_fell_retry_over_msg', play((S) => { const R = S.run; SIMX.killHero(S, R); R.fellFailed = true; R.msg = { s: TXT('QA.states.msg.s'), t: S.t - 1 }; })],
       ['inv', play((S) => { worst(S); S.screen = 'inv'; })],
       ['inv_empty', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'eq:offhand'; S.run.seen = S.run.seen.map(() => 1); })],
       ['item_balance', play((S) => {
