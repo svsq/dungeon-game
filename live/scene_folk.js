@@ -9,6 +9,9 @@
   const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
   const JOINT_W = 0.02;
   // the guard's look over the yard: its window in the work loop (from, span, as the look's own ease), the head's sweep and the body's shift (rad)
+  // the guard's weight shift in his work loop: the body's sway (rad) and the knees' give (px) twice a loop; the enchanter bent over the
+  // book: the head forward (lean), down (dip) and after the turned page (page), the shoulders hunched (hunch), all rig px
+  const GUARD_WORK = { lean: 0.06, knee: 2 }, ENCHANTER_WORK = { lean: 10, dip: 6, page: 5, hunch: 4 };
   const GUARD_LOOK = { from: 0.52, span: 0.18, head: 0.4, body: 0.07 };
   // a hen's wings, two short strokes off its back (view px), raised by `lift` rad at most and beating at `rate` rad/s; `rest` the share
   // of the lift they keep at the bottom of a beat; `fast` the speed range over which a running hen comes to beat them
@@ -114,7 +117,7 @@
       hold = { R: TOOL('town_tool_spear', 0.58, { abs: -Math.PI / 2 - 0.05 }) };
       // over the look the head sweeps the yard (up to GUARD_LOOK.head rad each way, 6–7 px at the crown) and the body shifts onto it
       const GLK = GUARD_LOOK, sweep = look * GLK.head * Math.sin(2 * Math.PI * Math.max(0, Math.min(1, (u - GLK.from) / GLK.span)));
-      lean = (0.025 * Math.sin(2 * Math.PI * u) + GLK.body * look) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look + sweep; { const hc = Math.cos(Math.PI * look); headF = (hc < 0 ? -1 : 1) * Math.max(0.55, Math.abs(hc)); }
+      lean = (GUARD_WORK.lean * Math.sin(2 * Math.PI * u) + GLK.body * look) * face; crouch = GUARD_WORK.knee * Math.sin(2 * Math.PI * u) ** 2 * (1 - tw); headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look + sweep; { const hc = Math.cos(Math.PI * look); headF = (hc < 0 ? -1 : 1) * Math.max(0.55, Math.abs(hc)); }
     } else if (f.role === 'porter' || f.role === 'mason') {
       // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
       // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
@@ -180,7 +183,9 @@
       const lf = 1 + 2.5 * Math.sin(GT * 1.7 + i * 1.7);
       tg = { R: lerp2(mir(hr), talkR, tw), L: lerp2(handAt('L', 1, lf), P(0.24, -0.8), flask * (1 - tw)) };
       hold = { L: TOOL('it_mp', 0.3, { abs: -Math.PI / 2 + 0.25 * flask * (1 - tw), len: 0.15 * H }) };
-      robe = { lift: 1, headR: lerp1(0.18 * (1 - flask) - 0.12 * flask, -0.05, tw) };
+      // over the book the head goes forward and down and the shoulders hunch, the head follows the turned page; up from it for the flask
+      const EW = ENCHANTER_WORK, bent = (1 - flask) * (1 - tw);
+      robe = { lift: 1 - EW.hunch * bent, headR: lerp1(0.18 * (1 - flask) - 0.12 * flask, -0.05, tw), headD: [EW.lean * bent + EW.page * page * (1 - tw), EW.dip * bent] };
       const burn = bump01(u, 0.5, 0.78) * (1 - tw); if (burn > 0.02) fx = { k: 'flame', hand: 'L', amt: burn, seed: c.n + i, up: 0.1 * H };
       if (page > 0.02 && tw < 0.5) { const q = Math.cos(Math.PI * page), pw = 9 * Math.abs(q), px = book[0] + (q * wf >= 0 ? 0 : -pw), py = book[1] - 3 - 3 * Math.sin(Math.PI * page); Y.push([Lc.y + 1, () => L.solid(Math.round(px), Math.round(py), Math.max(1, pw), 5, [0.84, 0.78, 0.62])]); }
     }
@@ -238,7 +243,7 @@
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;
     Y.push([f.y, () => { L.shadow(X, Yg + 2, 0.24 * H, 6, 0.45); L.joint(id + '_view', 'face', [face, 0]);
       let hand = null;
-      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, faceW: o.faceW, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
+      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, faceW: o.faceW, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR, headD: o.robe && o.robe.headD })
         : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, faceW: o.faceW, t: GT, seed, dist: f.dist, pace: f.pace, ...gaitV(f), U: {}, Ufar: {}, strideK: o.stride, ...(f.go || f.spd0 === undefined ? {} : { spd0: f.spd0, vxn0: f.vxn0, vyn0: f.vyn0, t0: f.t0 }), hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, headF: o.headF, crouch: o.crouch, front: o.front, bend: o.arms ? { R: 1 } : undefined, farOver: o.arms });
         if (r && fx && fx.hand) hand = r.hand ? r.hand(fx.hand) : r.R2U(r.arms[fx.hand].Hd[0], r.arms[fx.hand].Hd[1]); }, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
       if (fx) SCX.RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] - (fx.up || 0) } : {}));
