@@ -406,7 +406,7 @@
         const r = m.rooms[d.r], y = Math.floor(d.y / TILE);
         const left = Math.floor((d.x - half) / TILE), right = Math.floor((d.x + half) / TILE);
         for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
-          if (!DG.inRm(r, cx, cy) && [1, 5, 6].includes(m.cells[cy * m.W + cx]))
+          if (!DG.inRm(r, cx, cy) && DG.isPassageCell(m.cells[cy * m.W + cx]))
             out.push(`library seed ${seed} f${floor}: a shelf overlaps the corridor at ${cx},${cy}`);
         }
       }
