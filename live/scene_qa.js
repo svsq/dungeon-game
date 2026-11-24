@@ -1583,9 +1583,13 @@
       h.x = m.town.svc.portal.x + 3 * TILE; h.y = m.town.svc.portal.y; SIM.step(S, { keys: [] }); S.ev = []; if (fn) fn(S, R, m, h); });
     const folkAt = (R, role) => R.folk.find((q) => q.role === role), camOn = (R, f) => { R.cam = [f.x - SCX.VW / 2, f.y - 40 - SCX.VH / 2]; };
     const atStop = (R, f, k) => { const st = R.map.town.npcs[f.i].route[k]; Object.assign(f, { x: st.x, y: st.y, way: k, go: 0, spd: 0, vx: 0, vy: 0, hx: undefined, hy: undefined }); };
+    const FOLK_FLINCH_LEAD = 6;   // frames before the blow and after the flinch ends
     for (const role of ['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'mason']) { let i = 0, per = 1;
       const base = folkS((S, R) => { const f = folkAt(R, role); i = f.i; per = D.folkClock(role, i, S.t).per; if (R.map.town.npcs[i].route) { atStop(R, f, role === 'mason' ? 1 : 0); f.t0 = S.t - (role === 'mason' ? 3 : 0); f.face = role === 'child' || role === 'mason' ? 1 : -1; if (role === 'mason') Object.assign(R.cart, { st: 'in', t: S.t + 99 }); } camOn(R, f); });
-      loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i; }
+      loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i;
+      // a robed figure struck at its work: it cowers, the shoulders and the head sinking, and comes back up
+      if (!RIGS['town_' + role].hipL) { const nm = 'folk_' + role + '_flinch', hitAt = base.t + FOLK_FLINCH_LEAD / 60;
+        transitions[nm] = Array.from({ length: Math.ceil(SCX.FOLK_FLINCH.time * 60) + 2 * FOLK_FLINCH_LEAD }, (_, k) => { const S = structuredClone(base); S.t += k / 60; folkAt(S.run, role).hitT = hitAt; return S; }); folkSubj[nm] = 'npc' + i; } }
     // every townsperson with a round has a walk (TASKS 1031): the cycles come from the town's rounds, and a rig with no gait fails here
     const walkers = Object.keys(DUNGEON.TOWN.routes);
     const FOLK_TURN_LEAD = 4, FOLK_TURN_FRAMES = Math.ceil(Math.max(D.FOLK_TURN.t, D.FOLK_TURN.load) * 60) + 2 * FOLK_TURN_LEAD;   // frames before the flip and after the turn ends

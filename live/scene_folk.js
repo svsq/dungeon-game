@@ -15,6 +15,8 @@
   // book: the head forward (lean), down (dip) and after the turned page (page), the shoulders hunched (hunch), all rig px. The head
   // already sinks with the hunch (0.8 of the lift's 5 px); dip only brings it a px below the shoulders, so it bows, not sinks in
   const GUARD_WORK = { lean: 0.06, knee: 2 }, ENCHANTER_WORK = { lean: 10, dip: 2, page: 5, hunch: 4 };
+  // a robed figure has no knees to give: it cowers, the shoulders sinking (the robed rig's lift is y down) with the ducked head
+  const FOLK_FLINCH = { time: 0.5, lean: 0.14, crouch: 8, headR: 0.12, shoulderDrop: 3 };
   // the guard's look over the yard: its window in the work loop (from, span; it eases in and out over ramp), the head's sweep and the body's shift (rad)
   const GUARD_LOOK = { from: 0.52, span: 0.18, ramp: 0.05, head: 0.4, body: 0.07 };
   // a hen's wings, two short strokes off its back (view px), raised by `lift` rad at most and beating at `rate` rad/s; `rest` the share
@@ -197,8 +199,8 @@
       lean *= 1 - rk; crouch *= 1 - rk; headR = lerp1(headR, -0.08, rk); if (robe) robe.headR = lerp1(robe.headR, -0.08, rk); if (rk > 0.3) fx = null; }
     if (tw > 0 && !robe) headR = lerp1(headR, -0.06 + 0.04 * Math.sin(GT * 4.1 + i), tw);
     // struck by the hero's blow (TASKS 1033): a flinch back from it, knees giving, the head ducked, over half a second
-    { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
-      if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
+    { const FF = FOLK_FLINCH, a = GT - (f.hitT ?? -9), fl = a >= 0 && a < FF.time ? Math.sin(Math.PI * a / FF.time) * (1 - a) : 0;
+      if (fl > 0) { lean -= face * FF.lean * fl; crouch += FF.crouch * fl; headR += FF.headR * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + FF.headR * fl, lift: (robe.lift || 0) + FF.shoulderDrop * fl }); } }
     drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { stride: FD.stride, faceW: jointW, hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * jointW / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
@@ -260,5 +262,5 @@
       if (k > 0) L.solid(Math.round(x), Math.round(y), 2, 2, [0.86, 0.74, 0.42], 0, 0, 0, k); } }
 
   Object.assign(SCX, {
-    FOLK0, HEN_PECK_PERIOD, drawFolk, drawFolkRig, drawCart });
+    FOLK0, HEN_PECK_PERIOD, FOLK_FLINCH, drawFolk, drawFolkRig, drawCart });
 })(typeof window !== 'undefined' ? window : globalThis);
