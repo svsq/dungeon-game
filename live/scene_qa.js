@@ -1894,6 +1894,11 @@
     // town_game_r10 1: three quests of one giver go in with the one press, told on one page with what they paid together
     states.push(['town_quest_turned_all', keeperS((S, R) => { R.offers = []; R.quests = ['elites', 'cull', 'named'].map((key, i) => ({ id: 900 + i, key, f: 6 + i, need: 5, n: 5, st: 'done', from: 'guard', title: TXT('QA.P'), rw: D.questReward(['scroll', 'gold', 'xp'], 6 + i) }));
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); })]);
+    // the longest thanks a turn-in tells (the story's three rescues), every page of it over the reward block
+    for (const [key, from] of [['rescue', 'keeper'], ['rescue_smith', 'smith'], ['rescue_enchanter', 'enchanter']]) {
+      const S0 = keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key, f: 6, need: 1, n: 1, st: 'done', from, rw: D.questReward(['scroll', 'item', 'shards', 'xp'], 6) }];
+        S.talk = { role: from, i: 0, pages: [''], p: 0, act: { k: 'turn', id: 900, ids: [900], rw: '' } }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); });
+      for (let p = 0; p < S0.talk.got.pages; p++) { const S = structuredClone(S0); S.talk.p = p; states.push([`town_quest_turned_${key}_${p}`, S]); } }
     // town_game_r10 5: the Keeper on the run's first fall in the normal mode
     states.push(['town_keeper_fell', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: TXT.talk('keeper').events.fell.slice(), p: 0, act: null }; S.screen = 'talk'; S.hover = 'next'; })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });

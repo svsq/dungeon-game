@@ -1603,8 +1603,10 @@
     KIT.light('al_help', sh.used ? TXT('hud.altar.8') : TXT('hud.altar.9'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   // ---------------- a word with a townsman (TASKS 1016, 1023): his likeness, his name, a page of his words ----------------
-  // the turn-in's reward block: its top this far over the board's foot, its height, its inset from the page's sides, the band's colour
-  const TALK_GOT = { over: 158, h: 56, pad: 8, side: 16, band: [0.55, 0.42, 0.26], bandA: 0.18, ruleA: 0.7 };
+  // the turn-in's reward line stands on the buttons' row, left of the leftmost button, centred on the row's middle line: its inset from the
+  // page's left words, its gap to the button, the sizes tried from the largest, the lines the row holds, the line pitch's extra over the size,
+  // the share of the width the line may fill (its bold words run wider than the plain ones measured)
+  const TALK_GOT = { x: 300, gap: 20, sizes: [26, 22, 20], lines: 2, leading: 7, fill: 0.9 };
   function talk(S, R, t) {
     const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = T.role === 'merchant' ? 'merchant' : 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
     // TASKS 2176: kit B, as on ref_ui_dialog_b: a leather board, his likeness in a cell's well on it, his words on a parchment page,
@@ -1622,10 +1624,11 @@
     if (act) { const rs = TXT('hud.talk.rs', { p1: SIM.Q.rwLine(T.act.rw) }), ic = SIM.Q.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
       if (ic) { KIT.nine('cell', P.x + 300, P.y + P.h - 162, 48, 48); icon(ic, P.x + 306, P.y + P.h - 156, 36); }
       if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) wrapLab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, P.w - 340 - dx, 26, INK.g); }
-    // a turn-in's reward in a block of its own on its pages, under a rule and on a darker band of the page
-    if (SIM.Q.talkGotShown(T)) { const B = TALK_GOT, y = P.y + P.h - B.over;
-      L.solid(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.h, B.band, 0, 0, 0, B.bandA); KIT.rule(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.ruleA);
-      wrapLab('tk_got', TXT('hud.talk.got', { p1: T.got.rw }), P.x + 300, y + B.h / 2 - B.pad, P.w - 340, 26, INK.g); }
+    // a turn-in's reward on its pages, level with the buttons so the words above keep the whole page
+    if (SIM.Q.talkGotShown(T)) { const B = TALK_GOT, row = U.r.filter((q) => q.id === 'next' || q.id === 'act' || q.id === 'craft' || q.id === 'talk'), left = Math.min(...row.map((q) => q.x)), width = left - B.gap - (P.x + B.x),
+        text = TXT('hud.talk.got', { p1: T.got.rw }), plain = text.replace(/\*\*/g, ''), lineCount = (size) => wrapWords(plain, width * B.fill, size).length,
+        size = B.sizes.find((z) => lineCount(z) <= B.lines) || B.sizes[B.sizes.length - 1], height = lineCount(size) * (size + B.leading) - B.leading;
+      wrapLab('tk_got', text, P.x + B.x, row[0].y + row[0].h / 2 - height / 2, width, size, INK.g); }
     if (T.pages.length > 1) KIT.ink('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 48, P.y + 60, { size: 20, al: 1, col: KIT.INK.d });
     const last = T.p + 1 >= T.pages.length, lb = { next: T.menu ? TXT('hud.talk.label.3') : !last ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3'),
       act: act && (T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5')) };
