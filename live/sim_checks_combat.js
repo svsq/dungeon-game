@@ -823,4 +823,44 @@
       d.n = 'statue'; delete d.broken; if (SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push('breakable: a bolt stops on a prop that does not break'); m.decor.splice(i, 1); }
     return out; }
   SIMX.checks.add('breakableCheck', breakableCheck);
+  // every kind of hero shot breaks a barrel whose body its path crosses, at any range and lateral offset inside the body, even when a
+  // step carries it clean over the barrel (a shot made FAST_K times quicker)
+  function shotPropCheck() {
+    const out = [], SHOOTERS = [['archer', 'shortbow', 'arrow'], ['archer', 'crossbow', 'arrow'], ['mage', 'staff', 'bolt'], ['mage', 'wand', 'bolt'], ['mage', 'staff', 'fireball']],
+      RANGES = [30, 77, 140, 211, 300], LANES = [-10, -5, 0, 5, 10], FAST_K = [1, 4, 12], FLIGHT_STEPS = 220, ROOM_W = 24, ROOM_Y = [8, 12], WIND_UP_STEPS = 40;
+    for (const [cls, weapon, shot] of SHOOTERS) {
+      const S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234, { cls }); S.screen = 'play';
+      const R = S.run, m = R.map, h = R.hero; h.ab.fireball = 1; h.eq.weapon = { ...h.eq.weapon, b: weapon };
+      R.en = []; R.chests = []; R.shrines = []; m.decor = []; m.torches = []; m.block = []; m.traps = []; m.webs = [];
+      for (let y = ROOM_Y[0]; y <= ROOM_Y[1]; y++) for (let x = 9; x <= 9 + ROOM_W; x++) m.cells[y * m.W + x] = 1;
+      for (const range of RANGES) for (const lane of LANES) for (const fast of FAST_K) {
+        h.x = 10.5 * TILE; h.y = 10.5 * TILE; h.aim = 0; h.mp = 999; h.cd = { atk: 0 }; h.atkT = -9; h.atkHit = 1; R.proj = [];
+        const shotY = SIMX.hand(h)[1], barrel = { x: h.x + range + D.SHOTS.arrow.tip, y: shotY + 20 + lane, kind: 'barrel', hp: 1 }, aim = { keys: [], ...toPx(R, h.x + 240, shotY) };
+        R.pots = [barrel];
+        if (shot === 'fireball') castAbility(S, R, 'fireball', {}); else for (let i = 0; i < WIND_UP_STEPS && !R.proj.length; i++) step(S, { ...aim, press: i === 0 ? 1 : 0 });
+        for (const p of R.proj) { p.vx *= fast; p.vy *= fast; }
+        for (let i = 0; i < FLIGHT_STEPS && R.proj.length; i++) { S.t += DT; SIMX.stepProjectiles(S, R); }
+        R.proj = [];
+        if (barrel.hp > 0) out.push(`${cls} ${weapon} ${shot}: a barrel ${range} px ahead, ${lane} px off the line, survives a shot ${fast}x as fast`);
+      }
+    }
+    return out;
+  }
+  SIMX.checks.add('shotPropCheck', shotPropCheck);
+  // an armed trap springs on any ground monster whose feet cross it: at its own pace and when a step carries it clean over the plate
+  function trapSpringCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234, { cls: 'archer' }); S.screen = 'play';
+    const R = S.run, m = R.map, h = R.hero, T = D.TRAP, LANE_K = [-1, -0.5, 0, 0.5, 1], PACE_K = [1, 10, 100, 400], RING_RY = 6, FOOT_RY_K = 0.45, RUN_UP = 200, ARMED_AGE = 1;
+    R.pots = []; R.chests = []; R.shrines = []; m.decor = []; m.torches = []; m.block = []; m.traps = []; m.webs = [];
+    const foes = Object.keys(ENEMIES).filter((n) => !ENEMIES[n].ghost && !D.BOSSES[n] && ENEMIES[n].spd);
+    for (const type of foes) for (const laneK of LANE_K) for (const paceK of PACE_K) {
+      const E = ENEMIES[type], lane = laneK * (RING_RY + FOOT_RY_K * E.r), pace = E.spd * paceK, trap = { id: 9, x: h.x, y: h.y, t0: S.t - ARMED_AGE, dmg: 1, crit: 0 };
+      const e = { id: 5000, type, x: h.x - RUN_UP, y: h.y + lane, vx: 0, vy: 0, hp: 1e6, max: 1e6, dmg: 0, deadT: -1, st: 'chase', elite: 0 };
+      R.en = [e]; R.htraps = [trap]; h.hp = 1e9;
+      for (let x = e.x; x < h.x + RUN_UP && !trap.done; x += pace * DT) { e.x = x; S.t += DT; SIMX.stepTraps(S, R); }
+      if (!trap.done) out.push(`trap: a ${type} crossing ${Math.round(lane)} px off the plate at ${paceK}x its pace does not spring it`);
+    }
+    return out;
+  }
+  SIMX.checks.add('trapSpringCheck', trapSpringCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

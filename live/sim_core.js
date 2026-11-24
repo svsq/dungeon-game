@@ -192,6 +192,9 @@
   const solidC = (m, tx, ty) => { const c = cell(m, tx, ty); return c === 0 || c === 4 || c === 5; };
   const pinch = (m, cx, cy, nx, ny) => cx !== nx && cy !== ny && solidC(m, nx, cy) && solidC(m, cx, ny);
   const overLava = (m, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8); for (let i = 0; i <= n; i++) { const x = Math.floor((x0 + (x1 - x0) * i / n) / TILE), y = Math.floor((y0 + (y1 - y0) * i / n) / TILE), k = y * m.W + x; if (m.cells[k] === 3 && !crustAt(m, k)) return true; } return false; };
+  // where along the segment (0..1) it comes closest to the point, and how close
+  const nearOnSegment = (px, py, x0, y0, x1, y1) => { const dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy, u = len2 ? Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / len2)) : 0;
+    return { u, dist: Math.hypot(x0 + dx * u - px, y0 + dy * u - py) }; };
   const losClear = (m, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10), wall = (x, y) => solidC(m, Math.floor(x / TILE), Math.floor(y / TILE));
     let cx = Math.floor(x0 / TILE), cy = Math.floor(y0 / TILE);
     for (let i = 1; i <= n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, nx = Math.floor(x / TILE), ny = Math.floor(y / TILE);
@@ -324,5 +327,5 @@
     zoomOf, WIN, toPx, K, EEL_MOUTH, rnd, ri, pick, ev, queueMsg, msgChain, showQueuedMsg, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, inSolid, solidC, pinch,
-    losClear, overLava, doorLock, doorTwin, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
+    losClear, nearOnSegment, overLava, doorLock, doorTwin, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
 })(typeof window !== 'undefined' ? window : globalThis);
