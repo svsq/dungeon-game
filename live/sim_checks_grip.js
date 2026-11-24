@@ -479,7 +479,7 @@
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls: 'mage' }); S.run = R; Object.assign(R.hero.eq, { weapon: it('staff', 'weapon'), armor: it(armor, 'armor') });
       if (helm) R.hero.eq.helm = it(helm, 'helm'); else delete R.hero.eq.helm;
       const h = Object.assign({}, R.hero, { vx: 0, vy: -RUN * run, face: 1, aim: -Math.PI / 2, back: 1, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = heroSt(S);
-      const rate = RUN / root.SIM.Q.stepLen(0) * Math.PI;
+      const rate = RUN / root.SIM.Q.heroStepLen(h, 0) * Math.PI;
       for (let k = 0; k < (run ? 12 : 1); k++) {
         const J = {}, spr = [], tag = `${armor}${helm ? ' and ' + helm : ''}${run ? ' running up, frame ' + k : ' at rest'}`; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; };
         L.sprite = (n, x, y, o) => { spr.push({ n, o }); return { w: 10, h: 10 }; }; L.solid = () => {};

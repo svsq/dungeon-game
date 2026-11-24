@@ -3,7 +3,7 @@
 // checks and the tools alike load (it was tools/scenebox.cjs).
 // heroBox(D, SIM, sizes) → { drawHero, SC, L, calls }: SC is the scene's shared table the hero file fills; L and G are stubs, and each sprite's placement (its matrix's x, or its x) goes into calls;
 // with sizes (assets()) the textures have their real sizes and only the painted ones exist
-// monsterBox(D) → MONSTERS as monsters.js builds it over the same stubs; rigs() → RIGS as rigs.js leaves it.
+// monsterBox(D) → MONSTERS as monsters.js builds it over the same stubs (monsterStage(D) → { MONSTERS, L }, L to watch its joints); rigs() → RIGS as rigs.js leaves it.
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const LIVE = __dirname, src = (f) => fs.readFileSync(path.join(LIVE, f), 'utf8');
 function stage(D, SIM, sizes) {
@@ -17,7 +17,8 @@ function stage(D, SIM, sizes) {
   return { box, L, calls };
 }
 function heroBox(D, SIM, sizes) { const { box, L, calls } = stage(D, SIM, sizes); vm.runInContext(src('scene_hero.js'), box); return { drawHero: box.SCX.drawHero, SC: box.SCX.SC, L, calls }; }
-function monsterBox(D) { const { box } = stage(D, null); vm.runInContext(src('monsters.js'), box); return box.MONSTERS; }
+function monsterStage(D) { const { box, L } = stage(D, null); vm.runInContext(src('monsters.js'), box); return { MONSTERS: box.MONSTERS, L }; }
+function monsterBox(D) { return monsterStage(D).MONSTERS; }
 // rigs() → window.RIGS as the page has it once live/rigs.js has run: the file is run, not parsed, so all it assigns counts
 // hudBox(D, SIM, fontW) → HUD as hud.js leaves it, over stub drawing: its geometry (HUD.markZones) measures text by fontW, the
 // TTF's advances, as the page's canvas does; KIT is the kit it draws with, for a check to watch its buttons and inks; L and the page's
@@ -33,4 +34,4 @@ const rigs = () => pageGlobal(['rigs.js'], 'RIGS');
 const assets = () => pageGlobal(['assets.js'], 'ASSETS');
 // sizes() → window.SIZES as sizes.js leaves it over the real textures: each sprite's display size in view px
 const sizes = () => pageGlobal(['assets.js', 'sizes.js'], 'SIZES');
-module.exports = { heroBox, monsterBox, rigs, hudBox, assets, sizes };
+module.exports = { heroBox, monsterBox, monsterStage, rigs, hudBox, assets, sizes };
