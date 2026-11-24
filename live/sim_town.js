@@ -391,7 +391,7 @@
     const cage = new Set(cageCells(m, C)), near = []; for (const k of cage) for (const d of [1, -1, m.W, -m.W]) if (!cage.has(k + d) && F[k + d] >= 0) near.push(k + d);
     if (!near.length) return [[C.x, C.y]]; let k = near.sort((a, b) => F[a] - F[b] || a - b)[0]; const path = [[C.x, C.y], cell(k)];
     for (let i = 0; i < D.CAPTIVE_FLEE.cells && F[k] > 0; i++) { k = [k + 1, k - 1, k + m.W, k - m.W].filter((j) => F[j] >= 0 && F[j] < F[k]).sort((a, b) => F[a] - F[b] || a - b)[0]; if (k === undefined) break; path.push(cell(k)); }
-    return path; }
+    return D.smoothWay(path, D.CAPTIVE_FLEE.smooth); }
   // the talk closed: what waited behind it takes its turn in the queue, shown by the play step once due
   const releaseAfterTalk = (R) => { for (const M of msgChain(R)) delete M.afterTalk; };
   function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C), face0: R.hero.x < C.x ? -1 : 1 }; releaseAfterTalk(R); S.saveN++; } }

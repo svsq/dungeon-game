@@ -1818,6 +1818,11 @@
       while (S.t - C.flee.t < until) SIM.step(S, { keys: [] }); });
     states.push(['captive_freed', captiveS('merchant', 1, 'talk')]);
     for (const [who, f] of [['merchant', 1], ['smith', 3], ['enchanter', 4]]) for (const stage of ['talk', 'run', 'gone']) states.push([`captive_${stage}_${who}`, captiveS(who, f, stage)]);
+    // each captive's run off from the moment he is sent, the camera on him: the gait the motion check reads (his joints, subject npc<id>)
+    const CAPTIVE_RUN_FRAMES = 100, captiveSubj = {};
+    for (const [who, f] of [['merchant', 1], ['smith', 3], ['enchanter', 4]]) { const nm = 'captive_run_' + who, base = captiveS(who, f, 'start'), C0 = base.run && base.run.captives[who]; if (!C0 || !C0.flee) continue;
+      transitions[nm] = Array.from({ length: CAPTIVE_RUN_FRAMES }, (_, k) => { const S = structuredClone(base), C = S.run.captives[who]; S.t += k / 60; const p = D.captiveFleeAt(C.flee, S.t - C.flee.t); S.run.cam = [p.x - SCX.VW / 2, p.y - 40 - SCX.VH / 2]; return S; });
+      captiveSubj[nm] = who; folkSubj[nm] = 'npc' + SCX.captiveFolkId(who); }
     const noteWorst = () => D.NOTES.list.reduce((a, n) => (n.text.length > a.text.length ? n : a));
     states.push(['captive_smith', climbS(3, (S, R, m, h) => { const C = R.captives.smith; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['captive_enchanter', climbS(4, (S, R, m, h) => { const b = R.en.find((e) => D.BOSSES[e.type]); SIMX.captiveBoss(S, R, b); const C = R.captives.enchanter; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
@@ -1894,11 +1899,6 @@
     // town_game_r10 1: three quests of one giver go in with the one press, told on one page with what they paid together
     states.push(['town_quest_turned_all', keeperS((S, R) => { R.offers = []; R.quests = ['elites', 'cull', 'named'].map((key, i) => ({ id: 900 + i, key, f: 6 + i, need: 5, n: 5, st: 'done', from: 'guard', title: TXT('QA.P'), rw: D.questReward(['scroll', 'gold', 'xp'], 6 + i) }));
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); })]);
-    // the longest thanks a turn-in tells (the story's three rescues), every page of it over the reward block
-    for (const [key, from] of [['rescue', 'keeper'], ['rescue_smith', 'smith'], ['rescue_enchanter', 'enchanter']]) {
-      const S0 = keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key, f: 6, need: 1, n: 1, st: 'done', from, rw: D.questReward(['scroll', 'item', 'shards', 'xp'], 6) }];
-        S.talk = { role: from, i: 0, pages: [''], p: 0, act: { k: 'turn', id: 900, ids: [900], rw: '' } }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); });
-      for (let p = 0; p < S0.talk.got.pages; p++) { const S = structuredClone(S0); S.talk.p = p; states.push([`town_quest_turned_${key}_${p}`, S]); } }
     // the reward strip: an item and experience, two scrolls and experience, several different items and experience
     const turnedS = (rewards, keys, f) => keeperS((S, R) => { R.offers = []; R.quests = keys.map((key, i) => ({ id: 900 + i, key, f: f + i, need: 5, n: 5, st: 'done', from: 'guard', title: TXT('QA.P'), rw: D.questReward(rewards, f + i) }));
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); });
@@ -1911,6 +1911,11 @@
     states.push(['town_quest_turned_scrolls', turnedS(['scroll', 'xp'], ['elites'], 10)]);
     states.push(['town_quest_turned_items', turnedS(['item', 'xp'], ['elites', 'cull', 'named'], 6)]);
     states.push(['town_quest_turned_mixed', turnedS(['scroll', 'gold', 'item', 'xp', 'shards'], ['elites', 'cull'], 8)]);
+    // the longest thanks a turn-in tells (the story's three rescues), every page of it over the reward block
+    for (const [key, from] of [['rescue', 'keeper'], ['rescue_smith', 'smith'], ['rescue_enchanter', 'enchanter']]) {
+      const S0 = keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key, f: 6, need: 1, n: 1, st: 'done', from, rw: D.questReward(['scroll', 'item', 'shards', 'xp'], 6) }];
+        S.talk = { role: from, i: 0, pages: [''], p: 0, act: { k: 'turn', id: 900, ids: [900], rw: '' } }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); });
+      for (let p = 0; p < S0.talk.got.pages; p++) { const S = structuredClone(S0); S.talk.p = p; states.push([`town_quest_turned_${key}_${p}`, S]); } }
     // town_game_r10 5: the Keeper on the run's first fall in the normal mode
     states.push(['town_keeper_fell', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: TXT.talk('keeper').events.fell.slice(), p: 0, act: null }; S.screen = 'talk'; S.hover = 'next'; })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });
@@ -2117,6 +2122,7 @@
     const box = (name, S) => SCX.Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * SCX.Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, SCX.W, SCX.H];
       if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
+      if (captiveSubj[name]) { const C = R.captives[captiveSubj[name]], p = D.captiveFleeAt(C.flee, S.t - C.flee.t); return [p.x - R.cam[0] - 70, p.y - R.cam[1] - 120, 140, 136]; }
       if (folkSubj[name] && R.folk) { const f = R.folk[+folkSubj[name].slice(3)]; return [f.x - R.cam[0] - 70, f.y - R.cam[1] - 120, 140, 136]; }
       const e = (enCycles[name] || loops[name]) && R.en[0];
       if (e && e.type === 'crab') { const hh = SZ('en_crab')[1]; return [e.x - R.cam[0] - 2 * hh, e.y - R.cam[1] - 2 * hh, 4 * hh, 4 * hh]; }

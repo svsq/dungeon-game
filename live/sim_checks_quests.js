@@ -281,7 +281,7 @@
       if (rescue.st !== 'done' || !R.msg || R.msg.s !== TXT('sim_town.questOn.msg.s', { name: D.questName(rescue) }) || S.t - R.msg.t >= (R.msg.d || 0)) out.push(`captive talk: the ${who}'s rescue quest is not shown done once his talk is closed`);
       const F = C.flee; if (!F || C.talk || F.path.length < 3) { out.push(`captive talk: the ${who} does not run off once the talk is closed (${F ? F.path.length : 0} points)`); continue; }
       const m = R.map, field = X.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), at = ([x, y]) => field[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
-      if (F.path[0][0] !== C.x || F.path[0][1] !== C.y || !(at(F.path[F.path.length - 1]) < at(F.path[1]))) out.push(`captive talk: the ${who}'s way off does not start at his cage and lead toward the way up`);
+      if (F.path[0][0] !== C.x || F.path[0][1] !== C.y || !(at(F.path[F.path.length - 1]) < at(F.path.find((q) => at(q) >= 0)))) out.push(`captive talk: the ${who}'s way off does not start at his cage and lead toward the way up`);
       const t0 = D.captiveFleeAt(F, 0), t1 = D.captiveFleeAt(F, 1), end = D.captiveFleeAt(F, 1e3);
       if (t0.done || Math.hypot(t0.x - C.x, t0.y - C.y) > 0.5 || Math.hypot(t1.x - C.x, t1.y - C.y) < D.CAPTIVE_FLEE.speed / 2 || !end.done) out.push(`captive talk: the ${who} does not run along his way and reach its end`); }
     return out; }
