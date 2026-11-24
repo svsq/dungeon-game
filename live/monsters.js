@@ -26,12 +26,14 @@
   const plantDz = (off, A, diry, strideK) => { const d = Math.abs(diry), c = DATA.STEP_DEPTH.ahead / Math.pow(Math.max(1, strideK || 1), 0.75), k = Math.min(1, c / Math.max(d * DATA.stepPace(diry), 1e-6));
     return k * off * diry - DATA.STEP_DEPTH.back * A * d / Math.pow(Math.max(1, strideK || 1), 0.75); };
   const bipedSL = (RG, s, k) => 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s * (k || 1);
+  const STOP_EASE = 0.14;
+  const easedVelocity = (o) => { const k0 = o.spd0 != null ? SS(0, STOP_EASE, Math.max(0, o.t - o.t0)) : 1;
+    return { k0, vx: k0 < 1 ? lerp(o.vxn0 * o.spd0, o.vx, k0) : o.vx, vy: k0 < 1 ? lerp(o.vyn0 * o.spd0, o.vy, k0) : o.vy }; };
   function biped(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.footL[1], fallR = o.fallR || 0, lean = o.lean || 0;
     // a boss move begins by cutting the walk (spd0 + its direction, sim.js): speed and direction ease down together, so neither
     // the stride amplitude nor the swing's side snaps
-    const k0 = o.spd0 != null ? SS(0, 0.14, Math.max(0, o.t - o.t0)) : 1;
-    const vxE = k0 < 1 ? lerp(o.vxn0 * o.spd0, o.vx, k0) : o.vx, vyE = k0 < 1 ? lerp(o.vyn0 * o.spd0, o.vy, k0) : o.vy;
+    const { k0, vx: vxE, vy: vyE } = easedVelocity(o);
     const sl = bipedSL(RG, s, o.strideK), cd = o.chargeK ? Math.min(o.chargeD || 0, o.dist) : 0;
     // (the distance covered charging is stepped at the charge's stride and the rest at the walk's, so the feet keep their phase as the
     // charge starts and ends instead of jumping to dist over the new stride)
@@ -504,7 +506,7 @@
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
     const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, fw = o.faceW ?? f, Q = ROBE[o.n];   // fw: the joints' width through a turn (biped's faceW)
-    const sk = o.strideK || 1, run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? MON.robePhase(o.n, o.H, o.dist, sk) : 0;
+    const gaitV = easedVelocity(o), sk = o.strideK || 1, run = Q ? SS(2, 12, Math.hypot(gaitV.vx || 0, gaitV.vy || 0)) : 0, ph = Q ? MON.robePhase(o.n, o.H, o.dist, sk) : 0;
     const gk = (Q && Q.k) || 1, bob = run * 1.5 * gk * Math.sin(ph) ** 2, rot = fw * (run * 0.022 * gk * Math.sin(ph) + (o.lean || 0)), rc = Math.cos(rot), rs = Math.sin(rot);
     const S2 = (px, py) => { const x = fw * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);
@@ -522,7 +524,7 @@
     if (Q) {
       // a shoe's place off the hem over its phase: planted from +step back to -step, then lifted and swung forward again
       // (it steps along the heading: whole on the screen's depth too, as a shoe planted on the floor keeps still while the body runs by)
-      const sp = Math.hypot(o.vx || 0, o.vy || 0), ux = sp > 1e-3 ? o.vx / sp : f, uy = sp > 1e-3 ? o.vy / sp : 0;
+      const sp = Math.hypot(gaitV.vx || 0, gaitV.vy || 0), ux = sp > 1e-3 ? gaitV.vx / sp : f, uy = sp > 1e-3 ? gaitV.vy / sp : 0;
       const shoe = (x0, x1, k, side) => { const q = ((ph + k * Math.PI) % TAU + TAU) % TAU, st = q < Math.PI, x = (st ? Q.step * (1 - 2 * q / Math.PI) : -Q.step * Math.cos(q - Math.PI)) * sk,
           up = st ? 0 : (Q.up ?? ROBE_SHOE_UP) * Math.sqrt(sk) * Math.sin(q - Math.PI), w = (x1 - x0) * s, h = (RG.h - Q.hem) * s, dx = run * x * ux * s, dy = run * x * uy * s;
         L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(root[0] + fw * (x0 - gx) * s + dx, root[1] + (Q.hem - gy - run * up) * s + dy), M.s(f, 1)), w, h, src: [x0 / RG.w, Q.hem / RG.h, x1 / RG.w, 1], u: o.U });
