@@ -1286,7 +1286,7 @@
     // he crossed most of his box over the cycle, past the motion check's ±8 px alignment, and every frame read as changed. S.cam is
     // the camera's travel on the pixel grid, so the rig checks still measure the feet against the floor
     const follow = (S, tx, ty) => { const R = S.run, q = (v) => Math.round(v / 2) * 2, c0 = R.cam; R.cam = [c0[0] + tx, c0[1] + ty]; S.cam = [q(R.cam[0]) - q(c0[0]), q(R.cam[1]) - q(c0[1])]; };
-    const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx), D.gaitOf(h).stride); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; follow(S, dx * h.dist, dy * h.dist); out.push(S); } return out; };
+    const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.heroStepLen(h, Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; follow(S, dx * h.dist, dy * h.dist); out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
     const base = play((S) => { S.run.msg = null; S.run.en = []; }), clone = () => structuredClone(base);
     const swingAt = (a, T, tgt) => { const S = clone(), h = S.run.hero; h.aim = h.atkA = a; h.face = Math.cos(a) >= 0 ? 1 : -1; h.back = Math.sin(a) < -0.5 ? 1 : 0; h.atkT = S.t - T; h.vx = h.vy = 0;
@@ -1589,7 +1589,7 @@
       loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i;
       // a robed figure struck at its work: it cowers, the shoulders and the head sinking, and comes back up
       if (!RIGS['town_' + role].hipL) { const nm = 'folk_' + role + '_flinch', hitAt = base.t + FOLK_FLINCH_LEAD / 60;
-        transitions[nm] = Array.from({ length: Math.ceil(SCX.FOLK_FLINCH.time * 60) + 2 * FOLK_FLINCH_LEAD }, (_, k) => { const S = structuredClone(base); S.t += k / 60; folkAt(S.run, role).hitT = hitAt; return S; }); folkSubj[nm] = 'npc' + i; } }
+        transitions[nm] = Array.from({ length: Math.ceil(D.FOLK_FLINCH.time * 60) + 2 * FOLK_FLINCH_LEAD }, (_, k) => { const S = structuredClone(base); S.t += k / 60; folkAt(S.run, role).hitT = hitAt; return S; }); folkSubj[nm] = 'npc' + i; } }
     // every townsperson with a round has a walk (TASKS 1031): the cycles come from the town's rounds, and a rig with no gait fails here
     const walkers = Object.keys(DUNGEON.TOWN.routes);
     const FOLK_TURN_LEAD = 4, FOLK_TURN_FRAMES = Math.ceil(Math.max(D.FOLK_TURN.t, D.FOLK_TURN.load) * 60) + 2 * FOLK_TURN_LEAD;   // frames before the flip and after the turn ends
@@ -1599,9 +1599,11 @@
       const walkAt = (d, turnIn) => folkS((S, R) => { const f = folkAt(R, role); i = f.i; const n = R.map.town.npcs[f.i];
         Object.assign(f, { x: n.x + d, dist: d, pace: undefined, hx: undefined, hy: undefined, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - SCX.VW / 2, n.y - 40 - SCX.VH / 2]; follow(S, d, 0);
         if (turnIn !== undefined) Object.assign(f, { face: -1, turnT: S.t + turnIn }); });
-      folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => walkAt(k * st / 12));
-      // the broom at the ends of its sweep, which comes once a step (a quarter and three quarters of a step in)
-      if (D.FOLK[role].walkSweep) states.push(['folk_' + role + '_broom_ahead', walkAt(st / 8)], ['folk_' + role + '_broom_back', walkAt(3 * st / 8)]);
+      // a walker whose tool swings with its step walks its cycle whole strides clear of the stop, where the tool is out of its work pose
+      const lead = D.FOLK[role].walkSweep ? Math.ceil(SCX.FOLK_AWAY_CLEAR / st) * st : 0;
+      folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => walkAt(lead + k * st / 12));
+      // the broom at the ends of its sweep, which comes once a step: ahead as a shoe plants (whole steps in), back halfway between
+      if (D.FOLK[role].walkSweep) states.push(['folk_' + role + '_broom_ahead', walkAt(lead)], ['folk_' + role + '_broom_back', walkAt(lead + st / 4)]);
       { const base = walkAt(st / 3, FOLK_TURN_LEAD / 60); transitions['folk_' + role + '_turn'] = Array.from({ length: FOLK_TURN_FRAMES }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj['folk_' + role + '_turn'] = 'npc' + i; }
       // walk → idle and idle → walk from the real sim (TASKS 2124): the child's throwing hand switched on in a frame at a stop
       { const run = (fn, n) => { let S = folkS((S, R) => { const f = folkAt(R, role); i = f.i; fn(S, R, f, R.map.town.npcs[f.i].route); camOn(R, f); }); const cam = S.run.cam.slice(), fr = [];
@@ -1825,7 +1827,7 @@
     states.push(['notes_empty', climbS(1, (S, R) => { S.meta.notes = []; S.screen = 'notes'; })]);
     states.push(['town_shop_shut', climbS(0, (S, R, m, h) => { h.x = m.shop.front.x; h.y = m.shop.front.y + 20; })]);
     const keeperS = (fn) => climbS(0, (S, R, m, h) => { R.captives = null; R.folk = D.folkInit(m.town.npcs); SIM.step(S, { keys: [] });
-      const k = S.run.folk.find((q) => q.role === 'keeper'); h.x = k.x + 44; h.y = k.y + 12; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; fn(S, R, h, k); });
+      const k = S.run.folk.find((q) => q.role === 'keeper'); h.x = k.x + 44; h.y = k.y + 12; fn(S, R, h, k); });
     states.push(['town_keeper_prompt', keeperS(() => {})]);
     // a giver's prompt with his own mark and the Keeper's near: the prompt stands in place of his own mark (TASKS 1026)
     states.push(['town_porter_prompt', keeperS((S, R, h, k) => { R.offers = [{ key: 'fetch', from: 'porter', q: 0 }]; const p = R.folk.find((q) => q.role === 'porter');

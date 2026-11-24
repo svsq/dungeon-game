@@ -84,9 +84,11 @@
   // `back` (TASKS 2202): the back view's own saturation (BACK_VIEW.bodySat without it) and its cape's swing with the stride, rad: the
   // warrior's cape from behind is the front cape's red, dulled to 0.8 it read browner (ΔE 6-8), and stood still over the walking legs
   // a look's walk: stride scales the step's length (the sim's footfalls keep to it), lift the swing foot's rise, bob the hip's rise and
-  // fall, hem the skirt's sway after the step (rad). The armoured warrior walks on the defaults; a robe to the ankles takes shorter,
-  // lower steps and glides, its hem swinging; the archer in leather steps out longer and lighter
-  const GAIT = { stride: 1, lift: 1, bob: 1, hem: 0 }, GAIT_ROBE = { stride: 0.85, lift: 0.6, bob: 0.5, hem: 0.06 }, GAIT_LIGHT = { stride: 1.06, lift: 1.1, bob: 0.85 };
+  // fall, hem the skirt's sway after the step (rad). The armoured warrior walks on the defaults; a robe to the ankles keeps his step's
+  // length (a shorter one stepped past the walk's 9 steps a second) and walks it smoother, its hem swinging; the archer in
+  // leather steps out longer and lighter. The robe's foot keeps the full lift (ROBE_KICK already lowers it behind; at 0.6 it rose 2.0 px
+  // against the polish check's 3 % of the height) and its bob stays clear of the head's limit sideways (0.85 px at 0.5 on 0.84)
+  const GAIT = { stride: 1, lift: 1, bob: 1, hem: 0 }, GAIT_ROBE = { stride: 1, lift: 1, bob: 0.8, hem: 0.06 }, GAIT_LIGHT = { stride: 1.06, lift: 1.1, bob: 0.85 };
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 5, sp: 1 },
       abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'whirl', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1, eye: [13.5, 5.5], fist: [0.42, 0.24, 0.15], arm: { behind: 1, hold: [0.2, 0.97] }, back: { sat: 1, swing: 0.08 } } },

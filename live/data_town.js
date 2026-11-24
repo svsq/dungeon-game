@@ -186,6 +186,15 @@
   // `minW` 0.28: at 0.1 the mid-turn frame drew the figure as a sliver, the mason gone, the porter a lone crate (town_motion_r9 1, TASKS 2123)
   // `load`: the turn with a load in both hands, a third of the height out in front: its hands cross 0.62 of the height, over 0.2 s 6.2 px a frame (TASKS 2116)
   const FOLK_TURN = { t: 0.2, load: 0.25, minW: 0.28 };
+  // struck by the hero's blow: a flinch back from it over `time` s, knees giving, the head ducked; a robed figure has no knees to give
+  // and cowers, its shoulders sinking by `shoulderDrop` rig px (the robed rig's lift is y down, so the drop adds to it)
+  const FOLK_FLINCH = { time: 0.5, lean: 0.14, crouch: 8, headR: 0.12, shoulderDrop: 3 };
+  const folkFlinchAt = (age) => { const F = FOLK_FLINCH, k = age >= 0 && age < F.time ? Math.sin(Math.PI * age / F.time) * (1 - age) : 0;
+    return { k, lean: F.lean * k, crouch: F.crouch * k, headR: F.headR * k, shoulderDrop: F.shoulderDrop * k }; };
+  // a robed figure's pose (the robed rig's lift, headR) as a flinch takes it
+  const robeFlinched = (robe, fl) => Object.assign({}, robe, { headR: (robe.headR || 0) + fl.headR, lift: (robe.lift || 0) + fl.shoulderDrop });
+  // a walking sweeper's broom on the robe's step phase: ahead (1) as each shoe plants, at its forward-most, back (-1) between
+  const walkSweepAt = (stepPhase) => Math.cos(2 * stepPhase);
   const RAIL = { gauge: 18.6, bend: { reach: 6, step: 3, lap: 1, flat: 0.05, most: 16, arc: 28, pt: 8 }, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
   // the sprites that lay a track along `pts`, one period of the painting after another, the count carried round each bend: where each stands,
   // the way the stretch runs (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
@@ -263,7 +272,7 @@
     return out; };
   // a quest's name as the player reads it: its template's, or its own (nameOf) where one template stands for several quests
   const questName = (q) => { const Q = QUESTS[q.key]; return (Q.nameOf && Q.nameOf(q)) || Q.name; };
-  Object.assign(D, { CAPTIVES, CAPTIVE_FLEE, captiveFleeAt, NOTES, STORY, QUESTS, questName, BOSS_QUEST_NAME, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, folkSprite, henLook, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, CAPTIVE_FLEE, captiveFleeAt, NOTES, STORY, QUESTS, questName, BOSS_QUEST_NAME, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, folkSprite, henLook, FOLK_TURN, FOLK_FLINCH, folkFlinchAt, robeFlinched, walkSweepAt, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   // `nudge` (town_game_r10 4): how far a full mark may slide across and down from over the head to clear the HUD before it goes small;

@@ -495,10 +495,11 @@
   // The shoes give the rig its ankles (the far one L, as the far arm), so a walk is read and checked by its feet
   const ROBE_SHOE_UP = 7, ROBE = { town_sweeper: { hem: 286, split: 76, step: 26, k: 2.4, up: 12 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
   MON.robeStride = (n, H) => { const q = ROBE[n]; return q && RIGS[n] ? 4 * q.step * H / RIGS[n].h : 0; };
+  MON.robePhase = (n, H, dist) => (dist || 0) / MON.robeStride(n, H) * TAU;
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
     const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, fw = o.faceW ?? f, Q = ROBE[o.n];   // fw: the joints' width through a turn (biped's faceW)
-    const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? (o.dist || 0) / MON.robeStride(o.n, o.H) * TAU : 0;
+    const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? MON.robePhase(o.n, o.H, o.dist) : 0;
     const gk = (Q && Q.k) || 1, bob = run * 1.5 * gk * Math.sin(ph) ** 2, rot = fw * run * 0.022 * gk * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
     const S2 = (px, py) => { const x = fw * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);

@@ -172,7 +172,7 @@
       // under it and he dropped 9 px in a frame)
       const ha = hor ? R.hero.x : R.hero.y, hb = hor ? R.hero.y : R.hero.x, onW = bridge ? SS(B0 - 10, B0 + 6, hb) * (1 - SS(B0 + BW - 6, B0 + BW + 10, hb)) * SS(A0 - 8, A0 + 10, ha) * (1 - SS(A0 + len - 10, A0 + len + 8, ha)) : 0, on = onW > 0;
       // (TASKS 490: it trembled on a clock) each footfall of his jolts it and dies away, and a rock landing on the deck shakes it
-      const heroStep = SIM.Q.stepLen(1, D.gaitOf(R.hero).stride), hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / heroStep) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
+      const heroStep = SIM.Q.heroStepLen(R.hero, 1), hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / heroStep) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
       const fallR = bridge ? (m.hazards || []).filter((z) => z.k === 'fall' && D.hazClock(z, GT) < 0.7 && c.cells.some((k) => Math.hypot((k % m.W + 0.5) * T - z.x, (Math.floor(k / m.W) + 0.5) * T - z.y) < 60)) : [];
       const shake = (a) => fallR.reduce((v, z) => { const q = D.hazClock(z, GT); return v + 7 * Math.exp(-6 * q) * Math.sin(q * 38) * Math.exp(-Math.abs(a - (hor ? z.x : z.y)) / 90); }, 0);
       const dip = (a) => (on ? onW * (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
