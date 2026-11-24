@@ -1992,7 +1992,7 @@
         if (E.st === 'on' && up().some((e) => e.elite)) states.push(['trial_last', S]); } }
     // an event of the pool on its own (TASKS 363, 364): the room as it is come upon (its prop, the prompt), its question, and after «yes»
     // (pre(R, E) sets what the event needs first, a fountain's fate)
-    const evS = (id, stage, pre) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
+    const evS = (id, stage, pre, runOpts) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234, runOpts); S.screen = 'play'; const R = S.run, h = R.hero; let E = null;
       for (let f = 1; f <= 4 && !E; f++) { SIM.enterFloor(S, R, f, { events: [id] }); E = (R.events || []).find((q) => q.id === id); } if (!E) return;
       const go = (k) => { R.enteredT = -9; SIM.step(S, { keys: k ? [k] : [] }); };
       R.en = []; R.msg = null; h.x = E.x + 40; h.y = E.y + 26; R.seen = R.seen.map(() => 1); R.cam = [E.x - SCX.VW / 2, E.y - SCX.VH / 2]; if (pre) pre(R, E);
@@ -2023,12 +2023,17 @@
       if (stage === 'map') { R.en = []; S.ev.length = 0; S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 200]; }
       if (stage !== 'in') R.msg = null; R.cam = [(h.x + E.x) / 2 - SCX.VW / 2, (h.y + E.y) / 2 - SCX.VH / 2]; });
     // the captive (TASKS 366): caged as come upon, told there is no key, asked with one; walking behind the hero out of his room, and
-    // home at the merchant's (or the stairs up) with his thanks
-    for (const [nm, st] of [['captive_room', 0], ['captive_nokey', 'ask'], ['captive_ask', 'ask'], ['captive_lead', 'done'], ['captive_home', 'done']]) {
-      const S = evS('captive', st, (R) => { R.keys = nm === 'captive_nokey' ? 0 : 1; }); const R = S.run, E = R && (R.events || []).find((q) => q.id === 'captive'); if (!E) continue;
+    // home at his first way out (the merchant's, or the start room on a floor with no stairs up) with his thanks; in the town's run,
+    // home at the stairs up, gone in dust with his shards paid
+    const CAPTIVE_HOME = { side: 40, below: 10, steps: 20 };
+    const captiveHomeAt = (S, R, E, goal) => { if (!goal) return; E.px = goal.x + CAPTIVE_HOME.side; E.py = goal.y; R.hero.x = goal.x - CAPTIVE_HOME.side; R.hero.y = goal.y + CAPTIVE_HOME.below;
+      for (let i = 0; i <= CAPTIVE_HOME.steps; i++) SIM.step(S, { keys: [] }); R.cam = [goal.x - SCX.VW / 2, goal.y - SCX.VH / 2]; };
+    for (const [nm, st, runOpts] of [['captive_room', 0], ['captive_nokey', 'ask'], ['captive_ask', 'ask'], ['captive_lead', 'done'], ['captive_home', 'done'], ['captive_stairs', 'done', { town: 1, allFree: 1 }]]) {
+      const S = evS('captive', st, (R) => { R.keys = nm === 'captive_nokey' ? 0 : 1; }, runOpts); const R = S.run, E = R && (R.events || []).find((q) => q.id === 'captive'); if (!E) continue;
       if (nm === 'captive_lead' && E.st === 'on') { const h = R.hero, m = R.map, dx = [150, -150, 0, 0].find((d) => SIM.Q.cell(m, Math.floor((E.px + d) / 32), Math.floor((E.py + (d ? 20 : 150)) / 32)) === 1) ?? 0; h.x = E.px + dx; h.y = E.py + (dx ? 20 : 150);
         for (let i = 0; i < 70; i++) SIM.step(S, { keys: [] }); R.msg = null; R.cam = [(h.x + E.px) / 2 - SCX.VW / 2, (h.y + E.py) / 2 - SCX.VH / 2]; }
-      if (nm === 'captive_home' && E.st === 'on') { E.px = E.goal.x + 40; E.py = E.goal.y; R.hero.x = E.goal.x - 40; R.hero.y = E.goal.y + 10; SIM.step(S, { keys: [] }); for (let i = 0; i < 20; i++) SIM.step(S, { keys: [] }); R.cam = [E.goal.x - SCX.VW / 2, E.goal.y - SCX.VH / 2]; }
+      if (nm === 'captive_home' && E.st === 'on') captiveHomeAt(S, R, E, SIMX.captiveGoals(R)[0]);
+      if (nm === 'captive_stairs' && E.st === 'on') captiveHomeAt(S, R, E, SIMX.captiveGoals(R).find((g) => g.k === 'up'));
       states.push([nm, S]); }
     // the library (TASKS 368) in the town's run: its shelves and lectern as come upon with the prompt, its note open, and after with the
     // lesson's line and the motes off the pages
