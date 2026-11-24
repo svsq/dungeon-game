@@ -276,11 +276,14 @@
     const rangedOf = (T, rel, b, f) => { if (!(T >= 0) || T > rel + 0.45) return 0; const out = SS(rel - 0.02, rel + 0.07, T), e1 = backBy(rel, 0.42);
       return (-b * SS(0, Math.max(0.06, rel), T) * (1 - out) + f * out) * (1 - SS(Math.min(rel + 0.12, e1 - 0.15), e1, T)); };
     const stepOf = (T, rel) => { const e1 = backBy(rel, 0.45); return T >= 0 && T < e1 ? SS(0, 0.09, T) * (1 - SS(Math.min(rel + 0.2, e1 - 0.2), e1, T)) : 0; };
-    const RB = !shooter ? [0.08, 0.14] : xbow ? [-0.05, -0.1] : bowArm ? [0.12, 0.1] : [0.07, 0.13];
+    const RB = !shooter ? [0.08, 0.14] : xbow ? [-0.05, -0.12] : bowArm ? [0.12, 0.1] : [0.07, 0.13];
     const CK = { frost: [0.08, 0.16, 0.07], fireball: [shooter ? 0.14 : 0.18, 0.1, 0.14], volley: [D.VOLLEY.loose, 0.12, 0.08] }[h.castK];
     const shotLean = shooting ? rangedOf(atkT, BT, RB[0], RB[1]) + rangedOf(pShot, BT, RB[0], RB[1]) * (1 - SS(0, 0.08, atkT)) : afterShot ? rangedOf(pShot, BT, RB[0], RB[1]) : 0;
     const castLean = casting && CK ? rangedOf(castT, CK[0], CK[1], CK[2]) : 0;
-    const rangedLean = (shotLean + castLean) * h.face, rangedStep = Math.max(shooting ? Math.max(stepOf(atkT, BT), stepOf(pShot, BT)) : afterShot ? stepOf(pShot, BT) : 0, casting && CK ? stepOf(castT, CK[0]) : 0) * (1 - run);
+    // a blow is thrown with the body as a shot is: the torso draws back on the wind-up and leans into the strike, on the table's melee sizes
+    const pBlow = !shooter && h.patkT < h.atkT ? GT - h.patkT : -1;
+    const meleeLean = !shooter && swinging ? (rangedOf(atkT, SIM.K.HIT, RB[0], RB[1]) + rangedOf(pBlow, SIM.K.HIT, RB[0], RB[1]) * (1 - SS(0, 0.08, atkT))) * (1 - whirlE) : 0;
+    const rangedLean = (shotLean + castLean + meleeLean) * h.face, rangedStep = Math.max(shooting ? Math.max(stepOf(atkT, BT), stepOf(pShot, BT)) : afterShot ? stepOf(pShot, BT) : 0, casting && CK ? stepOf(castT, CK[0]) : 0) * (1 - run);
     // the whirl turns the torso with the blade: it leans after it round the turn (its back view is shown while the blade is behind)
     const whirlLean = whirlE > 0 ? 0.15 * whirlE * Math.cos(whirlTh) : 0;
     const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face - 0.14 * cryPrep * face + cryShake - 0.16 * hop * face + rangedLean + whirlLean;
@@ -595,7 +598,8 @@
       // (TASKS 2192) and a lowered one hangs plumb under the hand, shortened to TURN_LOW so it clears the soles and the floor never tips
       // it to one side: pointed away from the camera it was cut to a tenth and hidden under the back view, gone for 3–4 frames
       const up = Math.sin(b0) < 0, bt = tuck > 0 ? ba + wrapPi((up ? -1 : 1) * Math.PI / 2 - ba) * tuck : ba;
-      let sa = Math.atan2(Math.sin(bt), fX * Math.cos(bt)) + fallR + bodyR;         // screen angle of the blade, squeezed with the rig
+      // a blow's lean carries the arm, not the blade: it keeps the angle its sweep is laid out on, aimed at the target
+      let sa = Math.atan2(Math.sin(bt), fX * Math.cos(bt)) + fallR + bodyR - (bladeA !== null && !shooter ? meleeLean * h.face : 0);         // screen angle of the blade, squeezed with the rig
       // a slash sweeps flat around the body: on the floor plane the camera squeezes depth to DEPTH_K, so a blade pointing up or down
       // the screen points away from or at the camera and projects shorter (by the screen angle of a flat blade)
       let fsD = bladeFs * (1 + (DEPTH_K / Math.hypot(DEPTH_K * Math.cos(sa), Math.sin(sa)) - 1) * swingK) * Math.hypot(fX * Math.cos(ba), Math.sin(ba)) * (shooter ? 1 : 1 - (1 - BACK_VIEW.bladeFs) * backV * (1 - swingK));
