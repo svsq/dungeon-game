@@ -322,7 +322,7 @@
         const open = (x, y, dx) => cell(m, Math.floor((x + dx) / TILE), Math.floor(y / TILE)) === 1 && losClear(m, x, y, x + dx, y);
         let ok = false; for (let k = 0; k < m.W * m.H && !ok; k++) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
           if (cell(m, k % m.W, Math.floor(k / m.W)) === 1 && open(x, y - TILE, 200) && open(x, y - TILE, -120) && open(x, y, 200) && open(x, y, -120)) { h.x = x; h.y = y; ok = true; } }
-        R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0];   // (steps without a pointer leave the camera NaN)
+        R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0];
         const SHOULDER_AIM_DROP = 8;
         const stepAimedAt = (target, input = {}) => step(S, { keys: [], ...input, ...toPx(R, target.x, h.y - SIMX.RIG.shoulder + SHOULDER_AIM_DROP) });
         return { S, R, h, foe, ok, stepAimedAt }; };
@@ -959,6 +959,17 @@
     // (TASKS 2200) the staff's and the wand's fist on the world grid (sim_checks_grip.js worldFist)
     SIMX.heroLayers.fistsOnGrid(out, 'mage', ['staff', 'wand'], 'hero fist');
   }
+  // a step with no pointer, or with half of one, aims at the screen centre: the camera stays finite and does not look aside
+  function pointerlessStepCheck(out) {
+    const STEPS = 60, LOOK_EPS = 1e-6, finite = (...values) => values.every(Number.isFinite);
+    for (const [name, inp] of [['no pointer', { keys: [] }], ['no py', { keys: [], px: 300 }], ['a NaN pointer', { keys: [], px: NaN, py: NaN }]]) {
+      const { S, R, h } = stage();
+      for (let i = 0; i < STEPS; i++) step(S, inp);
+      if (!finite(R.cam[0], R.cam[1], R.camV[0], R.camV[1])) out.push(`pointerless step (${name}): the camera is ${R.cam.join(', ')}`);
+      if (!finite(h.aim, h.mx, h.my)) out.push(`pointerless step (${name}): the aim is ${h.aim}`);
+      if (!Number.isFinite(inp.px) && (R.camLook || []).some((look) => Math.abs(look) > LOOK_EPS)) out.push(`pointerless step (${name}): the camera looks aside by ${(R.camLook || []).join(', ')}`); }
+  }
+  SIMX.checks.add('pointerlessStepCheck', pointerlessStepCheck);
   SIMX.checks.add('heroPoseCheck', heroPoseCheck);
   SIMX.checks.add('heroFistCheck', heroFistCheck);
   SIMX.checks.add('classCheck', classCheck);

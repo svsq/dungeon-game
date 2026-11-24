@@ -6,7 +6,7 @@
     BAL, BASES, CAM_LOOK, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
     armored, atBrink, camAimY, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
     inWater, isCons, lastFloor, logFloor, losClear, move, onLava, onPlate, potion, pushable, reveal, ri, rise, rnd, rollItem, shove,
-    showQueuedMsg, soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
+    showQueuedMsg, soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, VIEW, webAt, who, zoomOf } = SIMX;
   // ---------------- hero helpers ----------------
   const heroSt = (S) => stats(S.run.hero, S.meta);
   const heroRoll = (R, h, st) => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * D.heroDmgK(h))), c]; };
@@ -214,7 +214,12 @@
   const FELL_DELAY_SECONDS = 1.6, FELL_RETRY_KEY_NAMES = { Enter: () => TXT('sim_ui.fell.key.Enter'), Space: () => TXT('sim_ui.fell.key.Space') }, FELL_RETRY_KEYS = Object.keys(FELL_RETRY_KEY_NAMES);
   const fellRetryShown = (S, R) => S.screen === 'play' && !!R.fellFailed && R.hero.deadT >= 0;
   const fellRetryHint = () => ({ s: TXT('sim_ui.fell.retry', { keys: FELL_RETRY_KEYS.map((key) => FELL_RETRY_KEY_NAMES[key]()).join(', ') }), pad: TXT('sim_ui.fell.retry@pad') });
+  // a step from a tool or a self-check may carry no pointer; the screen centre keeps the camera spring and the aim off NaN
+  const orCentre = (value, centre) => (Number.isFinite(value) ? value : centre);
+  const withPointer = (inp) => (Number.isFinite(inp.px) && Number.isFinite(inp.py) ? inp
+    : Object.assign({}, inp, { px: orCentre(inp.px, VIEW.W / 2), py: orCentre(inp.py, VIEW.H / 2) }));
   function stepPlay(S, inp, keys) {
+    inp = withPointer(inp);
     const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t; R.play = (R.play ?? (R.log ? R.log.fl.reduce((n, L) => n + L.time, 0) : 0)) + DT; tally(S, R, 'time', DT);   // saves from before the counter resume from the journal's per-floor time
     SIMX.stepArena(S, R);
     const st = heroSt(S);
