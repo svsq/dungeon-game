@@ -1286,7 +1286,7 @@
     // he crossed most of his box over the cycle, past the motion check's ±8 px alignment, and every frame read as changed. S.cam is
     // the camera's travel on the pixel grid, so the rig checks still measure the feet against the floor
     const follow = (S, tx, ty) => { const R = S.run, q = (v) => Math.round(v / 2) * 2, c0 = R.cam; R.cam = [c0[0] + tx, c0[1] + ty]; S.cam = [q(R.cam[0]) - q(c0[0]), q(R.cam[1]) - q(c0[1])]; };
-    const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; follow(S, dx * h.dist, dy * h.dist); out.push(S); } return out; };
+    const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx), D.gaitOf(h).stride); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; follow(S, dx * h.dist, dy * h.dist); out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
     const base = play((S) => { S.run.msg = null; S.run.en = []; }), clone = () => structuredClone(base);
     const swingAt = (a, T, tgt) => { const S = clone(), h = S.run.hero; h.aim = h.atkA = a; h.face = Math.cos(a) >= 0 ? 1 : -1; h.back = Math.sin(a) < -0.5 ? 1 : 0; h.atkT = S.t - T; h.vx = h.vy = 0;
@@ -1600,6 +1600,8 @@
         Object.assign(f, { x: n.x + d, dist: d, pace: undefined, hx: undefined, hy: undefined, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - SCX.VW / 2, n.y - 40 - SCX.VH / 2]; follow(S, d, 0);
         if (turnIn !== undefined) Object.assign(f, { face: -1, turnT: S.t + turnIn }); });
       folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => walkAt(k * st / 12));
+      // the broom at the ends of its sweep, which comes once a step (a quarter and three quarters of a step in)
+      if (D.FOLK[role].walkSweep) states.push(['folk_' + role + '_broom_ahead', walkAt(st / 8)], ['folk_' + role + '_broom_back', walkAt(3 * st / 8)]);
       { const base = walkAt(st / 3, FOLK_TURN_LEAD / 60); transitions['folk_' + role + '_turn'] = Array.from({ length: FOLK_TURN_FRAMES }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj['folk_' + role + '_turn'] = 'npc' + i; }
       // walk → idle and idle → walk from the real sim (TASKS 2124): the child's throwing hand switched on in a frame at a stop
       { const run = (fn, n) => { let S = folkS((S, R) => { const f = folkAt(R, role); i = f.i; fn(S, R, f, R.map.town.npcs[f.i].route); camOn(R, f); }); const cam = S.run.cam.slice(), fr = [];
@@ -2230,14 +2232,16 @@
     transitions.hero_shield_turn = eventT((S) => { clear(S); asShield(S); }, (S) => { const h = S.run.hero; h.face = -h.face; h.faceT = S.t; });
     // the mage (TASKS 1115): his walk on his own parts, his staff shot (the arm brings the staff up, a bolt leaves), his casts, a blow and
     // his death, round the compass; every sequence is the hero's with the mage's class and kit
+    // a class's walk cycle is the warrior's scaled by its look's stride (the phase runs over the shorter or longer step)
+    const classCycleT = (cls, k) => out.cycleT['hero_' + k] * D.gaitOf({ cls }).stride;
     const asMage = (S) => { const h = S.run.hero; h.cls = 'mage'; h.eq.weapon = SIMX.itemPower({ id: 0, b: 'staff', rar: 0, lvl: 1, mods: {} }); h.eq.armor = { id: 0, b: 'robe', rar: 0, lvl: 1, mods: {}, def: 3 }; };
     const mageSpr = Object.keys(ASSETS).filter((a) => a.startsWith('mage__')).concat(['it_staff']);
     for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = 'mage_' + k;
-      out.cycles[n] = cyc(dx, dy, asMage); out.sprites[n] = mageSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asMage(S); if (dy < 0) S.run.hero.back = 1; }); }
+      out.cycles[n] = cyc(dx, dy, asMage); out.sprites[n] = mageSpr; out.subject[n] = 'hero'; out.cycleT[n] = classCycleT('mage', k); out.rest[n] = play((S) => { asMage(S); if (dy < 0) S.run.hero.back = 1; }); }
     // (TASKS 2146) the orb is drawn only when it is worn: on the staff's head, or in the open far palm beside a wand
     const asMageOrb = (wb) => (S) => { asMage(S); const h = S.run.hero; h.eq.offhand = { id: 0, b: 'orb', rar: 0, lvl: 1, mods: {}, def: 4 }; if (wb) h.eq.weapon = Object.assign({}, h.eq.weapon, { b: wb }); };
     for (const [pre, wb] of [['mage_orb_', null], ['mage_wand_orb_', 'wand']]) for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = pre + k;
-      out.cycles[n] = cyc(dx, dy, asMageOrb(wb)); out.sprites[n] = mageSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asMageOrb(wb)(S); if (dy < 0) S.run.hero.back = 1; }); }
+      out.cycles[n] = cyc(dx, dy, asMageOrb(wb)); out.sprites[n] = mageSpr; out.subject[n] = 'hero'; out.cycleT[n] = classCycleT('mage', k); out.rest[n] = play((S) => { asMageOrb(wb)(S); if (dy < 0) S.run.hero.back = 1; }); }
     const MAGE_FIRST_PRESS = 5, QA_FRAME_S = 2 * SIM.DT, framesOf = (seconds) => Math.ceil(seconds / QA_FRAME_S), FOE_FAR_TRIGGERS = 2;
     const mageT = (a0, fire, press, turn, each) => { const fr = []; let S = play((S) => { clear(S); asMage(S); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
       if (i === MAGE_FIRST_PRESS) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (fire) fire(S, h); } if (each) each(S, h, i); fr.push(S); S = structuredClone(S);
@@ -2267,7 +2271,10 @@
     const asArcher = (S, b = 'shortbow') => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
     const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__') || /^it_(bow_[sl]|crossbow)(_h)?$/.test(a)).concat(['skel_arrow']);
     for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = 'archer_' + k;
-      out.cycles[n] = cyc(dx, dy, asArcher); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S); if (dy < 0) S.run.hero.back = 1; }); }
+      out.cycles[n] = cyc(dx, dy, asArcher); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = classCycleT('archer', k); out.rest[n] = play((S) => { asArcher(S); if (dy < 0) S.run.hero.back = 1; }); }
+    // each class's own gait side by side at one point of its stride: the swing foot at its highest, the hip at its rise
+    const GAIT_FRAME = 3;
+    for (const [cls, cycle] of [['warrior', 'hero_right'], ['mage', 'mage_right'], ['archer', 'archer_right']]) states.push(['gait_' + cls + '_stride', structuredClone(out.cycles[cycle][GAIT_FRAME])]);
     const archerT = (a0, fire, press, turn, b) => { const fr = []; let S = play((S) => { clear(S); asArcher(S, b); S.run.hero.lvl = 4; S.run.hero.ab.volley = 1; S.run.hero.ab.trap = 1; S.run.hero.ab.leap = 1; S.run.hero.mp = 999; }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (typeof fire === 'function') fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [5] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, slot: fire === 'volley' && i === 5 && k === 0 ? 1 : fire === 'leap' && i === 5 && k === 0 ? 3 : 0, keys: [] }); } return fr; };
@@ -2278,7 +2285,7 @@
     for (const b of ['longbow', 'crossbow']) {
       for (const [n, a] of AIM8) transitions['hero_' + b + '_shoot_' + n] = archerT(a, null, 1, null, b);
       for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = b + '_' + k;
-        out.cycles[n] = cyc(dx, dy, (S) => asArcher(S, b)); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S, b); if (dy < 0) S.run.hero.back = 1; }); } }
+        out.cycles[n] = cyc(dx, dy, (S) => asArcher(S, b)); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = classCycleT('archer', k); out.rest[n] = play((S) => { asArcher(S, b); if (dy < 0) S.run.hero.back = 1; }); } }
     transitions.hero_archer_shoot2_r = archerT(0, null, [5, 30]); transitions.hero_archer_volley_r = archerT(0, 'volley'); transitions.hero_archer_leap_r = archerT(0, 'leap');
     // the warrior's charge and war cry (TASKS 1134), through the sim
     const warT = (a, slot, foe, press, upto = 75, wb) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; if (wb) h.eq.weapon = Object.assign({}, h.eq.weapon, { b: wb }); h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < upto; i++) { const h = S.run.hero, R = S.run;

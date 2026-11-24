@@ -171,8 +171,10 @@
       const sweeping = !moving && tw < 0.99, ph = 2 * Math.PI * u, L0 = SZ('town_tool_broom')[1], grip = 0.3;
       // the broom eases out of the sweep near the stops, or the hands jumped between the two poses on arriving and setting off (TASKS 1433)
       const away = !route || !f.go ? 0 : Math.min(SS(0, 30, Math.hypot(f.x - route[(f.way + route.length - 1) % route.length].x, f.y - route[(f.way + route.length - 1) % route.length].y)), SS(0, 30, Math.hypot(f.x - stop.x, f.y - stop.y))), carry = Math.max(away, SS(0.6, 0.99, tw));
-      const hr = lerp2(P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)), P(0.2, -0.45), carry);
-      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = lerp1(Math.asin(down), 0.8 + 0.09 * Math.sin(f.dist / 9), carry);
+      // walking, the broom brushes ahead once a step, on the robe's own stride phase, so it keeps time with the shoes
+      const WS = FD.walkSweep, robeStride = MONSTERS.robeStride(nm, H), stepSweep = robeStride ? Math.sin(4 * Math.PI * (f.dist || 0) / robeStride) : 0;
+      const hr = lerp2(P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)), P(0.2 + WS.reach * stepSweep, -0.45), carry);
+      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = lerp1(Math.asin(down), WS.rest + WS.tilt * stepSweep, carry);
       const dir = [-face * Math.cos(th), -Math.sin(th)];   // up the handle, away from the bristles
       const abs = Math.atan2(dir[1], dir[0] * face);
       tg = { R: hr, L: [hr[0] + dir[0] * 0.24 * L0, hr[1] + dir[1] * 0.24 * L0] };

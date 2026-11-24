@@ -172,14 +172,14 @@
       // under it and he dropped 9 px in a frame)
       const ha = hor ? R.hero.x : R.hero.y, hb = hor ? R.hero.y : R.hero.x, onW = bridge ? SS(B0 - 10, B0 + 6, hb) * (1 - SS(B0 + BW - 6, B0 + BW + 10, hb)) * SS(A0 - 8, A0 + 10, ha) * (1 - SS(A0 + len - 10, A0 + len + 8, ha)) : 0, on = onW > 0;
       // (TASKS 490: it trembled on a clock) each footfall of his jolts it and dies away, and a rock landing on the deck shakes it
-      const hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / SIM.Q.stepLen(1)) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
+      const heroStep = SIM.Q.stepLen(1, D.gaitOf(R.hero).stride), hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / heroStep) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
       const fallR = bridge ? (m.hazards || []).filter((z) => z.k === 'fall' && D.hazClock(z, GT) < 0.7 && c.cells.some((k) => Math.hypot((k % m.W + 0.5) * T - z.x, (Math.floor(k / m.W) + 0.5) * T - z.y) < 60)) : [];
       const shake = (a) => fallR.reduce((v, z) => { const q = D.hazClock(z, GT); return v + 7 * Math.exp(-6 * q) * Math.sin(q * 38) * Math.exp(-Math.abs(a - (hor ? z.x : z.y)) / 90); }, 0);
       const dip = (a) => (on ? onW * (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
       const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) - dip(a);
       // (the sag on the grid and the step's jolt a whole 2 px apart from it, TASKS 1058: rounded together the jolt was lost)
       // (the jolt held two frames by the clock, TASKS 1162: as a share of the stride it lasted half a frame; and at most one 2 px step a frame, its end falling on a step of the sag made 4)
-      const stride = hs * SIM.Q.stepLen(1) / Math.max(1, Math.hypot(R.hero.vx, R.hero.vy));
+      const stride = hs * heroStep / Math.max(1, Math.hypot(R.hero.vx, R.hero.vy));
       if (on) { const tgt = ev2((lift - z(ha) - onW * foot * Math.sin(Math.PI * Math.max(0, Math.min(1, (ha - A0) / len)))) * onW) + (onW > 0.5 && stride < 2.5 / 60 ? 2 : 0); const dt = GT - (DECK.at ?? -9), same = onW > 0.5 && dt >= 0 && dt < 0.05 && Math.hypot(R.hero.x - DECK.hx, R.hero.y - DECK.hy) < 24; DECK.dy = same ? DECK.last + Math.max(-2, Math.min(2, tgt - DECK.last)) : tgt; Object.assign(DECK, { last: DECK.dy, tgt, at: GT, hx: R.hero.x, hy: R.hero.y }); }   // (the last frame's drop kept apart, TASKS 1164: dy is zeroed every frame and stepping from it held the hero 12 px over the deck)
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);

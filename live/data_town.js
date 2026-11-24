@@ -77,7 +77,8 @@
     keeper: { name: TXT('FOLK.keeper.name'), job: TXT('FOLK.keeper.job'), per: 9, hit: 0.3, lines: TXT.talk('keeper').lines, topics: TXT.talk('keeper').topics },
     guard: { name: TXT('FOLK.guard.name'), job: TXT('FOLK.guard.job'), per: 8, lines: TXT.talk('guard').lines, topics: TXT.talk('guard').topics },
     porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, swing: 0.06, stride: 1.6, lines: TXT.talk('porter').lines, topics: TXT.talk('porter').topics },
-    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, lines: TXT.talk('sweeper').lines, topics: TXT.talk('sweeper').topics },
+    // walkSweep: walking, the broom's hand goes reach of the height to and fro once a step, the broom tilting tilt rad about rest
+    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, walkSweep: { reach: 0.05, tilt: 0.16, rest: 0.8 }, lines: TXT.talk('sweeper').lines, topics: TXT.talk('sweeper').topics },
     child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, ease: 0.25, swing: 0.06, stride: 1.6, lines: TXT.talk('child').lines, topics: TXT.talk('child').topics, won: TXT.talk('child').won },
     mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, swing: 0.06, stride: 1.15, lines: TXT.talk('mason').lines, topics: TXT.talk('mason').topics },
     merchant: { name: TXT('FOLK.merchant.name'), job: TXT('hud.shop.job'), topics: TXT.talk('merchant').topics },

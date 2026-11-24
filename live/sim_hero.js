@@ -13,7 +13,7 @@
   // where the hero's weapon hand / spells come from (shared with the rig: SIM.RIG.shoulder above the feet)
   const RIG = { shoulder: 51, arm: 28 };
   // one step's travel: shorter when walking toward / away from the camera, so planted feet keep pace with the ground
-  const stepLen = (ux) => K.STEP * (0.9 + 0.1 * Math.min(1, ux));   // (TASKS 1802: at 0.82 walking down he stepped 10.7 times a second)
+  const stepLen = (ux, stride = 1) => stride * K.STEP * (0.9 + 0.1 * Math.min(1, ux));   // (TASKS 1802: at 0.82 walking down he stepped 10.7 times a second)
   const hand = (h) => [h.x + Math.cos(h.aim) * 23, h.y - RIG.shoulder + 8 + Math.sin(h.aim) * 15];
   function bagAdd(R, it) {
     const h = R.hero;
@@ -228,7 +228,7 @@
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
     // Keys pressed in it, or in the hold on «Продолжить», are kept for the first step after it (TASKS 227, review of PR 57)
     if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R);
-      { const q = R.map.exit, dx = q.x - h.x, dy = q.y - h.y, d = Math.hypot(dx, dy) || 1, sp = Math.max(0, d - 24) / Math.max(DT, R.leaving + DT), go = sp * DT; h.vx = sp * dx / d; h.vy = sp * dy / d; if (go > 0) { h.x += dx / d * go; h.y += dy / d * go; h.dist += go; h.gp = (h.gp || 0) + go / stepLen(Math.abs(dx) / d) * Math.PI; if (dx) h.face = dx > 0 ? 1 : -1; } }
+      { const q = R.map.exit, dx = q.x - h.x, dy = q.y - h.y, d = Math.hypot(dx, dy) || 1, sp = Math.max(0, d - 24) / Math.max(DT, R.leaving + DT), go = sp * DT; h.vx = sp * dx / d; h.vy = sp * dy / d; if (go > 0) { h.x += dx / d * go; h.y += dy / d * go; h.dist += go; h.gp = (h.gp || 0) + go / stepLen(Math.abs(dx) / d, D.gaitOf(h).stride) * Math.PI; if (dx) h.face = dx > 0 ? 1 : -1; } }
       if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
     const hold = R.freeze > 0 ? 'freeze' : t < (R.holdT ?? -1) ? 'all' : '';
     if (hold) { if (hold === 'freeze') R.freeze -= DT; else h.vx = h.vy = 0; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R, hold === 'all');
@@ -308,7 +308,7 @@
         hits[id] = S.t; ev(S, { k: 'prop', x: fx, y: d.y, i: id, n: d.n, mat: fungus ? 'fungus' : D.PROP_MAT[d.n] || 'bone', scale: d.s || 1, touch: 1, s: h.x < d.x ? 1 : -1 });
       });
     }
-    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: SIMX.deckAt(m, Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE)) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
+    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved, D.gaitOf(h).stride) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: SIMX.deckAt(m, Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE)) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     const Cl = D.clsOf(h), weapon = BASES[st.wtype], shoots = (Cl.shoots || []).includes(st.wtype);
     const staffClub = shoots && weapon?.club;
     if (inp.press && !S.eatPress && (h.cd.staffClub ?? 0) <= t) {
