@@ -205,10 +205,14 @@
   // on the firm ground he climbs out onto, both cut at the surface
   // (TASKS 1043: he went in to the chest and was moved half under; now wholly under before he is moved, arms flung up, and up over
   // the bank's lip with them first)
+  // the climb's rise has a steady middle between its eased ends: eased by a smoothstep alone its middle ran 1.5 times the mean speed, and
+  // the widest part of him (the raised shield) crossed the lip in a frame, a fifth of his pixels at once
+  const CLIMB = { t: 0.55, rise: 130, ramp: 0.1 };
+  const rampedRise = (x, ramp) => { const q = Math.max(0, Math.min(1, x)), k = 2 * ramp * (1 - ramp); return q < ramp ? q * q / k : q > 1 - ramp ? 1 - (1 - q) * (1 - q) / k : (q - ramp / 2) / (1 - ramp); };
   const sinkOf = (h, GT, Y) => { const e2 = (v) => Math.round(v / 2) * 2; if (h.sunk) { const a = GT - h.sunk.t; return { dy: e2(120 * SS(0, 0.45, a) ** 1.5), cut: [Y + 4, 3, 1], arms: SS(0, 0.12, a) }; }
     // (from below his whole height and his raised blade, TASKS 1049, 1058: half of him popped in in a frame, then his sword and shield;
     // the raised hands come over the lip first)
-    if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(130 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
+    if (h.climbT !== undefined && GT - h.climbT < CLIMB.t) { const a = GT - h.climbT; return { dy: e2(CLIMB.rise * (1 - rampedRise(a / CLIMB.t, CLIMB.ramp))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, CLIMB.t, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const LK = D.lookOf(h), pn = LK.rig + '__', P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, strikeShape = SIM.Q.attackShape(h, st, h.atkClub), clubSwing = strikeShape.kind === 'staffClub' && atkT >= 0 && atkT < strikeShape.cooldown;
