@@ -247,18 +247,36 @@
       if (d > rad + 20 * w.s) return; if (arc !== undefined && d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) return;
       tearWeb(S, w, i, fire); }); }
   const tearWeb = (S, w, i, fire) => { w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); };
-  // a shot's flight over one step tears every web its segment crosses (the web as an ellipse, squeezed round before the test)
-  function shotWebs(S, R, x0, y0, x1, y1) { const WEB = SIMX.WEB, squeeze = WEB.rx / WEB.ry;
-    (R.map.webs || []).forEach((w, i) => { if (w.torn) return; const near = nearOnSegment(w.x, w.y * squeeze, x0, y0 * squeeze, x1, y1 * squeeze); if (near.dist < WEB.rx * w.s) tearWeb(S, w, i); }); }
-  // the first pot or prop of a bolt's flight over one step: the point on its segment nearest it, or null; a bolt struck within the
-  // prop's reach of its path, however far one step carries it
-  function boltPropHit(R, x0, y0, x1, y1, r) {
-    const m = R.map; let first = null;
-    const consider = (p, pad) => { const near = nearOnSegment(p.x, p.y, x0, y0, x1, y1); if (near.dist > r + pad || (first && near.u >= first.u)) return;
-      const at = { u: near.u, x: x0 + (x1 - x0) * near.u, y: y0 + (y1 - y0) * near.u }; if (losClear(m, at.x, at.y, p.x, p.y)) first = at; };
-    for (const p of R.pots) if (p.hp > 0) consider(p, POT_REACH);
-    for (const d of m.decor) if (breakable(m, d) && !hidden(m, d)) consider(d, PROP_REACH);
-    return first; }
+  // what a hero's shot meets along its path, each kind with its reach test, whether the shot flies through it (shotPasses; the rest stop
+  // it, or are broken and left behind by a shot with pierce to spend) and what it does to a thing it passes
+  const WEB_SQUEEZE = () => SIMX.WEB.rx / SIMX.WEB.ry;
+  const SHOT_TARGETS = {
+    pot: { items: (R) => R.pots.filter((p) => p.hp > 0), shotPasses: false, seen: true,
+      near: (p, r, x0, y0, x1, y1) => { const near = nearOnSegment(p.x, p.y, x0, y0, x1, y1); return near.dist > r + POT_REACH ? null : near; } },
+    prop: { items: (R) => R.map.decor.filter((d) => breakable(R.map, d) && !hidden(R.map, d)), shotPasses: false, seen: true,
+      near: (d, r, x0, y0, x1, y1) => { const near = nearOnSegment(d.x, d.y, x0, y0, x1, y1); return near.dist > r + PROP_REACH ? null : near; } },
+    web: { items: (R) => (R.map.webs || []).filter((w) => !w.torn), shotPasses: true, seen: false,
+      near: (w, r, x0, y0, x1, y1) => { const k = WEB_SQUEEZE(), near = nearOnSegment(w.x, w.y * k, x0, y0 * k, x1, y1 * k); return near.dist < SIMX.WEB.rx * w.s ? near : null; },
+      pass: (S, R, w) => tearWeb(S, w, R.map.webs.indexOf(w)) } };
+  // every target the segment reaches, nearest the muzzle first
+  function shotPathHits(R, x0, y0, x1, y1, r) {
+    const hits = [];
+    for (const [kind, T] of Object.entries(SHOT_TARGETS)) for (const item of T.items(R)) { const near = T.near(item, r, x0, y0, x1, y1); if (!near) continue;
+      const at = { u: near.u, x: x0 + (x1 - x0) * near.u, y: y0 + (y1 - y0) * near.u, kind, item, target: T };
+      if (!T.seen || losClear(R.map, at.x, at.y, item.x, item.y)) hits.push(at); }
+    return hits.sort((a, b) => a.u - b.u); }
+  // a shot's flight over one step: the webs before the first thing that holds it are torn and it flies on; that thing is returned
+  // unless the shot has pierce to spend, which breaks it and carries on (the same pierce count the enemies spend)
+  function sweepShot(S, R, p, x0, y0, x1, y1) {
+    const gone = p.pastProps || (p.pastProps = []), lift = y1 - p.y;
+    for (const hit of shotPathHits(R, x0, y0, x1, y1, p.r)) {
+      if (hit.target.shotPasses) { hit.target.pass(S, R, hit.item); continue; }
+      if (gone.includes(hit.item)) continue;
+      if (!(p.pierce > 0)) return hit;
+      p.pierce--; gone.push(hit.item); SIMX.breakPots(S, R, hit.x, hit.y, p.r); SIMX.hitProps(S, R, hit.x, hit.y, p.r);
+      ev(S, { k: 'pop', x: hit.x, y: hit.y - lift, c: p.k, hit: 1, mine: 1, thru: 1 }); }
+    return null; }
+  const boltPropHit = (R, x0, y0, x1, y1, r) => shotPathHits(R, x0, y0, x1, y1, r).find((h) => !h.target.shotPasses) || null;
   const boltPropAt = (R, x, y, r) => !!boltPropHit(R, x, y, x, y, r);
   function springAmbush(S, R, P) {
     const m = R.map, h = R.hero;
@@ -405,6 +423,6 @@
 
   Object.assign(SIMX, { looseVolley, setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, shotWebs, boltPropHit, boltPropAt, BREAKABLE, breakable, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, sweepShot, boltPropHit, boltPropAt, BREAKABLE, breakable, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
     leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

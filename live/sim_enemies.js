@@ -336,8 +336,7 @@
       if (wall && p.bounce > 0 && p.own === 'hero' && age <= p.life) { const wx = projWall(m, x0, y0, p.x, y0, gz), wy = projWall(m, x0, y0, x0, p.y, gz);
         p.bounce--; if (wx || !wy) p.vx = -p.vx; if (wy || !wx) p.vy = -p.vy; p.x = x0; p.y = y0; p.t0 = S.t; p.past = []; wall = false; ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: 0, mine: 1, thru: 1 }); }
       const heroFlight = p.own === 'hero' && !wall && age <= p.life;
-      if (heroFlight) SIMX.shotWebs(S, R, x0, y0 + gz, p.x, p.y + gz);
-      const propAt = heroFlight && SIMX.boltPropHit(R, x0, y0 + gz, p.x, p.y + gz, p.r), propHit = !!propAt;
+      const propAt = heroFlight && SIMX.sweepShot(S, R, p, x0, y0 + gz, p.x, p.y + gz), propHit = !!propAt;
       if (propAt) { p.x = propAt.x; p.y = propAt.y - gz; }
       if (pc === 5 && p.own === 'hero') { const d = SIMX.doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) SIMX.openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || propHit || projCover(m, p.x, p.y);
