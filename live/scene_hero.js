@@ -205,10 +205,14 @@
   // on the firm ground he climbs out onto, both cut at the surface
   // (TASKS 1043: he went in to the chest and was moved half under; now wholly under before he is moved, arms flung up, and up over
   // the bank's lip with them first)
+  // the climb's rise has a steady middle between its eased ends: eased by a smoothstep alone its middle ran 1.5 times the mean speed, and
+  // the widest part of him (the raised shield) crossed the lip in a frame, a fifth of his pixels at once
+  const CLIMB = { t: 0.55, rise: 130, ramp: 0.1 };
+  const rampedRise = (x, ramp) => { const q = Math.max(0, Math.min(1, x)), k = 2 * ramp * (1 - ramp); return q < ramp ? q * q / k : q > 1 - ramp ? 1 - (1 - q) * (1 - q) / k : (q - ramp / 2) / (1 - ramp); };
   const sinkOf = (h, GT, Y) => { const e2 = (v) => Math.round(v / 2) * 2; if (h.sunk) { const a = GT - h.sunk.t; return { dy: e2(120 * SS(0, 0.45, a) ** 1.5), cut: [Y + 4, 3, 1], arms: SS(0, 0.12, a) }; }
     // (from below his whole height and his raised blade, TASKS 1049, 1058: half of him popped in in a frame, then his sword and shield;
     // the raised hands come over the lip first)
-    if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(130 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
+    if (h.climbT !== undefined && GT - h.climbT < CLIMB.t) { const a = GT - h.climbT; return { dy: e2(CLIMB.rise * (1 - rampedRise(a / CLIMB.t, CLIMB.ramp))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, CLIMB.t, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const LK = D.lookOf(h), pn = LK.rig + '__', P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, strikeShape = SIM.Q.attackShape(h, st, h.atkClub), clubSwing = strikeShape.kind === 'staffClub' && atkT >= 0 && atkT < strikeShape.cooldown;
@@ -272,11 +276,14 @@
     const rangedOf = (T, rel, b, f) => { if (!(T >= 0) || T > rel + 0.45) return 0; const out = SS(rel - 0.02, rel + 0.07, T), e1 = backBy(rel, 0.42);
       return (-b * SS(0, Math.max(0.06, rel), T) * (1 - out) + f * out) * (1 - SS(Math.min(rel + 0.12, e1 - 0.15), e1, T)); };
     const stepOf = (T, rel) => { const e1 = backBy(rel, 0.45); return T >= 0 && T < e1 ? SS(0, 0.09, T) * (1 - SS(Math.min(rel + 0.2, e1 - 0.2), e1, T)) : 0; };
-    const RB = !shooter ? [0.08, 0.14] : xbow ? [-0.05, -0.1] : bowArm ? [0.12, 0.1] : [0.07, 0.13];
+    const RB = !shooter ? [0.08, 0.14] : xbow ? [-0.05, -0.12] : bowArm ? [0.12, 0.1] : [0.07, 0.13];
     const CK = { frost: [0.08, 0.16, 0.07], fireball: [shooter ? 0.14 : 0.18, 0.1, 0.14], volley: [D.VOLLEY.loose, 0.12, 0.08] }[h.castK];
     const shotLean = shooting ? rangedOf(atkT, BT, RB[0], RB[1]) + rangedOf(pShot, BT, RB[0], RB[1]) * (1 - SS(0, 0.08, atkT)) : afterShot ? rangedOf(pShot, BT, RB[0], RB[1]) : 0;
     const castLean = casting && CK ? rangedOf(castT, CK[0], CK[1], CK[2]) : 0;
-    const rangedLean = (shotLean + castLean) * h.face, rangedStep = Math.max(shooting ? Math.max(stepOf(atkT, BT), stepOf(pShot, BT)) : afterShot ? stepOf(pShot, BT) : 0, casting && CK ? stepOf(castT, CK[0]) : 0) * (1 - run);
+    // a blow is thrown with the body as a shot is: the torso draws back on the wind-up and leans into the strike, on the table's melee sizes
+    const pBlow = !shooter && h.patkT < h.atkT ? GT - h.patkT : -1;
+    const meleeLean = !shooter && swinging ? (rangedOf(atkT, SIM.K.HIT, RB[0], RB[1]) + rangedOf(pBlow, SIM.K.HIT, RB[0], RB[1]) * (1 - SS(0, 0.08, atkT))) * (1 - whirlE) : 0;
+    const rangedLean = (shotLean + castLean + meleeLean) * h.face, rangedStep = Math.max(shooting ? Math.max(stepOf(atkT, BT), stepOf(pShot, BT)) : afterShot ? stepOf(pShot, BT) : 0, casting && CK ? stepOf(castT, CK[0]) : 0) * (1 - run);
     // the whirl turns the torso with the blade: it leans after it round the turn (its back view is shown while the blade is behind)
     const whirlLean = whirlE > 0 ? 0.15 * whirlE * Math.cos(whirlTh) : 0;
     const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face - 0.14 * cryPrep * face + cryShake - 0.16 * hop * face + rangedLean + whirlLean;
@@ -591,7 +598,8 @@
       // (TASKS 2192) and a lowered one hangs plumb under the hand, shortened to TURN_LOW so it clears the soles and the floor never tips
       // it to one side: pointed away from the camera it was cut to a tenth and hidden under the back view, gone for 3–4 frames
       const up = Math.sin(b0) < 0, bt = tuck > 0 ? ba + wrapPi((up ? -1 : 1) * Math.PI / 2 - ba) * tuck : ba;
-      let sa = Math.atan2(Math.sin(bt), fX * Math.cos(bt)) + fallR + bodyR;         // screen angle of the blade, squeezed with the rig
+      // a blow's lean carries the arm, not the blade: it keeps the angle its sweep is laid out on, aimed at the target
+      let sa = Math.atan2(Math.sin(bt), fX * Math.cos(bt)) + fallR + bodyR - (bladeA !== null && !shooter ? meleeLean * h.face : 0);         // screen angle of the blade, squeezed with the rig
       // a slash sweeps flat around the body: on the floor plane the camera squeezes depth to DEPTH_K, so a blade pointing up or down
       // the screen points away from or at the camera and projects shorter (by the screen angle of a flat blade)
       let fsD = bladeFs * (1 + (DEPTH_K / Math.hypot(DEPTH_K * Math.cos(sa), Math.sin(sa)) - 1) * swingK) * Math.hypot(fX * Math.cos(ba), Math.sin(ba)) * (shooter ? 1 : 1 - (1 - BACK_VIEW.bladeFs) * backV * (1 - swingK));

@@ -47,6 +47,8 @@
 //   recoil    — hit_* on a light body (TASKS 1804): the head is thrown against the hip by RECOIL of the height
 //   same      — monster attacks pairwise, the mage's shot/frost/cast per aim, the three hero deaths (TASKS 1805): the near hand's paths
 //               against the hip correlate at most SAME in x and in y at the best lag (one motion reused)
+//   captive   — captive_run_* (a freed captive's run off): steps a second, foot travel, bob, arm swing, a foot planted across the screen, facing
+//               the way he goes, a start from the cage without a jump and gathering speed
 //   upright   — mage_, archer_, longbow_ side walk cycles: the staff's and the bow's grip → tip angle moves at most UPRIGHT degrees
 //   body      — transitions named shoot|cast|frost|volley|whirl|attack|swing (TASKS 1800): the head moves against the hip by BODY of the
 //               height (a shot made with the arm alone left the body standing as at rest)
@@ -55,7 +57,7 @@ import http from 'node:http'; import fs from 'node:fs'; import path from 'node:p
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const AMB = 2, AMB_V = 0.5, BREATH = 0.15, ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75, WORK = 0.12, CRUST = 0.05;
+const AMB = 2, AMB_V = 0.5, BREATH = 0.15, ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, STIFF_BREATH = { hero_idle: { hip: 0.003, head: 0.003 } }, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75, WORK = 0.12, CRUST = 0.05;
 const root = process.cwd(), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
 const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0]));
   fs.stat(f, (e) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); }); });
@@ -112,7 +114,9 @@ if (meta.tr.includes('salamander_breath')) { const fr = (await trace('transition
 for (const nm of meta.loops.filter((n) => n.endsWith('_idle'))) {
   const fr = (await trace('loops', nm)).map((f) => (nm.startsWith('hero') ? f.hero : f.en)).filter(Boolean); if (!fr.length) continue;
   const H = tall(fr[0]), sp = (k) => { const v = fr.filter((j) => j[k]).map((j) => j[k][1] - j.ground[1]); return v.length ? Math.max(...v) - Math.min(...v) : null; }, hip = sp('hip'), head = sp('head') ?? sp('top');
-  report('breath', nm, (hip === null || hip >= HIP * H) && head >= HEAD * H, `hip ${hip === null ? '—' : (100 * hip / H).toFixed(2) + ' %'}, head ${(100 * head / H).toFixed(2)} % of ${H.toFixed(0)} px`);
+  // the hero stands on straight legs by design: a hip bob of a monster's size folds the knees, so his breath is the chest, the arms and the sway, and the bob only has to be there
+  const need = STIFF_BREATH[nm] || { hip: HIP, head: HEAD };
+  report('breath', nm, (hip === null || hip >= need.hip * H) && head >= need.head * H, `hip ${hip === null ? '—' : (100 * hip / H).toFixed(2) + ' %'}, head ${(100 * head / H).toFixed(2)} % of ${H.toFixed(0)} px`);
 }
 for (const nm of meta.loops.filter((n) => n.endsWith('_amble'))) {
   const fr = (await trace('loops', nm)).map((f) => f.en).filter(Boolean); if (fr.length < 2) { report('amble', nm, false, 'no trace'); continue; }
@@ -405,6 +409,34 @@ if (meta.tr.includes('imp_claw')) {
     if (fr.some((j) => !j || !j.grip || !j.tip)) { report('upright', nm, false, 'no grip or tip traced'); continue; }
     const a = unwrap(fr.map((j) => Math.atan2(j.tip[1] - j.grip[1], j.tip[0] - j.grip[0]))), span = (Math.max(...a) - Math.min(...a)) * 180 / Math.PI;
     report('upright', nm, span <= UPRIGHT, `the weapon's angle moves ${span.toFixed(1)}° over the cycle (≤ ${UPRIGHT}°)`); } }
+// captive (a freed captive's run off, captive_run_*, the camera on him): his gait is a walk cycle driven by the way he goes, not a token
+// pushed over the floor. He takes CAD_MIN..CAD_MAX steps a second (a foot turns round against his body that often, along his heading), each
+// foot travels at least TRAVEL of his height along it, his top bobs at least BOB of it, and his arms swing at least SWING of it; on a straight stretch
+// of the way across the screen (heading x over ACROSS, turning less than STRAIGHT over the frames) a foot stands still on the floor (drifts under PLANT_PX over PLANT_N
+// frames, the pixel grid's own jitter allowed) in at least PLANTED of them; he faces the way he runs; he sets off from his place by the cage (the frame he is sent against the
+// frame before: at most POP px) and gathers speed (a tenth of a second in, he has covered under EASE of what full speed would)
+{ const CAD_MIN = 3, CAD_MAX = 9, TRAVEL = 0.06, BOB = 0.015, SWING = 0.05, ACROSS = 0.6, PLANT_PX = 2.5, PLANT_N = 4, PLANTED = 0.7, STRAIGHT = 0.04, TURNS = 0.25, POP = 2, EASE = 0.6, STEADY = 45, FACE_N = 6, FACE_MIN = 3;
+  for (const nm of meta.tr.filter((n) => n.startsWith('captive_run_'))) { const who = nm.slice('captive_run_'.length);
+    const r = await p.evaluate(([nm, who]) => { const Q = window.__QA, id = Q.subject[nm], frame = (st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null, v = LIB.TRACE[id + '_view'], c = st.run.cam; LIB.TRACE = null;
+        return { j, face: v && v.face ? v.face[0] : null, cam: c.slice() }; };
+      const fr = Q.transitions[nm].map((st) => { const C = st.run.captives[who], w = DATA.captiveFleeAt(C.flee, st.t - C.flee.t); return Object.assign(frame(st), { hx: w.hx, hy: w.hy, sp: Math.hypot(w.vx, w.vy), done: w.done }); });
+      const talk = Q.states.find((q) => q[0] === 'captive_talk_' + who); return { fr, talk: talk ? frame(talk[1]) : null, speed: DATA.CAPTIVE_FLEE.speed }; }, [nm, who]);
+    const { fr, talk, speed } = r, W = (f, k) => [f.j[k][0] + f.cam[0], f.j[k][1] + f.cam[1]], dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (fr.some((f) => !f.j || !f.j.ankleL || !f.j.ankleR || !f.j.top)) { report('captive', nm, false, 'no feet or top in the trace'); continue; }
+    const H = tall(fr[0].j), at = fr.slice(STEADY).filter((f) => !f.done);
+    const along = (f, k) => { const g = f.j.ground, a = f.j[k]; return (a[0] - g[0]) * f.hx + (a[1] - g[1]) * f.hy; };
+    const span = (k) => { const v = at.map((f) => along(f, k)); return Math.max(...v) - Math.min(...v); }, turns = (k) => { const v = at.map((f) => along(f, k)), min = TURNS * (Math.max(...v) - Math.min(...v)); let c = 0, lo = v[0], hi = v[0], dir = 0; for (const q of v) { lo = Math.min(lo, q); hi = Math.max(hi, q); if (dir <= 0 && q > lo + min) { if (dir) c++; dir = 1; hi = q; } else if (dir >= 0 && q < hi - min) { if (dir) c++; dir = -1; lo = q; } } return c; };
+    const sps = turns('ankleL') / (at.length / 60), travel = Math.min(span('ankleL'), span('ankleR')) / H;
+    report('captiveGait', nm, sps >= CAD_MIN && sps <= CAD_MAX && travel >= TRAVEL, `${sps.toFixed(1)} steps a second (${CAD_MIN}–${CAD_MAX}), a foot travels ${(100 * travel).toFixed(0)} % of ${H.toFixed(0)} px along his heading (≥ ${100 * TRAVEL} %)`);
+    const tops = at.map((f) => f.j.top[1] - f.j.ground[1]), bob = (Math.max(...tops) - Math.min(...tops)) / H, hands = ['handL', 'handR'].filter((k) => at.every((f) => f.j[k])), swing = hands.length ? Math.min(...hands.map((k) => { const v = at.map((f) => along(f, k)); return Math.max(...v) - Math.min(...v); })) / H : 0;
+    report('captiveBob', nm, bob >= BOB && swing >= SWING, `the top bobs ${(100 * bob).toFixed(1)} % (≥ ${100 * BOB} %), each hand swings ${(100 * swing).toFixed(0)} % (≥ ${100 * SWING} %) of the height`);
+    const straight = (i) => i >= STEADY && i + PLANT_N < fr.length && !fr[i + PLANT_N].done && Math.abs(fr[i].hx) >= ACROSS && Math.hypot(fr[i + PLANT_N].hx - fr[i].hx, fr[i + PLANT_N].hy - fr[i].hy) <= STRAIGHT;
+    const drift = (i, k) => dist(W(fr[i], k), W(fr[i + PLANT_N], k)), stretch = fr.map((f, i) => i).filter(straight), planted = stretch.filter((i) => Math.min(drift(i, 'ankleL'), drift(i, 'ankleR')) <= PLANT_PX).length;
+    report('captivePlant', nm, !stretch.length || planted / stretch.length >= PLANTED, stretch.length ? `across the screen a foot stands on the floor (drifts under ${PLANT_PX} px over ${PLANT_N} frames) on ${planted} of ${stretch.length} frames (${(100 * planted / stretch.length).toFixed(0)} %, ≥ ${100 * PLANTED} %)` : 'no straight stretch of the way across the screen');
+    let faced = 0, m = 0; for (let i = STEADY; i + FACE_N < fr.length; i++) { const dx = W(fr[i + FACE_N], 'ground')[0] - W(fr[i], 'ground')[0]; if (fr[i + FACE_N].done || Math.abs(dx) < FACE_MIN) continue; m++; if (Math.sign(dx) === Math.sign(fr[i].face)) faced++; }
+    report('captiveFace', nm, faced === m, m ? `he faces the way he goes on ${faced} of ${m} frames` : 'no frame to judge');
+    const run0 = dist(W(fr[0], 'ground'), W(fr[Math.round(0.1 * 60)], 'ground')), pop = talk && talk.j ? dist(W(fr[0], 'ground'), W(talk, 'ground')) : 0;
+    report('captiveStart', nm, pop <= POP && run0 <= EASE * 0.1 * speed, `${pop.toFixed(1)} px from his place at the cage to the first frame of the run (≤ ${POP}), ${run0.toFixed(1)} px in the first tenth of a second (≤ ${(EASE * 0.1 * speed).toFixed(1)}, full speed ${(0.1 * speed).toFixed(1)})`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

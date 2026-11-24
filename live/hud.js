@@ -1003,14 +1003,19 @@
     const h = S.run.hero, it = b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') ? h.eq[b.slot] : b.id.startsWith('stash:') ? SIM.Q.stashOf(S).items[b.i] : null;
     if (it || b.id.startsWith('eq:')) chip('slt_' + b.id, (b.id.startsWith('eq:') ? TXT('hud.inv.target.wear') : TXT('hud.inv.target.swap')), b.x + b.w / 2, b.y + b.h - 26, { size: 20, col: '#ffe9a8', mid: 1 });
   }
+  // an item's picture in its cell, the same inset in every cell
+  const SLOT_ICON_INSET = 8, CELL_IDLE = { hover: false, press: false, focus: false, off: false };
+  const slotIcon = (name, x, y, s) => icon(name, x + SLOT_ICON_INSET, y + SLOT_ICON_INSET, s - 2 * SLOT_ICON_INSET);
+  const SLOT_COUNT = { size: 19, right: 8, bottom: 14 };
+  const slotCount = (id, n, x, y, s) => { if (n > 1) lab(id, n, x + s - SLOT_COUNT.right, y + s - SLOT_COUNT.bottom, { size: SLOT_COUNT.size, al: 1 }); };
   function slot(S, b, it, empty, tag) {
     const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null, dk = hv ? dropKind(S, b) : 0, s = b.w;
     KIT.cell('sl_' + b.id, b.x, b.y, s, Object.assign(KIT.st(S, b.id), { focus: false }));
     if (it && it.rar) { if (it.rar >= 2) L.rrect(b.x + 6, b.y + 6, s - 12, s - 12, 4, col, [0, 0, 0], 0.2); edge(b.x + 4, b.y + 4, s - 8, s - 8, col, 2, 0.85); }
     // where the held piece would land: a brass frame, or a red one where it is refused
     if (dk) { const c = dk > 0 ? [1, 0.82, 0.35] : [0.95, 0.22, 0.16]; L.solid(b.x + 4, b.y + 4, s - 8, s - 8, c, 0, 0, 0, 0.2); edge(b.x - 3, b.y - 3, s + 6, s + 6, c, 3); }
-    if (it) { icon(SIM.Q.itemIcon(it), b.x + 8, b.y + 8, s - 16);
-      if (it.n > 1) lab('sln_' + b.id, it.n, b.x + s - 8, b.y + s - 14, { size: 19, al: 1 });
+    if (it) { slotIcon(SIM.Q.itemIcon(it), b.x, b.y, s);
+      slotCount('sln_' + b.id, it.n, b.x, b.y, s);
       const hr = S.run && S.run.hero, cons = SIM.Q.isCons(it);
       if (tag && !cons && D.BASES[it.b].cls) chip('slc_' + b.id, D.BASES[it.b].cls.map((c) => D.CLASSES[c].name[0]).join(''), b.x + 4, b.y + s - 24, { col: '#b8aa98', size: 20 });
       if (hr && !cons && !D.wears(D.clsOf(hr).id, it.b)) { L.rrect(b.x + 4, b.y + 4, s - 8, s - 8, 4, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); chip('slx_' + b.id, '×', b.x + s - 4, b.y + 4, { right: 1, size: 20, col: '#ff6a5a' }); }
@@ -1603,8 +1608,37 @@
     KIT.light('al_help', sh.used ? TXT('hud.altar.8') : TXT('hud.altar.9'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   // ---------------- a word with a townsman (TASKS 1016, 1023): his likeness, his name, a page of his words ----------------
-  // the turn-in's reward block: its top this far over the board's foot, its height, its inset from the page's sides, the band's colour
-  const TALK_GOT = { over: 158, h: 56, pad: 8, side: 16, band: [0.55, 0.42, 0.26], bandA: 0.18, ruleA: 0.7 };
+  // the turn-in's reward line stands on the buttons' row, left of the leftmost button, centred on the row's middle line: its inset from the
+  // page's left words, its gap to the button, the sizes tried from the largest, the rows the line holds before a smaller size is tried,
+  // the page's right inset and the gap above the buttons for a strip stacked over them, the row pitch's extra over the row height, a cell's side and the gap between the line's parts in the text size's shares
+  const TALK_GOT = { x: 300, gap: 20, sizes: [26, 22, 20], rows: 1, leading: 7, iconK: 1.9, partGapK: 0.5, coinK: 1.3, coinGapK: 0.2, right: 60, stack: 8 };
+  // the reward's parts (sim: rwParts) laid out in rows of at most `width` px: the keepsake the quest asks for (`lead`), the label, then each part
+  // after a «+»: an item in its cell with its count as in the bag, a currency as its purse icon and the count, or a text; a part that
+  // opens a row leaves its «+» behind
+  function gotLayout(parts, lead, size, width) { const B = TALK_GOT, bold = L.facePx(size, true) === L.facePx(size), cellSide = size * B.iconK, coinSide = size * B.coinK, w = (str, b) => lw('tk_got_m', str, { size, bold: b });
+    const label = TXT('hud.talk.got'), plus = TXT('hud.talk.got.sep'), at = (k, dx, rest) => Object.assign({ k, dx }, rest), text = (str, b, dx = 0) => at('text', dx, { str, bold: b });
+    const unit = (p) => { if (p.ic) return { w: cellSide, items: [at('icon', 0, { ic: p.ic, n: p.n })] };
+      if (p.cur) { const str = String(p.n), dx = coinSide + size * B.coinGapK; return { w: dx + w(str, bold), items: [at('coin', 0, { ic: D.UI.purse.icons[p.cur] }), text(str, bold, dx)] }; }
+      return { w: w(p.text, bold), items: [text(p.text, bold)] }; };
+    const units = (lead ? [{ w: cellSide, items: [at('icon', 0, { ic: lead })] }] : []).concat(parts.length ? [{ w: w(label, false), items: [text(label, false)] }] : [], parts.map((p, i) => Object.assign(unit(p), { plus: i > 0 })));
+    const gap = size * B.partGapK, plusW = w(plus, bold), rows = [[]]; let x = 0;
+    units.forEach((u) => { let row = rows[rows.length - 1], lead0 = u.plus ? plusW + gap : 0; const need = (row.length ? gap : 0) + lead0 + u.w;
+      if (row.length && x + need > width) { rows.push(row = []); x = 0; lead0 = 0; }
+      x += row.length ? gap : 0; if (lead0) row.push({ items: [text(plus, bold)], x, w: plusW }), x += lead0;
+      row.push({ items: u.items, x, w: u.w }); x += u.w; });
+    return { rows, size, cellSide, coinSide, rowHeight: cellSide, bold }; }
+  // the one drawing of a reward on a talk's buttons row (the offer's and the turn-in's): left of the leftmost button, its middle line the row's;
+  // where the buttons leave it no room for one row, it stands in one row above them, across the page
+  function rewardStrip(U, P, parts, lead) { const B = TALK_GOT, row = U.r.filter((q) => q.id === 'next' || q.id === 'act' || q.id === 'craft' || q.id === 'talk'), left = Math.min(...row.map((q) => q.x)), x0 = P.x + B.x,
+      rowMid = row[0].y + row[0].h / 2, beside = { width: left - B.gap - x0 }, above = { width: P.x + P.w - B.right - x0 };
+    const sized = (place) => B.sizes.map((z) => ({ place, lay: gotLayout(parts, lead, z, place.width) })), tries = sized(beside).concat(sized(above)),
+      pick = tries.find((q) => q.lay.rows.length <= B.rows) || tries[tries.length - 1], lay = pick.lay, pitch = lay.rowHeight + B.leading,
+      top = (pick.place === beside ? rowMid : row[0].y - B.stack - lay.rowHeight / 2) - lay.rowHeight / 2 - (lay.rows.length - 1) * pitch / 2;
+    lay.rows.forEach((cells, r) => { const mid = top + r * pitch + lay.rowHeight / 2;
+      cells.forEach((cell, c) => cell.items.forEach((it, i) => { const x = x0 + cell.x + it.dx, id = 'tk_got' + r + '_' + c + '_' + i;
+        if (it.k === 'icon') { const cy = mid - lay.cellSide / 2; KIT.cell(id, x, cy, lay.cellSide, CELL_IDLE); slotIcon(it.ic, x, cy, lay.cellSide); slotCount(id + 'n', it.n, x, cy, lay.cellSide); }
+        else if (it.k === 'coin') icon(it.ic, x, mid - lay.coinSide / 2, lay.coinSide);
+        else lab(id, it.str, x, mid, { size: lay.size, col: INK.g, bold: it.bold }); })); }); }
   function talk(S, R, t) {
     const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = T.role === 'merchant' ? 'merchant' : 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
     // TASKS 2176: kit B, as on ref_ui_dialog_b: a leather board, his likeness in a cell's well on it, his words on a parchment page,
@@ -1617,15 +1651,10 @@
     KIT.ink('tk_j', FD.job, P.x + 300, P.y + 74, { size: 20, col: KIT.INK.d });
     wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 122, P.w - 360, 28, INK.t, INK.r);
     const act = at('act');
-    // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
-    // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030); a turn-in shows its reward only once pressed (TASKS 1850)
-    if (act) { const rs = TXT('hud.talk.rs', { p1: SIM.Q.rwLine(T.act.rw) }), ic = SIM.Q.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
-      if (ic) { KIT.nine('cell', P.x + 300, P.y + P.h - 162, 48, 48); icon(ic, P.x + 306, P.y + P.h - 156, 36); }
-      if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) wrapLab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, P.w - 340 - dx, 26, INK.g); }
-    // a turn-in's reward in a block of its own on its pages, under a rule and on a darker band of the page
-    if (SIM.Q.talkGotShown(T)) { const B = TALK_GOT, y = P.y + P.h - B.over;
-      L.solid(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.h, B.band, 0, 0, 0, B.bandA); KIT.rule(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.ruleA);
-      wrapLab('tk_got', TXT('hud.talk.got', { p1: T.got.rw }), P.x + 300, y + B.h / 2 - B.pad, P.w - 340, 26, INK.g); }
+    // a quest's last page (TASKS 1018): what it pays and the keepsake a fetch quest asks for (TASKS 1030) on the buttons' row, as the turn-in's reward
+    // does (TASKS 1850: a turn-in shows its reward only once pressed); the words above keep the whole page
+    if (SIM.Q.talkGotShown(T)) rewardStrip(U, P, T.got.parts);
+    else if (act) rewardStrip(U, P, T.act.k === 'turn' ? [] : SIM.Q.rwParts(T.act.rw), SIM.Q.questIcon(R, T.role, T.act));
     if (T.pages.length > 1) KIT.ink('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 48, P.y + 60, { size: 20, al: 1, col: KIT.INK.d });
     const last = T.p + 1 >= T.pages.length, lb = { next: T.menu ? TXT('hud.talk.label.3') : !last ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3'),
       act: act && (T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5')) };

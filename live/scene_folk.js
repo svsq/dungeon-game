@@ -8,6 +8,10 @@
   const lerp1 = (a, b, k) => a + (b - a) * k, lerp2 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], E01 = (q) => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
   const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
   const JOINT_W = 0.02;
+  // a walker turns like a paper figure: the width of the parts (floored at FOLK_TURN.minW, so none goes edge-on) and of the joints (floored
+  // only off the IK's zero divide) for the way he faces and how far his turn has come (0 just flipped, 1 done)
+  const turnWidths = (face, turnK) => { const turnW = turnK < 1 ? face * (turnK * 2 - 1) : face, floorW = (w) => (Math.abs(turnW) < w ? face * Math.sign(turnW * face || 1) * w : turnW);
+    return { rigFace: floorW(D.FOLK_TURN.minW), jointW: floorW(JOINT_W) }; };
   // a hen's pecking: one peck a cycle at rate rad/s (sharp: how short the dip is), quicker at the grain; between pecks the neck looks
   // about (glance, rad of neck at glanceRate rad/s), so it is never still for long
   const HEN_PECK = { rate: 2.6, sharp: 5, fed: { rate: 3.4, sharp: 3 }, glance: 0.14, glanceRate: 1.9 }, HEN_PECK_PERIOD = 2 * Math.PI / HEN_PECK.rate;
@@ -69,7 +73,7 @@
     // a minimum, but the joints and the hand targets ride the width through zero (jointW, floored only off the IK's zero divide): through
     // the clamp's sign flip the hands jumped 0.2 of their reach (TASKS 2101), the shoulders, elbows and feet 0.56 (town_motion_r10 2),
     // and a hand's target pulled in toward the axis dipped the child's hand 3.6 px for a frame (town_motion_r10 3)
-    const FT = D.FOLK_TURN, tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, f.load ? FT.load : FT.t, GT - tT) : 1, turnW = turnK < 1 ? face * (turnK * 2 - 1) : face, floorW = (w) => (Math.abs(turnW) < w ? face * Math.sign(turnW * face || 1) * w : turnW), rigFace = floorW(FT.minW), jointW = floorW(JOINT_W);
+    const FT = D.FOLK_TURN, tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, f.load ? FT.load : FT.t, GT - tT) : 1, { rigFace, jointW } = turnWidths(face, turnK);
     const RG = RIGS[nm], s = H / RG.h, gy = RG.foot ?? RG.footL[1], handAt = (sd, k = 1, dy = 0) => [X + face * k * (RG['hand' + sd][0] - RG.gap) * s, Yg + (RG['hand' + sd][1] + dy - gy) * s];
     const P = (dx, dy) => [X + face * dx * H, Yg + dy * H], mir = (q) => [X + (q[0] - X) * face * wf, q[1]];
     // a free hand on IK walking: along the travel against its own leg, FD.swing of the height each way, k its weight (biped's own stride and phase)
@@ -248,16 +252,21 @@
         for (const [lx, ly] of q.lugs) L.solid(Math.round(lx - LG.w / 2), Math.round(ly - LG.h / 2), LG.w, LG.h, LG.col.map((c) => c * k), 0, 0, 0, q.a);
         if (shown === 1) { const [sx1, sy1] = q.rotAt(0.04 * q.w, -0.71 * q.h); L.sprite('town_tool_stone', sx1 - 7, sy1 - 7, { w: 14, h: 14, u: { tint, alpha: q.a } }); } } }]);
   }
+  const stopEase = (f) => (f.go || f.spd0 === undefined ? {} : { spd0: f.spd0, vxn0: f.vxn0, vyn0: f.vyn0, t0: f.t0 });
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;
     Y.push([f.y, () => { L.shadow(X, Yg + 2, 0.24 * H, 6, 0.45); L.joint(id + '_view', 'face', [face, 0]);
       let hand = null;
-      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, faceW: o.faceW, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR, headD: o.robe && o.robe.headD })
-        : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, faceW: o.faceW, t: GT, seed, dist: f.dist, pace: f.pace, ...gaitV(f), U: {}, Ufar: {}, strideK: o.stride, ...(f.go || f.spd0 === undefined ? {} : { spd0: f.spd0, vxn0: f.vxn0, vyn0: f.vyn0, t0: f.t0 }), hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, headF: o.headF, crouch: o.crouch, front: o.front, bend: o.arms ? { R: 1 } : undefined, farOver: o.arms });
+      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, faceW: o.faceW, seed, dist: f.dist, vx: f.vx, vy: f.vy, ...stopEase(f), U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR, headD: o.robe && o.robe.headD, strideK: o.stride, lean: o.robe && o.robe.lean })
+        : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, faceW: o.faceW, t: GT, seed, dist: f.dist, pace: f.pace, ...gaitV(f), U: {}, Ufar: {}, strideK: o.stride, ...stopEase(f), hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, headF: o.headF, crouch: o.crouch, front: o.front, bend: o.arms ? { R: 1 } : undefined, farOver: o.arms });
         if (r && fx && fx.hand) hand = r.hand ? r.hand(fx.hand) : r.R2U(r.arms[fx.hand].Hd[0], r.arms[fx.hand].Hd[1]); }, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
       if (fx) SCX.RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] - (fx.up || 0) } : {}));
       if (fx && (fx.k === 'grain' || fx.k === 'dust')) folkDust(fx, GT); }]);
   }
+  // a freed captive is drawn as the townsfolk are: the merchant by his own rig, the others by their town rig; his joints' id is his own
+  const CAPTIVE_FOLK_ID_BASE = 90;
+  const captiveRig = (who) => (who === 'merchant' ? 'merchant' : 'town_' + who);
+  const captiveFolkId = (who) => CAPTIVE_FOLK_ID_BASE + Object.keys(D.CAPTIVES).indexOf(who);
   // the grain the child throws (it arcs out and falls ahead of him, lies a moment and is gone) and the sweeper's dust: drawn in the band
   function folkDust(q, GT) {
     if (q.k === 'dust') { L.puff(q.x, q.y - 3, 11 + 8 * q.amt, q.col || [0.62, 0.55, 0.45], (q.a || 0.42) * q.amt, q.seed % 7); return; }
@@ -266,5 +275,5 @@
       if (k > 0) L.solid(Math.round(x), Math.round(y), 2, 2, [0.86, 0.74, 0.42], 0, 0, 0, k); } }
 
   Object.assign(SCX, {
-    FOLK0, HEN_PECK_PERIOD, FOLK_AWAY_CLEAR, drawFolk, drawFolkRig, drawCart });
+    FOLK0, HEN_PECK_PERIOD, FOLK_AWAY_CLEAR, turnWidths, captiveRig, captiveFolkId, drawFolk, drawFolkRig, drawCart });
 })(typeof window !== 'undefined' ? window : globalThis);

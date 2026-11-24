@@ -46,15 +46,37 @@
     smith: { f: 3, quest: 'rescue_smith', caged: TXT.talk('smith').caged, free: TXT('sim_town.captive.smith.free'), shut: TXT('sim_town.captive.smith.shut') },
     enchanter: { f: 4, boss: 1, quest: 'rescue_enchanter', caged: TXT.talk('enchanter').caged, free: TXT('sim_town.captive.enchanter.free'), shut: TXT('sim_town.captive.enchanter.shut') } };
   // a freed captive talks with the hero in the town's window, and once the talk is closed runs off toward the floor's way up: `cells`
-  // cells of the way at `speed` view px a second; at its end he is gone in a puff of dust that lasts `puff` s
-  const CAPTIVE_FLEE = { cells: 12, speed: 170, puff: 0.6 };
-  // where a fleeing captive is `t` s into his run along his path (world points): his place, his heading and how far he has come;
-  // past its end done, with `over` the seconds since he got there
-  const captiveFleeAt = (flee, t) => { const P = flee.path, d = Math.max(0, t) * CAPTIVE_FLEE.speed; let left = d;
+  // cells of the way at `speed` view px a second, reached over `accel` s from standing; at its end he is gone in a puff of dust that
+  // lasts `puff` s. The way's corners are cut `smooth` times (smoothWay) and `look` px of it either side give his heading, `faceDead` the share of it along x
+  // under which he keeps the way he faces, `faceScan` px the step of that look back, `sample` s the step of the look back at his turn;
+  // `cadence` is his steps a second (his stride lengthened to it, but at most `strideMax` times the rig's own) and `settle` the px over which he leaves his place by the cage for the way's line
+  const CAPTIVE_FLEE = { cells: 12, speed: 90, puff: 0.6, accel: 0.4, look: 12, smooth: 2, faceDead: 0.3, faceScan: 4, sample: 1 / 60, cadence: 7, strideMax: 3, settle: 24 };
+  // a way with its corners cut `passes` times (each point replaced by the ones a quarter of its segments either side of it); its ends stay
+  const smoothWay = (P, passes) => { let W = P; for (let k = 0; k < passes && W.length > 2; k++) { const N = [W[0]];
+      for (let i = 0; i < W.length - 1; i++) { const [ax, ay] = W[i], [bx, by] = W[i + 1]; N.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); }
+      N[N.length - 1] = W[W.length - 1]; W = N; } return W; };
+  const fleeDist = (t) => { const F = CAPTIVE_FLEE, s = Math.max(0, t); return s < F.accel ? F.speed * s * s / (2 * F.accel) : F.speed * (s - F.accel / 2); };
+  const fleeSpeed = (t) => CAPTIVE_FLEE.speed * Math.min(1, Math.max(0, t) / CAPTIVE_FLEE.accel);
+  // the way's point `d` px along it (clamped to its start), the unit direction of its segment, and `left` the px past its end
+  const wayAt = (P, d) => { let left = Math.max(0, d);
     for (let i = 1; i < P.length; i++) { const [ax, ay] = P[i - 1], [bx, by] = P[i], len = Math.hypot(bx - ax, by - ay) || 1;
-      if (left <= len) { const u = left / len; return { x: ax + (bx - ax) * u, y: ay + (by - ay) * u, vx: (bx - ax) / len * CAPTIVE_FLEE.speed, vy: (by - ay) / len * CAPTIVE_FLEE.speed, dist: d, done: false, over: 0 }; }
+      if (left <= len) { const u = left / len; return { x: ax + (bx - ax) * u, y: ay + (by - ay) * u, ux: (bx - ax) / len, uy: (by - ay) / len, left: 0 }; }
       left -= len; }
-    const [x, y] = P[P.length - 1] || [0, 0]; return { x, y, vx: 0, vy: 0, dist: d, done: true, over: left / CAPTIVE_FLEE.speed }; };
+    const [x, y] = P[P.length - 1] || [0, 0]; return { x, y, ux: 0, uy: 0, left }; };
+  const wayHeading = (P, d) => { const a = wayAt(P, d - CAPTIVE_FLEE.look), b = wayAt(P, d + CAPTIVE_FLEE.look), dx = b.x - a.x, dy = b.y - a.y, n = Math.hypot(dx, dy); return n > 1e-6 ? [dx / n, dy / n] : [0, 0]; };
+  // the way he faces `d` px along it: where his heading's x says, and while it is nearly across the screen's depth, the way he faced before
+  const wayFace = (P, d, face0) => { for (let q = d; ; q -= CAPTIVE_FLEE.faceScan) { q = Math.max(q, 0); const hx = wayHeading(P, q)[0]; if (Math.abs(hx) >= CAPTIVE_FLEE.faceDead) return hx < 0 ? -1 : 1; if (q === 0) return face0; } };
+  // the phase of his steps `d` px along the way: the distance walked, each px of it counted by how far the stride reaches in the depth he
+  // goes in (D.stepPace, as the townsfolk's own `pace`)
+  const wayPace = (P, d) => { let pace = 0; for (let q = 0; q < d; q += CAPTIVE_FLEE.faceScan) { const step = Math.min(CAPTIVE_FLEE.faceScan, d - q); pace += step / D.stepPace(wayHeading(P, q + step / 2)[1]); } return pace; };
+  // where a fleeing captive is `t` s into his run along his path (world points): his place, his heading (hx, hy: smoothed round the
+  // way's corners), his face (±1), `turn` the seconds since it last flipped (FOLK_TURN.t at most), how far he has come and the phase
+  // of his steps (`pace`); past its end done, with `over` the seconds since he got there
+  const captiveFleeAt = (flee, t) => { const P = flee.path, d = fleeDist(t), face0 = flee.face0 ?? 1, W = wayAt(P, d);
+    if (W.left > 0 || P.length < 2) return { x: W.x, y: W.y, vx: 0, vy: 0, hx: 0, hy: 0, face: face0, turn: FOLK_TURN.t, dist: d, pace: d, done: true, over: W.left / CAPTIVE_FLEE.speed };
+    const [hx, hy] = wayHeading(P, d), v = fleeSpeed(t), face = wayFace(P, d, face0);
+    let turn = FOLK_TURN.t; for (let a = 0; a < FOLK_TURN.t; a += CAPTIVE_FLEE.sample) if (wayFace(P, fleeDist(t - a), face0) !== face) { turn = a; break; }
+    return { x: W.x, y: W.y, vx: hx * v, vy: hy * v, hx, hy, face, turn, dist: d, pace: wayPace(P, d), done: false, over: 0 }; };
   const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out; const caged = (f, late) => { if (mode === 'campaign') for (const c of Object.values(CAPTIVES)) if (c.f === f && !!c.boss === late) out.push({ key: c.quest, f }); };
     for (let f = 1; f <= M.floors; f++) { caged(f, false); if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); caged(f, true); }
     return out; };
@@ -272,7 +294,7 @@
     return out; };
   // a quest's name as the player reads it: its template's, or its own (nameOf) where one template stands for several quests
   const questName = (q) => { const Q = QUESTS[q.key]; return (Q.nameOf && Q.nameOf(q)) || Q.name; };
-  Object.assign(D, { CAPTIVES, CAPTIVE_FLEE, captiveFleeAt, NOTES, STORY, QUESTS, questName, BOSS_QUEST_NAME, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, folkSprite, henLook, FOLK_TURN, FOLK_FLINCH, folkFlinchAt, robeFlinched, walkSweepAt, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  Object.assign(D, { CAPTIVES, CAPTIVE_FLEE, captiveFleeAt, smoothWay, NOTES, STORY, QUESTS, questName, BOSS_QUEST_NAME, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, folkSprite, henLook, FOLK_TURN, FOLK_FLINCH, folkFlinchAt, robeFlinched, walkSweepAt, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   // `nudge` (town_game_r10 4): how far a full mark may slide across and down from over the head to clear the HUD before it goes small;

@@ -67,9 +67,11 @@
   // stays empty meanwhile, so no run is held twice. A save from before the slots comes as the lone run and lands in the first slot
   const slotRun = (S, i) => (i === S.slot && (S.run || S.saved)) || S.saves[i] || null;
   const isFull = (S) => S.saves.every((r, i) => r || (i === S.slot && (S.run || S.saved)));
+  // a run saved while its floors still drew modifiers outside the descent keeps the floor but not the modifier
+  const dropForeignFloorMod = (R) => { const m = R.map; if (m && m.mod && !D.stageOf(R.mode, R.floor || 1, R.seed, FROM(R)).mod) m.mod = null; };
   function loadSaves(S, P) { const n = D.SAVE_SLOTS, list = Array.isArray(P.saves) ? P.saves.slice(0, n) : [];
     S.saves = Array.from({ length: n }, (_, i) => (list[i] && list[i].map ? list[i] : null));
-    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateKept(R, 'loadSaves'); SIMX.dropStaleOffers(R); SIMX.mendArches(R); SIMX.regate(R); }
+    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateKept(R, 'loadSaves'); SIMX.dropStaleOffers(R); SIMX.mendArches(R); SIMX.regate(R); dropForeignFloorMod(R); }
     S.slot = Number.isInteger(P.slot) && P.slot >= 0 && P.slot < n ? P.slot : 0;
     if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; }
     pickLatest(S); }
@@ -683,5 +685,5 @@
   }
 
   Object.assign(SIMX, { talkWalk, talkFirst, boardRows, shopLayout,
-    endRun, runEndDeaths, messageText, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot });
+    endRun, runEndDeaths, messageText, heroFell, fellWay, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, dropForeignFloorMod, slotRun, isFull, oldestSlot, loadSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

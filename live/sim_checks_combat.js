@@ -823,4 +823,71 @@
       d.n = 'statue'; delete d.broken; if (SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push('breakable: a bolt stops on a prop that does not break'); m.decor.splice(i, 1); }
     return out; }
   SIMX.checks.add('breakableCheck', breakableCheck);
+  const SHOOTERS = [['archer', 'shortbow', 'arrow'], ['archer', 'crossbow', 'arrow'], ['mage', 'staff', 'bolt'], ['mage', 'wand', 'bolt'], ['mage', 'staff', 'fireball']],
+    FAST_K = [1, 4, 12], FLIGHT_STEPS = 220, ROOM_W = 24, ROOM_Y = [8, 12], WIND_UP_STEPS = 40, HERO_CELL = 10.5, SHOT_GZ = 20;
+  // a lit corridor with the hero in it, and one shot loosed along it: the flight of that shot with its pierce set, `fast` times its pace
+  function shooterRoom(cls, weapon) {
+    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234, { cls }); S.screen = 'play';
+    const R = S.run, m = R.map, h = R.hero; h.ab.fireball = 1; h.eq.weapon = { ...h.eq.weapon, b: weapon };
+    R.en = []; R.chests = []; R.shrines = []; m.decor = []; m.torches = []; m.block = []; m.traps = []; m.webs = [];
+    for (let y = ROOM_Y[0]; y <= ROOM_Y[1]; y++) for (let x = 9; x <= 9 + ROOM_W; x++) m.cells[y * m.W + x] = 1;
+    return { S, R, m, h }; }
+  function looseShot({ S, R, h }, shot, fast, pierce, build) {
+    h.x = HERO_CELL * TILE; h.y = HERO_CELL * TILE; h.aim = 0; h.mp = 999; h.cd = { atk: 0 }; h.atkT = -9; h.atkHit = 1; R.proj = [];
+    const shotY = SIMX.hand(h)[1], aim = { keys: [], ...toPx(R, h.x + 240, shotY) }, made = build(shotY + SHOT_GZ); S.ev = [];
+    if (shot === 'fireball') castAbility(S, R, 'fireball', {}); else for (let i = 0; i < WIND_UP_STEPS && !R.proj.length; i++) step(S, { ...aim, press: i === 0 ? 1 : 0 });
+    for (const p of R.proj) { p.vx *= fast; p.vy *= fast; p.pierce = pierce; }
+    return { made, flyOn: (steps = FLIGHT_STEPS) => { for (let i = 0; i < steps && R.proj.length; i++) { S.t += DT; SIMX.stepProjectiles(S, R); } } }; }
+  // every kind of hero shot breaks a barrel whose body its path crosses, at any range and lateral offset inside the body, even when a
+  // step carries it clean over the barrel (a shot made FAST_K times quicker)
+  function shotPropCheck() {
+    const out = [], RANGES = [30, 77, 140, 211, 300], LANES = [-10, -5, 0, 5, 10];
+    for (const [cls, weapon, shot] of SHOOTERS) {
+      const room = shooterRoom(cls, weapon), { R, h } = room;
+      for (const range of RANGES) for (const lane of LANES) for (const fast of FAST_K) {
+        const barrel = { kind: 'barrel', hp: 1 };
+        looseShot(room, shot, fast, 0, (lineY) => { barrel.x = h.x + range + D.SHOTS.arrow.tip; barrel.y = lineY + lane; R.pots = [barrel]; }).flyOn(); R.proj = [];
+        if (barrel.hp > 0) out.push(`${cls} ${weapon} ${shot}: a barrel ${range} px ahead, ${lane} px off the line, survives a shot ${fast}x as fast`);
+      }
+    }
+    return out;
+  }
+  SIMX.checks.add('shotPropCheck', shotPropCheck);
+  // a web is torn and flown through by every kind of shot, however many lie on the path; any other prop stops a shot with no pierce
+  // left, and a shot with pierce breaks it and flies on (a web beyond the stopping prop stays whole)
+  function shotPassCheck() {
+    const out = [], WEB_GAPS = [90, 150, 210], BARREL_AT = 120, BEYOND_AT = 260, PIERCE_LEFT = 1;
+    for (const [cls, weapon, shot] of SHOOTERS) for (const fast of FAST_K) {
+      const room = shooterRoom(cls, weapon), { S, R, m, h } = room, who = `${cls} ${weapon} ${shot} ${fast}x`;
+      const placeWeb = (dx, y) => { const w = { x: h.x + dx, y, s: 1, torn: 0 }; m.webs.push(w); return w; };
+      const trial = (pierce, build) => { m.webs = []; R.pots = []; const flight = looseShot(room, shot, fast, pierce, build); flight.flyOn(); const dead = !R.proj.length; R.proj = []; return { ...flight.made, dead }; };
+      const through = trial(0, (y) => ({ webs: WEB_GAPS.map((dx) => placeWeb(dx, y)) }));
+      if (through.webs.some((w) => !w.torn)) out.push(`${who}: a web on the path is not torn`);
+      if (S.ev.filter((e) => e.k === 'webtear').length !== WEB_GAPS.length) out.push(`${who}: ${WEB_GAPS.length} webs gave ${S.ev.filter((e) => e.k === 'webtear').length} tears`);
+      const plain = trial(0, (y) => ({ barrel: R.pots.push({ x: h.x + BARREL_AT, y, kind: 'barrel', hp: 1 }) && R.pots[0], before: placeWeb(BARREL_AT / 2, y), beyond: placeWeb(BEYOND_AT, y) }));
+      if (plain.barrel.hp > 0 || !plain.dead) out.push(`${who}: a shot without pierce passes a barrel (broken ${plain.barrel.hp <= 0}, spent ${plain.dead})`);
+      if (!plain.before.torn || plain.beyond.torn) out.push(`${who}: the webs round a stopping barrel: before ${plain.before.torn}, beyond ${plain.beyond.torn}`);
+      const piercing = trial(PIERCE_LEFT, (y) => ({ barrel: R.pots.push({ x: h.x + BARREL_AT, y, kind: 'barrel', hp: 1 }) && R.pots[0], beyond: placeWeb(BEYOND_AT, y) }));
+      if (piercing.barrel.hp > 0) out.push(`${who}: a shot with pierce leaves the barrel whole`);
+      if (!piercing.beyond.torn) out.push(`${who}: a shot with pierce does not fly on past the barrel`);
+    }
+    return out;
+  }
+  SIMX.checks.add('shotPassCheck', shotPassCheck);
+  // an armed trap springs on any ground monster whose feet cross it: at its own pace and when a step carries it clean over the plate
+  function trapSpringCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234, { cls: 'archer' }); S.screen = 'play';
+    const R = S.run, m = R.map, h = R.hero, T = D.TRAP, LANE_K = [-1, -0.5, 0, 0.5, 1], PACE_K = [1, 10, 100, 400], RING_RY = 6, FOOT_RY_K = 0.45, RUN_UP = 200, ARMED_AGE = 1;
+    R.pots = []; R.chests = []; R.shrines = []; m.decor = []; m.torches = []; m.block = []; m.traps = []; m.webs = [];
+    const foes = Object.keys(ENEMIES).filter((n) => !ENEMIES[n].ghost && !D.BOSSES[n] && ENEMIES[n].spd);
+    for (const type of foes) for (const laneK of LANE_K) for (const paceK of PACE_K) {
+      const E = ENEMIES[type], lane = laneK * (RING_RY + FOOT_RY_K * E.r), pace = E.spd * paceK, trap = { id: 9, x: h.x, y: h.y, t0: S.t - ARMED_AGE, dmg: 1, crit: 0 };
+      const e = { id: 5000, type, x: h.x - RUN_UP, y: h.y + lane, vx: 0, vy: 0, hp: 1e6, max: 1e6, dmg: 0, deadT: -1, st: 'chase', elite: 0 };
+      R.en = [e]; R.htraps = [trap]; h.hp = 1e9;
+      for (let x = e.x; x < h.x + RUN_UP && !trap.done; x += pace * DT) { e.x = x; S.t += DT; SIMX.stepTraps(S, R); }
+      if (!trap.done) out.push(`trap: a ${type} crossing ${Math.round(lane)} px off the plate at ${paceK}x its pace does not spring it`);
+    }
+    return out;
+  }
+  SIMX.checks.add('trapSpringCheck', trapSpringCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

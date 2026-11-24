@@ -72,7 +72,7 @@
   const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4, miss: 3, prep: 0.06 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };
   // the volley's fan closes on the cursor (TASKS 1161): `w` px across where it points, at most `arc`°, at least `min`°; the trap is set at
   // the cursor within `far` px and holds the monster's blow as well as its feet; the leap carries him `spd` × the dash's time; the fan leaves `loose` s after the key
-  const VOLLEY = { n: 5, arc: 50, min: 8, w: 60, k: 0.7, loose: 0.13 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };
+  const VOLLEY = { n: 5, arc: 50, min: 8, w: 60, k: 0.7, loose: 0.13 }, TRAP = { r: 22, squeeze: 1.3, bodyK: 0.6, sweepGap: 0.02, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   const AB_NUMS = { shield: { dur: SHIELD_T }, volley: VOLLEY, trap: TRAP };
   TXT.bake(ABILITIES.filter((A) => A.id in AB_NUMS), 'desc', (A) => `ABILITIES.${A.id}.desc`, (A) => AB_NUMS[A.id]);

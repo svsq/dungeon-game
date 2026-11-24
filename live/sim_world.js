@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, K, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
-    dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroRoll, heroSt, hidden, isCons, losClear, pick,
+    dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroRoll, heroSt, hidden, isCons, losClear, nearOnSegment, pick,
     mapw, potion, propBoxes, ri, rnd, rollItem, secretMask, under } = SIMX;
   // ---------------- actions ----------------
   function usePotion(S, R, b) {
@@ -105,10 +105,13 @@
   // the archer's traps (TASKS 1120, 1161): armed after TRAP.arm s, the first monster on one is struck and held, its blow put off as
   // the charge's stun (sim_enemies: rootT → slowK 0), a boss briefly; gone after TRAP.life s
   function stepTraps(S, R) { const T = D.TRAP, t = S.t;
+    const sprung = (q, e) => { const last = e.trapSeen && t - e.trapSeen.t < T.sweepGap ? e.trapSeen : e, E = ENEMIES[e.type], squeeze = T.squeeze;
+      return nearOnSegment(q.x, q.y * squeeze, last.x, last.y * squeeze, e.x, e.y * squeeze).dist < T.r + E.r * T.bodyK; };
     for (const q of R.htraps) { if (q.done) continue; if (t - q.t0 > T.life) { q.done = 1; continue; } if (t - q.t0 < T.arm) continue;
-      const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - q.x, (o.y - q.y) * 1.3) < T.r + ENEMIES[o.type].r * 0.6); if (!e) continue;
+      const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && sprung(q, o)); if (!e) continue;
       const hold = D.BOSSES[e.type] ? T.boss : T.root; q.done = 1; e.rootT = Math.max(e.rootT || 0, t + hold); e.slowK = 0; e.cdT = Math.max(e.cdT || 0, t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
       heroHit(S, R, e, q.dmg, !!q.crit, q.x, q.y, 0); ev(S, { k: 'trapsnap', x: q.x, y: q.y, id: e.id }); SIMX.firePowers(S, R, 'trapsnap', { x: q.x, y: q.y, e, dmg: q.dmg }); }
+    for (const e of R.en) e.trapSeen = { x: e.x, y: e.y, t };
     R.htraps = R.htraps.filter((q) => !q.done); }
   // how far past a blow's or a bolt's reach a pot and a big prop are still struck (their bodies' half-width about)
   const POT_REACH = 10, PROP_REACH = 18;
@@ -244,11 +247,37 @@
       if (d > rad + 20 * w.s) return; if (arc !== undefined && d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) return;
       tearWeb(S, w, i, fire); }); }
   const tearWeb = (S, w, i, fire) => { w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); };
-  function shotWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
-  function boltPropAt(R, x, y, r) {
-    const m = R.map, reaches = (p, pad) => Math.hypot(p.x - x, p.y - y) <= r + pad && losClear(m, x, y, p.x, p.y);
-    return R.pots.some((p) => p.hp > 0 && reaches(p, POT_REACH)) || m.decor.some((d) => breakable(m, d) && !hidden(m, d) && reaches(d, PROP_REACH));
-  }
+  // what a hero's shot meets along its path, each kind with its reach test, whether the shot flies through it (shotPasses; the rest stop
+  // it, or are broken and left behind by a shot with pierce to spend) and what it does to a thing it passes
+  const WEB_SQUEEZE = () => SIMX.WEB.rx / SIMX.WEB.ry;
+  const SHOT_TARGETS = {
+    pot: { items: (R) => R.pots.filter((p) => p.hp > 0), shotPasses: false, seen: true,
+      near: (p, r, x0, y0, x1, y1) => { const near = nearOnSegment(p.x, p.y, x0, y0, x1, y1); return near.dist > r + POT_REACH ? null : near; } },
+    prop: { items: (R) => R.map.decor.filter((d) => breakable(R.map, d) && !hidden(R.map, d)), shotPasses: false, seen: true,
+      near: (d, r, x0, y0, x1, y1) => { const near = nearOnSegment(d.x, d.y, x0, y0, x1, y1); return near.dist > r + PROP_REACH ? null : near; } },
+    web: { items: (R) => (R.map.webs || []).filter((w) => !w.torn), shotPasses: true, seen: false,
+      near: (w, r, x0, y0, x1, y1) => { const k = WEB_SQUEEZE(), near = nearOnSegment(w.x, w.y * k, x0, y0 * k, x1, y1 * k); return near.dist < SIMX.WEB.rx * w.s ? near : null; },
+      pass: (S, R, w) => tearWeb(S, w, R.map.webs.indexOf(w)) } };
+  // every target the segment reaches, nearest the muzzle first
+  function shotPathHits(R, x0, y0, x1, y1, r) {
+    const hits = [];
+    for (const [kind, T] of Object.entries(SHOT_TARGETS)) for (const item of T.items(R)) { const near = T.near(item, r, x0, y0, x1, y1); if (!near) continue;
+      const at = { u: near.u, x: x0 + (x1 - x0) * near.u, y: y0 + (y1 - y0) * near.u, kind, item, target: T };
+      if (!T.seen || losClear(R.map, at.x, at.y, item.x, item.y)) hits.push(at); }
+    return hits.sort((a, b) => a.u - b.u); }
+  // a shot's flight over one step: the webs before the first thing that holds it are torn and it flies on; that thing is returned
+  // unless the shot has pierce to spend, which breaks it and carries on (the same pierce count the enemies spend)
+  function sweepShot(S, R, p, x0, y0, x1, y1) {
+    const gone = p.pastProps || (p.pastProps = []), lift = y1 - p.y;
+    for (const hit of shotPathHits(R, x0, y0, x1, y1, p.r)) {
+      if (hit.target.shotPasses) { hit.target.pass(S, R, hit.item); continue; }
+      if (gone.includes(hit.item)) continue;
+      if (!(p.pierce > 0)) return hit;
+      p.pierce--; gone.push(hit.item); SIMX.breakPots(S, R, hit.x, hit.y, p.r); SIMX.hitProps(S, R, hit.x, hit.y, p.r);
+      ev(S, { k: 'pop', x: hit.x, y: hit.y - lift, c: p.k, hit: 1, mine: 1, thru: 1 }); }
+    return null; }
+  const boltPropHit = (R, x0, y0, x1, y1, r) => shotPathHits(R, x0, y0, x1, y1, r).find((h) => !h.target.shotPasses) || null;
+  const boltPropAt = (R, x, y, r) => !!boltPropHit(R, x, y, x, y, r);
   function springAmbush(S, R, P) {
     const m = R.map, h = R.hero;
     if (!m.rooms[P.room] || P.fired) return false;
@@ -394,6 +423,6 @@
 
   Object.assign(SIMX, { looseVolley, setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, shotWebs, boltPropAt, BREAKABLE, breakable, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, sweepShot, boltPropHit, boltPropAt, BREAKABLE, breakable, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
     leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

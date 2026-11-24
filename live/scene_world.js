@@ -619,25 +619,29 @@
     // standing lights (TASKS 194): their fires ride the prop when it is knocked
     m.decor.forEach((d, i) => { const S0 = STAND[d.n]; if (!S0 || !vis(d.x, d.y) || !known(d.x, d.y) || hid(d)) return; const j = jig('d' + i), col = d.n === 'torch_stand' ? torchCol(m, d) : CANDLE;
       Y.push([d.y + 1, () => flames(S0.map(([ox, up, w, hh], k) => [sx(d.x) + ox + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(d.y) + 4 - up, w, hh, col, d.x + 7 * k]))]); });
-    // a captive's height in view px; the merchant's hop on his run (its height and the run's px per hop) and the dust of it and of his going
-    const CAPTIVE_H = 64, CAPTIVE_HOP = { h: 5, stride: 34, dust: 10, dustCol: [0.42, 0.36, 0.3], dustA: 0.35, puffs: 4, puffGap: 12, puffUp: 16 };
-    // a captive's figure: the townsfolk rig walking by `run` (his distance and heading), or the merchant's own figure, whose rig has
-    // no legs to walk on, hopping along with dust at his feet
-    const captiveFigure = (cap, X, Yg, ySort, face, run, look = face) => {
-      const f = { i: 90 + cap.who.length, y: ySort, dist: run ? run.dist : 0, vx: run ? run.vx : 0, vy: run ? run.vy : 0 };
-      if (cap.who !== 'merchant') { drawFolkRig(f, null, 'town_' + cap.who, X, Yg, CAPTIVE_H, face, GT, Y, {}); return; }
-      const hop = run ? CAPTIVE_HOP.h * Math.abs(Math.sin(run.dist / CAPTIVE_HOP.stride * Math.PI)) : 0;
-      Y.push([ySort, () => { L.inked(() => MONSTERS.merchant({ id: 'captive', x: X, y: Yg - hop, H: CAPTIVE_H, t: GT, look: run ? face : look, near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
-        if (run) L.puff(X, Yg - 2, CAPTIVE_HOP.dust, CAPTIVE_HOP.dustCol, CAPTIVE_HOP.dustA, 7); }]); };
+    // a captive's height in view px, where he stands by his cage against the cage's own point (view px), how far he leans into his run (rad),
+    // and the dust of his run and of his going
+    const CAPTIVE_H = 64, CAPTIVE_STAND = { dx: 5, dy: -6 }, CAPTIVE_LEAN = 0.1;
+    const CAPTIVE_DUST = { r: 10, col: [0.42, 0.36, 0.3], a: 0.35, puffs: 4, gap: 12, up: 16, foot: 2, seed: 7 };
+    // a captive's figure: the rig of his own, or the merchant's, walking by `run` (his distance and heading) at the step rate of
+    // CAPTIVE_FLEE.cadence, his stride lengthened to it; he turns to his heading as a townsman turns and leans into the run
+    const captiveFigure = (cap, X, Yg, ySort, face, run) => {
+      const nm = SCX.captiveRig(cap.who), f = { i: SCX.captiveFolkId(cap.who), y: ySort, dist: run ? run.dist : 0, vx: run ? run.vx : 0, vy: run ? run.vy : 0, hx: run ? run.hx : undefined, hy: run ? run.hy : undefined, pace: run ? run.pace : undefined };
+      if (!run) { drawFolkRig(f, null, nm, X, Yg, CAPTIVE_H, face, GT, Y, {}); return; }
+      const F = D.CAPTIVE_FLEE, speedK = Math.hypot(run.vx, run.vy) / F.speed, { rigFace, jointW } = SCX.turnWidths(run.face, SS(0, D.FOLK_TURN.t, run.turn)),
+        lean = CAPTIVE_LEAN * speedK, stride = MONSTERS.cadenceStrideK(nm, CAPTIVE_H, F.speed, F.cadence, F.strideMax);
+      drawFolkRig(f, null, nm, X, Yg, CAPTIVE_H, rigFace, GT, Y, { stride, faceW: jointW, lean: jointW * lean, robe: { lean } });
+      Y.push([ySort, () => L.puff(X, Yg - CAPTIVE_DUST.foot, CAPTIVE_DUST.r, CAPTIVE_DUST.col, CAPTIVE_DUST.a * speedK, CAPTIVE_DUST.seed)]); };
     // a captive in his cage; freed, he stands by it while he talks with the hero, then runs off along his path and is gone at its end
     // in a puff of dust
     for (const cap of Object.values(R.captives || {})) { if (cap.x === undefined || R.floor !== D.CAPTIVES[cap.who].f || R.town) continue; const out = !!(R.freed && R.freed[cap.who]);
       const run = out && cap.flee ? D.captiveFleeAt(cap.flee, GT - cap.flee.t) : null, here = !out || cap.talk;
-      if (run && vis(run.x, run.y)) { if (!run.done) captiveFigure(cap, sx(run.x), sy(run.y), run.y, run.vx < 0 ? -1 : 1, run);
+      if (run && vis(run.x, run.y)) { if (!run.done) { const k = 1 - SS(0, D.CAPTIVE_FLEE.settle, run.dist);
+          captiveFigure(cap, sx(run.x) + CAPTIVE_STAND.dx * k, sy(run.y) + CAPTIVE_STAND.dy * k, run.y - k, run.face, run); }
         else if (run.over < D.CAPTIVE_FLEE.puff) { const q = run.over / D.CAPTIVE_FLEE.puff, X = sx(run.x), Yp = sy(run.y);
-          Y.push([run.y, () => { for (let j = 0; j < CAPTIVE_HOP.puffs; j++) L.puff(X + (j - (CAPTIVE_HOP.puffs - 1) / 2) * CAPTIVE_HOP.puffGap, Yp - CAPTIVE_HOP.puffUp * (1 + q), CAPTIVE_HOP.dust * (1 + q), CAPTIVE_HOP.dustCol, CAPTIVE_HOP.dustA * (1 - q), 41 + j); }]); } }
+          Y.push([run.y, () => { for (let j = 0; j < CAPTIVE_DUST.puffs; j++) L.puff(X + (j - (CAPTIVE_DUST.puffs - 1) / 2) * CAPTIVE_DUST.gap, Yp - CAPTIVE_DUST.up * (1 + q), CAPTIVE_DUST.r * (1 + q), CAPTIVE_DUST.col, CAPTIVE_DUST.a * (1 - q), 41 + j); }]); } }
       if (!vis(cap.x, cap.y)) continue; const X = sx(cap.x), Y0 = sy(cap.y), look = Math.max(-1, Math.min(1, (h.x - cap.x) / 120));
-      if (here) captiveFigure(cap, X + 5, Y0 - 6, cap.y - 1, look < 0 ? -1 : 1, null, look);
+      if (here) captiveFigure(cap, X + CAPTIVE_STAND.dx, Y0 + CAPTIVE_STAND.dy, cap.y - 1, look < 0 ? -1 : 1, null);
       Y.push([cap.y, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]); }
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;

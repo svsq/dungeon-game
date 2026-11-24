@@ -12,8 +12,8 @@
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   // (the halls' and crossings' packs and the descent's cut of PR 65 laid other floors under 19, TASKS 1917: any later version takes those
-  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch; 36: the town's rails end on the diagonal, TASKS 2090, the sweeper's round and the niches, 2094, 2100; 37: the skull door's waves on its record and its room big enough for its last wave, TASKS 2132; 38: the mason's stops in front of the cart and the bin, TASKS 2141; 39: a lava bridge with an end on no floor goes back to lava, the room floors' own packs of the moved kinds, the rubble off the soul altar's path, its older floors kept by sim_floor.js GEN_LEGACY); selfCheck holds the generator's print to its version
-  const GEN_VERSION = 39;
+  // floors anew; 27: PR 67's lights and props laid other floors under 26; 28: the skull door, TASKS 362, takes a room and its pack; 29: the blood altar, TASKS 363; 30: the cursed chest and the fountain, TASKS 364; 31: the goblin's table and the dark room, TASKS 365; 32: the captive, TASKS 366, gives a pack's monster the cage's key; 33: the library, TASKS 368, its shelves on a room's back wall; 34: 0.5.1's fixes, a hall's own monster kept, TASKS 1943; 35: a sconce's secret and a vent prop name their torch and hazard by `id`, TASKS 2063, and a sconce found by the cut list's place was another torch; 36: the town's rails end on the diagonal, TASKS 2090, the sweeper's round and the niches, 2094, 2100; 37: the skull door's waves on its record and its room big enough for its last wave, TASKS 2132; 38: the mason's stops in front of the cart and the bin, TASKS 2141; 39: a lava bridge with an end on no floor goes back to lava, the room floors' own packs of the moved kinds, the rubble off the soul altar's path, its older floors kept by sim_floor.js GEN_LEGACY; 40: the library's shelves only against the back wall, no reading corner standing free on the floor; 41: the floor modifiers only in the endless descent, so the campaign's floors are laid without one); selfCheck holds the generator's print to its version
+  const GEN_VERSION = 41;
   // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
   const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
@@ -25,6 +25,11 @@
   // `wings`, boxes of floor joined to it (a cross's arms, an L's foot, a round hall's caps), are its floor as well
   const inRm = (r, x, y, p = 0) => (x >= r.x - p && x < r.x + r.w + p && y >= r.y - p && y < r.y + r.h + p) || (!!r.wings && r.wings.some(([a, b, c, d]) => x >= a - p && x < a + c + p && y >= b - p && y < b + d + p));
   const rectsOf = (r) => [[r.x, r.y, r.w, r.h], ...(r.wings || [])];
+  // a bookshelf (X, Y in view px) on the floor row beside a room's back wall, with solid rock behind its three cells
+  const shelfAgainstBackWall = (m, r, X, Y) => { const x = Math.floor(X / TILE);
+    if (Math.floor(Y / TILE) !== r.y) return false;
+    for (let i = -1; i <= 1; i++) if (m.cells[(r.y - 1) * m.W + x + i] !== 0) return false;
+    return true; };
 
   function backWallPropSpans(m) {
     const rows = [];
@@ -279,13 +284,13 @@
         return false;
       };
       // (a secret's wall or the floor before it is never hidden behind a shelf)
-      const clear = (X, self, Y = y0, wall = 1) => { const x = Math.floor(X / TILE), y = Math.floor(Y / TILE); if (x - 1 < r.x || x + 1 > r.x + r.w - 1 || (wall && Math.abs(x - sx) <= 3 && sy - r.y < 3)) return false;
+      const clear = (X, self, Y = y0, wall = true) => { const x = Math.floor(X / TILE), y = Math.floor(Y / TILE); if (x - 1 < r.x || x + 1 > r.x + r.w - 1 || (wall && Math.abs(x - sx) <= 3 && sy - r.y < 3)) return false;
         if (!opts.legacyLibraryPlacement && overPassage(X, y)) return false;
         for (let i = -2; i <= 2; i++) for (let j = -1; j <= 1; j++) if (hide.has((y + j) * W + x + i)) return false;
-        if (wall) for (let i = -1; i <= 1; i++) if (m.cells[(r.y - 1) * W + x + i] !== 0) return false;
+        if (wall && !shelfAgainstBackWall(m, r, X, Y)) return false;
         if (m.torches.some((t) => Math.abs(t.x - X) < half + 8 && Math.abs(t.y - Y) < 70)) return false;
         return !m.decor.concat(put).some((d) => d !== self && Math.abs(d.x - X) < half + (D.PROP_W[d.n] || 40) / 2 + 8 && Math.abs(d.y - Y) < 60); };
-      const fits = (x, y = r.y, wall = 1) => { if (x - 1 < r.x || x + 1 > r.x + r.w - 1) return false;
+      const fits = (x, y = r.y, wall = true) => { if (x - 1 < r.x || x + 1 > r.x + r.w - 1) return false;
         for (let i = -1; i <= 1; i++) { const k = y * W + x + i; if (m.cells[k] !== 1 || busy.has(k) || m.cells[k + W] !== 1 || !inRm(r, x + i, y)) return false; }
         return clear(x * TILE + TILE / 2, null, y * TILE + 22, wall); };
       // the open floor of the room stays one piece with these cells taken (a free-standing shelf must not wall off a corner)
@@ -299,11 +304,10 @@
       for (const x of xs) { if (put.length >= P.shelves) break; if (fits(x)) put.push({ x: x * TILE + TILE / 2, y: y0, n: 'bookshelf', solid: 1, r: r.id, lib: 1 }); }
       back.sort((a, b) => Math.abs(a.x - at[0]) - Math.abs(b.x - at[0]));
       for (const d of back) { if (put.length + swap.length >= P.shelves) break; if (clear(d.x, d) && !swap.some((o) => Math.abs(o.x - d.x) < 2 * half + 8)) swap.push(d); }
-      // a room with no back wall to spare: two shelves stand free on the floor either side of the lectern, a reading corner
-      // (or, short of room for two, one behind it)
-      const stand = (L) => { if (put.length || swap.length || own.length || !L.every(([x, y]) => fits(x, y, 0)) || !whole(L.map(([x, y]) => y * W + x))) return;
+      // (older floors: a room with no back wall to spare had two shelves free on the floor either side of the lectern, or one behind it)
+      const stand = (L) => { if (put.length || swap.length || own.length || !L.every(([x, y]) => fits(x, y, false)) || !whole(L.map(([x, y]) => y * W + x))) return;
         for (const [x, y] of L) put.push({ x: x * TILE + TILE / 2, y: y * TILE + 22, n: 'bookshelf', solid: 1, r: r.id, lib: 1 }); };
-      for (const dy of [-1, 0]) stand([[sx - 3, sy + dy], [sx + 3, sy + dy]]); stand([[sx, sy - 2]]);
+      if (opts.legacyFreeStandingShelves) { for (const dy of [-1, 0]) stand([[sx - 3, sy + dy], [sx + 3, sy + dy]]); stand([[sx, sy - 2]]); }
       if (!put.length && !swap.length && !own.length) return null;
       for (const d of swap) { d.n = 'bookshelf'; d.lib = 1; }
       for (const d of put) { m.decor.push(d); const k = Math.floor(d.y / TILE) * W + Math.floor(d.x / TILE); if (!m.block.includes(k)) m.block.push(k); }
@@ -553,7 +557,7 @@
   // arrival gap and its pool of lava in view round it (in the magma wall a cell lower and aside, TASKS 1930)
   const arrivalAt = (up, biome) => (biome === 'magma' && !up.free ? [up.x + 34, up.y + 46 + TILE] : [up.x, up.y + 46]);
   Object.assign(D, { GEN_VERSION });
-  root.DUNGEON = { isPassageCell, lavaBridgeLands: (m, c) => DGX.lavaBridgeLands(m, c), chasmBridgeLands: (m, c) => DGX.chasmBridgeLands(m, c), onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
+  root.DUNGEON = { isPassageCell, shelfAgainstBackWall, lavaBridgeLands: (m, c) => DGX.lavaBridgeLands(m, c), chasmBridgeLands: (m, c) => DGX.chasmBridgeLands(m, c), onRim, byId, linkId, FOG_ARRIVE, arrivalAt, fogHash, fogNoise, inFogOval, fogReach, genFloor, specials, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt, archLegs, onArchLeg, bridgeLands, backWallPropSpans };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
   Object.assign(DGX, { onRim, linkId, byId, archLegs, arrivalAt, onArchLeg, FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, shuffleBy, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });

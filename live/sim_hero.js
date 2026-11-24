@@ -339,7 +339,6 @@
       if (ranged) {
         const a = h.atkA, [dmg, c] = heroRoll(R, h, st);
         const p = SIMX.heroShot(R, h, a, dmg, c, weapon.shot || 'bolt', weapon);
-        if (p.k === 'bolt') p.hitsProps = 1;
         if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
         ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
       } else {
