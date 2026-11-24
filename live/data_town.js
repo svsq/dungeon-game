@@ -3,6 +3,9 @@
 (function (root) {
   const D = root.DATA || (root.DATA = {});
   const { runOf, stageOf, xpNeed } = D;
+  // a boss quest's own name by its boss, so the campaign's six never share one; a boss without a line keeps the quest's plain name
+  const BOSS_QUEST_NAME = { boss_spider: TXT('QUESTS.chapter.boss_spider'), boss_necro: TXT('QUESTS.chapter.boss_necro'), boss_forge: TXT('QUESTS.chapter.boss_forge'),
+    boss: TXT('QUESTS.chapter.boss'), boss_serpent: TXT('QUESTS.chapter.boss_serpent'), boss_colossus: TXT('QUESTS.chapter.boss_colossus') };
   const QUESTS = {
     cull: { kind: 'side', type: 'kill', count: (q) => q.need + ' ' + TXT.n('QUESTS.cull.text.2', q.need), name: TXT('QUESTS.cull.name'), need: (f) => 10 + 2 * f, text: (q) => TXT('QUESTS.cull.text', { need: q.need, p2: TXT.n('QUESTS.cull.text.2', q.need), f: q.f }), rw: ['scroll', 'xp'] },
     elites: { kind: 'side', type: 'kill', elite: 1, count: (q) => q.need + ' ' + TXT.n('QUESTS.elites.count', q.need), name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item', 'xp'] },
@@ -15,7 +18,7 @@
     rescue_smith: { kind: 'story', type: 'free', who: 'smith', name: TXT('QUESTS.rescue_smith.name'), ask: TXT('QUESTS.rescue_smith.ask'), thanks: TXT('QUESTS.rescue_smith.thanks'), need: () => 1, text: (q) => TXT('QUESTS.rescue_smith.text', { f: q.f }), rw: ['xp', 'scroll'] },
     rescue_enchanter: { kind: 'story', type: 'free', who: 'enchanter', name: TXT('QUESTS.rescue_enchanter.name'), ask: TXT('QUESTS.rescue_enchanter.ask'), thanks: TXT('QUESTS.rescue_enchanter.thanks'), need: () => 1, text: (q) => TXT('QUESTS.rescue_enchanter.text', { f: q.f }), rw: ['xp', 'scroll'] },
     rescue: { kind: 'story', type: 'free', who: 'merchant', name: TXT('QUESTS.rescue.name'), ask: TXT('QUESTS.rescue.ask'), need: () => 1, text: (q) => TXT('QUESTS.rescue.text', { f: q.f }), rw: ['xp', 'scroll'] },
-    chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f, boss: D.ENEMIES[stageOf('campaign', q.f).boss].name }), rw: ['shards', 'item'] },
+    chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), nameOf: (q) => BOSS_QUEST_NAME[stageOf('campaign', q.f).boss], need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f, boss: D.ENEMIES[stageOf('campaign', q.f).boss].name }), rw: ['shards', 'item'] },
     depths: { kind: 'story', type: 'reach', name: TXT('QUESTS.depths.name'), need: () => 1, text: (q) => TXT('QUESTS.depths.text', { f: q.f }), rw: ['shards', 'item'] },
   };
   // what a quest pointing at floor f gives on its turn-in (item: the reward piece's least rarity, 2 rare unless the template says)
@@ -42,6 +45,16 @@
   const CAPTIVES = { merchant: { f: 1, quest: 'rescue', caged: TXT.talk('merchant').caged, free: TXT('sim_town.captive.free'), shut: TXT('sim_town.shopShut') },
     smith: { f: 3, quest: 'rescue_smith', caged: TXT.talk('smith').caged, free: TXT('sim_town.captive.smith.free'), shut: TXT('sim_town.captive.smith.shut') },
     enchanter: { f: 4, boss: 1, quest: 'rescue_enchanter', caged: TXT.talk('enchanter').caged, free: TXT('sim_town.captive.enchanter.free'), shut: TXT('sim_town.captive.enchanter.shut') } };
+  // a freed captive talks with the hero in the town's window, and once the talk is closed runs off toward the floor's way up: `cells`
+  // cells of the way at `speed` view px a second; at its end he is gone in a puff of dust that lasts `puff` s
+  const CAPTIVE_FLEE = { cells: 12, speed: 170, puff: 0.6 };
+  // where a fleeing captive is `t` s into his run along his path (world points): his place, his heading and how far he has come;
+  // past its end done, with `over` the seconds since he got there
+  const captiveFleeAt = (flee, t) => { const P = flee.path, d = Math.max(0, t) * CAPTIVE_FLEE.speed; let left = d;
+    for (let i = 1; i < P.length; i++) { const [ax, ay] = P[i - 1], [bx, by] = P[i], len = Math.hypot(bx - ax, by - ay) || 1;
+      if (left <= len) { const u = left / len; return { x: ax + (bx - ax) * u, y: ay + (by - ay) * u, vx: (bx - ax) / len * CAPTIVE_FLEE.speed, vy: (by - ay) / len * CAPTIVE_FLEE.speed, dist: d, done: false, over: 0 }; }
+      left -= len; }
+    const [x, y] = P[P.length - 1] || [0, 0]; return { x, y, vx: 0, vy: 0, dist: d, done: true, over: left / CAPTIVE_FLEE.speed }; };
   const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out; const caged = (f, late) => { if (mode === 'campaign') for (const c of Object.values(CAPTIVES)) if (c.f === f && !!c.boss === late) out.push({ key: c.quest, f }); };
     for (let f = 1; f <= M.floors; f++) { caged(f, false); if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); caged(f, true); }
     return out; };
@@ -64,7 +77,8 @@
     keeper: { name: TXT('FOLK.keeper.name'), job: TXT('FOLK.keeper.job'), per: 9, hit: 0.3, lines: TXT.talk('keeper').lines, topics: TXT.talk('keeper').topics },
     guard: { name: TXT('FOLK.guard.name'), job: TXT('FOLK.guard.job'), per: 8, lines: TXT.talk('guard').lines, topics: TXT.talk('guard').topics },
     porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, swing: 0.06, stride: 1.6, lines: TXT.talk('porter').lines, topics: TXT.talk('porter').topics },
-    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, lines: TXT.talk('sweeper').lines, topics: TXT.talk('sweeper').topics },
+    // walkSweep: walking, the broom's hand goes reach of the height to and fro once a step, the broom tilting tilt rad about rest
+    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, walkSweep: { reach: 0.05, tilt: 0.16, rest: 0.8 }, lines: TXT.talk('sweeper').lines, topics: TXT.talk('sweeper').topics },
     child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, ease: 0.25, swing: 0.06, stride: 1.6, lines: TXT.talk('child').lines, topics: TXT.talk('child').topics, won: TXT.talk('child').won },
     mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, swing: 0.06, stride: 1.15, lines: TXT.talk('mason').lines, topics: TXT.talk('mason').topics },
     merchant: { name: TXT('FOLK.merchant.name'), job: TXT('hud.shop.job'), topics: TXT.talk('merchant').topics },
@@ -91,6 +105,9 @@
   // ran into the forge's corner, and the porter skipped his pick-up and walked to the merchant empty-handed (TASKS 1031)
   // a hen starts facing the way it is drawn at rest (to the nearest child, as TOWN_FACE), so its first step turns it over FOLK_TURN-like
   // easing: from face 0 the sim set the side with no turn and the drawing flipped in a frame (town_motion_r9 7)
+  // a townsperson's sprite (and size) name: the hens take three looks by their index, each with its wings' colour, the rest their role's
+  const HEN_LOOKS = [{ sprite: 'town_hen_white', wing: [0.8, 0.77, 0.7] }, { sprite: 'town_hen_red', wing: [0.52, 0.24, 0.12] }, { sprite: 'town_hen_grey', wing: [0.46, 0.46, 0.5] }];
+  const henLook = (f) => HEN_LOOKS[f.i % HEN_LOOKS.length], folkSprite = (f) => (f.role === 'hen' ? henLook(f).sprite : 'town_' + f.role);
   const henFace = (npcs, n) => { const c = npcs.filter((q) => q.role === 'child').sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return !c || c.x >= n.x ? 1 : -1; };
   const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1, hen = n.role === 'hen';
     return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: hen ? henFace(npcs, n) : 0, walked: hen ? 1 : 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
@@ -169,6 +186,15 @@
   // `minW` 0.28: at 0.1 the mid-turn frame drew the figure as a sliver, the mason gone, the porter a lone crate (town_motion_r9 1, TASKS 2123)
   // `load`: the turn with a load in both hands, a third of the height out in front: its hands cross 0.62 of the height, over 0.2 s 6.2 px a frame (TASKS 2116)
   const FOLK_TURN = { t: 0.2, load: 0.25, minW: 0.28 };
+  // struck by the hero's blow: a flinch back from it over `time` s, knees giving, the head ducked; a robed figure has no knees to give
+  // and cowers, its shoulders sinking by `shoulderDrop` rig px (the robed rig's lift is y down, so the drop adds to it)
+  const FOLK_FLINCH = { time: 0.5, lean: 0.14, crouch: 8, headR: 0.12, shoulderDrop: 3 };
+  const folkFlinchAt = (age) => { const F = FOLK_FLINCH, k = age >= 0 && age < F.time ? Math.sin(Math.PI * age / F.time) * (1 - age) : 0;
+    return { k, lean: F.lean * k, crouch: F.crouch * k, headR: F.headR * k, shoulderDrop: F.shoulderDrop * k }; };
+  // a robed figure's pose (the robed rig's lift, headR) as a flinch takes it
+  const robeFlinched = (robe, fl) => Object.assign({}, robe, { headR: (robe.headR || 0) + fl.headR, lift: (robe.lift || 0) + fl.shoulderDrop });
+  // a walking sweeper's broom on the robe's step phase: ahead (1) as each shoe plants, at its forward-most, back (-1) between
+  const walkSweepAt = (stepPhase) => Math.cos(2 * stepPhase);
   const RAIL = { gauge: 18.6, bend: { reach: 6, step: 3, lap: 1, flat: 0.05, most: 16, arc: 28, pt: 8 }, h: { tex: 'rail_tw_h', at: 198, per: 160, gauge: 123.5, lift: 1.35 } };
   // the sprites that lay a track along `pts`, one period of the painting after another, the count carried round each bend: where each stands,
   // the way the stretch runs (dx, dy), its size in view px and the part of the painting it shows; `size` gives a painting's pixels by its texture's name
@@ -244,7 +270,9 @@
     for (let i = 0; i <= n; i++) { const t = i / n, d = Math.min(t, 1 - t) * len, bow = ramp ? P.bow * (1 - f) * Math.sin(Math.PI / 2 * Math.min(1, d / ramp)) : 0;
       out.push([W[0] + dx * t + dir * bow, W[1] + dy * t + 4 * sag * t * (1 - t)]); }
     return out; };
-  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, FOLK_TURN, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
+  // a quest's name as the player reads it: its template's, or its own (nameOf) where one template stands for several quests
+  const questName = (q) => { const Q = QUESTS[q.key]; return (Q.nameOf && Q.nameOf(q)) || Q.name; };
+  Object.assign(D, { CAPTIVES, CAPTIVE_FLEE, captiveFleeAt, NOTES, STORY, QUESTS, questName, BOSS_QUEST_NAME, questReward, QUEST_GIVE, QUEST_SAY, turnFill, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, FOLK_HOLD, FOLK_FIRST, KEEPER, folkClock, folkInit, folkSprite, henLook, FOLK_TURN, FOLK_FLINCH, folkFlinchAt, robeFlinched, walkSweepAt, railPts, CART, cartView, cartSwap, cartFade, cartPut, cartFoot, cartGrow, cartFeet, railAxes, cartAt, railAt, railTot, cartLug, cartHubs, cartSeat, cartSeatF, cartHook, cartWinch, cartRope, RAIL, railLay });
   // a giver's quest mark (TASKS 2105) stands over his head, centred on him; `gap` is the plate's foot above the head, `small` the scale of a
   // mark kept at the screen's edge when the giver's feet or head are off it, `margin` its distance from that edge, `box` the hit box of a full-size one
   // `nudge` (town_game_r10 4): how far a full mark may slide across and down from over the head to clear the HUD before it goes small;

@@ -8,16 +8,28 @@
   // a floor as laid with no event of the pool drawn: the drawn ones would take the probe's rooms and clear their packs
   const bare = (f) => { const P = D.EVENTS.pool, w = Object.fromEntries(Object.entries(P).map(([k, E]) => [k, E.w])); for (const E of Object.values(P)) E.w = 0;
     try { return f(); } finally { for (const [k, v] of Object.entries(w)) P[k].w = v; } };
+  // the event check's floors: every mode, run seeds 1–6, the first five floors of each run
+  function* eventFloors() {
+    for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= Math.min(5, D.RUNS[mode].floors); f++)
+      yield { tag: `${mode}${o.town ? ' (town)' : ''} ${sd}/${f}`, seed: (sd * 31 + f * 1013) >>> 0, floor: f, opts: Object.assign({ mode, runSeed: sd }, o), runSeed: sd }; }
+  const layPlain = (q) => bare(() => DG.genFloor(q.seed, q.floor, q.opts)), layProbed = (q) => bare(() => DG.genFloor(q.seed, q.floor, Object.assign({ events: ['probe'] }, q.opts)));
+  // a marked floor and its plain twin as JSON with the event rooms' marks, packs and webs left out: equal unless marking moved something else
+  const eventStripped = (marked, plain) => { const evR = new Set((marked.events || []).map((e) => e.room)), strip = (q) => JSON.stringify(Object.assign({}, q, { rooms: q.rooms.map((r) => { const c = Object.assign({}, r); delete c.event; return c; }), enemies: q.enemies.filter((e) => !evR.has(e.room)), webs: q.webs.filter((w) => !evR.has(DG.roomAt(q, w.x, w.y))), events: undefined }));
+    return [strip(marked), strip(plain)]; };
+  // floors where the probe lands, laid again once every other floor of the check is laid: a floor rebuilt from its seed (as saved
+  // floors are) must be the floor first laid, with its event and without; the probe must land, or the event half proves nothing
+  const REPEAT_FLOORS = new Set(['magma 4/4', 'cave 4/3', 'campaign 3/4', 'campaign (town) 2/2']);
+  const printOf = (m) => require('crypto').createHash('sha1').update(JSON.stringify(m)).digest('hex');
   function checkEventGen(out) {
-    let floors = 0, marked = 0;
-    for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= Math.min(5, D.RUNS[mode].floors); f++) {
-      const seed = (sd * 31 + f * 1013) >>> 0, op = Object.assign({ mode, runSeed: sd }, o), tag = `events ${mode}${o.town ? ' (town)' : ''} ${sd}/${f}`;
-      const plain = bare(() => DG.genFloor(seed, f, op)), m = bare(() => DG.genFloor(seed, f, Object.assign({ events: ['probe'] }, op))), again = sd <= 2 ? bare(() => DG.genFloor(seed, f, Object.assign({ events: ['probe'] }, op))) : m;
+    let floors = 0, marked = 0; const firstPrints = new Map();
+    for (const q of eventFloors()) { const tag = `events ${q.tag}`;
+      const plain = layPlain(q), m = layProbed(q), again = q.runSeed <= 2 ? layProbed(q) : m;
       if (plain.events || plain.rooms.some((r) => r.event)) out.push(`${tag}: an event on a floor whose pool draws none`);
       if (JSON.stringify(m) !== JSON.stringify(again)) out.push(`${tag}: the same seed marks its events otherwise`);
-      const evR = new Set((m.events || []).map((e) => e.room)), strip = (q) => JSON.stringify(Object.assign({}, q, { rooms: q.rooms.map((r) => { const c = Object.assign({}, r); delete c.event; return c; }), enemies: q.enemies.filter((e) => !evR.has(e.room)), webs: q.webs.filter((w) => !evR.has(DG.roomAt(q, w.x, w.y))), events: undefined }));
-      if (strip(m) !== strip(plain)) out.push(`${tag}: marking an event moved something else on the floor`);
-      floors++; if (!m.events) continue; marked++;
+      const [strippedMarked, strippedPlain] = eventStripped(m, plain);
+      if (strippedMarked !== strippedPlain) out.push(`${tag}: marking an event moved something else on the floor`);
+      if (REPEAT_FLOORS.has(q.tag)) { if (!(m.events || []).some((e) => e.id === 'probe')) out.push(`${tag}: the probe does not land on a floor the repeat check needs it on`); firstPrints.set(q.tag, [q, printOf(plain), printOf(m)]); }
+      floors++; if (!m.events) continue; marked++; const evR = new Set(m.events.map((e) => e.room));
       const W = m.W, s = m.rooms[m.start], way = DG.wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx), sp = DG.specials(m);
       if (new Set(sp.map((q) => q.room)).size !== sp.length) out.push(`${tag}: a room with two special roles ${JSON.stringify(sp)}`);
       if (evR.size !== m.events.length) out.push(`${tag}: two events in one room`);
@@ -32,6 +44,10 @@
         if (!seen[m.exit.ty * W + m.exit.tx] && !seen[(m.exit.ty + 1) * W + m.exit.tx]) out.push(`${tag}: a prop on the ${E.id} event's spot cuts the way to the stairs`); } }
     // (0.7 since TASKS 362: a room with an elite is no treasure event's, as the elite is the room's reward)
     if (marked < floors * 0.7) out.push(`events: only ${marked} of ${floors} floors find a room for the probe`);
+    if (firstPrints.size !== REPEAT_FLOORS.size) out.push(`gen repeat: only ${firstPrints.size} of ${REPEAT_FLOORS.size} repeat floors are among the event check's floors`);
+    for (const [tag, [q, plainPrint, markedPrint]] of firstPrints) {
+      if (printOf(layPlain(q)) !== plainPrint) out.push(`gen repeat: ${tag} is laid otherwise the second time`);
+      if (printOf(layProbed(q)) !== markedPrint) out.push(`gen repeat: ${tag} with an event is laid otherwise the second time`); }
     checkTrialGen(out);
     // (TASKS 363, 364) every event the pool draws comes on its own on some floor of each run it is for
     // (12 seeds since TASKS 366: with seven events in the pool the cave's fountain fell on none of the first 6 seeds' floors)
@@ -246,26 +262,54 @@
       for (let i = 0; i < 90; i++) { R.rs = (i * 7919 + 13) | 0; E.st = 'idle'; delete E.fate; delete E.hex; SIMX.eventStart(S, R, E); n[E.fate] = (n[E.fate] || 0) + 1; }
       if (!(n.heal >= 45 && n.heal <= 75 && n.bless >= 6 && n.hex >= 6)) out.push(`fountain: 90 drinks fall ${JSON.stringify(n)}, not about two in three healing`); }
   }
-  // the goblin's table (TASKS 365) in each run: its stake set with the floor and named; with less gold the goblin asks nothing; «no»
-  // takes nothing; «yes» takes the stake and pays back none, twice or thrice by the throw, one `qevent`; it asks no more and stands
-  // in the way; a save keeps the throw. Thrown on the run's dice, the three fall about as the odds say
+  // the goblin's table (TASKS 365) in each run: its least stake set with the floor and named; with less gold the goblin asks nothing;
+  // «no» takes nothing; «yes» takes the stake and pays back none, twice or thrice by the faces thrown, one `qevent`, its line naming
+  // the faces; it asks no more and stands in the way; a save keeps the throw
   function checkDicePlay(out) {
     const P = D.EVENTS.pool.dice;
-    for (const [mode, o] of MODES) for (const [i, fate] of ['lose', 'win', 'jack'].entries()) { const tag = `goblin's table ${mode}${o.town ? ' (town)' : ''} ${fate}`, { S, R, E, key, ask } = evRun(mode, o, 'dice'), h = R && R.hero;
+    for (const [mode, o] of MODES) for (const [i, fate] of SIMX.DICE_FATES.entries()) { const tag = `goblin's table ${mode}${o.town ? ' (town)' : ''} ${fate}`, { S, R, E, key, ask } = evRun(mode, o, 'dice'), h = R && R.hero;
       if (!E) { out.push(`${tag}: no floor of 1–4 lays it asked for`); break; }
       if (E.stake !== Math.round(P.stake[0] + P.stake[1] * SIMX.dep(R))) out.push(`${tag}: its stake is ${E.stake}`);
       h.gold = E.stake - 1; key('KeyE'); if (S.screen === 'event' || h.gold !== E.stake - 1 || E.st !== 'idle') out.push(`${tag}: a hero short of the stake is asked, or loses gold`);
       h.gold = 1000; key('KeyE'); if (S.screen !== 'event') out.push(`${tag}: E with the stake in hand asks nothing (${S.screen})`); key('Enter');
       if (h.gold !== 1000 || E.st !== 'idle') out.push(`${tag}: «no» leaves ${h.gold} gold, it ${E.st}`);
-      E.fate = fate; ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
-      if (h.gold !== want || E.st !== 'done' || q.length !== 1) out.push(`${tag}: «yes» leaves ${h.gold} gold of ${want}, it ${E.st}, ${q.length} qevent`);
+      const faces = SIMX.diceFacesOf(fate); E.faces = faces.slice(); ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
+      if (h.gold !== want || E.st !== 'done' || E.fate !== fate || q.length !== 1) out.push(`${tag}: «yes» on ${faces} leaves ${h.gold} gold of ${want}, it ${E.st} ${E.fate}, ${q.length} qevent`);
+      // the exact line for these faces, and one that would read the same without them names no faces at all
+      const lineWith = (a, b) => SIMX.DICE_LINE[fate]({ a, b, n: E.stake * P.pay[i], bet: E.stake }), line = lineWith(...faces);
+      if (!R.msg || R.msg.s !== line || line === lineWith('', '')) out.push(`${tag}: the throw's line is not the ${fate} line naming ${faces} (${R.msg && R.msg.s})`);
       key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the table asks again`);
       if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the table does not stand in the way`);
-      if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.fate !== fate) out.push(`${tag}: a save forgets the throw`); } }
-    { const { S, R, E } = evRun('campaign', {}, 'dice'); if (!E) return; const n = { lose: 0, win: 0, jack: 0 };
-      for (let i = 0; i < 200; i++) { R.rs = (i * 7919 + 13) | 0; R.hero.gold = 1000; E.st = 'idle'; delete E.fate; SIMX.eventStart(S, R, E); n[E.fate]++; }
-      if (Math.abs(n.lose - 200 * P.odds[0]) > 25 || Math.abs(n.win - 200 * P.odds[1]) > 25 || n.jack < 12) out.push(`goblin's table: 200 throws fall ${JSON.stringify(n)}`); }
+      if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.fate !== fate || String(b.faces) !== String(faces)) out.push(`${tag}: a save forgets the throw`); } }
+    checkDiceRule(out); checkDiceStake(out); checkDiceShortGold(out); checkDiceThrows(out);
   }
+  // the rule on every pair of faces: a double is the jackpot, a sum of winSum or more a win, anything else a loss
+  function checkDiceRule(out) { const P = D.EVENTS.pool.dice;
+    for (let a = 1; a <= P.faces; a++) for (let b = 1; b <= P.faces; b++) { const want = a === b ? 'jack' : a + b >= P.winSum ? 'win' : 'lose';
+      if (SIMX.diceFate([a, b]) !== want) out.push(`goblin's table: ${a} and ${b} make ${SIMX.diceFate([a, b])}, the rule says ${want}`); } }
+  // the stake in the window: it opens at the least stake, ↑ raises it by that much a step up to bet.most steps and no more than the
+  // gold held, ↓ never takes it under one step, and «yes» plays the stake chosen
+  function checkDiceStake(out) { const P = D.EVENTS.pool.dice, { R, E, key } = evRun('campaign', {}, 'dice'); if (!E) return; const h = R.hero, betN = () => SIMX.eventBet(R, E).n;
+    h.gold = E.stake * (P.bet.most + 3); key('KeyE'); if (betN() !== E.stake) out.push(`goblin's table: the window opens at ${betN()}, not the least stake ${E.stake}`);
+    for (let i = 0; i < P.bet.most + 2; i++) key('ArrowUp'); if (betN() !== E.stake * P.bet.most) out.push(`goblin's table: ↑ past the top stands at ${betN()}, not ${E.stake * P.bet.most}`);
+    for (let i = 0; i < P.bet.most + 2; i++) key('ArrowDown'); if (betN() !== E.stake) out.push(`goblin's table: ↓ past the bottom stands at ${betN()}, not ${E.stake}`);
+    key('Escape'); const held = 2; h.gold = E.stake * held + 1; key('KeyE');
+    for (let i = 0; i < P.bet.most; i++) key('ArrowUp'); const top = SIMX.eventBet(R, E); if (top.n !== E.stake * held || top.top !== held) out.push(`goblin's table: with gold for ${held} steps the stake goes to ${top.n}`);
+    const g0 = h.gold; E.faces = SIMX.diceFacesOf('win'); key('ArrowLeft'); key('Enter');
+    if (h.gold !== g0 + E.stake * held * (P.pay[SIMX.DICE_FATES.indexOf('win')] - 1) || E.bet !== E.stake * held) out.push(`goblin's table: a won stake of ${held} steps leaves ${h.gold} gold of ${g0}`); }
+  // a window left open with less gold than the least stake (a reload, a load) stakes only the gold held, so a loss leaves none, never a debt
+  function checkDiceShortGold(out) { const { R, E, key } = evRun('campaign', {}, 'dice'); if (!E) return; const h = R.hero;
+    h.gold = E.stake; key('KeyE'); const short = E.stake - 1; h.gold = short; E.faces = SIMX.diceFacesOf('lose'); key('ArrowLeft'); key('Enter');
+    if (E.st !== 'done' || h.gold !== 0 || E.bet !== short) out.push(`goblin's table: a lost stake with ${short} gold of ${E.stake} leaves ${h.gold} gold, bet ${E.bet}`); }
+  // thrown on the run's dice, each die shows every face, the fate follows the faces, and the three fall about as the faces say
+  function checkDiceThrows(out) { const P = D.EVENTS.pool.dice, { S, R, E } = evRun('campaign', {}, 'dice'); if (!E) return;
+    const N = 600, n = { lose: 0, win: 0, jack: 0 }, seen = [new Set(), new Set()], odds = { lose: 0, win: 0, jack: 0 };
+    for (let a = 1; a <= P.faces; a++) for (let b = 1; b <= P.faces; b++) odds[SIMX.diceFate([a, b])] += 1 / (P.faces * P.faces);
+    for (let i = 0; i < N; i++) { R.rs = (i * 7919 + 13) | 0; R.hero.gold = 1000; E.st = 'idle'; delete E.fate; delete E.faces; SIMX.eventStart(S, R, E);
+      if (!E.faces || E.fate !== SIMX.diceFate(E.faces)) { out.push(`goblin's table: throw ${i} shows ${E.faces} for ${E.fate}`); return; }
+      E.faces.forEach((f, k) => seen[k].add(f)); n[E.fate]++; }
+    seen.forEach((s, k) => { if (s.size !== P.faces || Math.min(...s) !== 1 || Math.max(...s) !== P.faces) out.push(`goblin's table: die ${k + 1} showed only ${[...s].sort()} in ${N} throws`); });
+    const slack = 0.06 * N; for (const f of SIMX.DICE_FATES) if (Math.abs(n[f] - N * odds[f]) > slack) out.push(`goblin's table: ${N} throws fall ${JSON.stringify(n)}, the faces give ${JSON.stringify(odds)}`); }
   // the dark room (TASKS 365) in each run, its pack kept: idle until the hero steps into it, then on; off the minimap (darkMask holds
   // its box, no event mark); its pack drops twice (an elite of it two heaps of gold, one elsewhere); the last of it down ends it with
   // one `qevent`; the floor left and come back to and a save keep it done
@@ -293,8 +337,8 @@
         const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done') out.push(`${tag}: a save forgets it`); } }
   }
   // the captive (TASKS 366) in each run: a monster of his room's pack keeps the cage's key and drops it; E with no key asks nothing,
-  // «no» keeps the key; «yes» spends it and he walks out. Led along the way to the merchant (or, with none on the floor, to the spawn by
-  // the stairs up), he keeps to open floor and comes home: one `qevent`, the shop's prices down by `off` or his shards paid. A waking
+  // «no» keeps the key; «yes» spends it and he walks out. Led along the way to his first way out (the merchant, or with none on the floor
+  // the stairs up), he keeps to open floor and comes home at the first of his ways out he passes: one `qevent`, the shop's prices down by `off` or his shards paid. A waking
   // monster near him stops him, `hits` blows send him off unpaid with no `qevent`; the floor left and come back to, and a save, keep him
   function checkCaptivePlay(out) {
     const P = D.EVENTS.pool.captive, cellOf = (m, x, y) => m.cells[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
@@ -307,20 +351,20 @@
       if (E.st !== 'idle' || R.keys !== 1) out.push(`${tag}: «no» leaves it ${E.st} with ${R.keys} keys`);
       const prices = R.shop ? R.shop.goods.map((g) => g.price) : [], sh0 = R.shards; ask();
       if (E.st !== 'on' || R.keys !== 0 || E.px === undefined) { out.push(`${tag}: «yes» leaves it ${E.st} with ${R.keys} keys`); continue; }
-      if (E.goal.k !== (m.shop ? 'shop' : 'up')) out.push(`${tag}: he heads for the ${E.goal.k} on a floor ${m.shop ? 'with' : 'without'} a merchant`);
+      const goals = SIMX.captiveGoals(R), goal = goals[0]; if (goal.k !== (m.shop ? 'shop' : 'up')) out.push(`${tag}: his first way out is the ${goal.k} on a floor ${m.shop ? 'with' : 'without'} a merchant`);
       key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the open cage asks again`);
       for (const d of m.doors || []) if (!d.open && !SIMX.doorLock(m, d)) SIMX.openDoor(S, R, d, 0);
-      const W = m.W, g0 = Math.floor(E.goal.y / TILE) * W + Math.floor(E.goal.x / TILE), blk = new Set(m.block), dist = new Int32Array(W * m.H).fill(-1), q = [g0]; dist[g0] = 0;
+      const W = m.W, g0 = Math.floor(goal.y / TILE) * W + Math.floor(goal.x / TILE), blk = new Set(m.block), dist = new Int32Array(W * m.H).fill(-1), q = [g0]; dist[g0] = 0;
       for (let i = 0; i < q.length; i++) for (const dd of [1, -1, W, -W]) { const n = q[i] + dd; if (dist[n] < 0 && m.cells[n] === 1 && !blk.has(n)) { dist[n] = dist[q[i]] + 1; q.push(n); } }
       const ahead = (k0) => { let k = k0; for (let j = 0; j < 4; j++) { const nx = [1, -1, W, -W].map((dd) => k + dd).find((n) => dist[n] >= 0 && dist[n] < dist[k]); if (nx === undefined) break; k = nx; } return k; };
       h.ifr = 1e9; let off = 0, n = 0; const q0 = S.ev.length;
       for (; n < 120 * 150 && E.st === 'on'; n++) { if (n % 20 === 0) { const k = ahead(Math.floor(E.py / TILE) * W + Math.floor(E.px / TILE)); if (dist[k] >= 0) { h.x = (k % W + 0.5) * TILE; h.y = (Math.floor(k / W) + 0.5) * TILE; } }
         h.vx = h.vy = 0; R.freeze = 0; S.screen = 'play'; step(S, { keys: [] }); if (cellOf(m, E.px, E.py) !== 1) off++; }
       const qe = S.ev.slice(q0).filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'captive').length;
-      if (E.st !== 'done' || E.lost || qe !== 1) out.push(`${tag}: led to the ${E.goal.k} for ${(n / 120).toFixed(0)} s he is ${E.st}${E.lost ? ' (fled)' : ''}, ${qe} qevent, ${Math.round(Math.hypot(E.px - E.goal.x, E.py - E.goal.y))} px off it`);
+      if (E.st !== 'done' || E.lost || qe !== 1 || !E.goal || !goals.some((g) => g.k === E.goal.k)) out.push(`${tag}: led to the ${goal.k} for ${(n / 120).toFixed(0)} s he is ${E.st}${E.lost ? ' (fled)' : ''} home at the ${E.goal && E.goal.k}, ${qe} qevent, ${Math.round(Math.hypot(E.px - goal.x, E.py - goal.y))} px off it`);
       if (off) out.push(`${tag}: he stood ${off} steps off the open floor`);
-      if (E.st === 'done' && E.goal.k === 'shop' && !R.shop.goods.every((gd, i) => gd.price === Math.max(1, Math.round(prices[i] * (1 - P.off))))) out.push(`${tag}: home at the merchant's, the prices are ${R.shop.goods.map((gd) => gd.price)} of ${prices}`);
-      if (E.st === 'done' && E.goal.k === 'up' && R.shards - sh0 !== Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R))) out.push(`${tag}: home by the stairs up, he pays ${R.shards - sh0} shards`);
+      if (E.st === 'done' && E.goal && E.goal.k === 'shop' && !R.shop.goods.every((gd, i) => gd.price === Math.max(1, Math.round(prices[i] * (1 - P.off))))) out.push(`${tag}: home at the merchant's, the prices are ${R.shop.goods.map((gd) => gd.price)} of ${prices}`);
+      if (E.st === 'done' && E.goal && E.goal.k === 'up' && R.shards - sh0 !== Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R))) out.push(`${tag}: home by the stairs up, he pays ${R.shards - sh0} shards`);
       if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done') out.push(`${tag}: a save forgets him home`); } }
     { const { S, R, E, ask } = evRun('campaign', { town: 1 }, 'captive'); if (!E) return; const m = R.map, h = R.hero, f = R.floor; R.keys = 1; ask(); if (E.st !== 'on') return;
       const foe = (dx, st) => ({ id: R.nextId++, type: 'skeleton', x: E.px + dx, y: E.py, hp: 10, deadT: -1, st, vx: 0, vy: 0 });
@@ -338,6 +382,39 @@
       for (let f = 1; f <= 4 && !k; f++) { enterFloor(S, R, f, { events: ['captive'] }); k = R.en.find((e) => e.key === 'cage'); }
       if (!k) { out.push('captive: no monster keeps the cage\'s key'); return; } const d0 = R.drops.length; R.keys = 0; k.hp = 0; SIMX.killEnemy(S, R, k); const p = R.drops.slice(d0).find((q) => q.kind === 'key');
       if (!p) out.push('captive: the keeper drops no key'); else { R.en = []; R.hero.x = p.x; R.hero.y = p.y; for (let i = 0; i < 240 && !(R.keys > 0); i++) { R.freeze = 0; S.screen = 'play'; step(S, { keys: [] }); } if (R.keys !== 1) out.push('captive: the keeper\'s key is not picked up'); } }
+  }
+  // the captive's ways out in the town's run: brought to the stairs up he is home and pays his shards, brought to the merchant he
+  // takes the prices down, the same with a goal kept by an older save; brought anywhere else, the start room's middle included where
+  // it is off the stairs, he waits on
+  function checkCaptiveGoals(out) {
+    const P = D.EVENTS.pool.captive, mode = 'campaign', S = spawn(0, {}), R = S.run = newRun(S, mode, 77, { allFree: 1, town: 1 }); S.screen = 'play';
+    // (each try on a floor starts him over from his cage: the floor kept holds him home from the last one)
+    let entered = -1, arrived = null; const freeAt = (f) => { if (entered !== f) { entered = f; enterFloor(S, R, f, { events: ['captive'] }, 'down'); arrived = { x: R.hero.x, y: R.hero.y }; } R.en = []; const E = (R.events || []).find((q) => q.id === 'captive'); if (!E) return null;
+      E.st = 'idle'; delete E.lost; R.keys = 1; SIMX.eventStart(S, R, E); return E.st === 'on' ? E : null; };
+    const bringTo = (E, x, y) => { Object.assign(E, { px: x, py: y, vx: 0, vy: 0 }); R.hero.x = x; R.hero.y = y; const q0 = S.ev.length;
+      S.t += SIMX.DT; SIMX.stepEvents(S, R); return S.ev.slice(q0).filter((e) => e.k === 'qevent' && e.event === 'captive').length; };
+    const waitsAt = (where, x, y, oldGoal) => { const E = freeAt(R.floor); if (!E) return; if (oldGoal) E.goal = oldGoal; const sh0 = R.shards, qe = bringTo(E, x, y);
+      if (E.st !== 'on' || qe || R.shards !== sh0) out.push(`captive goals: brought to ${where} he is ${E.st} with ${qe} qevent`); };
+    const homeAt = (goal, oldGoal) => { const E = freeAt(R.floor), tag = `captive goals floor ${R.floor}${oldGoal ? ' (older save)' : ''}`; if (!E) { out.push(`${tag}: he does not walk out`); return; }
+      if (oldGoal) E.goal = oldGoal; const sh0 = R.shards, pr0 = R.shop ? R.shop.goods.map((g) => g.price) : [], qe = bringTo(E, goal.x, goal.y);
+      if (E.st !== 'done' || E.lost || qe !== 1 || !E.goal || E.goal.k !== goal.k) out.push(`${tag}: brought to the ${goal.k} he is ${E.st}, home at the ${E.goal && E.goal.k}, ${qe} qevent`);
+      else if (goal.k === 'up' && R.shards - sh0 !== Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R))) out.push(`${tag}: home by the stairs up, he pays ${R.shards - sh0} shards`);
+      else if (goal.k === 'shop' && !R.shop.goods.every((g, i) => g.price === Math.max(1, Math.round(pr0[i] * (1 - P.off))))) out.push(`${tag}: home at the merchant's, the prices stay ${R.shop.goods.map((g) => g.price)}`); };
+    let shopSeen = 0, upSeen = 0, startSeen = 0;
+    for (let f = 1; f <= D.RUNS[mode].floors && !(shopSeen && upSeen && startSeen); f++) { const E = freeAt(f); if (!E) continue; const m = R.map, goals = SIMX.captiveGoals(R), up = goals.find((g) => g.k === 'up'), shop = goals.find((g) => g.k === 'shop');
+      if (!m.up) { out.push(`captive goals floor ${f}: the town's run laid no stairs up`); continue; }
+      if (Math.hypot(up.x - arrived.x, up.y - arrived.y) >= P.reach) out.push(`captive goals floor ${f}: his way up is ${Math.round(Math.hypot(up.x - arrived.x, up.y - arrived.y))} px off where the hero comes down the stairs`);
+      const unlockLine = TXT(shop ? 'EVENTS.captive.go.both' : 'EVENTS.captive.go.up'); if (!R.msg || R.msg.s !== unlockLine) out.push(`captive goals floor ${f}: as he walks out he does not name ${shop ? 'both his ways out' : 'the stairs up'}`);
+      if (R.shop && !shop) out.push(`captive goals floor ${f}: the floor's merchant is not his way out`);
+      if (shop) { R.hero.x = shop.x; R.hero.y = shop.y; if (!SIMX.atCounter(R)) out.push(`captive goals floor ${f}: his way to the merchant is off the counter`); }
+      const oldUp = { k: 'up', x: m.spawn.x, y: m.spawn.y };
+      if (!upSeen) { upSeen = 1; homeAt(up); homeAt(up, oldUp); }
+      if (shop && !shopSeen) { shopSeen = 1; homeAt(shop); homeAt(shop, oldUp); }
+      waitsAt('his cage', E.x, E.y + 40);
+      if (goals.every((g) => Math.hypot(g.x - m.spawn.x, g.y - m.spawn.y) >= P.reach)) { startSeen = 1; waitsAt('the start room\'s middle', m.spawn.x, m.spawn.y); waitsAt('the start room\'s middle (older save)', m.spawn.x, m.spawn.y, oldUp); } }
+    if (!upSeen) out.push('captive goals: no floor of the town\'s run lays the captive');
+    if (!shopSeen) out.push('captive goals: no floor of the town\'s run with the captive has a merchant');
+    if (!startSeen) out.push('captive goals: no floor tried has its start room\'s middle off the stairs, so its not counting goes untested');
   }
   // the library (TASKS 368) in the town's run: a lectern on its spot that stands in the way, shelves on its back wall whose cells the
   // way fields go round, the room's open floor still one piece. E asks nothing: it opens a plain note of the floor's era in the notes'
@@ -383,15 +460,17 @@
         const r = m.rooms[d.r], y = Math.floor(d.y / TILE);
         const left = Math.floor((d.x - half) / TILE), right = Math.floor((d.x + half) / TILE);
         for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
-          if (!DG.inRm(r, cx, cy) && [1, 5, 6].includes(m.cells[cy * m.W + cx]))
+          if (!DG.inRm(r, cx, cy) && DG.isPassageCell(m.cells[cy * m.W + cx]))
             out.push(`library seed ${seed} f${floor}: a shelf overlaps the corridor at ${cx},${cy}`);
         }
       }
     }
     return out;
   }
+  Object.assign(SIMX.checks.kit, { eventFloors, layPlain, layProbed, eventStripped });
   SIMX.checks.add('eventGenCheck', checkEventGen);
   SIMX.checks.add('eventPlayCheck', checkEventPlay);
+  SIMX.checks.add('captiveGoalsCheck', checkCaptiveGoals);
   SIMX.checks.add('trialPlayCheck', checkTrialPlay);
   SIMX.checks.add('trialWaveCheck', checkTrialWaves);
   SIMX.checks.add('bloodPlayCheck', checkBloodPlay);

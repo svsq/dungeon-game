@@ -172,14 +172,14 @@
       // under it and he dropped 9 px in a frame)
       const ha = hor ? R.hero.x : R.hero.y, hb = hor ? R.hero.y : R.hero.x, onW = bridge ? SS(B0 - 10, B0 + 6, hb) * (1 - SS(B0 + BW - 6, B0 + BW + 10, hb)) * SS(A0 - 8, A0 + 10, ha) * (1 - SS(A0 + len - 10, A0 + len + 8, ha)) : 0, on = onW > 0;
       // (TASKS 490: it trembled on a clock) each footfall of his jolts it and dies away, and a rock landing on the deck shakes it
-      const hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / SIM.Q.stepLen(1)) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
+      const heroStep = SIM.Q.heroStepLen(R.hero, 1), hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / heroStep) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
       const fallR = bridge ? (m.hazards || []).filter((z) => z.k === 'fall' && D.hazClock(z, GT) < 0.7 && c.cells.some((k) => Math.hypot((k % m.W + 0.5) * T - z.x, (Math.floor(k / m.W) + 0.5) * T - z.y) < 60)) : [];
       const shake = (a) => fallR.reduce((v, z) => { const q = D.hazClock(z, GT); return v + 7 * Math.exp(-6 * q) * Math.sin(q * 38) * Math.exp(-Math.abs(a - (hor ? z.x : z.y)) / 90); }, 0);
       const dip = (a) => (on ? onW * (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
       const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) - dip(a);
       // (the sag on the grid and the step's jolt a whole 2 px apart from it, TASKS 1058: rounded together the jolt was lost)
       // (the jolt held two frames by the clock, TASKS 1162: as a share of the stride it lasted half a frame; and at most one 2 px step a frame, its end falling on a step of the sag made 4)
-      const stride = hs * SIM.Q.stepLen(1) / Math.max(1, Math.hypot(R.hero.vx, R.hero.vy));
+      const stride = hs * heroStep / Math.max(1, Math.hypot(R.hero.vx, R.hero.vy));
       if (on) { const tgt = ev2((lift - z(ha) - onW * foot * Math.sin(Math.PI * Math.max(0, Math.min(1, (ha - A0) / len)))) * onW) + (onW > 0.5 && stride < 2.5 / 60 ? 2 : 0); const dt = GT - (DECK.at ?? -9), same = onW > 0.5 && dt >= 0 && dt < 0.05 && Math.hypot(R.hero.x - DECK.hx, R.hero.y - DECK.hy) < 24; DECK.dy = same ? DECK.last + Math.max(-2, Math.min(2, tgt - DECK.last)) : tgt; Object.assign(DECK, { last: DECK.dy, tgt, at: GT, hx: R.hero.x, hy: R.hero.y }); }   // (the last frame's drop kept apart, TASKS 1164: dy is zeroed every frame and stepping from it held the hero 12 px over the deck)
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
@@ -263,7 +263,7 @@
       if (!vis((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 260)) continue;
       if (c.lava && c.kind === 'slabs') { basaltSlabs(c); continue; }
       if (c.lava && c.kind === 'arch') { stoneArch(c); continue; }
-      if (c.look === 'stones' || (c.kind === 'bridge' && !c.lava && !c.chasm && !DUNGEON.bridgeLands(m, c, wetSet, dryCrossings))) { fordStones(c); continue; }
+      if (SIM.Q.crossingOnStones(m, c)) { fordStones(c); continue; }
       planks(c, bandX); }
     // a strand of moss hanging from the lip of a rock face, one art pixel wide: dark at its root, yellow-green at its tip, a leaf
     // pixel now and then to either side; it sways more the lower it hangs. Painted strands drawn this small melted into the rock
@@ -619,10 +619,26 @@
     // standing lights (TASKS 194): their fires ride the prop when it is knocked
     m.decor.forEach((d, i) => { const S0 = STAND[d.n]; if (!S0 || !vis(d.x, d.y) || !known(d.x, d.y) || hid(d)) return; const j = jig('d' + i), col = d.n === 'torch_stand' ? torchCol(m, d) : CANDLE;
       Y.push([d.y + 1, () => flames(S0.map(([ox, up, w, hh], k) => [sx(d.x) + ox + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(d.y) + 4 - up, w, hh, col, d.x + 7 * k]))]); });
-    for (const cap of Object.values(R.captives || {})) { if (cap.x === undefined || R.floor !== D.CAPTIVES[cap.who].f || R.town || !vis(cap.x, cap.y)) continue; const X = sx(cap.x), Y0 = sy(cap.y), out = !!(R.freed && R.freed[cap.who]), look = Math.max(-1, Math.min(1, (h.x - cap.x) / 120));
-      if (!out && cap.who !== 'merchant') drawFolkRig({ i: 90 + cap.who.length, y: cap.y - 1, dist: 0, vx: 0, vy: 0 }, null, 'town_' + cap.who, X + 5, Y0 - 6, 64, look < 0 ? -1 : 1, GT, Y, {});
-      Y.push([cap.y, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); if (!out && cap.who === 'merchant') L.inked(() => MONSTERS.merchant({ id: 'captive', x: X + 5, y: Y0 - 6, H: 64, t: GT, look, near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
-        drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]); }
+    // a captive's height in view px; the merchant's hop on his run (its height and the run's px per hop) and the dust of it and of his going
+    const CAPTIVE_H = 64, CAPTIVE_HOP = { h: 5, stride: 34, dust: 10, dustCol: [0.42, 0.36, 0.3], dustA: 0.35, puffs: 4, puffGap: 12, puffUp: 16 };
+    // a captive's figure: the townsfolk rig walking by `run` (his distance and heading), or the merchant's own figure, whose rig has
+    // no legs to walk on, hopping along with dust at his feet
+    const captiveFigure = (cap, X, Yg, ySort, face, run, look = face) => {
+      const f = { i: 90 + cap.who.length, y: ySort, dist: run ? run.dist : 0, vx: run ? run.vx : 0, vy: run ? run.vy : 0 };
+      if (cap.who !== 'merchant') { drawFolkRig(f, null, 'town_' + cap.who, X, Yg, CAPTIVE_H, face, GT, Y, {}); return; }
+      const hop = run ? CAPTIVE_HOP.h * Math.abs(Math.sin(run.dist / CAPTIVE_HOP.stride * Math.PI)) : 0;
+      Y.push([ySort, () => { L.inked(() => MONSTERS.merchant({ id: 'captive', x: X, y: Yg - hop, H: CAPTIVE_H, t: GT, look: run ? face : look, near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+        if (run) L.puff(X, Yg - 2, CAPTIVE_HOP.dust, CAPTIVE_HOP.dustCol, CAPTIVE_HOP.dustA, 7); }]); };
+    // a captive in his cage; freed, he stands by it while he talks with the hero, then runs off along his path and is gone at its end
+    // in a puff of dust
+    for (const cap of Object.values(R.captives || {})) { if (cap.x === undefined || R.floor !== D.CAPTIVES[cap.who].f || R.town) continue; const out = !!(R.freed && R.freed[cap.who]);
+      const run = out && cap.flee ? D.captiveFleeAt(cap.flee, GT - cap.flee.t) : null, here = !out || cap.talk;
+      if (run && vis(run.x, run.y)) { if (!run.done) captiveFigure(cap, sx(run.x), sy(run.y), run.y, run.vx < 0 ? -1 : 1, run);
+        else if (run.over < D.CAPTIVE_FLEE.puff) { const q = run.over / D.CAPTIVE_FLEE.puff, X = sx(run.x), Yp = sy(run.y);
+          Y.push([run.y, () => { for (let j = 0; j < CAPTIVE_HOP.puffs; j++) L.puff(X + (j - (CAPTIVE_HOP.puffs - 1) / 2) * CAPTIVE_HOP.puffGap, Yp - CAPTIVE_HOP.puffUp * (1 + q), CAPTIVE_HOP.dust * (1 + q), CAPTIVE_HOP.dustCol, CAPTIVE_HOP.dustA * (1 - q), 41 + j); }]); } }
+      if (!vis(cap.x, cap.y)) continue; const X = sx(cap.x), Y0 = sy(cap.y), look = Math.max(-1, Math.min(1, (h.x - cap.x) / 120));
+      if (here) captiveFigure(cap, X + 5, Y0 - 6, cap.y - 1, look < 0 ? -1 : 1, null, look);
+      Y.push([cap.y, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]); }
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
@@ -680,8 +696,10 @@
           L.glow(X, wy, W * 0.42, [0.35, 0.75, 0.85], (on ? 0.16 : 0.08) + 0.03 * Math.sin(t * 2.3), 2.2);
           for (let j = 0; j < 3; j++) { const q = (t * 0.6 + j / 3) % 1; L.ring(X, wy, 6 + 30 * q, 3 + 11 * q, [0.7, 0.92, 1], (on ? 0.5 : 0.3) * (1 - q), 0.14); }
           L.solid(X - 2, wy - 3 - 2 * Math.abs(Math.sin(t * 7)), 4, 4, [0.85, 0.97, 1], 0, 0, 0, on ? 0.8 : 0.5); }]); } }
+    // the dice before a throw, and on a table thrown in a save made before the throws kept their faces
+    const DICE_IDLE_FACES = [3, 5], DICE_FACES_BEFORE_THROWS = { lose: [1, 2], win: [4, 5], jack: [6, 6] };
     // the goblin's table (TASKS 365): the goblin stands at its left corner, at his station facing it, a heap of coins and two dice on
-    // its top; the dice show the throw once it is made. The goblin is the monsters' rig, standing still; its own art is TASKS 2023
+    // its top; the dice show the faces thrown once the throw is made. The goblin is the monsters' rig, standing still; its own art is TASKS 2023
     for (const E of R.events || []) { if (E.id !== 'dice' || !vis(E.x, E.y)) continue; const k = 1.25, [tw, th] = SZ('table'), gH = SZ('en_goblin')[1], face = 1;
       Y.push([E.y - 6, () => { const X = sx(E.x) - 50, Yg = sy(E.y) - 6;
         L.shadow(X, Yg + 2, 0.24 * gH, 6, 0.45);
@@ -689,7 +707,7 @@
       Y.push([E.y, () => { const X = sx(E.x), Yb = sy(E.y) + 10, top = Yb - th * k * 0.78, [cw, ch] = SZ('dc_coins'), ck = 30 / Math.max(cw, ch);
         L.shadow(X, Yb, tw * k * 0.42, 8, 0.5); drawProp('table', X, Yb, { k });
         L.sprite('dc_coins', X - 24, top - ch * ck / 2, { w: cw * ck, h: ch * ck });
-        const pips = { lose: [1, 2], win: [4, 5], jack: [6, 6] }[E.st === 'done' && E.fate] || [3, 5];
+        const pips = E.st !== 'done' ? DICE_IDLE_FACES : E.faces || DICE_FACES_BEFORE_THROWS[E.fate] || DICE_IDLE_FACES;
         pips.forEach((n, i) => { const dx = X + 6 + i * 16, dy = top - 4 + i * 4; L.rrect(dx - 7, dy - 7, 14, 14, 2, [0.93, 0.88, 0.76], [0.74, 0.68, 0.56]);
           const P = { 1: [[0, 0]], 2: [[-3, -3], [3, 3]], 3: [[-3, -3], [0, 0], [3, 3]], 4: [[-3, -3], [3, -3], [-3, 3], [3, 3]], 5: [[-3, -3], [3, -3], [0, 0], [-3, 3], [3, 3]], 6: [[-3, -3], [3, -3], [-3, 0], [3, 0], [-3, 3], [3, 3]] }[n];
           for (const [px, py] of P) L.solid(dx + px - 1, dy + py - 1, 2, 2, n === 1 ? [0.6, 0.08, 0.06] : [0.12, 0.08, 0.06]); }); }]); }
@@ -736,7 +754,7 @@
       L.shadow(sx(h.x), sy(h.y) + 2 + DECK.dy, 20, 6, 0.85);
       // the cry's ring rolls out on the floor, under the hero (TASKS 1183: over him it cut his chest and head), when the shout comes
       if (h.castK === 'cry' && GT - h.castT > 0.14 && GT - h.castT < 0.74) { const a = GT - h.castT, x0 = Math.min(1, (a - 0.14) / 0.4), q = 1 - (1 - x0) ** 2, r = D.CRY.r * q; for (const k of [1, 0.8]) L.ring(sx(h.x), sy(h.y), r * k, r * k / 1.3, [1, 0.3, 0.12], (k === 1 ? 1 : 0.6) * (1 - SS(0.34, 0.74, a)), 0.12); }
-      if (!h.qaHide && GT >= h.dashT && GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
+      if (!h.qaHide && GT >= h.dashT && GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { events: ST.ev, alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
       // on the magma caves the hero keeps a dark outline the lava's light can't lift and a lit edge toward the lava, so he never melts
       // into it or the warm ground (TASKS 404); elsewhere as before. The edge lies on his own last pixel inside the ink (TASKS 2002: over
       // the ink, past a dark gap, it read as a selection outline)
@@ -744,7 +762,7 @@
       // (the rounding has a dead band, TASKS 1624: a direction hovering at a step's edge flipped the offset every other frame, 336 ↔ 432 px of rim)
       const rimStep = (v, last) => (Math.abs(2 * v - last) < 1.4 ? last : 2 * Math.round(v)), rimX = (HERO_RIM.x = rimStep(lv ? 2 * lv.dx / hn : 0, HERO_RIM.x)), rimY = (HERO_RIM.y = rimStep(lv ? 2 * lv.dy * 1.25 / hn : 0, HERO_RIM.y));
       const heroRim = lv && lv.k > 0.05 ? { dx: rimX, dy: rimY, col: [1, 0.6, 0.22].map((v) => v * SS(0.05, 0.28, lv.k)), box: [2 * Math.round((sx(h.x) - 130) / 2), 2 * Math.round((sy(h.y) - 160) / 2), 260, 210], inside: true } : null;
-      if (!SC.hide.hero && !h.qaHide) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
+      if (!SC.hide.hero && !h.qaHide) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { events: ST.ev, cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
       const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);
       if (caveW && h.deadT < 0 && !dryCrossings.has(heroCell) && SIM.Q.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(heroCell)) {

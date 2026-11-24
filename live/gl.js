@@ -110,9 +110,12 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   // G.onReady(name, ms, how): a program checked, ms from its compile's start; how: 'start' (G.settle), 'bg' (G.pump, G.want) or
   // 'demand' (drawn before it was ready, so waited for on the spot)
   G.onReady = null;
+  // a program the driver could not build: the page tells it apart from any other failure of a frame (the video card is to blame only here)
+  class ProgramError extends Error {}
+  G.ProgramError = ProgramError;
   const finish = (P, how) => { const { p, sh, name } = P; unchecked.delete(P);
-    for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(name + ': ' + gl.getShaderInfoLog(s));
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(name + ': ' + gl.getProgramInfoLog(p));
+    for (const s of sh) if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new ProgramError(name + ': ' + gl.getShaderInfoLog(s));
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new ProgramError(name + ': ' + gl.getProgramInfoLog(p));
     const loc = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const u = gl.getActiveUniform(p, i); loc[u.name.replace('[0]', '')] = { l: gl.getUniformLocation(p, u.name), type: u.type }; }
     P.loc = loc; P.sh = null; if (G.onReady) G.onReady(name, performance.now() - P.t0, how); };

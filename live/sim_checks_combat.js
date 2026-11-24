@@ -43,12 +43,13 @@
       return R.trauma;
     };
     R.en = [];
-    if (volley(1, 0) !== 0.2) out.push('fireball shake: an isolated blast loses its original pulse');
+    const FS = D.FIRE_SHAKE;
+    if (volley(1, 0) !== FS.add) out.push('fireball shake: an isolated blast loses its original pulse');
     const [x, y] = SIMX.hand(h), e = { id: R.nextId++, type: 'skeleton', x: x + 16, y: y + 24,
       hp: 1e6, max: 1e6, deadT: -1, st: 'chase', kbx: 0, kby: 0 };
     R.en = [e];
     const peak = volley(8, 0);
-    if (peak > 0.36 || peak <= 0.2 || e.hp >= e.max) out.push(`fireball shake: an eight-shot blast on a target gives ${peak} trauma and ${e.max - e.hp} damage`);
+    if (peak > FS.cap || peak <= FS.add || e.hp >= e.max) out.push(`fireball shake: an eight-shot blast on a target gives ${peak} trauma and ${e.max - e.hp} damage`);
     if (volley(8, 0.7) !== 0.7) out.push('fireball shake: a volley interferes with stronger preexisting trauma');
     return out;
   }
@@ -368,31 +369,89 @@
       const R = S.run, h = R.hero, sh = R.map.shop; R.en = []; h.x = sh.front.x; h.y = sh.front.y; step(S, { keys: ['KeyE'] });
       if (S.screen !== 'shop') out.push('E at the counter does not open the shop');
       else { const U = UI.shop(R.shop.goods.length), at = (id) => { const b = U.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
-        const g = R.shop.goods[0], n0 = R.shop.goods.length; h.gold = g.price - 1; step(S, at('buy:0'));
+        const rarity = (id) => D.RARITY.findIndex((entry) => entry.id === id);
+        const epic = rarity('epic'), rare = rarity('rare'), legendary = rarity('legendary');
+        const g = R.shop.goods.find((q) => !q.n && (q.it.rar || 0) < epic); if (!g) throw new Error('shop check: the stock holds no good below epic to buy');
+        const n0 = R.shop.goods.length, gi = R.shop.goods.indexOf(g); h.gold = g.price - 1; step(S, at('buy:' + gi));
         if (R.shop.goods.length !== n0 || h.gold !== g.price - 1) out.push('a buy went through without enough gold');
-        h.gold = g.price + 5; step(S, at('buy:0'));
+        h.gold = g.price + 5; step(S, at('buy:' + gi));
         if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('a buy did not take its price or did not land in the bag');
-        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); if (D.BASES[g.it.b].slot) h.eq[D.BASES[g.it.b].slot] = Object.assign({}, g.it); step(S, at('sell:' + i));
+        const i = h.bag.findIndex((b) => b && b.id === g.it.id), pr = D.sellPrice(g.it, R.floor); step(S, at('sell:' + i));
         if (h.gold !== 5 + pr || h.bag[i] || !R.shop.back.some((q) => q.it.id === g.it.id && q.price === pr)) out.push('a sale did not pay or did not reach the buy-back row');
         step(S, at('back:0')); if (h.gold !== 5 || !h.bag.some((b) => b && b.id === g.it.id)) out.push('buying back a sold item failed');
         for (let k = 0; k < 24; k++) h.bag[k] = Object.assign(rollItem(R, 1, 0), { id: 70000 + k });
         const cg = R.shop.goods.find((q) => q.n); h.gold = 1e6; const c0 = cg.n; step(S, at('buy:' + R.shop.goods.indexOf(cg)));
         if (h.gold !== 1e6 || cg.n !== c0) out.push('a buy into a full bag took the gold');
-        // TASKS 1863 г, в, д, 1978: a legendary asks first; «Оставить» and Esc keep it with the shop open, «Продать» sells it; the right
-        // button sells as the left does, I leaves the shop open
-        const SA = UI.sellAsk(), sa = (id) => { const b = SA.r.find((q) => q.id === id); return { px: b.x + 5, py: b.y + 5, click: 1, keys: [] }; };
-        h.bag[0] = Object.assign({}, h.eq.weapon, { id: 71000, lvl: h.eq.weapon.lvl + 1, rar: 0 }); const g0 = h.gold; step(S, at('sell:0')); if (!h.bag[0] || h.gold !== g0) out.push('shop: an upgrade is sold on one press');
-        if (!S.sellAsk) out.push('shop: an upgrade sale does not ask');
-        step(S, sa('sellNo')); if (S.sellAsk || !h.bag[0] || h.gold !== g0) out.push('shop: «Оставить» does not keep the legendary');
-        step(S, at('sell:0')); step(S, { keys: ['Escape'] }); if (S.sellAsk || S.screen !== 'shop' || !h.bag[0]) out.push('shop: Esc on the sale\'s question does not just close the question');
-        step(S, at('sell:0')); step(S, sa('sellYes')); if (S.sellAsk || (h.bag[0] && h.bag[0].id === 71000)) out.push('shop: «Продать» does not sell the legendary');
-        if (S.focus !== 'sell:0' || h.bag[0]) out.push('shop: focus does not return to the emptied sale cell');
+        const cell = 'sell:0', lowerLevel = 3, wornLevel = 5, higherLevel = wornLevel + 1;
+        const equipped = itemPower({ b: 'sword', lvl: wornLevel, rar: legendary, mods: { vit: 5 } });
+        h.eq.weapon = equipped;
+        const mixed = itemPower({ b: equipped.b, lvl: lowerLevel, rar: epic, mods: { hp: 60 } });
+        const stronger = itemPower({ b: equipped.b, lvl: higherLevel, rar: epic, mods: { atk: 30, vit: 10 } });
+        const wornAmulet = { b: 'amulet', lvl: 2, rar: epic, mods: { def: 2 } };
+        h.eq.amulet = wornAmulet;
+        h.eq.ring = null;
+        const ringForEmptySlot = { ...stronger, b: 'ring' };
+        const betterAmulet = { ...wornAmulet, lvl: wornAmulet.lvl + 1, mods: { ...wornAmulet.mods, atk: 8 } };
+        const allGreen = [1, 1, 1], greenWithTwoRed = [1, -1, -1], attackOnly = [0, 1, 0];
+        const checkTotals = (label, item, expected) => {
+          const directions = SIMX.equipmentComparison(h, S.meta, D.BASES[item.b].slot, item).map(({ direction }) => direction);
+          if (directions.join() !== expected.join()) out.push('shop: unexpected total directions for ' + label);
+        };
+        const trySale = (label, candidate, confirm) => {
+          const item = { ...candidate, id: R.nextId++ }, gold = h.gold;
+          h.bag[0] = item;
+          step(S, at(cell));
+          if (confirm) {
+            if (!S.sellAsk || h.bag[0] !== item || h.gold !== gold) out.push('shop: expected sale confirmation for ' + label);
+          } else if (S.sellAsk || h.bag[0]) out.push('shop: expected immediate sale for ' + label);
+          return item;
+        };
+        const upgrade = 'higher level, all totals green';
+        checkTotals(upgrade, stronger, allGreen);
+        const saleCases = [
+          ['other class', itemPower({ ...stronger, b: 'staff' }), allGreen],
+          ['below epic', itemPower({ ...stronger, rar: rare }), allGreen],
+          ['epic level 3 vs legendary level 5, one total green', mixed, greenWithTwoRed],
+          ['higher level, two totals red', itemPower({ ...mixed, lvl: higherLevel }), greenWithTwoRed],
+          ['higher level, one total red and one green', { ...betterAmulet, mods: { atk: betterAmulet.mods.atk } }, [0, 1, -1]],
+          ['higher level, unchanged defense', { ...stronger, mods: { ...mixed.mods, atk: stronger.mods.atk, vit: equipped.mods.vit } }, [1, 1, 0], true],
+          ['epic amulet level 3 vs epic level 2, only attack green', betterAmulet, attackOnly, true],
+          ['empty slot, epic ring', ringForEmptySlot, allGreen, true],
+          ['empty slot, rare ring', { ...ringForEmptySlot, rar: rare }, allGreen],
+          ['equal level, only attack green', { ...betterAmulet, lvl: wornAmulet.lvl }, attackOnly],
+          ['equal level, all totals green', itemPower({ ...stronger, lvl: wornLevel }), allGreen],
+          ['lower level, all totals green', itemPower({ ...stronger, lvl: lowerLevel }), allGreen],
+          ['higher level, all totals unchanged', { ...equipped, lvl: higherLevel }, [0, 0, 0]],
+        ];
+        for (const [label, item, expected, confirm = false] of saleCases) {
+          checkTotals(label, item, expected);
+          trySale(label, item, confirm);
+          if (S.sellAsk) step(S, { keys: ['Escape'] });
+        }
+        const SA = UI.sellAsk(), sa = (id) => {
+          const button = SA.r.find((entry) => entry.id === id);
+          return { px: button.x + button.w / 2, py: button.y + button.h / 2, click: 1, keys: [] };
+        };
+        const outcomes = [
+          [sa('sellNo'), false],
+          [{ ...sa('sellNo'), click: 0, keys: ['Escape'] }, false],
+          [sa('sellYes'), true],
+        ];
+        for (const [input, sold] of outcomes) {
+          const gold = h.gold, item = trySale(upgrade, stronger, true), price = D.sellPrice(item, SIMX.tradeDepth(R));
+          step(S, input);
+          if (S.sellAsk || S.screen !== 'shop' || h.bag[0] !== (sold ? null : item) || h.gold !== gold + (sold ? price : 0)) {
+            out.push('shop: incorrect outcome when closing the sale question');
+          }
+          step(S, { px: input.px, py: input.py, moved: false, keys: [] });
+          if (S.focus !== cell || S.hover !== cell) out.push('shop: focus does not stay on the original cell after ' + (sold ? 'sale' : 'decline'));
+        }
         { const U2 = UI.shop(R.shop.goods.length, h.bag.length), A = SA.A, inA = (b) => b.x >= A.x && b.y >= A.y && b.x + b.w <= A.x + A.w && b.y + b.h <= A.y + A.h;
           const hit = (a, b) => Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) && Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y), parts = [SA.cell, SA.q, ...SA.r];
           if (!parts.every(inA)) out.push('shop: the sale\'s question leaves its sheet');
           if (parts.some((a, i) => parts.some((b, j) => j > i && hit(a, b)))) out.push('shop: the sale\'s question, its cell or its buttons overlap');
           if (U2.r.some((b) => (b.id === 'talk' || b.id === 'close') && hit(b, A))) out.push('shop: the sale\'s question sits over the merchant\'s buttons'); }
-        h.bag[1] = Object.assign({}, h.eq.weapon, { id: 71001, rar: 4 }); step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell an equivalent legendary');
+        h.bag[1] = { ...equipped, id: R.nextId++ }; step(S, Object.assign(at('sell:1'), { click: 0, rclick: 1 })); if (h.bag[1]) out.push('shop: the right button does not sell an equivalent legendary');
         step(S, { keys: ['KeyI'] }); if (S.screen !== 'shop') out.push('shop: I closes it, only E and Esc should');
         step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('Esc does not close the shop'); } }
     // a jam in a two-cell corridor (TASKS 151): monsters queued behind the ones at the hero don't stand still for long, they leave;
@@ -752,4 +811,16 @@
   SIMX.checks.add('hazardCheck', hazardCheck, { slow: true });
   SIMX.checks.add('heroDeathCheck', heroDeathCheck);
   SIMX.checks.add('aspdCheck', aspdCheck);
+  // every prop of the breakable registry is struck alike by a blow (hitProps) and stops a bolt (boltPropAt) while it stands, and
+  // neither once broken; a bolt passes a plain prop of the same place
+  function breakableCheck() { const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 41); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, GAP = 40, BOLT_R = 4, BLOW_R = 30;
+    R.en = []; R.pots = []; const at = { x: h.x + GAP, y: h.y };
+    for (const n of Object.keys(SIMX.BREAKABLE)) { const sec = { open: 0 }, d = { n, x: at.x, y: at.y, solid: 1 }; if (!SIMX.BREAKABLE[n].of(m, d)) { m.secrets = (m.secrets || []).concat(sec); d.secret = m.secrets.length - 1; }
+      m.decor = m.decor.filter((o) => !(Math.hypot(o.x - at.x, o.y - at.y) < 3 * GAP)).concat(d); const i = m.decor.indexOf(d);
+      if (!SIMX.breakable(m, d) || !SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push(`breakable: a standing ${n} does not stop a bolt`);
+      S.ev = []; R.propHit = {}; hitProps(S, R, h.x, h.y, BLOW_R + GAP); if (!S.ev.some((e) => e.k === 'prop' && e.i === 'd' + i)) out.push(`breakable: a blow does not strike a standing ${n}`);
+      d.broken = 1; if (SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push(`breakable: a broken ${n} still stops a bolt`);
+      d.n = 'statue'; delete d.broken; if (SIMX.boltPropAt(R, at.x, at.y, BOLT_R)) out.push('breakable: a bolt stops on a prop that does not break'); m.decor.splice(i, 1); }
+    return out; }
+  SIMX.checks.add('breakableCheck', breakableCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

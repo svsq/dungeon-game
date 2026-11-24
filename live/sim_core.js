@@ -28,6 +28,12 @@
   const ev = (S, e) => { e.t = S.t;
     S.ev.push(e); if (!(S.run && S.run.test) && META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log) note(S, e); };
+  // a message that has to wait (behind a chapter banner or a talk window) queues on R.msgNext through .next: each one shows once
+  // the one before it has had its full time on screen, so a later one never overwrites one still waiting
+  const MSG_SHOWN_FOR = 3.5;
+  const queueMsg = (R, M) => { let q = R.msgNext; if (!q) { R.msgNext = M; return; } while (q.next) q = q.next; q.next = M; };
+  const msgChain = (R) => { const out = []; for (let q = R.msgNext; q; q = q.next) out.push(q); return out; };
+  const showQueuedMsg = (S, R) => { const M = R.msgNext; R.msgNext = M.next || null; delete M.next; M.t = Math.max(M.t, S.t); R.msg = M; if (R.msgNext) R.msgNext.t = Math.max(R.msgNext.t, M.t + (M.d || MSG_SHOWN_FOR)); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
   // reads the depth, the run's own floor numbers only place its bosses, guards and end
@@ -133,10 +139,27 @@
   // a skeleton mage's ball of water (TASKS 311) slows the hero it soaks for a while
   const ORB = ENEMIES.skel_mage.orb, soaked = (S, h) => S.t < (h.slowT ?? -9);
   const gooAt = (m, o) => (m.goo || []).find((g) => g.rNow > 4 && Math.abs(o.x - g.x) < g.rNow && Math.abs(o.y - g.y) < g.rNow * 0.6);
-  // feet box against the grid, axis by axis (slides along walls); the middles of its front and back edges too, or a body wider
-  // than a two-cell wall (the boss) straddles it with its corners on both sides
-  const boxHit = (m, x, y, r, mon, lavaOk) => solidAt(m, x - r, y - r * 0.6, mon, lavaOk) || solidAt(m, x + r, y - r * 0.6, mon, lavaOk) || solidAt(m, x - r, y + r * 0.4, mon, lavaOk) || solidAt(m, x + r, y + r * 0.4, mon, lavaOk)
-    || solidAt(m, x, y - r * 0.6, mon, lavaOk) || solidAt(m, x, y + r * 0.4, mon, lavaOk);
+  const WALL_PROP_SPANS = new WeakMap();
+  function backWallPropHit(m, left, top, right, bottom) {
+    let wallProps = WALL_PROP_SPANS.get(m);
+    const revision = rev(m);
+    if (!wallProps || wallProps.revision !== revision) {
+      wallProps = { revision, rows: DG.backWallPropSpans(m) };
+      WALL_PROP_SPANS.set(m, wallProps);
+    }
+    for (let y = Math.floor(top / TILE); y <= Math.floor(bottom / TILE); y++) {
+      if (wallProps.rows[y]?.some(([lo, hi, base]) => left < hi && right > lo && top < base)) return true;
+    }
+    return false;
+  }
+  // Include the middles of the front and back edges so a body wider than a two-cell wall cannot straddle it.
+  function boxHit(m, x, y, r, mon, lavaOk) {
+    const left = x - r, right = x + r, top = y - r * 0.6, bottom = y + r * 0.4;
+    return solidAt(m, left, top, mon, lavaOk) || solidAt(m, right, top, mon, lavaOk) ||
+      solidAt(m, left, bottom, mon, lavaOk) || solidAt(m, right, bottom, mon, lavaOk) ||
+      solidAt(m, x, top, mon, lavaOk) || solidAt(m, x, bottom, mon, lavaOk) ||
+      (!mon && backWallPropHit(m, left, top, right, bottom));
+  }
   function move(m, o, dx, dy, r, mon, lavaOk = (!mon && !m.cliff) || onLava(m, o)) {
     // steps of at most 8 px: the boss's roar shoved the hero 150 px in one move, through a shut door (TASKS 219)
     const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 8);
@@ -157,10 +180,11 @@
     return [bx, by];
   }
   // out of solid props (feet ellipse against each prop's circle), through move() so the push never lands in a wall
+  const FEET_SQUASH = 1.6, inSolid = (x, y, r, s) => { const rr = s.r + r, dx = x - s.x, dy = (y - s.y) * FEET_SQUASH; return dx * dx + dy * dy < rr * rr; };
   function shove(m, o, r, mon, sol) {
-    for (const s of sol) { const rr = s.r + r; let dx = o.x - s.x; if (dx >= rr || dx <= -rr) continue; let dy = (o.y - s.y) * 1.6; if (dy >= rr || dy <= -rr) continue; let d = Math.hypot(dx, dy); if (d >= rr) continue;
+    for (const s of sol) { const rr = s.r + r; let dx = o.x - s.x; if (dx >= rr || dx <= -rr) continue; let dy = (o.y - s.y) * FEET_SQUASH; if (dy >= rr || dy <= -rr) continue; let d = Math.hypot(dx, dy); if (d >= rr) continue;
       if (d < 0.01) { dx = 0; dy = d = 1; }
-      move(m, o, s.x + dx / d * rr - o.x, s.y + dy / d * rr / 1.6 - o.y, r, mon); }
+      move(m, o, s.x + dx / d * rr - o.x, s.y + dy / d * rr / FEET_SQUASH - o.y, r, mon); }
   }
   // a point blocks the line only if the wall is there both at it and 8 px up: two actors hugging the same wall can still reach
   // each other along its face, and a line through a wall still crosses a whole blocked cell
@@ -297,8 +321,8 @@
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, VIEW, VIEW_H, viewFor, setView, uiDy,
-    zoomOf, WIN, toPx, K, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
+    zoomOf, WIN, toPx, K, EEL_MOUTH, rnd, ri, pick, ev, queueMsg, msgChain, showQueuedMsg, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
-    brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
+    brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, inSolid, solidC, pinch,
     losClear, overLava, doorLock, doorTwin, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });
 })(typeof window !== 'undefined' ? window : globalThis);

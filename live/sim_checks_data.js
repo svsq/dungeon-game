@@ -25,6 +25,14 @@
     for (const M of D.META) take('META', M.id, M.name);
     for (const G of D.GIFTS) if (!G.power) take('GIFTS', G.id, G.name);
   }
+  // the death screen's count to the next discovery: the cheapest one still for sale, nothing once it is affordable or all are open
+  function unlockShortfallCheck(out) {
+    const forSale = D.UNLOCKS.filter((U) => U.cost), cheapest = forSale.reduce((a, U) => (U.cost < a.cost ? U : a)), allOpen = Object.fromEntries(D.UNLOCKS.map((U) => [U.id, 1]));
+    const cases = [[{ shards: 0 }, cheapest.cost], [{ shards: cheapest.cost - 1 }, 1], [{ shards: cheapest.cost }, 0], [{ shards: 0, open: allOpen }, 0],
+      [{ shards: 0, open: { [cheapest.id]: 1 } }, Math.min(...forSale.filter((U) => U.id !== cheapest.id).map((U) => U.cost))]];
+    for (const [meta, want] of cases) { const got = D.nextUnlockShortfall(meta); if (got !== want) out.push(`data: nextUnlockShortfall(${JSON.stringify(meta)}) is ${got}, not ${want}`); }
+  }
   SIMX.checks.add('dataIdsCheck', idsCheck);
   SIMX.checks.add('dataNamesCheck', namesCheck);
+  SIMX.checks.add('unlockShortfallCheck', unlockShortfallCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

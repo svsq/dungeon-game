@@ -5,8 +5,12 @@
     interact, K, newQuest, newRun, offerOf, persist, questMark, railLen, REWARD, rollItem, runCompletion, spawn, startRun, stats, step, stockShop, takeQuest,
     TILE, tradeDepth, turnIn, UI } = SIMX;
   const { noWelcome, noQuests } = SIMX.checks.kit;
+  // no heap of rubble lies on the way to the soul altar, within this many cells of it (the author, 23.11.2026)
+  const RUBBLE_ALTAR_CLEAR = 3;
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+    { const m = DG.genTown(31), altar = m.decor.find((d) => d.n === 'altar');
+      for (const r of m.decor.filter((d) => d.role === 'rubble')) if (altar && Math.hypot(r.x - altar.x, r.y - altar.y) < RUBBLE_ALTAR_CLEAR * TILE) out.push(`town: a heap of rubble lies by the soul altar at ${Math.round(r.x)},${Math.round(r.y)}`); }
     for (let sd = 1; sd <= 8; sd++) { const m = DG.genTown(sd * 977), go = (k) => m.cells[k] === 1, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
       const seen = new Uint8Array(m.W * m.H), q = [at(m.spawn)]; seen[q[0]] = 1;
       for (let i = 0; i < q.length; i++) for (const d of [1, -1, m.W, -m.W]) { const n = q[i] + d; if (!seen[n] && go(n)) { seen[n] = 1; q.push(n); } }
@@ -171,18 +175,19 @@
   // TASKS 1015: the townsfolk over two minutes of a town with the hero out of the way: the walkers make their whole rounds on open
   // floor and never pass through each other, the porter lifts and sets down his crate, the anvil rings; walked up to, a townsperson
   // speaks a pair of lines, turns to the hero and a walker stops; every role's lines are pairs
+  const HEN_GAP_SLACK = 1;
   function folkCheck() {
     const out = [];
     for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 64))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
     for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
-      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0;
+      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0, henGap = Infinity;
       for (let i = 0; i < 120 * 120; i++) { const t0 = S.t; step(S, { keys: [] }); rings += S.ev.filter((e) => e.k === 'anvil' && e.t > t0).length;
         for (const f of F) { if ((!f.go || f.role === 'porter') && f.way >= 0) stops[f.i].add(f.way); stuck[f.i] = Math.max(stuck[f.i], f.stuck); henWalk[f.i] = f.dist;
           if (f.role === 'hen' && R.grain && S.t - R.grain.t < 6 && Math.hypot(f.x - R.grain.x, f.y - R.grain.y) < 24) fed = 1;
           if (f.role === 'porter') { loads.add(f.load); if (f.lift && lifts[lifts.length - 1]?.t !== f.t0) lifts.push({ k: f.lift, t: f.t0 });
             const st = m.town.npcs[f.i].route[f.way]; if (!f.go && st.act && f.t0 === S.t && !f.lift) empty++; } if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
-          for (const o of F) if (o.i > f.i) close = Math.min(close, Math.hypot(o.x - f.x, (o.y - f.y) * 1.4) / (folkR(o) + folkR(f))); } }
+          for (const o of F) if (o.i > f.i) { close = Math.min(close, Math.hypot(o.x - f.x, (o.y - f.y) * 1.4) / (folkR(o) + folkR(f))); if (f.role === 'hen' && o.role === 'hen') henGap = Math.min(henGap, Math.hypot(o.x - f.x, o.y - f.y)); } } }
       for (const f of F) { const n = m.town.npcs[f.i]; if (n.route && stops[f.i].size < n.route.length) out.push(`folk ${sd}: the ${f.role} reaches ${stops[f.i].size} of ${n.route.length} stops in two minutes`); }
       if (close < 0.8) out.push(`folk ${sd}: two townsfolk pass through each other (${close.toFixed(2)} of their radii)`);
       if (off) out.push(`folk ${sd}: a walker steps off the open floor ${off} times`);
@@ -197,6 +202,8 @@
       const hens = F.filter((f) => f.role === 'hen');
       for (const f of hens) if (henWalk[f.i] < 40) out.push(`folk ${sd}: a hen walks ${henWalk[f.i].toFixed(0)} px in two minutes`);
       if (!fed) out.push(`folk ${sd}: no hen comes to the child's grain`);
+      // the hens keep a sprite's width apart (a step's slack under it)
+      if (henGap < SIMX.HEN_APART - HEN_GAP_SLACK) out.push(`folk ${sd}: two hens come ${henGap.toFixed(1)} px apart, under ${SIMX.HEN_APART}`);
       { const q = hens[0], R0 = q.x; h.x = q.x - 40; h.y = q.y; for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (q.x - R0 < 15) out.push(`folk ${sd}: a hen does not scatter from the hero`); h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; }
       if (rings < 40) out.push(`folk ${sd}: the anvil rings ${rings} times in two minutes`);
       const smith = F.find((f) => f.role === 'smith'); h.x = smith.x - 50; h.y = smith.y + 10; const t0 = S.t; step(S, { keys: [] });
@@ -279,6 +286,12 @@
     const p1 = read(); if (p1[0] !== K.first[0] || S.screen !== 'play') out.push('talk: no first meeting, or the last page does not close the dialogue');
     talkTo(R, 'keeper'); const p2 = read(); if (!D.FOLK.keeper.lines.some((l) => l[0] === p2[0])) out.push('talk: with nothing new the Keeper does not fall back on his idle lines');
     endRun(S, 'dead'); R = run(32); talkTo(R, 'keeper'); const p3 = read(); if (p3[0] !== K.death1[0]) out.push('talk: the first death is not spoken of');
+    // the first death that ends a run is the first, however many falls of the normal mode came before it (they count in meta.deaths)
+    { const S4 = spawn(0, {}), FALLS = 3; S4.run = newRun(S4, 'campaign', 33, { town: 1, deathMode: 'hard' }); S4.meta.deaths = FALLS; S4.meta.stats = Object.assign(S4.meta.stats || {}, { mode: { normal: { deaths: FALLS } } });
+      endRun(S4, 'dead'); if (S4.meta.endDeaths !== 1) out.push(`talk: a first hardcore death after ${FALLS} normal falls counts as death ${S4.meta.endDeaths}`); }
+    // a meta saved before the count of run-ending deaths has only meta.deaths: its first death is still told as the first
+    { const S5 = spawn(0, {}); S5.run = newRun(S5, 'campaign', 34, { town: 1 }); Object.assign(S5.meta, { deaths: 1, lastEnd: 'dead', endTold: 0, keeperMet: 1 }); delete S5.meta.endDeaths;
+      if (!SIMX.keeperPages(S5, S5.run).includes(K.death1[0])) out.push('talk: a meta of an old save does not get the first death told'); }
     R.bossN = 1; R.lastBoss = 'boss_spider'; R.legend = 'Кольцо Бездны'; R.deepest = 6; enterFloor(S, R, 0, undefined, 'up'); talkTo(R, 'keeper'); const p4 = read();
     if (!p4.includes(K.boss(ENEMIES.boss_spider.name)[0]) || !p4.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: a boss or a legendary is not spoken of');
     if (p4.includes(K.away[0])) out.push('talk: the long time below is told beside the boss slain, who already greets the hero back');
@@ -499,7 +512,7 @@
           worst = Math.max(worst, Math.abs(r[0] * u[1] - r[1] * u[0]) / l); } }
       if (!on) out.push(`cart: ${n} is never shown on a straight diagonal of the rails`);
       if (worst > 1) out.push(`cart: a near wheel of ${n} stands ${worst.toFixed(2)} px off the near rail on the diagonal`); }
-    // TASKS 2122: the change of view is a cross-fade of C.fade px of rails, 0.15-0.2 s at the top speed; at every s of the run the view more
+    // TASKS 2122: the change of view is a cross-fade of C.fade px of rails, 0.25-0.35 s at the top speed; at every s of the run the view more
     // than half shown has its wheels (the front one's slabs, the 3/4 one's near wheels) within a pixel of a drawn rail's axis; across the
     // fade the track's middle its wheels stand over, by each painting's alpha, moves no more than 3 px a 3 px step of s (the travel itself
     // is 2.8) and the box's top over the ground no more than 4 px a 1 px step (one frame threw it 13 px aside)
@@ -542,9 +555,28 @@
       const enter = SIMX.enterFloor, deaths = S.meta.deaths || 0, floor = R.floor;
       try { SIMX.enterFloor = (state, run) => { run.msg = { s: TXT('sim_floor.enterFail.town'), t: state.t, d: 4 }; return false; }; SIMX.heroFell(S); }
       finally { SIMX.enterFloor = enter; }
-      if (h.deadT < 0 || h.hp !== 0 || h.xp !== XP || R.floor !== floor || (S.meta.deaths || 0) !== deaths || !R.msg || R.msg.s !== TXT('sim_floor.enterFail.town')) out.push('death mode: failed town entry changes the dead hero or hides the error');
-      const fail = S.fellFailed; S.t = h.deadT + 2; step(S, { keys: [] }); if (S.fellFailed !== fail || h.deadT < 0) out.push('death mode: failed town entry retries automatically');
-      SIMX.heroFell(S); if (!R.town || h.deadT !== -1 || h.xp !== XP - Math.min(XP, Math.round(D.xpNeed(h.lvl) * D.BAL.deathXpLoss))) out.push('death mode: retry after failed town entry does not revive once'); }
+      if (h.deadT < 0 || h.hp !== 0 || h.xp !== XP || R.floor !== floor || (S.meta.deaths || 0) !== deaths) out.push('death mode: failed town entry changes the dead hero');
+      const hint = SIMX.fellRetryHint(), shown = (state) => SIMX.fellRetryShown(state, state.run);
+      if (!R.fellFailed || !shown(S)) out.push('death mode: failed town entry does not flag the run or show the retry hint');
+      if (SIMX.messageText(hint, true) !== TXT('sim_ui.fell.retry@pad') || SIMX.FELL_RETRY_KEYS.some((key) => !SIMX.messageText(hint, false).includes(SIMX.FELL_RETRY_KEY_NAMES[key]()))) out.push('death mode: the retry hint does not follow the input method or name every retry key');
+      S.t = h.deadT + 2; step(S, { keys: [] }); if (!R.fellFailed || h.deadT < 0) out.push('death mode: failed town entry retries without a key');
+      S.t += 60; R.msg = { s: 'other', t: S.t, d: 1 }; step(S, { keys: [] }); S.t += 60; step(S, { keys: [] });
+      if (!shown(S)) out.push('death mode: the retry hint goes away while the hero is dead or under another message');
+      const T = spawn(1, JSON.parse(JSON.stringify(persist(S)))); SIMX.loadSlot(T, T.slot); const R2 = T.run, h2 = R2.hero; R2.holdT = -1; R2.greet = null;
+      if (!R2.fellFailed || h2.deadT < 0 || !shown(T)) out.push('death mode: the failed-entry hint does not survive save, load and resume');
+      let tries = 0; const failing = (fn) => { try { SIMX.enterFloor = () => { tries++; return false; }; fn(); } finally { SIMX.enterFloor = enter; } };
+      failing(() => { for (let i = 0; i < 5; i++) step(T, { keys: [], press: 1 }); });
+      if (tries || !R2.fellFailed || h2.deadT < 0) out.push('death mode: a held mouse button retries');
+      failing(() => step(T, { keys: ['Space'] }));
+      if (tries !== 1 || !R2.fellFailed || h2.deadT < 0 || !shown(T)) out.push('death mode: a retry key that fails again revives the hero or loses the hint');
+      failing(() => { step(T, { keys: [], press: 1, click: 1 }); for (let i = 0; i < 3; i++) step(T, { keys: [], press: 1 }); });
+      if (tries !== 2 || !R2.fellFailed || h2.deadT < 0) out.push('death mode: a mouse click that fails again retries more than once or revives the hero');
+      const atk = h2.atkN; step(T, { keys: [], press: 1, click: 1 });
+      if (R2.fellFailed || !R2.town || h2.deadT !== -1) out.push('death mode: the retry click does not take the hero to the town');
+      if (h2.xp !== XP - Math.min(XP, Math.round(D.xpNeed(h2.lvl) * D.BAL.deathXpLoss))) out.push('death mode: retry after failed town entry does not revive once');
+      R2.holdT = -1; R2.greet = null; for (let i = 0; i < 20; i++) step(T, { keys: [], press: 1 });
+      if (h2.atkN !== atk) out.push('death mode: the retry click goes on into an attack in the town');
+      step(T, { keys: [] }); step(T, { keys: [], press: 1 }); if (h2.atkN === atk) out.push('death mode: a fresh press in the town does not attack after the retry'); }
     { const [S, R] = fresh('hard'); enterFloor(S, R, 1); die(S, R);
       if (S.run || S.screen !== 'dead') out.push(`death mode: a hardcore death leaves the screen ${S.screen} and the run ${!!S.run}`);
       if (!S.result || S.result.deathMode !== 'hard') out.push(`death mode: a hardcore run's result records the mode ${S.result && S.result.deathMode}`);
@@ -571,17 +603,27 @@
         step(S, { keys: [] }); S.focus = 'go'; step(S, { keys: ['Enter'] });
         if (!S.run || S.run.deathMode !== 'normal') out.push(`death mode: the run started after the checkbox plays ${S.run && S.run.deathMode}`); } }
     if (!bossF) { out.push('death mode: the campaign has no boss floor'); return out; }
-    { const [S, R] = fresh('normal'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]);
-      R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 1; die(S, R); enterFloor(S, R, bossF); const b2 = R.en.find((e) => D.BOSSES[e.type]);
-      if ((R.arena && R.arena.active) || !b2 || b2.hp !== b2.max || b2.deadT >= 0) out.push('death mode: a boss fight the hero fell in is still on, or the boss not whole, when he comes back'); }
+    // every kind of boss: the hero falls while its move is half done (in the wind-up and as it strikes), behind its barrier, its webs
+    // on the floor; back on its floor the fight starts over with the boss as it was laid, no move, barrier or web of that fight left
+    for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const kind = D.stageOf('campaign', f).boss; if (!kind) continue;
+      for (const st of ['bwind', 'strike']) { const tag = `death mode: ${kind} on floor ${f} called off in ${st}`, [S, R] = fresh('normal'); enterFloor(S, R, f); const b = R.en.find((e) => D.BOSSES[e.type]);
+        if (!b) { out.push(`${tag}: no boss`); continue; }
+        R.arena = { active: 1, room: b.room, t0: S.t }; const mv = D.bossPhase(b).moves[0];
+        Object.assign(b, { hp: 1, st, mv, t0: S.t, fired: 1, hitDone: 1, chain: 1, shove: 1, nextMove: mv, moveI: 3, phase: D.BOSSES[kind].phases.length - 1, shield: 10, shieldUntil: S.t + 60, shieldT: S.t, x: b.hx + TILE, y: b.hy });
+        (R.map.webs = R.map.webs || []).push({ x: b.x, y: b.y, v: 0, s: 1, f: 0, torn: 0, boss: b.id }); die(S, R); enterFloor(S, R, f); const b2 = R.en.find((e) => D.BOSSES[e.type]);
+        const left = b2 ? SIMX.BOSS_FIGHT_FIELDS.filter((k) => b2[k] !== undefined) : [];
+        if ((R.arena && R.arena.active) || !b2 || b2.hp !== b2.max || b2.deadT >= 0 || b2.st !== 'idle' || b2.phase !== 0 || b2.moveI !== 0 || b2.x !== b2.hx || b2.y !== b2.hy || left.length) out.push(`${tag}: the fight is still on, or the boss is not as laid (${left.join(', ')})`);
+        if ((R.map.webs || []).some((w) => w.boss === (b2 || b).id)) out.push(`${tag}: its webs stay on the floor`); } }
     const [S, R] = fresh('hard'); enterFloor(S, R, bossF); const b = R.en.find((e) => D.BOSSES[e.type]); R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIMX.killEnemy(S, R, b);
     if (!(R.slain || []).includes(bossF)) { out.push(`death mode: the boss of floor ${bossF} leaves the hero's run no slain floor (${JSON.stringify(R.slain)})`); return out; }
     if (JSON.stringify(S.meta.portals || []) !== '[]') out.push(`death mode: a boss slain writes a hall into the meta (${JSON.stringify(S.meta.portals)})`);
-    // 2213: the hall is the hero's own: the run keeps it through a save, and a new run (a new hero) of the same player has none
-    const [S3, R3] = fresh('normal'); R3.slain = [bossF]; const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S3))));
+    // the hall is the hero's own: the run keeps it through a save (its slain floors restored with it and read by the ring), and a new
+    // run (a new hero) of the same player has none
+    const [S3, R3] = fresh('normal'); R3.slain = [bossF]; const S2 = spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S3)))), kept = S2.saved;
+    if (!kept || JSON.stringify(kept.slain) !== JSON.stringify([bossF])) out.push(`death mode: a save keeps the slain floors ${JSON.stringify(kept && kept.slain)}, not [${bossF}]`);
     S2.meta.portals = [bossF];
     if (SIMX.gateWays(fresh('normal', S2)[1], S2).length || SIMX.gateWays(fresh('hard', S2)[1], S2).length) out.push('death mode: a new run opens a hall for a boss the hero has not slain (an old meta.portals included)');
-    const [, R2] = [0, fresh('normal', S2)[1]]; R2.slain = [bossF]; const o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
+    const R2 = kept || fresh('normal', S2)[1]; S2.run = R2; S2.saved = null; S2.screen = 'play'; const o = SIMX.gateWays(R2, S2), go = o.find((q) => q.k === 'boss' && q.f === bossF);
     if (!go || o.some((q) => q.k !== 'boss')) out.push(`death mode: a normal run that slew the boss has the ring offering ${JSON.stringify(o)}`);
     // TASKS 2111: a portal keeps its origin for its label (none in an old save = the scroll's); one left by an open hall's gate is
     // that hall's way twice, so the ring hides it, and going by the hall closes it
@@ -599,7 +641,58 @@
     { const [S3, R3] = fresh('hard', S2); if (SIMX.gateWays(R3, S3).length) out.push(`death mode: a hardcore run's ring offers ${JSON.stringify(SIMX.gateWays(R3, S3))}`); }
     return out;
   }
+  // open floor of the town the hero's body cannot reach from the spawn (the sim's own collision: walls by boxHit, the still solids by
+  // their feet ellipses; the townsfolk and the cart move, so they are left out) must be a pocket the walk grid cannot reach either,
+  // walled off by solid props' own cells, or lie under a solid prop's picture. A cell the walk grid reaches and the body does not is
+  // a gap that looks open and is too narrow to pass
+  const TOWN_REACH = { seeds: 8, step: 4, near: 2, pictureHalfWidth: 0.45, pictureHalfHeight: 0.5, footBelow: 8, pictureRoles: ['bench', 'exit_gate'] };
+  function townReachCheck() {
+    const out = [], Q = TOWN_REACH, G = Q.step, SIZES = require('./sandbox.cjs').sizes(), size = (d) => SIZES[d.alt || d.n] || [0, 0];
+    for (let sd = 1; sd <= Q.seeds; sd++) {
+      const S = spawn(0, {}), R = newRun(S, 'campaign', sd, { town: 1 }), m = R.map, W = m.W, H = m.H, still = SIMX.solids({ ...R, folk: [], cart: null });
+      const blocked = (x, y) => SIMX.boxHit(m, x, y, K.R, false, true) || still.some((o) => SIMX.inSolid(x, y, K.R, o));
+      const GW = Math.ceil(W * TILE / G), GH = Math.ceil(H * TILE / G), body = new Uint8Array(GW * GH), start = [Math.round(R.hero.x / G), Math.round(R.hero.y / G)], q = [start];
+      body[start[1] * GW + start[0]] = 1;
+      while (q.length) { const [a, b] = q.pop(); for (const [i, j] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const u = a + i, v = b + j, k = v * GW + u;
+        if (u < 0 || v < 0 || u >= GW || v >= GH || body[k]) continue; body[k] = 2; if (!blocked(u * G, v * G)) { body[k] = 1; q.push([u, v]); } } }
+      const bodyReaches = (tx, ty) => { const cx = Math.round((tx + 0.5) * TILE / G), cy = Math.round((ty + 0.5) * TILE / G);
+        for (let j = -Q.near; j <= Q.near; j++) for (let i = -Q.near; i <= Q.near; i++) if (body[(cy + j) * GW + cx + i] === 1) return true; return false; };
+      const ok = DG.townWalk(m), grid = new Uint8Array(W * H), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE), flood = [cellOf(R.hero)];
+      grid[flood[0]] = 1;
+      for (let i = 0; i < flood.length; i++) for (const d of [1, -1, W, -W]) { const n = flood[i] + d; if (!grid[n] && ok[n]) { grid[n] = 1; flood.push(n); } }
+      const pictures = m.decor.filter((d) => d.solid || Q.pictureRoles.includes(d.role));
+      const underPicture = (x, y) => pictures.some((d) => { const [w, h] = size(d), k = d.s || 1; return Math.abs(x - d.x) < w * k * Q.pictureHalfWidth && y < d.y + Q.footBelow && y > d.y - h * k * Q.pictureHalfHeight; });
+      const shut = [];
+      for (let k = 0; k < W * H; k++) { const tx = k % W, ty = Math.floor(k / W);
+        if (grid[k] && !bodyReaches(tx, ty) && !underPicture((tx + 0.5) * TILE, (ty + 0.5) * TILE)) shut.push([tx, ty]); }
+      if (shut.length) out.push(`town reach ${sd}: ${shut.length} open cells look reachable but the hero's body cannot get there ${JSON.stringify(shut)}`); }
+    return out;
+  }
+  // a robed townsperson struck by the hero cowers: drawn in the pose the flinch makes of its work pose, its shoulders and head sink
+  // (y down) from where they stand in that work pose, and before the blow and after the flinch there is no flinch
+  function robedFlinchCheck(out) {
+    const { MONSTERS: monsterDraw, L } = require('./sandbox.cjs').monsterStage(D), F = D.FOLK_FLINCH, H = 80, KEYS = ['shL', 'shR', 'head'], WORK = { lift: 1, headR: 0.05 };
+    const at = (n, robe) => { const J = {}; L.joint = (id, k, p) => { J[k] = p; }; monsterDraw.robed({ id: 'q', n, x: 300, y: 300, H, t: 0, face: 1, U: {}, lift: robe.lift, headR: robe.headR }); return J; };
+    for (const age of [-0.1, F.time]) if (D.folkFlinchAt(age).k !== 0) out.push(`robed flinch: a flinch ${age} s from the blow`);
+    const hit = D.folkFlinchAt(F.time / 2);
+    for (const n of ['town_enchanter', 'town_sweeper']) { const rest = at(n, WORK), struck = at(n, D.robeFlinched(WORK, hit));
+      for (const k of KEYS) if (!rest[k] || !struck[k]) out.push(`robed flinch: ${n} draws no ${k}`); else if (!(struck[k][1] > rest[k][1])) out.push(`robed flinch: ${n}'s ${k} goes up ${(rest[k][1] - struck[k][1]).toFixed(2)} px on a blow`); }
+  }
+  // a walking sweeper's broom is ahead as each shoe plants: at the step phase where a shoe stands forward-most against the root, the
+  // sweep is at least AHEAD of its reach forward
+  function broomStepCheck(out) {
+    const { MONSTERS: monsterDraw, L } = require('./sandbox.cjs').monsterStage(D), n = 'town_sweeper', H = 75, N = 64, AHEAD = 0.9, st = monsterDraw.robeStride(n, H);
+    if (!st) { out.push('broom step: the sweeper has no robe stride'); return; }
+    const best = { ankleL: [-Infinity, 0], ankleR: [-Infinity, 0] };
+    for (let k = 0; k < N; k++) { const d = k * st / N, J = {}; L.joint = (id, q, p) => { J[q] = p; }; monsterDraw.robed({ id: 'q', n, x: 300, y: 300, H, t: 0, face: 1, U: {}, dist: d, vx: 20, vy: 0 });
+      for (const a of Object.keys(best)) { if (!J[a]) continue; if (J[a][0] - 300 > best[a][0]) best[a] = [J[a][0] - 300, d]; } }
+    for (const [a, [x, d]] of Object.entries(best)) { if (x === -Infinity) { out.push(`broom step: the sweeper draws no ${a}`); continue; }
+      const q = D.walkSweepAt(monsterDraw.robePhase(n, H, d)); if (q < AHEAD) out.push(`broom step: as the ${a === 'ankleL' ? 'far' : 'near'} shoe plants the broom stands at ${q.toFixed(2)} of its sweep (≥ ${AHEAD})`); }
+  }
   SIMX.checks.add('townCheck', townCheck);
+  SIMX.checks.add('robedFlinchCheck', robedFlinchCheck);
+  SIMX.checks.add('broomStepCheck', broomStepCheck);
+  SIMX.checks.add('townReachCheck', townReachCheck, { slow: true });
   SIMX.checks.add('deathModeCheck', deathModeCheck);
   SIMX.checks.add('folkHoldCheck', folkHoldCheck);
   SIMX.checks.add('cartCheck', cartCheck);

@@ -176,13 +176,18 @@
       if (news && (T.pages[T.pages.length - 1] !== D.KEEPER.away[D.KEEPER.away.length - 1] || !T.pages.includes(D.KEEPER.first[0]))) out.push('quest turn-in: the Keeper\'s news is not what the button\'s page tells');
       for (let i = 0; i < 8 && S.screen === 'talk' && q.st !== 'turned'; i++) { if (said()) { out.push('quest turn-in: the ' + role + ' says it before the button'); break; } step(S, { keys: ['KeyE'] }); }
       if (q.st !== 'turned' || S.screen !== 'talk' || !said()) out.push('quest turn-in: the ' + role + ' does not say it once pressed');
-      else if (!S.talk.pages.some((p) => p.includes(root.SIMX.rwLine(q.rw)))) out.push('quest turn-in: the ' + role + ' gives no reward once pressed' + (news ? ' (with news)' : '')); step(S, { keys: ['Escape'] }); }
+      else if (!S.talk.got || S.talk.got.rw !== root.SIMX.rwLine(q.rw)) out.push('quest turn-in: the ' + role + ' gives no reward once pressed' + (news ? ' (with news)' : '')); step(S, { keys: ['Escape'] }); }
     // TASKS 2103: the first board of a run with the smith still caged holds no offer of his or the Keeper's and shows an optional quest
     for (const sd of OFFER_SEEDS) { const R3 = newRun(S, 'campaign', sd, { town: 1 }), L3 = offersOf(R3), shown = boardOffers(R3).filter((o) => !o.of.q.story);
       if (L3.some((o) => o.from === 'keeper' || (R3.captives || {})[o.from])) out.push('quest give: seed ' + sd + ' deals an offer to a caged giver or the Keeper');
       if (!shown.length) out.push('quest give: seed ' + sd + ' shows no optional quest on the first board'); }
     // TASKS 1026: a boss slain deals a batch of offers more, to townsmen with none waiting; T reads the scroll on a floor
     R = run(93); const o0 = offersOf(R).length; R.bossN = 1; if (offersOf(R).length !== o0) out.push('quest give: a read of the offers deals a batch'); SIMX.dealOffers(R); const o1 = offersOf(R); if (o1.length <= o0 || o1.slice(o0).some((o) => o1.slice(0, o0).some((p) => p.from === o.from && !p.q))) out.push('quest give: no fresh batch of offers after a boss');
+    // an old save's untaken offer of the Keeper's or of a still caged smith is dropped on load, a taken one kept; the next deal may give
+    // the freed giver an offer again
+    { const Z = newRun(S, 'campaign', 94, { town: 1 }), taken = { key: 'cull', from: 'smith', q: 777 }; Z.offers = [{ key: 'fetch', from: 'keeper', q: 0 }, { key: 'room', from: 'smith', q: 0 }, taken, ...offersOf(Z)];
+      const T = spawn(1, JSON.parse(JSON.stringify(persist(Object.assign(spawn(0, {}), { run: Z }))))), L = T.saved ? offersOf(T.saved) : [];
+      if (!T.saved || L.some((o) => !o.q && (o.from === 'keeper' || o.from === 'smith')) || !L.some((o) => o.q === taken.q)) out.push(`quest give: an old save keeps the stale offers ${JSON.stringify(L)}`); }
     enterFloor(S, R, 1); S.screen = 'play'; R.en = []; step(S, { keys: [] }); step(S, { keys: ['KeyT'] }); if (!R.hero.read) out.push('scroll: T does not read the scroll of return');
     // the journal (TASKS 1023): J opens it over play, lists the run's quests done first, a click picks one, J closes it
     R = run(91); R.quests = []; const a = takeQuest(S, R, newQuest(R, 'cull', 2, 'smith')), b2 = takeQuest(S, R, newQuest(R, 'descent', 3, 'porter')); b2.st = 'done';
@@ -216,7 +221,8 @@
     const P = JSON.parse(JSON.stringify(persist(S))); if (!P.run.quests || P.run.quests.length !== 4 || JSON.stringify(P.run.quests).length > 2000) out.push('quest: the quests do not travel in the save, or bloat it');
     return out;
   }
-  // town_game_r10 1: every quest ready for a giver goes in with one press, told on one page with what they paid together; on the first
+  // town_game_r10 1: every quest ready for a giver goes in with one press, told on one page, what they paid together in the talk's
+  // reward block (got) on that page and not in the words; on the first
   // board of a few seeds (all taken, all done) each giver with a ? is settled by the one press, his talk opened beside him
   function turnAllCheck() {
     const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; S.meta.keeperMet = 1; return S.run; };
@@ -227,14 +233,16 @@
       if (mine().length) out.push(`turn-in all: ${tag}: ${mine().length} of the ${role}'s ${n0} quests left after the press`);
       if (presses > pages) out.push(`turn-in all: ${tag}: the ${role} took ${presses} presses on ${pages} pages`);
       if (questMark(R, role) === '?') out.push(`turn-in all: ${tag}: the ? stays over the ${role}`);
-      const told = S.screen === 'talk' ? S.talk.pages : []; if (n0 > 1 && !told.some((p) => R.quests.filter((q) => q.from === role).every((q) => p.includes('«' + D.QUESTS[q.key].name + '»')))) out.push(`turn-in all: ${tag}: no page names all ${n0} quests of the ${role}`);
+      const told = S.screen === 'talk' ? S.talk.pages : []; if (n0 > 1 && !told.some((p) => R.quests.filter((q) => q.from === role).every((q) => p.includes('«' + D.questName(q) + '»')))) out.push(`turn-in all: ${tag}: no page names all ${n0} quests of the ${role}`);
       for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); };
     // three quests of one giver: one press, one page with the three names and the summed reward
     { const R = run(41); R.offers = []; R.quests = []; const L = ['cull', 'named', 'fetch'].map((k) => { const q = takeQuest(S, R, newQuest(R, k, 2, 'porter')); q.st = 'done'; q.n = q.need; return q; });
-      const xp0 = R.hero.xp, g0 = R.hero.gold, T = talkTo(R, 'porter'); if (!T || !T.act || T.act.k !== 'turn' || T.pages.length !== 1) out.push(`turn-in all: three of the porter's quests wait behind ${T ? T.pages.length : 0} pages`);
+      const g0 = R.hero.gold, T = talkTo(R, 'porter'); if (!T || !T.act || T.act.k !== 'turn' || T.pages.length !== 1) out.push(`turn-in all: three of the porter's quests wait behind ${T ? T.pages.length : 0} pages`);
       step(S, { keys: ['KeyE'] }); if (L.some((q) => q.st !== 'turned')) out.push('turn-in all: one press does not turn in all three quests');
       const P = S.talk ? S.talk.pages : [], gold = L.reduce((a, q) => a + (q.rw.gold || 0), 0), xp = L.reduce((a, q) => a + (q.rw.xp || 0), 0);
-      if (!P.some((p) => L.every((q) => p.includes(D.QUESTS[q.key].name)) && p.includes(SIMX.rwLine({ gold, xp })))) out.push(`turn-in all: no page names the three quests with their summed reward (${JSON.stringify(P)})`);
+      const got = S.talk && S.talk.got, sum = SIMX.rwLine({ gold, xp });
+      if (!P.some((p) => L.every((q) => p.includes(D.questName(q))))) out.push(`turn-in all: no page names the three quests (${JSON.stringify(P)})`);
+      if (!got || !got.rw.includes(sum) || got.pages < 1 || !SIMX.talkGotShown(S.talk) || !SIMX.talkGotShown(JSON.parse(JSON.stringify(S.talk))) || P.some((p) => p.includes(got.rw))) out.push(`turn-in all: the summed reward ${sum} is not in its own block (${JSON.stringify(got && { rw: got.rw, pages: got.pages })})`);
       if (P.length > 1) out.push(`turn-in all: the porter's three quests are told on ${P.length} pages`);
       if (R.hero.gold - g0 !== gold) out.push(`turn-in all: ${R.hero.gold - g0} gold paid, not ${gold}`);
       for (let i = 0; i < 4 && S.screen !== 'play'; i++) step(S, { keys: ['Escape'] }); }
@@ -246,6 +254,48 @@
       if (R.quests.some((q) => q.st === 'done')) out.push(`turn-in all: seed ${sd} leaves ${R.quests.filter((q) => q.st === 'done').length} quests undone after a press at each giver`); }
     return out; }
   SIMX.checks.add('turnAllCheck', turnAllCheck);
+  // every boss quest of a run's story chain has a name of its own, none the plain template's, so the journal tells them apart
+  function bossQuestNamesCheck() { const out = [];
+    for (const mode of Object.keys(D.RUNS)) { const L = D.storyChain(mode).filter((c) => D.QUESTS[c.key].type === 'boss'), names = L.map((c) => D.questName(c));
+      if (new Set(names).size !== names.length) out.push(`boss quests: ${mode} repeats a name (${names.join(', ')})`);
+      L.forEach((c, i) => { if (names[i] === D.QUESTS[c.key].name) out.push(`boss quests: ${mode}'s boss of floor ${c.f} has no name of its own`); }); }
+    return out; }
+  SIMX.checks.add('bossQuestNamesCheck', bossQuestNamesCheck);
+  // each of the three captives, freed, says his thanks in the talk window and stays by his cage while it is up; closed, he runs off
+  // toward the floor's way up along a path that starts at his cage and gets nearer the start, and is done by its end
+  // longer than any message stays on screen, so a message raised behind the talk window would be gone by its close
+  const LONG_TALK = 10;
+  // a town run on the captive's floor with his cage up, his rescue quest in hand and the hero by the cage: { R, C, rescue } or the reason it cannot be
+  function captiveAtCage(S, who) { const X = root.SIMX, R = S.run = newRun(S, 'campaign', 84, { town: 1 }), C0 = D.CAPTIVES[who]; S.screen = 'play'; enterFloor(S, R, C0.f); const C = R.captives[who];
+    if (C0.boss) { const b = R.en.find((e) => D.BOSSES[e.type]); if (!b) return { fail: `no boss on floor ${C0.f} for the ${who}` }; X.captiveBoss(S, R, b); }
+    if (C.x === undefined) return { fail: `no cage for the ${who}` };
+    const rescueKey = Object.keys(D.QUESTS).find((k) => D.QUESTS[k].type === 'free' && D.QUESTS[k].who === who), rescue = (R.quests || []).find((q) => q.key === rescueKey) || newQuest(R, rescueKey, C0.f, 'keeper');
+    if (!(R.quests = R.quests || []).includes(rescue)) R.quests.push(rescue);
+    R.en = []; R.hero.x = C.x + 40; R.hero.y = C.y + 30; return { R, C, rescue }; }
+  function captiveTalkCheck() { const out = [], S = spawn(0, {}), X = root.SIMX;
+    for (const who of Object.keys(D.CAPTIVES)) { const C0 = D.CAPTIVES[who], { R, C, rescue, fail } = captiveAtCage(S, who); if (fail) { out.push(`captive talk: ${fail}`); continue; }
+      X.interact(S, R);
+      if (S.screen !== 'talk' || !S.talk || S.talk.role !== who || S.talk.pages[0] !== C0.free) { out.push(`captive talk: freeing the ${who} opens ${S.screen}, not his talk`); continue; }
+      for (let i = 0; i < 30; i++) step(S, { keys: [] }); if (!C.talk || C.flee) out.push(`captive talk: the ${who} leaves while he talks`);
+      S.t += LONG_TALK; step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
+      if (rescue.st !== 'done' || !R.msg || R.msg.s !== TXT('sim_town.questOn.msg.s', { name: D.questName(rescue) }) || S.t - R.msg.t >= (R.msg.d || 0)) out.push(`captive talk: the ${who}'s rescue quest is not shown done once his talk is closed`);
+      const F = C.flee; if (!F || C.talk || F.path.length < 3) { out.push(`captive talk: the ${who} does not run off once the talk is closed (${F ? F.path.length : 0} points)`); continue; }
+      const m = R.map, field = X.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), at = ([x, y]) => field[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
+      if (F.path[0][0] !== C.x || F.path[0][1] !== C.y || !(at(F.path[F.path.length - 1]) < at(F.path[1]))) out.push(`captive talk: the ${who}'s way off does not start at his cage and lead toward the way up`);
+      const t0 = D.captiveFleeAt(F, 0), t1 = D.captiveFleeAt(F, 1), end = D.captiveFleeAt(F, 1e3);
+      if (t0.done || Math.hypot(t0.x - C.x, t0.y - C.y) > 0.5 || Math.hypot(t1.x - C.x, t1.y - C.y) < D.CAPTIVE_FLEE.speed / 2 || !end.done) out.push(`captive talk: the ${who} does not run along his way and reach its end`); }
+    return out; }
+  SIMX.checks.add('captiveTalkCheck', captiveTalkCheck);
+  // a message already waiting when a captive is freed (a chapter banner's follower) keeps its turn: it shows first, the rescue done after it
+  function captiveMsgQueueCheck() { const out = [], S = spawn(0, {}), X = root.SIMX, who = Object.keys(D.CAPTIVES)[0], { R, rescue, fail } = captiveAtCage(S, who);
+    if (fail) return [`captive message queue: ${fail}`];
+    const waiting = { s: 'waiting', t: S.t, d: 1 }, doneText = TXT('sim_town.questOn.msg.s', { name: D.questName(rescue) }); R.msgNext = waiting; X.interact(S, R);
+    S.t += LONG_TALK; step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
+    if (R.msg !== waiting || !R.msgNext || R.msgNext.s !== doneText) out.push(`captive message queue: after the talk the box shows «${R.msg && R.msg.s}» with «${R.msgNext && R.msgNext.s}» next, not the waiting one and then the rescue`);
+    S.t = waiting.t + waiting.d; step(S, { keys: [] });
+    if (!R.msg || R.msg.s !== doneText || R.msgNext) out.push(`captive message queue: once the waiting one has had its time the rescue done is not shown (${R.msg && R.msg.s})`);
+    return out; }
+  SIMX.checks.add('captiveMsgQueueCheck', captiveMsgQueueCheck);
   SIMX.checks.add('questCheck', questCheck);
   SIMX.checks.add('questGiveCheck', questGiveCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

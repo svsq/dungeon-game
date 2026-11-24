@@ -5,11 +5,15 @@
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
     eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, exitKind, campaignDone, leverNear,
-    mapw, openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
+    mapw, msgChain, openChest, openDoor, openSecret, pick, potion, pullLever, queueMsg, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
   // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
   const FOLK_R = { child: 9, hen: 8 }, folkR = (f) => FOLK_R[f.role] || 12;
+  // hens keep a sprite's width apart (about 25 px) in plain distance: by the bodies' gap alone they met 13.6 px apart, one over the other
+  const HEN_APART = 26;
+  // the ring round the grain the hens peck on, each at its own angle: wide enough that three hens keep HEN_APART there
+  const HEN_GRAIN_RING = [22, 16];
   const folkOf = (R) => R.folk || (R.folk = folkHere(R, D.folkInit(R.map.town.npcs)));
   const townOk = (m) => m.town.walkOk || Object.defineProperty(m.town, 'walkOk', { value: DG.townWalk(m), enumerable: false }).walkOk;
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
@@ -31,7 +35,7 @@
     if (sc) { const a = Math.atan2(f.y - sc.y, f.x - sc.x) + 0.6 * (henRnd(f.i, Math.floor(t)) - 0.5); f.next = t + 1 + henRnd(f.i, t); if (t - (f.scareL ?? -9) > 0.6) f.scareT = t; f.scareL = t;
       return (f.goal = { x: f.x + Math.cos(a) * 44, y: f.y + Math.sin(a) * 30, v: 80 }); }
     const gr = R.grain; if (gr && t - gr.t < 7 && Math.hypot(gr.x - f.x, gr.y - f.y) < 190 && (!f.goal || f.goal.k !== gr.t))
-      f.goal = { x: gr.x + 16 * Math.cos(f.i * 2.1), y: gr.y + 9 * Math.sin(f.i * 2.1), v: 42, k: gr.t };
+      f.goal = { x: gr.x + HEN_GRAIN_RING[0] * Math.cos(f.i * 2.1), y: gr.y + HEN_GRAIN_RING[1] * Math.sin(f.i * 2.1), v: 42, k: gr.t };
     if (f.goal && f.goal.k && t - f.goal.k > 7) f.goal = null;
     if (!f.goal && t >= (f.next || 0)) { const a = 2 * Math.PI * henRnd(f.i, t), r = 10 + 26 * henRnd(t, f.i);
       f.goal = { x: n.x + Math.cos(a) * r, y: n.y + Math.sin(a) * r * 0.6, v: 22 }; f.next = t + 2 + 3 * henRnd(f.i + 7, t); }
@@ -91,7 +95,7 @@
       if (!folkFree(R.map, x, y, folkR(f))) continue; const path = greetPath(R, f, x, y, false); if (path) return { x, y, path }; }
     return null; }
   function stepGreet(S, R, F) { const G = R.greet, t = S.t, h = R.hero, k = F.find((q) => q.role === 'keeper');
-    if (!G || G === 'done') return; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
+    if (!G || G === 'done') return; if (!k) delete R.meetKeeper; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
     if (G === 1) { R.greet = { st: 'wait', t0: t }; return; }
     const heroFace = () => { const hf = k.x >= h.x ? 1 : -1; if (hf !== h.face) { h.face = hf; h.faceT = t; } }, faceHero = () => { const nf = h.x >= k.x ? 1 : -1; if (nf !== k.face) { k.turnT = t; k.face = nf; } heroFace(); };
     // (a run loaded with his walk under way but the townsfolk made anew has him at the fire again: the walk starts over from there)
@@ -155,7 +159,8 @@
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
       if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }
       // round the others and the hero: try straight on, then wider and wider turns; nothing clear, it waits
-      const step = f.spd * DT, near = (x, y) => F.some((o) => o !== f && Math.hypot(o.x - x, (o.y - y) * 1.4) < r + folkR(o) + 3 && Math.hypot(o.x - x, (o.y - y) * 1.4) < Math.hypot(o.x - f.x, (o.y - f.y) * 1.4))
+      const hens = (o) => f.role === 'hen' && o.role === 'hen', apart = (o, x, y) => (hens(o) ? Math.hypot(o.x - x, o.y - y) - HEN_APART : Math.hypot(o.x - x, (o.y - y) * 1.4) - r - folkR(o) - 3);
+      const step = f.spd * DT, near = (x, y) => F.some((o) => o !== f && apart(o, x, y) < 0 && apart(o, x, y) < apart(o, f.x, f.y))
         || (Math.hypot(h.x - x, (h.y - y) * 1.4) < r + K.R + 4 && Math.hypot(h.x - x, (h.y - y) * 1.4) < Math.hypot(h.x - f.x, (h.y - f.y) * 1.4));
       let moved = false;
       for (const a of [0, 0.6, -0.6, 1.2, -1.2]) { const c = Math.cos(a), sn = Math.sin(a), vx = ux * c - uy * sn, vy = ux * sn + uy * c, x = f.x + vx * step, y = f.y + vy * step;
@@ -266,7 +271,7 @@
   // bus (ev → questOn), it is done when n reaches need, turned in in the town for its reward; it goes with the hero
   const QUEST_EV = new Set(['kill', 'clear', 'floor', 'qitem', 'qevent']);
   function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f, R.hero && R.hero.lvl) }; }
-  function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: TXT('sim_town.takeQuest.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
+  function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: TXT('sim_town.takeQuest.msg.s', { name: D.questName(q) }), t: S.t }; if (q.from === 'keeper') delete R.meetKeeper; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
   // how much one event moves a quest on
   function questStep(R, q, e) { const Q = D.QUESTS[q.key], deep = R.floor >= q.f && !R.town;
     if (Q.type === 'kill') return e.k === 'kill' && deep && !e.boss && (!Q.elite || e.elite) ? 1 : 0;
@@ -280,7 +285,7 @@
     if (Q.type === 'room') return (e.k === 'clear' || e.k === 'qevent') && R.floor === q.f && !R.town && e.room === q.room ? 1 : 0;
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
-      q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
+      q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.questName(q) }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, queueMsg(R, M); else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
   const unmarkFoe = (e) => { delete e.quest; if (!e.was) return; const k = e.max ? e.hp / e.max : 1, w = e.was; delete e.mods; delete e.ward; Object.assign(e, w); for (const q of ['mods', 'ward']) if (w[q] === undefined) delete e[q]; e.hp = Math.max(1, Math.round(e.max * k)); delete e.was; delete e.title; delete e.elite; };
   // a kept floor's diff patches its foes by index, and the dead shift them: a mark is taken off on the way back in, on the live foe
   const dropMarks = (R, M) => { for (const id of M.dropQ || []) { for (const c of R.chests) if (c.quest === id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === id) unmarkFoe(e); } delete M.dropQ; };
@@ -289,14 +294,14 @@
     const left = (d) => !(d.kind === 'qitem' && d.quest === q.id); for (const c of R.chests) if (c.quest === q.id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === q.id) unmarkFoe(e);
     for (const M of Object.values(R.memo || {})) if (M.d) (M.dropQ = M.dropQ || []).push(q.id);
     R.drops = R.drops.filter(left); for (const M of Object.values(R.memo || {})) if (M.drops) M.drops = M.drops.filter(left);
-    R.msg = { s: TXT('sim_town.abandon.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); S.saveN++; }
+    R.msg = { s: TXT('sim_town.abandon.msg.s', { name: D.questName(q) }), t: S.t }; ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); S.saveN++; }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
     if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
     if (W.scroll) { const sc = potion('scroll', W.scroll); if (!bagAdd(R, sc)) drop(R, h.x, h.y + 20, { kind: 'item', item: sc }); }
     if (W.gold) h.gold += W.gold; if (W.xp) gainXp(S, R, W.xp); if (W.shards) giveShards(S, R, W.shards, h.x, h.y, TXT('sim_town.turnIn'));
     if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2, own: 1 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
-    q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: TXT('sim_town.turnIn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; S.saveN++; return true; }
+    q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: TXT('sim_town.turnIn.msg.s', { name: D.questName(q) }), t: S.t }; S.saveN++; return true; }
   // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
   // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
   // a batch more after each boss slain, as the merchant's shelf is stocked anew (TASKS 1026: 2–3 a run were all taken in the first
@@ -305,9 +310,14 @@
   // dealing is a step of its own, made on arrival in the town (enterFloor); the render and the talks only read (TASKS 2064)
   function dealOffers(R) { const G = D.QUEST_GIVE; R.offers = R.offers || []; if (R.offerB === undefined) R.offerB = R.offers.length ? 1 : 0;
     while (R.offerB < 1 + (R.bossN || 0)) { const b = R.offerB++; let a = D.mix32((R.seed >>> 0) + 0x51ed27 + b * 7919);
-      const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => w !== 'keeper' && !(capOf(R, w) && !isFree(R, w)) && !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
+      const r = () => (a = D.mix32(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => offerGiver(R, w) && !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
       for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); } }
   }
+  // who may hold a side offer: a free townsman, never the Keeper (his are the story chain's) nor one still caged
+  const offerGiver = (R, w) => w !== 'keeper' && !(capOf(R, w) && !isFree(R, w));
+  // a save made before dealOffers kept to offerGiver may hold an untaken offer of the Keeper's or a caged townsman's: no board or
+  // talk would ever show it, and its giver would never be dealt another; dropped on load, the giver is free for the next deal
+  function dropStaleOffers(R) { if (R && R.offers) R.offers = R.offers.filter((o) => o.q || offerGiver(R, o.from)); }
   const offersOf = (R) => R.offers || [];
   // the floor a quest taken now points at: past the deepest reached; a goal put on a floor wants one not yet built and no boss's
   function questFloor(R, key) { const Q = D.QUESTS[key], top = RUN(R).floors, d = R.deepest || 0;
@@ -349,7 +359,7 @@
   function nameElites(R) { for (const e of R.en) { if (!e.elite || e.title || e.nm || D.BOSSES[e.type]) continue; const s = nickOf(e.type, nickHash(R, e)); if (s) e.nm = s; } }
   // the named quest's foe is drawn off its floor's roster when offered, so the townsman can name it before the floor exists
   // (none tied to the lava: no foe can be made one, and on near a third of the magma floors none stands where a quest may name it)
-  const namedPool = (R, f) => D.rosterAt(STAGE(R, f).biome, f).filter((t) => D.ELITE_GROUP[t] && !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake && !ENEMIES[t].tether);
+  const namedPool = (R, f) => D.oldAt(STAGE(R, f).biome, f).filter((t) => D.ELITE_GROUP[t] && !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && !ENEMIES[t].lake && !ENEMIES[t].tether);
   const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
   function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
   const isFree = (R, w) => !!(R.freed && R.freed[w]), capOf = (R, w) => (R.captives || {})[w];
@@ -370,7 +380,21 @@
   function captivePut(S, R, C, rooms) { const at = cageSpot(R, rooms); if (!at) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'qevent', free: C.who, x: R.hero.x, y: R.hero.y }); return; } Object.assign(C, at); }
   function captivePlace(S, R) { const m = R.map; for (const C of Object.values(R.captives || {})) { const D0 = D.CAPTIVES[C.who]; if (D0.f !== R.floor || isFree(R, C.who)) continue; if (C.x === undefined && !D0.boss) captivePut(S, R, C); if (C.x !== undefined) for (const k of cageCells(m, C)) mapw.blockOnce(m, k); } }
   function captiveBoss(S, R, e) { for (const C of Object.values(R.captives || {})) if (D.CAPTIVES[C.who].boss && D.CAPTIVES[C.who].f === R.floor && C.x === undefined && !isFree(R, C.who)) { captivePut(S, R, C, [R.map.rooms[e.room]]); captivePlace(S, R); } }
-  function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y }); const was = R.msg; ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y }); if (R.msg !== was) { R.msg.t = S.t + 5; R.msgNext = R.msg; } R.msg = { s: D.CAPTIVES[C.who].free, t: S.t, d: 5 }; S.saveN++; }
+  // freed, the captive says his thanks in the talk window and stays by his cage while it is up (C.talk); stepCaptives sends him off
+  // once it is closed. The message box shows only in play, so a quest done by the freeing waits in R.msgNext behind the window
+  function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y });
+    const shown = R.msg, waiting = new Set(msgChain(R)); ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y });
+    if (R.msg !== shown) { queueMsg(R, R.msg); R.msg = shown; } for (const M of msgChain(R)) if (!waiting.has(M)) M.afterTalk = 1;
+    C.talk = 1; S.talk = { role: C.who, i: 0, pages: [D.CAPTIVES[C.who].free], p: 0, act: null }; S.screen = 'talk'; S.hover = ''; S.saveN++; ev(S, { k: 'say', x: C.x, y: C.y, role: C.who }); }
+  // the way off: from the open side of the cage, down the floor's field toward its start (the way up, through its shut doors too), CAPTIVE_FLEE.cells of it
+  function fleePath(R, C) { const m = R.map, F = SIMX.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), cell = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
+    const cage = new Set(cageCells(m, C)), near = []; for (const k of cage) for (const d of [1, -1, m.W, -m.W]) if (!cage.has(k + d) && F[k + d] >= 0) near.push(k + d);
+    if (!near.length) return [[C.x, C.y]]; let k = near.sort((a, b) => F[a] - F[b] || a - b)[0]; const path = [[C.x, C.y], cell(k)];
+    for (let i = 0; i < D.CAPTIVE_FLEE.cells && F[k] > 0; i++) { k = [k + 1, k - 1, k + m.W, k - m.W].filter((j) => F[j] >= 0 && F[j] < F[k]).sort((a, b) => F[a] - F[b] || a - b)[0]; if (k === undefined) break; path.push(cell(k)); }
+    return path; }
+  // the talk closed: what waited behind it takes its turn in the queue, shown by the play step once due
+  const releaseAfterTalk = (R) => { for (const M of msgChain(R)) delete M.afterTalk; };
+  function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C) }; releaseAfterTalk(R); S.saveN++; } }
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
     return D.storyChain(R.mode).find((s) => (D.QUESTS[s.key].type === 'free' ? !!capOf(R, D.QUESTS[s.key].who) && !isFree(R, D.QUESTS[s.key].who) : s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
   // what a townsman offers now: the quest as it would be taken (its floor set, its foe's name or its keepsake drawn), or null
@@ -385,7 +409,11 @@
   const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
   // the mark over a townsman's head: ? a quest to turn in, ! one to take
   // (past the campaign's last boss the Keeper's own offers wait behind the end of the run, PR 29 review: no «!» over him for them)
-  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) ? '!' : '');
+  // a new hero's first visit has one goal, the talk with the Keeper: until his first quest is taken the others' offers keep their «!»
+  // (R.meetKeeper, armed with the welcome by startRun; a run saved without it has met him)
+  const meetKeeperFirst = (R) => !!(R.town && R.meetKeeper);
+  const firstGoal = (R) => (meetKeeperFirst(R) ? { name: TXT('sim_town.firstGoal'), line: TXT('sim_town.firstGoal.line', { p1: D.FOLK.keeper.name }) } : null);
+  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) && !(role !== 'keeper' && meetKeeperFirst(R)) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
@@ -408,7 +436,7 @@
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
     const first = q.story && !(R.quests || []).some((o) => D.QUESTS[o.key].kind === 'story') ? 1 : 0;
-    return { pages: [...say, TXT('sim_town.questTalk.offer', { name: Q.name, text: Q.text(q) })].map(keyNames), act: { k: 'take', key: q.key, rw: q.rw, name: Q.name, first } }; }
+    return { pages: [...say, TXT('sim_town.questTalk.offer', { name: D.questName(q), text: Q.text(q) })].map(keyNames), act: { k: 'take', key: q.key, rw: q.rw, name: D.questName(q), first } }; }
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
@@ -422,12 +450,17 @@
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const L = (a.ids || [a.id]).map((id) => (R.quests || []).find((o) => o.id === id)).filter((q) => turnIn(S, R, q)); if (!L.length) return;
-    const nx = talkOf(R, T.role); T.pages = turnPages(T.role, L).concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
-  // the turn-in told once pressed: the thanks, the quests by name and what they paid together, on one page while it fits the window;
-  // a quest's own thanks (the story's) goes before the plain ones, and a long one keeps a page of its own
+    const nx = talkOf(R, T.role), pages = turnPages(T.role, L); T.pages = pages.concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null;
+    T.got = { firstPage: T.pages[0], pages: pages.length, rw: rwSum(L) }; }
+  // the turn-in's reward block stands on its own pages while the talk still shows them; compared by the words, as a talk restored
+  // from a save or a hot reload holds copies of its pages
+  const talkGotShown = (T) => !!(T && T.got && T.got.rw && T.pages[0] === T.got.firstPage && T.p < T.got.pages);
+  // the turn-in told once pressed: the thanks and the quests by name, on one page while it fits the window; a quest's own thanks (the
+  // story's) goes before the plain ones, and a long one keeps a page of its own. What they paid together is the talk's `got`, shown on
+  // these pages in a block of its own under the words
   function turnPages(role, L) { const SAY = D.QUEST_SAY[role], own = L.find((q) => q.key === 'rescue' || D.QUESTS[q.key].thanks), q0 = own || L[0];
     const thanks = own ? (own.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[own.key].thanks) : SAY.thanks[(q0.id || 0) % SAY.thanks.length];
-    const sum = TXT('sim_town.turnAll', { names: L.map((q) => '«' + D.QUESTS[q.key].name + '»').join(', '), p2: rwSum(L) }), one = thanks + ' ' + sum;
+    const sum = TXT('sim_town.turnAll', { names: L.map((q) => '«' + D.questName(q) + '»').join(', ') }), one = thanks + ' ' + sum;
     return one.length <= TALK_PAGE ? [one] : [thanks, sum]; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
@@ -497,7 +530,7 @@
   // first fall, a long time below; each told once; nothing new, his idle pair
   function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = []; let hush = 0;
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
-    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
+    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(SIMX.runEndDeaths(M) === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     // the campaign's last boss is told by the end of the run, whose words his generic «someone must go down again» would contradict
     if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) { hush = 1; out.push(...K.boss(ENEMIES[R.lastBoss].name)); } }
@@ -635,9 +668,9 @@
   }
 
   Object.assign(SIMX, {
-    folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
+    folkR, HEN_APART, folkOf, folkFree, stepFolk, greetHold, meetKeeperFirst, firstGoal, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
+    nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, stepCaptives, fleePath, dropStaleOffers, shopShut, craftShut, folkHere, questTalk, talkGotShown, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell, CART_V, railLen, folkPause });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -6,14 +6,15 @@
     BAL, BASES, CAM_LOOK, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
     armored, atBrink, camAimY, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
     inWater, isCons, lastFloor, logFloor, losClear, move, onLava, onPlate, potion, pushable, reveal, ri, rise, rnd, rollItem, shove,
-    soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
+    showQueuedMsg, soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, VIEW, webAt, who, zoomOf } = SIMX;
   // ---------------- hero helpers ----------------
   const heroSt = (S) => stats(S.run.hero, S.meta);
   const heroRoll = (R, h, st) => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * D.heroDmgK(h))), c]; };
   // where the hero's weapon hand / spells come from (shared with the rig: SIM.RIG.shoulder above the feet)
   const RIG = { shoulder: 51, arm: 28 };
   // one step's travel: shorter when walking toward / away from the camera, so planted feet keep pace with the ground
-  const stepLen = (ux) => K.STEP * (0.9 + 0.1 * Math.min(1, ux));   // (TASKS 1802: at 0.82 walking down he stepped 10.7 times a second)
+  const stepLen = (ux, stride = 1) => stride * K.STEP * (0.9 + 0.1 * Math.min(1, ux));   // (TASKS 1802: at 0.82 walking down he stepped 10.7 times a second)
+  const heroStepLen = (h, ux) => stepLen(ux, D.gaitOf(h).stride);
   const hand = (h) => [h.x + Math.cos(h.aim) * 23, h.y - RIG.shoulder + 8 + Math.sin(h.aim) * 15];
   function bagAdd(R, it) {
     const h = R.hero;
@@ -105,7 +106,7 @@
     const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || ENEMIES[e.type].heavy || e.elite || ENEMIES[e.type].ghost || ENEMIES[e.type].deep || e.st === 'rise' || e.st === 'leap';
     if (!heavy && !arm) { const kk = kb > 0 && R.map.cliff && pushable(e) && atBrink(R.map, e, sx, sy) ? kb * D.BRINK.kb : kb; e.kbx += dx / d * 300 * kk; e.kby += dy / d * 300 * kk; }
     if (kind === 'fire' && !ENEMIES[e.type].lava) { e.burn = S.t + 3; e.burnT = S.t; }
-    ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
+    ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, ...(kind === 'staffClub' ? { kind } : {}), crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
     const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
     if (fromHero && has(e, 'reflect') && kind !== 'burn') { const h = R.hero, n = Math.min(Math.round(dmg * MOD.reflect.k), Math.max(0, Math.ceil(h.hp) - 1));
@@ -202,20 +203,38 @@
     if (o.kind === 'item') { o.loot = 1; if (!o.pre) fstat(R).lootN++; delete o.pre; }
     R.drops.push(Object.assign({ id: R.nextId++, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, z: 0, vz: 160 + rnd(R) * 80, t0: R.t }, o)); }
 
+  function inMeleeArc(m, h, e, aim, arc, reach) {
+    if (e.deadT >= 0) return false;
+    const dx = e.x - h.x, dy = (e.y - h.y) * 1.25, distance = Math.hypot(dx, dy);
+    return distance <= reach && (distance <= 14 || Math.abs(angDiff(Math.atan2(dy, dx), aim)) <= arc / 2)
+      && losClear(m, h.x, h.y, e.x, e.y);
+  }
+
   // ---------------- the world step (screen 'play') ----------------
+  const FELL_DELAY_SECONDS = 1.6, FELL_RETRY_KEY_NAMES = { Enter: () => TXT('sim_ui.fell.key.Enter'), Space: () => TXT('sim_ui.fell.key.Space') }, FELL_RETRY_KEYS = Object.keys(FELL_RETRY_KEY_NAMES);
+  const fellRetryShown = (S, R) => S.screen === 'play' && !!R.fellFailed && R.hero.deadT >= 0;
+  const fellRetryHint = () => ({ s: TXT('sim_ui.fell.retry', { keys: FELL_RETRY_KEYS.map((key) => FELL_RETRY_KEY_NAMES[key]()).join(', ') }), pad: TXT('sim_ui.fell.retry@pad') });
+  // a step from a tool or a self-check may carry no pointer; the screen centre keeps the camera spring and the aim off NaN
+  const orCentre = (value, centre) => (Number.isFinite(value) ? value : centre);
+  const withPointer = (inp) => (Number.isFinite(inp.px) && Number.isFinite(inp.py) ? inp
+    : Object.assign({}, inp, { px: orCentre(inp.px, VIEW.W / 2), py: orCentre(inp.py, VIEW.H / 2) }));
   function stepPlay(S, inp, keys) {
+    inp = withPointer(inp);
     const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t; R.play = (R.play ?? (R.log ? R.log.fl.reduce((n, L) => n + L.time, 0) : 0)) + DT; tally(S, R, 'time', DT);   // saves from before the counter resume from the journal's per-floor time
     SIMX.stepArena(S, R);
     const st = heroSt(S);
     if (R.log && h.deadT < 0) { const L = logFloor(R); L.time += DT; L.minHp = Math.min(L.minHp, h.hp / st.maxHp); L.minMp = Math.min(L.minMp, h.mp / st.maxMp); L.maxHp = st.maxHp; L.maxMp = st.maxMp; L.atk = st.atk; L.def = st.def; }
     // mouse → world aim
     const Z = zoomOf(R), mx = R.cam[0] + inp.px / Z, my = R.cam[1] + inp.py / Z;
-    if (h.deadT >= 0) { if (t - h.deadT > 1.6 && S.fellFailed !== R) return SIMX.heroFell(S); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
+    if (h.deadT >= 0) {
+      if (R.fellFailed) { if (inp.click || FELL_RETRY_KEYS.some((key) => keys[key])) { S.eatPress = 1; return SIMX.heroFell(S); } }
+      else if (t - h.deadT > FELL_DELAY_SECONDS) return SIMX.heroFell(S);
+      stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
     // Keys pressed in it, or in the hold on «Продолжить», are kept for the first step after it (TASKS 227, review of PR 57)
     if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R);
-      { const q = R.map.exit, dx = q.x - h.x, dy = q.y - h.y, d = Math.hypot(dx, dy) || 1, sp = Math.max(0, d - 24) / Math.max(DT, R.leaving + DT), go = sp * DT; h.vx = sp * dx / d; h.vy = sp * dy / d; if (go > 0) { h.x += dx / d * go; h.y += dy / d * go; h.dist += go; h.gp = (h.gp || 0) + go / stepLen(Math.abs(dx) / d) * Math.PI; if (dx) h.face = dx > 0 ? 1 : -1; } }
+      { const q = R.map.exit, dx = q.x - h.x, dy = q.y - h.y, d = Math.hypot(dx, dy) || 1, sp = Math.max(0, d - 24) / Math.max(DT, R.leaving + DT), go = sp * DT; h.vx = sp * dx / d; h.vy = sp * dy / d; if (go > 0) { h.x += dx / d * go; h.y += dy / d * go; h.dist += go; h.gp = (h.gp || 0) + go / heroStepLen(h, Math.abs(dx) / d) * Math.PI; if (dx) h.face = dx > 0 ? 1 : -1; } }
       if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
     const hold = R.freeze > 0 ? 'freeze' : t < (R.holdT ?? -1) ? 'all' : '';
     if (hold) { if (hold === 'freeze') R.freeze -= DT; else h.vx = h.vy = 0; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R, hold === 'all');
@@ -295,29 +314,49 @@
         hits[id] = S.t; ev(S, { k: 'prop', x: fx, y: d.y, i: id, n: d.n, mat: fungus ? 'fungus' : D.PROP_MAT[d.n] || 'bone', scale: d.s || 1, touch: 1, s: h.x < d.x ? 1 : -1 });
       });
     }
-    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
-    // ---- melee: hold LMB ----
-    // a swing faster than its own damage frame was cut off by the next one before it landed: past 224 % attack speed a warrior hit nothing (TASKS 1833)
-    const frame = SIMX.hitFrame(h, st.wtype);
-    if (inp.press && !S.eatPress && h.cd.atk <= t) {
-      h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + Math.max(frame + DT, st.wcd / (1 + st.aspd / 100)); h.atkSlow = Math.min(0.2, (D.clsOf(h).slow || 1) * st.wcd / (1 + st.aspd / 100)); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
-      ev(S, Object.assign({ k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face }, (D.clsOf(h).shoots || []).includes(st.wtype) ? { shot: 1 } : {}));
+    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / heroStepLen(h, Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: SIMX.deckAt(m, Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE)) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
+    const Cl = D.clsOf(h), weapon = BASES[st.wtype], shoots = (Cl.shoots || []).includes(st.wtype);
+    const staffClub = shoots && weapon?.club;
+    if (inp.press && !S.eatPress && (h.cd.staffClub ?? 0) <= t) {
+      const clubShape = staffClub && SIMX.attackShape(h, st, st.wtype);
+      const club = clubShape && R.en.some((e) => !under(e) && inMeleeArc(m, h, e, h.aim, clubShape.arc, staffClub.trigger));
+      const ready = club ? h.atkT < 0 || h.atkHit : h.cd.atk <= t;
+      if (ready) {
+        const { kind, frame, cooldown: interval } = club ? clubShape : SIMX.attackShape(h, st, null);
+        h.patkT = h.atkT; h.patkA = h.atkA; h.patkClub = h.atkClub; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++;
+        h.atkClub = club ? st.wtype : null;
+        h.cd[club ? 'staffClub' : 'atk'] = t + Math.max(frame + DT, interval);
+        h.atkSlow = Math.min(0.2, (Cl.slow || 1) * interval);
+        if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
+        ev(S, { k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face, ...(kind === 'staffClub' ? { kind } : kind === 'shot' ? { shot: 1 } : {}) });
+      }
     }
-    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= frame) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
-      h.atkHit = 1; const arc = st.arc * Math.PI / 180, reach = st.reach, Cl = D.clsOf(h);
-      // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
-      if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, [dmg, c] = heroRoll(R, h, st);
-        const p = SIMX.heroShot(R, h, a, dmg, c, BASES[st.wtype].shot || 'bolt', BASES[st.wtype]);
+    const strike = h.atkT >= 0 && !h.atkHit ? SIMX.attackShape(h, st, h.atkClub) : null;
+    if (strike && t - h.atkT >= strike.frame) {
+      const club = BASES[h.atkClub]?.club, { kind: attackKind, arc, reach } = strike;
+      h.atkHit = 1;
+      const ranged = attackKind === 'shot';
+      if (ranged) {
+        const a = h.atkA, [dmg, c] = heroRoll(R, h, st);
+        const p = SIMX.heroShot(R, h, a, dmg, c, weapon.shot || 'bolt', weapon);
         if (p.k === 'bolt') p.hitsProps = 1;
         if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
         ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
-        // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
-        // born past it): pots, props, doors, chests, secrets and webs, as a swing does; monsters only by the bolt
-        SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {
-      for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
-        if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
-        const [dmg, c] = heroRoll(R, h, st); heroHit(S, R, e, dmg, c, h.x, h.y, st.kb); }
-      SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); }
+      } else {
+        const hitStats = club ? { ...st, atk: st.atk * club.atkFactor } : st;
+        for (const e of R.en) {
+          if (!inMeleeArc(m, h, e, h.atkA, arc, reach + ENEMIES[e.type].r + K.R)) continue;
+          const [dmg, c] = heroRoll(R, h, hitStats);
+          heroHit(S, R, e, dmg, c, h.x, h.y, st.kb, club ? 'staffClub' : undefined);
+        }
+      }
+      const propReach = reach + 10;
+      SIMX.breakPots(S, R, h.x, h.y, propReach, h.atkA, arc);
+      SIMX.hitProps(S, R, h.x, h.y, propReach, h.atkA, arc);
+      if (!ranged) SIMX.hitFolk(S, R, h.x, h.y, propReach, h.atkA, arc);
+      SIMX.hitChests(S, R, h.x, h.y, propReach, h.atkA, arc);
+      SIMX.hitDoors(S, R, h.x, h.y, propReach, h.atkA, arc);
+      SIMX.tearWebs(S, R, h.x, h.y, propReach, h.atkA, arc);
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, D.clsOf(h).abs[inp.slot - 1].id, inp);
@@ -334,7 +373,7 @@
     // T reads the scroll of return (TASKS 1026: behind the bag alone, a novice never found it)
     if (keys.KeyT) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); if (i >= 0) SIMX.useItem(S, R, i); else ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.stepPlay.s') }); }
     if (keys.KeyR) SIMX.usePotion(S, R, 'mp_potion');
-    if (R.msgNext && S.t >= R.msgNext.t) { R.msg = R.msgNext; R.msgNext = null; }
+    if (R.msgNext && !R.msgNext.afterTalk && S.t >= R.msgNext.t) showQueuedMsg(S, R);
     if (keys.KeyE) SIMX.interact(S, R);
     if (R.map !== m) return;
     if (h.read && R.hero === h) SIMX.readStep(S, R, ix || iy ? 1 : 0, dashing);
@@ -370,6 +409,7 @@
     for (const q of m.circles || []) if (q.bless && !q.used && h.hp > 0 && Math.hypot(h.x - q.x, (h.y - q.y) * 1.6) < 1.6 * TILE && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) {
       q.used = 1; h.bless = 1; h.blessTo = R.floor + 1; ev(S, { k: 'bless', x: q.x, y: q.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); R.msg = { s: TXT('sim_hero.sanctum.msg'), t: S.t }; }
     if (R.events && R.events.length) SIMX.stepEvents(S, R);
+    if (R.captives) SIMX.stepCaptives(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
     if (R.chests.length) { SIMX.stepChestTraps(S, R); SIMX.stepBossChests(S, R); }
@@ -411,6 +451,6 @@
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
 
   Object.assign(SIMX, {
-    heroSt, heroRoll, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, killHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
-    stepPlay });
+    heroSt, heroRoll, RIG, stepLen, heroStepLen, hand, bagAdd, gainXp, hurtHero, killHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
+    stepPlay, fellRetryHint, fellRetryShown, FELL_RETRY_KEYS, FELL_RETRY_KEY_NAMES });
 })(typeof window !== 'undefined' ? window : globalThis);

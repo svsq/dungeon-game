@@ -47,6 +47,7 @@
 //   recoil    — hit_* on a light body (TASKS 1804): the head is thrown against the hip by RECOIL of the height
 //   same      — monster attacks pairwise, the mage's shot/frost/cast per aim, the three hero deaths (TASKS 1805): the near hand's paths
 //               against the hip correlate at most SAME in x and in y at the best lag (one motion reused)
+//   upright   — mage_, archer_, longbow_ side walk cycles: the staff's and the bow's grip → tip angle moves at most UPRIGHT degrees
 //   body      — transitions named shoot|cast|frost|volley|whirl|attack|swing (TASKS 1800): the head moves against the hip by BODY of the
 //               height (a shot made with the arm alone left the body standing as at rest)
 // Exit 2 when any check fails.
@@ -396,6 +397,14 @@ if (meta.tr.includes('imp_claw')) {
   const atk = meta.tr.filter((n) => /_attack$/.test(n) && !n.startsWith('hero')), groups = [atk, ...['r', 'd', 'ul'].map((d) => ['shoot', 'frost', 'cast'].map((k) => `hero_mage_${k}_${d}`)), ['hero_death', 'hero_mage_death', 'hero_archer_death']];
   for (const g of groups) for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) { if (!meta.tr.includes(g[i]) || !meta.tr.includes(g[j])) continue; const P = await pathOf(g[i]), Q = await pathOf(g[j]); if (!P || !Q) continue;
     const c = best(P, Q); if (c > SAME || g !== atk) report('same', `${g[i]}~${g[j]}`, c <= SAME, `the hand paths correlate ${c.toFixed(3)} (≤ ${SAME})`); } }
+// upright: a walking staff and a bow are carried near plumb on the walk, not swung with the arm like a sword: the grip → tip angle on
+// the screen moves over the side cycle by at most UPRIGHT degrees (the staff swung 13° → 32° with the arm)
+{ const UPRIGHT = 10, carried = /^(mage|archer|longbow)_(right|left)$/;
+  for (const nm of await p.evaluate(() => Object.keys(window.__QA.cycles || {}))) { if (!carried.test(nm)) continue;
+    const fr = await p.evaluate((nm) => window.__QA.cycles[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE.hero || null; LIB.TRACE = null; return j; }), nm);
+    if (fr.some((j) => !j || !j.grip || !j.tip)) { report('upright', nm, false, 'no grip or tip traced'); continue; }
+    const a = unwrap(fr.map((j) => Math.atan2(j.tip[1] - j.grip[1], j.tip[0] - j.grip[0]))), span = (Math.max(...a) - Math.min(...a)) * 180 / Math.PI;
+    report('upright', nm, span <= UPRIGHT, `the weapon's angle moves ${span.toFixed(1)}° over the cycle (≤ ${UPRIGHT}°)`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

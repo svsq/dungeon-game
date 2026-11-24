@@ -11,6 +11,7 @@
   const onPad = () => !!(window.PAD && window.PAD.active), TX0 = globalThis.TXT;
   const PADK = new Map(Object.keys(TEXT.ru).filter((k) => k.endsWith('@pad')).map((k) => [k.slice(0, -4), k]));   // key → its pad twin, once
   const TXT = Object.assign((k, p) => { const kp = onPad() && PADK.get(k); return kp ? TX0(kp, p) : TX0(k, p); }, TX0);
+  const msgText = (msg) => SIM.Q.messageText(msg, onPad());
   const PAD_AB = ['Y', 'R1', 'L1'], PAD_POT = { hp_potion: '\u2191', mp_potion: '\u2193', scroll: '\u2190' };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const dotHalves = (str, size) => { const p = str.split(' · '), w = (q) => L.labelW(0, q.join(' · '), { size }); let k = 1, b = Infinity; for (let i = 1; i < p.length; i++) { const m = Math.max(w(p.slice(0, i)), w(p.slice(i))); if (m < b) { b = m; k = i; } } return [p.slice(0, k).join(' · '), p.slice(k).join(' · ')].filter(Boolean); };
@@ -41,9 +42,9 @@
   // a class drawn on its own rig has its own portrait (TASKS 1114), and each of its looks (TASKS 2148)
   const portraitOf = (h) => D.lookOf(h).port;
   const PF = D.UI.kit.PORT.frames, portrait = (tex, f, x, y, w, h) => { const P = D.UI.kit.portIn(f, x, y, w, h); L.sprite(tex, P.x, P.y, { w: P.w, h: P.h, src: P.src }); };
-  // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
-  // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
-  let MMB = null, TRK = null, VW = null, KEYP = {};
+  // the last frame's measures that hudZones builds the HUD's parts from: the minimap's panel, legend and all (a fixed 440 px let labels
+  // slip under the taller one of a big map), the tracker; KEYP: the windows' key plates drawn this frame
+  let MMB = null, TRK = null, KEYP = {};
   // an elite's label slot (TASKS 2032, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
   // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
   const ELS = new Map(), elSlot = (id) => { let s = ELS.get(id);
@@ -65,7 +66,7 @@
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
   // where world labels keep off: the top-left block (portrait, level, its bar, every row of effects, so a long list does not run under
   // labels; the stats under the portrait), the bottom panel and the key hints over it
-  let BPG = null, BFR = 0, BFL = null, ZN = null, MKB = [];
+  let BPG = null, BFB = 0, BFL = null, ZN = null, MKB = [];
   // a label tests its box at a dozen points against every part of the HUD: the parts are measured once a frame in world(), not
   // per point (review of PR 63); a screen drawn without the world measures them where it asks
   const bp = (S, R) => BPG || bpGeo(S, R), bfList = (R, GT) => BFL || buffList(R, GT);
@@ -78,20 +79,33 @@
   const msgLines = (s) => { const T = D.TOAST, parts = s.split('\n'), one = parts.length === 1 && lw('msg_m', s, { size: T.size }) <= T.one, size = one ? T.size : T.size2;
     return { size, ls: one ? [s] : parts.length > 1 ? parts.flatMap((q) => (lw('msg_m', q, { size }) <= T.one ? [q] : wrapWords(q, T.wrap, size))) : wrapWords(s, T.wrap, size) }; };
   // the floor's card while it is up (TASKS 1951 в): an elite's plate under it gives way, its own name read over the card's
-  const msgBox = (S) => { const R = S && S.run; if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
+  const toastLayout = (s) => { const { size, ls } = msgLines(s), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+    return { size, ls, lineHeight: size + 8, box: [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)] }; };
+  const toastBox = (s) => toastLayout(s).box;
+  const fellRetryShown = SIM.Q.fellRetryShown;
+  const fellRetryText = (S, R) => fellRetryShown(S, R) ? msgText(SIM.Q.fellRetryHint()) : null;
+  const msgBox = (S) => { const R = S && S.run; const retryText = R && fellRetryText(S, R); if (retryText) return toastBox(retryText); if (!R || !R.msg || S.screen !== 'play') return null; const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a < 0 || a >= d || (R.msg.outT && S.t >= R.msg.outT + 0.3)) return null;
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'); if (boss && R.msg.chapter === D.ENEMIES[boss.type].name) return null;
     if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', R.msg.s, { size: 24 })) + 90; return [W / 2 - w / 2, 142, w, 104]; }
-    const { size, ls } = msgLines(R.msg.s), w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
-    return [W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * (size + 8)]; };
+    return toastBox(msgText(R.msg)); };
+  // the feed: pickups, trades and refusals, newest at the bottom, over the panel's left end; each row's text and plate, for the
+  // drawing and for the HUD's zone alike
+  const FEED = { x: 14, lift: 47, row: 34, h: 34, pad: 32, text: 16, size: 19 };
+  const feedText = (e) => (e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s
+    : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s);
+  const feedRows = (S, B) => { const feed = D.feedOf(S.ev, S.t);
+    return feed.map((e, i) => { const s = feedText(e); return { e, s, box: [FEED.x, B.y - FEED.lift - (feed.length - 1 - i) * FEED.row, lw('feed' + i, s, { size: FEED.size }) + FEED.pad, FEED.h] }; }); };
   const KEYS_LIFT = 54, keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - KEYS_LIFT, kw, 42]; };
-  // the key hints and the crossed-out speaker are parts only where they are drawn, in play (review of PR 63): on the pause a world
-  // label is free to sit where they would be
-  const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, BF.y + Math.max(1, BFR) * BF.dy + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
+  // the parts of the HUD that world labels and quest marks keep off: the effects and the stats sheet by the portrait, the boss bar's
+  // strip at the top, the minimap, the tracker, the message card, the bottom panel; in play also the key hints, the crossed-out speaker
+  // and the feed's plates, which are drawn only there (on the pause a world label is free to sit where they would be)
+  const hudZones = (S) => { const I = Infinity, z = [[-I, -I, TLX + BF.per * BF.dx + 10, Math.max(BF.y + BF.dy, BFB) + 8, 'effects'], [-I, -I, TLX + 16, STS.y + STS.n * STS.row + STS.pad + 8, 'stats'],
     [500, -I, 1420, 150, 'top'], MMB ? [MMB[0] - 4, -I, I, MMB[1] + MMB[3] + 4, 'minimap'] : [W - 260, -I, I, 440, 'minimap']];
     if (TRK) z.push([TRK[0] - 4, TRK[1] - 4, I, TRK[1] + TRK[3] + 4, 'tracker']);
     const play = !S || S.screen === 'play', kb = BPG && keysBox(), mb = msgBox(S);
     if (mb) z.push([mb[0] - 4, mb[1] - 4, mb[0] + mb[2] + 4, mb[1] + mb[3] + 4, 'card']);
-    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [])
+    if (BPG) [[BPG.x, BPG.y, BPG.w, BPG.h, 'panel']].concat(play && (!S || keysA(S) > 0) ? [kb.concat('keys')] : [], play && S && S.meta.mute ? [[kb[0] - 60, BPG.y - 55, 52, 44, 'mute']] : [],
+      play && S ? feedRows(S, BPG).map((q) => q.box.concat('feed')) : [])
       .forEach((b) => z.push([b[0] - 4, b[1] - 4, b[0] + b[2] + 4, b[1] + b[3] + 4, b[4]]));
     return z; };
   const underHud = (x, y) => (ZN || hudZones()).some((z) => x > z[0] && x < z[2] && y > z[1] && y < z[3]);
@@ -131,7 +145,7 @@
       x = at ? Math.min(W - w - 8, at[0]) : up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = at ? Math.max(8, Math.min(H - h - 8, at[1])) : up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); VW = V || null; KEYP = {}; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFR = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
+    G.bind(null); G.blend(); KEYP = {}; MMB = null; TRK = null; TRK_FOLD = TRK_HIDE = null; BPG = null; BFB = 0; BFL = null; ZN = null; MKB = []; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
     if (R && V) world(S, R, t, V);
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
@@ -207,7 +221,7 @@
     L.rrect(x0 - 3, y - 1, 14, 14, 7, [1, 0.3, 0.18], [0.62, 0.04, 0.03]);
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
-  function measureHud(S, R) { MMB = mmBox(S, R); TRK = trkBox(S, R); BPG = bpGeo(S, R); BFL = buffList(R, S.t); BFR = Math.ceil(BFL.length / BF.per); ZN = hudZones(S); }
+  function measureHud(S, R) { MMB = mmBox(S, R); TRK = trkBox(S, R); BPG = bpGeo(S, R); BFL = buffList(R, S.t); BFB = bfPlace(BFL).bot; ZN = hudZones(S); }
   function world(S, R, t, V) {
     measureHud(S, R); MKB = [];
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
@@ -245,7 +259,7 @@
     // a giver off the screen has a small one at its edge, the map shows his mark either way; the HUD is drawn over the world, so a mark
     // that would lie under one of its parts is small and slid out of it (TASKS 2125)
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
-      const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ('town_' + f.role)[1], k, W, H, markZones()), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
+      const Q = D.QMARK, at = D.questMarkAt(V.sx(f.x), V.sy(f.y), SZ(D.folkSprite(f))[1], k, W, H, markZones()), sc = at.small ? Q.small : 1, bob = (at.small ? Q.bobSmall : Q.bob) * Math.sin(GT * 3 + f.i);
       const x = at.x, y = at.y + bob, col = QMARK_TONE[mk].glow, bw = Q.box[0] * sc, bh = Q.box[1] * sc;
       const box = { i: f.i, x: x - bw / 2, y: at.y - bh / 2, w: bw, h: bh }; MKB.push(box); occupied.push(box);
       G.blend('add'); L.glow(x, y, Q.glow * sc, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
@@ -256,9 +270,9 @@
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
       if (b) { plate(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) { const FD = D.FOLK[f.role]; if (!FD.lines || !f.near || GT < f.sayT || GT - f.sayT >= D.FOLK_SAY) continue;
-      bubble('folk' + f.i, (f.sayS || FD.lines[f.sayN])[GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 48); }
+      bubble('folk' + f.i, (f.sayS || FD.lines[f.sayN])[GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ(D.folkSprite(f))[1] * k - 48); }
     // a townsman struck by the hero's blow says so (TASKS 1033), over whatever he was saying
-    if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) if (f.role !== 'hen' && GT - (f.hitT ?? -9) < 1.6) bubble('ouch' + f.i, SIM.FOLK_OUCH[f.ouch || 0], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 92);
+    if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) if (f.role !== 'hen' && GT - (f.hitT ?? -9) < 1.6) bubble('ouch' + f.i, SIM.FOLK_OUCH[f.ouch || 0], V.sx(f.x), V.sy(f.y) - SZ(D.folkSprite(f))[1] * k - 92);
     if (!R.town && S.screen === 'play') for (const C of Object.values(R.captives || {})) { if (C.x === undefined || R.floor !== D.CAPTIVES[C.who].f || (R.freed && R.freed[C.who]) || Math.hypot(C.x - h.x, C.y - h.y) > 320 || !seen(C.x, C.y)) continue; const cg = D.CAPTIVES[C.who].caged; bubble('cap_' + C.who, cg[Math.floor(GT / 5) % cg.length], V.sx(C.x), V.sy(C.y) - 150 * k); }
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
     const bars = [], fadeIn = S.ev.some((v) => v.k === 'floor' && GT - v.t < 0.9);
@@ -378,7 +392,7 @@
     if (SIM.Q.atGate(R, S)) { const o = SIM.Q.gateWays(R, S); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length !== 1 ? TXT('hud.world.ring.open') : o[0].k === 'boss' ? TXT('hud.world.ring.boss', { name: bossName(o[0].f), f: o[0].f }) : TXT('hud.world.29', { f: o[0].f })]; }
     // the giver E talks to before the service it stands by (TASKS 2128) shows his own plate
     if (S.screen === 'play' && m.town && SIM.Q.giverFirst(S, R)) pr = preSvc;
-    if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
+    if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ(D.folkSprite(f))[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
     if (!pr && tz) pr = [tz.x, tz.y - 46, TXT('hud.world.take', { p1: SIM.Q.itemName(tz.item) })];
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R, S).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
@@ -396,7 +410,7 @@
   // look B laid out as on ref_ui_hud_b (TASKS 1872, the player's decision over 1759's corner plate): the portrait, the level, its
   // bar and the effects in the top-left corner, the stats on a parchment sheet under them; the flasks, the skills, the potions and
   // the money on one leather panel at the bottom's middle
-  const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154, BF = { y: 76, dx: 72, dy: 72, per: 6, chip: 70, val: 56 }, STS = { y: HB.y + HB.h + 8, row: 32, n: 4, pad: 28 };
+  const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154, BF = { y: 76, dx: 72, dy: 72, per: 6, chip: 70, val: 56, small: 46 }, STS = { y: HB.y + HB.h + 8, row: 32, n: 4, pad: 28 };
   const potsOf = (R) => [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].concat(R.viaTown ? [['scroll', 'it_scroll', 'T']] : []);
   // the bottom panel from the state alone (world() keeps labels off it before it is drawn): its box and where each part starts. Its
   // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
@@ -416,7 +430,7 @@
   // the parts a quest mark keeps off (TASKS 2125): all but the boss bar's strip, which the town never shows and which would turn every
   // giver near the top's middle small. For the check it measures the HUD from the state and the view, as world() does before drawing
   const markZones = () => (ZN || hudZones()).filter((z) => z[4] !== 'top');
-  HUD.markZones = (S, R, V) => { if (V) { W = SIM.VIEW.W; VH = H = SIM.VIEW.H; VW = V; measureHud(S, R); } return markZones(); };
+  HUD.markZones = (S, R, V) => { if (V) { W = SIM.VIEW.W; VH = H = SIM.VIEW.H; measureHud(S, R); } return markZones(); };
   function skillCell(id, x, y, s, A, r, cd, full, low, rage) {
     L.rrect(x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8, s * 0.4, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
     icon(A.icon, x + s * 0.17, y + s * 0.17, s * 0.66, { alpha: r ? 1 : 0.25, grade: r ? [1, 1, 0, 1] : [0, 0.5, 0, 1] });
@@ -500,19 +514,16 @@
     // floor banner
     // a boss's arrival plate gives way to its ribbon, or its name stood on the screen two and three times over (TASKS 1794)
     const named = boss && R.msg && R.msg.chapter === D.ENEMIES[boss.type].name;
-    if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
+        const toast = (s, al) => { const { size, ls, lineHeight, box: [bx, by, bw, bh] } = toastLayout(s);
+      plate('msg_box', bx, by, bw, bh, { a: al });
+      ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lineHeight, { size, al: 0.5, col: C.gold, a: al })); };
+    const retryText = fellRetryText(S, R);
+    if (retryText) toast(retryText, 1);
+    else if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = msgText(R.msg);
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
-      else {
-      const { size, ls } = msgLines(s), lh = size + 8;
-      const w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
-      plate('msg_box', W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * lh, { a: al });
-      ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lh, { size, al: 0.5, col: C.gold, a: al })); } } }
-    // feed: pickups and refusals, newest at the bottom, over the panel's left end
-    const feed = D.feedOf(S.ev, S.t);
-    feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = B.y - 30 - (feed.length - 1 - i) * 34;
-      const s = e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s;
-      const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 32;
-      plate('feedbox' + i, 14, y - 17, w, 34, { a: 0.85 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
+      else toast(s, al); } }
+    feedRows(S, B).forEach(({ e, s, box: [x, y, w, h] }, i) => { const al = 1 - L.SS(2.4, 3, S.t - e.t), col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold;
+      plate('feedbox' + i, x, y, w, h, { a: 0.85 * al }); lab('feed' + i, s, x + FEED.text, y + h / 2 + 1, { size: FEED.size, col, a: al }); });
     // the key hints over the panel's right end: the panel takes the bottom edge they stood on
     const ka = keysA(S);
     if (ka > 0) { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
@@ -541,15 +552,24 @@
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', v: TXT('hud.buff.sec', { n: Math.ceil(h.poison - GT) }), col: '#a6d86a', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
     return list;
   }
+  // the chips' places: the ones with a value or a clock first, in columns wide enough for the value line under them; then the
+  // powers, which carry neither, packed BF.small apart in rows of their own under those, so a long build keeps to fewer rows
+  const bfTall = (b) => !!b.v || b.left !== undefined;
+  function bfPlace(list) { const tall = list.filter(bfTall), small = list.filter((b) => !bfTall(b)), perSmall = Math.floor(BF.per * BF.dx / BF.small), at = new Map();
+    tall.forEach((b, i) => at.set(b, { x: TLX + (i % BF.per) * BF.dx, y: BF.y + Math.floor(i / BF.per) * BF.dy, h: BF.chip }));
+    const y0 = BF.y + Math.ceil(tall.length / BF.per) * BF.dy;
+    small.forEach((b, i) => at.set(b, { x: TLX + (i % perSmall) * BF.small, y: y0 + Math.floor(i / perSmall) * BF.small, h: BF.small }));
+    return { at, bot: y0 + Math.ceil(small.length / perSmall) * BF.small }; }
   function buffs(S, R, GT, statsBot) {
-    const list = bfList(R, GT);
+    const list = bfList(R, GT), P = bfPlace(list);
     // a gift sits in a round brass cell, the shield and the curses in square ones: the same item icons, told apart by their rim (TASKS 1862)
-    TIPY = Math.max(statsBot, BF.y + Math.ceil(list.length / BF.per) * BF.dy) + 8;
-    list.forEach((b, i) => { const x = TLX + (i % BF.per) * BF.dx, y = BF.y + Math.floor(i / BF.per) * BF.dy;
+    TIPY = Math.max(statsBot, P.bot) + 8;
+    list.forEach((b) => { const { x, y, h: ch } = P.at.get(b);
       if (b.gift) { L.rrect(x + 3, y + 3, 34, 34, 17, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]); KIT.part('ui_b_cell_round', [48, 48], x - 3, y - 3, { k: 46 / 96 }); }
       else { KIT.nine('cell', x, y, 40, 40, { u: { grade: b.bad ? [1, 1, 0, 1] : [1, 1.1, 0, 1] } }); if (b.bad) edge(x, y, 40, 40, [0.8, 0.2, 0.15], 2); }
       // the cell's box takes its value line under it too, the chip's whole column (TASKS 2173: +180% crossed a 40 px box)
-      L.uiBox('bf_' + b.id, x + 20 - BF.dx / 2, y, BF.dx, BF.chip, 4); tipAt(x - 4, y - 4, 48, BF.chip + 4, b.name, b.desc);
+      if (bfTall(b)) L.uiBox('bf_' + b.id, x + 20 - BF.dx / 2, y, BF.dx, ch, 4); else L.uiBox('bf_' + b.id, x - 3, y - 3, BF.small, BF.small, 0);
+      tipAt(x - 4, y - 4, 48, ch + 4, b.name, b.desc);
       if (b.src) L.sprite(b.ic, x + 4, y + 6, { w: 32, h: 28, src: b.src, u: b.u }); else if (window.ASSETS[b.ic]) icon(b.ic, x + (b.gift ? 6 : 3), y + (b.gift ? 6 : 3), b.gift ? 28 : 34);
       if (b.left !== undefined) { const f = Math.max(0, Math.min(1, 1 - b.left)); L.solid(x + 3, y + 3, 34, 34 * f, [0, 0, 0], 0, 0, 0, 0.55);
         if (b.left < 0.25 && Math.sin(GT * 18) > 0) L.rrect(x, y, 40, 40, 5, [1, 1, 1], [1, 1, 1], 0.12); }
@@ -623,20 +643,20 @@
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands. A done one is ticked in its
   // box, and a button on the heading folds the done ones away and back (TASKS 1992); the fold is the player's, kept in the meta
   const trkDone = (R) => SIM.Q.journalOf(R).filter((q) => q.st === 'done').length, trkFolded = (S, R) => !!S.meta.trkFold && trkDone(R) > 0;
-  const trkAll = (S, R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done'));
+  // a new hero's first goal (taking the Keeper's quest) heads the list as a row of its own, not a quest
+  const trkGoal = (R) => { const g = SIM.Q.firstGoal(R); return g ? [{ goal: g, st: 'taken' }] : []; };
+  const trkName = (q) => (q.goal ? q.goal.name : D.questName(q)), trkLine = (q, R) => (q.goal ? q.goal.line : SIM.Q.questLine(q, R));
+  const trkAll = (S, R) => trkGoal(R).concat(SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done')));
   const TK = D.UI.kit.TRACKER, TF = TK.size, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
-  const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
-  const aditBox = (R) => { const d = R.town && VW && R.map.decor.find((o) => o.role === 'adit'); if (!d) return null;
-    const [sw, sh] = SZ(d.n), s = (d.s || 1) * VW.k; return [VW.sx(d.x) - sw * s / 2, VW.sy(d.y) + 4 * VW.k - sh * s, sw * s, sh * s]; };
+  const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: trkGoal(R).length + SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });
   const btnW = (id, s) => lw(id, s, { size: TF.btn }) + TK.btnPad, measure = (s, size) => L.labelW(0, s, { size });
-  // the width is the first rows' a cap leaves out too, so the box does not shift sideways as the camera moves the adit under it
+  // the width is the first rows' a cap leaves out too
   function trkGeo(S, R) { const all = trkAll(S, R), nd = trkDone(R); if (!(all.length || nd) || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R), K = D.UI.kit;
-    const chip = (fold) => { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, null, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true, fold }); };
-    if (trkHidden(S)) return chip(false);
+    if (trkHidden(S)) { const Y = K.trkLay(W, mb[1] + mb[3], lw('qt_chip', trkChip(R), { size: TF.title }) + 2 * TK.pad, 0, true); return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: [], hidden: true }); }
     const head = lw('qt_t', TXT('hud.tracker'), { size: TF.title }) + 2 * TK.pad + TK.headGap + btnW('qt_hide', TXT('hud.tracker.hide')) + (nd ? TK.btnGap + btnW('qt_fold', trkFoldLab(S, R)) : 0);
-    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(D.QUESTS[q.key].name, TF.name), measure(SIM.Q.questLine(q, R), TF.line)))) + 2 * TK.pad;
-    const Y = K.trkLay(W, mb[1] + mb[3], w, all.length, aditBox(R)); if (Y.fold) return chip(true);
-    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(D.QUESTS[q.key].name, Y.textW, TF.name, measure), line: K.trkFit(SIM.Q.questLine(q, R), Y.textW, TF.line, measure) })) }); }
+    const w = Math.max(head, ...all.slice(0, TK.rows).map((q) => TK.inset + Math.max(measure(trkName(q), TF.name), measure(trkLine(q, R), TF.line)))) + 2 * TK.pad;
+    const Y = K.trkLay(W, mb[1] + mb[3], w, all.length);
+    return Object.assign(Y, { box: [Y.x, Y.y, Y.w, Y.h], list: all.slice(0, Y.n).map((q) => ({ q, name: K.trkFit(trkName(q), Y.textW, TF.name, measure), line: K.trkFit(trkLine(q, R), Y.textW, TF.line, measure) })) }); }
   const trkBox = (S, R) => { const g = trkGeo(S, R); return g && g.box; };
   // the heading's buttons in view px, from the last frame drawn: the page asks them on a click and turns the click into the sim's key,
   // so it swings at nothing
@@ -653,10 +673,10 @@
     if (T.more) lab('qt_more', TXT('hud.tracker.more', { n: T.more }), x + P, T.moreY, { size: TF.line, col: C.dim });
     const by = T.titleY - TK.btnH / 2, hs = TXT('hud.tracker.hide'), hw = btnW('qt_hide', hs), hb = TRK_HIDE = [x + w - P - hw, by, hw, TK.btnH]; trkBtn('qt_hide', hs, hb, hov(hb));
     if (trkDone(R)) { const s = trkFoldLab(S, R), bw = btnW('qt_fold', s), b = TRK_FOLD = [hb[0] - TK.btnGap - bw, by, bw, TK.btnH]; trkBtn('qt_fold', s, b, hov(b)); }
-    T.list.forEach(({ q, name, line }, i) => { const { nameY, lineY } = T.rows[i], done = q.st === 'done', Q = D.QUESTS[q.key], B = TK.box, bx = x + P, bb = nameY - B / 2;
+    T.list.forEach(({ q, name, line }, i) => { const { nameY, lineY } = T.rows[i], done = q.st === 'done', story = !!q.goal || D.QUESTS[q.key].kind === 'story', B = TK.box, bx = x + P, bb = nameY - B / 2;
       L.rrect(bx, bb, B, B, 4, [0.07, 0.055, 0.05], [0.05, 0.04, 0.035]); for (const [a, b2, c, d] of [[0, 0, B, 2], [0, B - 2, B, 2], [0, 0, 2, B], [B - 2, 0, 2, B]]) L.solid(bx + a, bb + b2, c, d, done ? [0.56, 0.85, 0.54] : [0.55, 0.5, 0.44]);
       if (done) trkTick(bx, bb, B, [0.56, 0.85, 0.54]);
-      lab('qt_n' + i, name, T.textX, nameY, { size: TF.name, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('qt_n' + i, name, T.textX, nameY, { size: TF.name, col: done ? '#8fd98a' : story ? '#ffc070' : C.gold });
       lab('qt_l' + i, line, T.textX, lineY, { size: TF.line, col: done ? C.dim : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
@@ -795,9 +815,10 @@
   // a skill's number at a rank, as its card's line says it
   const abD = (A, r, st, R) => { const k = D.abRank(A.id, r).k; return A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor); };
   const abDesc = (A, r, st, R) => A.desc.replace('{d}', abD(A, r, st, R)).replace('{t}', nf(D.abRank(A.id, r).t)).replace('{w}', Math.round((1 - D.CRY.weak) * 100));
+  const abRankLine = (h, A, r) => !r ? TXT('hud.inv.14', { unlock: A.unlock }) : r >= D.AB_MAX && h.mast ? TXT('hud.inv.13.mastery', { r, AB_MAX: D.AB_MAX, pct: nf(h.mast * D.MASTERY.pct) }) : TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX });
   // the next rank against this one, a line for each number that moves; a fork the rank opens is said before the press
   function abTip(h, A, r, st, R, pend, forkAt) {
-    if (r >= D.AB_MAX) return [TXT('hud.abtip.max', { r })];
+    if (r >= D.AB_MAX) return [TXT('hud.abtip.max', { r }), [D.ranksFull(h) ? TXT('hud.abtip.mastery', { step: nf(D.MASTERY.pct) }) : TXT('hud.abtip.masteryLater', { AB_MAX: D.AB_MAX })]];
     const n = r + 1, a = D.abRank(A.id, Math.max(1, r)), b = D.abRank(A.id, n), pc = A.desc.includes('{d}%') ? '%' : '', out = [];
     if (!r) out.push(abDesc(A, 1, st, R));
     else { const d0 = abD(A, r, st, R), d1 = abD(A, n, st, R); if (d1 !== d0) out.push(TXT('hud.abtip.power', { a: d0 + pc, b: d1 + pc }));
@@ -861,7 +882,7 @@
       plate('ab_' + i, b.x, b.y, b.w, b.h, { k: 0.4, grade: S.hover === b.id && can ? [1, 0.85, 0, 1.05] : DARK });
       icon(A.icon, b.x + 16, b.y + 22, 70, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 98, b.y + 46, { size: 22, fit: b.w - 110, col: C.text });
-      lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 98, b.y + 78, { size: 20, col: r ? C.gold : C.dim });
+      lab('ab_r' + i, abRankLine(h, A, r), b.x + 98, b.y + 78, { size: 20, fit: b.w - 110, col: r ? C.gold : C.dim });
       const ds = abDesc(A, r, st, R), parts = ds.split(': '), forkAt = r < D.AB_MAX && D.FORKS[A.id] && D.FORK_RANKS.includes(r + 1);
       const chosen = D.FORK_RANKS.map((q) => { const n = (h.forks || {})[D.forkKey(A.id, q)]; return n >= 0 ? D.POWERS[D.FORKS[A.id][q][n]].name : ''; }).filter(Boolean).join(', ');
       // the next rank's fork shows on the card before the press (TASKS 1857), not only as «Ждёт выбора» after it
@@ -887,7 +908,7 @@
   }
   // ---------------- the merchant's screen ----------------
   function shop(S, R, t) {
-    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length, h.bag.length, S.bagTab), P = U.P, f = SIM.Q.tradeDepth(R);
+    const h = R.hero, sh = R.shop, U = SIM.Q.shopLayout(R, S.bagTab), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); KIT.panel('shop', P.x, P.y, P.w, P.h, 'leather');
     // the title on a ribbon over the shelf, as the chest's and the bag's are (TASKS 1891), the merchant's name and trade under it
     const scx = P.x + 268; KIT.banner('sh_t', scx, P.y + 12, 360, TXT('hud.shop.banner'), { h: 64, size: 32 });
@@ -999,6 +1020,11 @@
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
   // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
   const UP = '#8fd98a', DOWN = '#e0604f';
+  const EQUIPMENT_TOTAL_LABEL = {
+    maxHp: () => TXT('hud.compare.tot'),
+    atk: () => TXT('hud.compare.tot.2'),
+    def: () => TXT('hud.compare.tot.3'),
+  };
   // a worn piece that adds nothing to a stat leaves the card's own line as the whole difference, so only stats the worn piece
   // also gives are listed; `dim` mutes the comparison of a piece that can't be worn yet, `compact` drops the stat rows
   function compare(S, it, slot, h, lines, o) {
@@ -1011,10 +1037,10 @@
       lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), mute(d > 0 ? UP : DOWN), 19]); }
     const pw = (x) => { const U = x && D.UNIQUES[x.u]; return U ? D.POWERS[U.power].name : x && D.POWERS[x.pw] ? TXT('hud.compare.weak', { name: D.POWERS[x.pw].name }) : TXT('hud.compare.none'); };
     if (pw(it) !== pw(cur)) lines.push(['   ' + TXT('hud.compare.power', { p1: pw(cur), p2: pw(it) }), mute(C.gold), 19]);
-    const s0 = SIM.Q.stats(h, S.meta), s1 = SIM.Q.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
-    const tot = [[TXT('hud.compare.tot'), 'maxHp'], [TXT('hud.compare.tot.2'), 'atk'], [TXT('hud.compare.tot.3'), 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
-    if (tot.length) lines.push([TXT('hud.compare.3', { p1: tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · ') }),
-      mute(tot.every(([, k]) => s1[k] >= s0[k]) ? UP : tot.every(([, k]) => s1[k] <= s0[k]) ? DOWN : C.gold), 20]);
+    for (const { key, before, after, direction } of SIM.Q.equipmentComparison(h, S.meta, slot, it)) {
+      if (!direction) continue;
+      lines.push([TXT('hud.compare.3', { p1: EQUIPMENT_TOTAL_LABEL[key]() + ' ' + before + ' → ' + after }), mute(direction > 0 ? UP : DOWN), 20]);
+    }
   }
   function tooltip(S, it, b, h, deal, at, box) {
     const bx = box || [10, 10, W - 10, H - 10], cons = SIM.Q.isCons(it), B = cons ? null : D.BASES[it.b];
@@ -1577,6 +1603,8 @@
     KIT.light('al_help', sh.used ? TXT('hud.altar.8') : TXT('hud.altar.9'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   // ---------------- a word with a townsman (TASKS 1016, 1023): his likeness, his name, a page of his words ----------------
+  // the turn-in's reward block: its top this far over the board's foot, its height, its inset from the page's sides, the band's colour
+  const TALK_GOT = { over: 158, h: 56, pad: 8, side: 16, band: [0.55, 0.42, 0.26], bandA: 0.18, ruleA: 0.7 };
   function talk(S, R, t) {
     const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = T.role === 'merchant' ? 'merchant' : 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
     // TASKS 2176: kit B, as on ref_ui_dialog_b: a leather board, his likeness in a cell's well on it, his words on a parchment page,
@@ -1594,6 +1622,10 @@
     if (act) { const rs = TXT('hud.talk.rs', { p1: SIM.Q.rwLine(T.act.rw) }), ic = SIM.Q.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
       if (ic) { KIT.nine('cell', P.x + 300, P.y + P.h - 162, 48, 48); icon(ic, P.x + 306, P.y + P.h - 156, 36); }
       if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) wrapLab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, P.w - 340 - dx, 26, INK.g); }
+    // a turn-in's reward in a block of its own on its pages, under a rule and on a darker band of the page
+    if (SIM.Q.talkGotShown(T)) { const B = TALK_GOT, y = P.y + P.h - B.over;
+      L.solid(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.h, B.band, 0, 0, 0, B.bandA); KIT.rule(A.x + B.side, y - B.pad, A.w - 2 * B.side, B.ruleA);
+      wrapLab('tk_got', TXT('hud.talk.got', { p1: T.got.rw }), P.x + 300, y + B.h / 2 - B.pad, P.w - 340, 26, INK.g); }
     if (T.pages.length > 1) KIT.ink('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 48, P.y + 60, { size: 20, al: 1, col: KIT.INK.d });
     const last = T.p + 1 >= T.pages.length, lb = { next: T.menu ? TXT('hud.talk.label.3') : !last ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3'),
       act: act && (T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5')) };
@@ -1629,7 +1661,7 @@
       if (ic) { KIT.nine('cell', c.x + 12, y + 16, 64, 64); icon(ic, c.x + 20, y + 24, 48); }
       const X = c.x + (ic ? 84 : 30), cw = U.text.x - U.gap - X;
       L.uiBox('bd_c' + i, X, y, cw, c.h, 0);
-      KIT.ink('bd_n' + i, Q.name, X, y + 26, { size: 24, fit: cw, col: gone ? I.off : Q.kind === 'story' ? I.r : I.t });
+      KIT.ink('bd_n' + i, D.questName(q), X, y + 26, { size: 24, fit: cw, col: gone ? I.off : Q.kind === 'story' ? I.r : I.t });
       KIT.ink('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 52, { size: 20, fit: cw, col: gone ? I.off : I.d });
       wrapLab('bd_x' + i, Q.text(q), U.text.x, y + 16, U.text.w, 20, gone ? INK.off : INK.t, gone ? INK.off : INK.r);
       KIT.ink('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 76, { size: 20, fit: cw, col: gone ? I.off : I.g });
@@ -1664,13 +1696,13 @@
     U.r.filter((b) => b.id.startsWith('q:')).forEach((b) => { const i = b.i, q = L0[i], Q = D.QUESTS[q.key], on = q === sel, lit = S.hover === b.id, [st, col] = QST[q.st];
       listRow('jr_r' + i, b, on, lit);
       // ten alike quests tell apart by their floor in the title and their goal under it (TASKS 1863 л); a done or turned-in one, its giver
-      const x0 = b.x + b.pad, x1 = b.x + b.w - b.pad, sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: Q.name, f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);
+      const x0 = b.x + b.pad, x1 = b.x + b.w - b.pad, sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: D.questName(q), f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);
       KIT.ink('jr_n' + i, nm, x0, b.y + 20, { size: 24, fit: x1 - x0 - sw - 16, col: lit || on ? I.r : q.st === 'turned' ? I.off : Q.kind === 'story' ? I.g : I.t });
       KIT.ink('jr_s' + i, st, x1, b.y + 21, { size: 20, al: 1, col });
       KIT.ink('jr_f' + i, sub, x0, b.y + 48, { size: 20, fit: x1 - x0, col: q.st === 'turned' ? I.off : I.d }); });
     const Q = D.QUESTS[sel.key], T0 = U.text, X = T0.x, Wd = T0.w, [st] = QST[sel.st]; let y = T0.y;
     if (sel.ic) { KIT.nine('cell', X, y - 28, 52, 52); icon(sel.ic, X + 6, y - 22, 40); }
-    KIT.ink('jr_dn', Q.name, X + (sel.ic ? 66 : 0), y, { size: 32, fit: Wd - (sel.ic ? 66 : 0), col: I.r, bold: true }); y += 40;
+    KIT.ink('jr_dn', D.questName(sel), X + (sel.ic ? 66 : 0), y, { size: 32, fit: Wd - (sel.ic ? 66 : 0), col: I.r, bold: true }); y += 40;
     KIT.ink('jr_dk', TXT('hud.journal.6', { p1: Q.kind === 'story' ? TXT('hud.journal.7') : '', p2: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—' }), X, y, { size: 20, col: I.d }); y += 44;
     y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 26, INK.t, INK.r) + 18;
     y += wrapLab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '' }) : ''), X, y, Wd, 22, INK.g) + 19;
@@ -1756,16 +1788,20 @@
   }
   // an event's question (TASKS 361): its name, what it asks, and the two answers its entry words
   function eventAsk(S, R) {
-    const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], U = D.UI.event(), P = U.P;
+    const E = (R.events || [])[R.evAsk]; if (!E) return; const P0 = D.EVENTS.pool[E.id], bet = SIM.Q.eventBet(R, E), U = D.UI.event(!!bet), P = U.P;
     dim(0.6); KIT.panel('event', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('ev_t', W / 2, P.y + 16, 460, P0.name, { h: 76, size: 36 });
     // the window keeps the longest question's size; a shorter one sits in the middle between the ribbon and the buttons (TASKS 2174: a
     // three-line question left a strip of 200 px under it)
-    const say = SIM.Q.eventSay(E), EV = { size: 26, top: 100, bot: 100 }, n = wrapWords(say.replace(/\*\*/g, ''), P.w - 96, EV.size).length, bh = n * (EV.size + 7) - 7;
+    const say = SIM.Q.eventSay(E), EV = { size: 26, top: 100, bot: bet ? U.textBot : 100 }, n = wrapWords(say.replace(/\*\*/g, ''), P.w - 96, EV.size).length, bh = n * (EV.size + 7) - 7;
     wrapLab('ev_s', say, P.x + 48, P.y + EV.top + Math.max(0, (P.h - EV.top - EV.bot - bh) / 2) + EV.size / 2, P.w - 96, EV.size, KIT.INK.cream);
     KIT.button('ev_yes', Object.assign({}, U.r[0], { label: P0.yes }), askSt(S, U, 'evYes'));
     KIT.button('ev_no', Object.assign({}, U.r[1], { label: P0.no }), askSt(S, U, 'evNo'));
-    KIT.light('ev_help', TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
+    if (bet) { const N = U.num, I = KIT.INK;
+      KIT.ink('ev_bet', TXT('hud.event.bet', { n: bet.n }), N.x + N.w / 2, N.y + N.h / 2 - 4, { size: 30, al: 0.5, col: I.cream, bold: true });
+      KIT.ink('ev_bet_top', TXT('hud.event.betTop', { n: bet.topN }), N.x + N.w / 2, N.y + N.h / 2 + 24, { size: 20, al: 0.5, col: '#a89880' });
+      for (const b of U.r.slice(2)) KIT.button('ev_' + b.id, b, askSt(S, U, b.id, b.id === 'evLess' ? bet.k > 1 : bet.k < bet.top)); }
+    KIT.light('ev_help', bet ? TXT('hud.event.betKeys') : TXT('hud.event.keys'), W / 2, P.y + P.h + 34, { size: 26, al: 0.5, col: '#a89880' });
   }
   const bossName = (f) => (D.ENEMIES[D.stageOf('campaign', f).boss] || { name: '' }).name;
   // a hall's row has the key, as the hall stays open for good, the scroll's portal its scroll
@@ -1841,7 +1877,8 @@
     const up = S.meta.up || {}, available = D.metaFor(S.meta.cls).filter((m) => (up[m.id] || 0) < m.max), affordable = available.find((m) => m.cost(up[m.id] || 0) <= S.meta.shards), next = affordable || available.slice().sort((a, b) => a.cost(up[a.id] || 0) - b.cost(up[b.id] || 0))[0];
     const rank = ['I', 'II', 'III', 'IV', 'V'], goal = next ? next.name + ' ' + rank[up[next.id] || 0] : '';
     const line = affordable ? TXT('hud.end.line', { goal }) : next ? TXT('hud.end.line.2', { goal, p2: next.cost(up[next.id] || 0) - S.meta.shards }) : TXT('hud.end.line.3');
-    wrap('e_goal', line, bx + 30, by + 566, 1000, 25, I.g);
+    const goalH = wrap('e_goal', line, bx + 30, by + 566, 1000, 25, I.g), unlockShortfall = D.nextUnlockShortfall(S.meta);
+    if (unlockShortfall) wrap('e_unlock', TXT('hud.end.unlock', { n: unlockShortfall }), bx + 30, by + 566 + goalH, 1000, 25, I.g);
     for (const b of D.UI.end(r.log, r.town)) KIT.button('eb_' + b.id, b, stN(S, b.id, b.on), b.id === 'again' ? 'wax' : 'parch');
     // what the journal button gives (TASKS 1863 и): a file, so the player knows where it went
     if (S.hover === 'log' && r.log) lab('eb_log_tip', TXT('hud.end.logTip'), W / 2, 1030, { size: 22, al: 0.5, col: C.dim });

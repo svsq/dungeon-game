@@ -298,6 +298,8 @@
       if (C.abilities.length !== 3 || C.unlock.length !== 3 || C.abs.some((a) => !a.id || !a.name)) out.push(`class ${id}: not three abilities that exist`);
       if (!C.unlock.includes(1)) out.push(`class ${id}: no ability at level 1`);
       if (!ABILITIES.some((a) => a.id === C.rclick)) out.push(`class ${id}: the right click's ability does not exist`);
+      // every class opens alike: the right click casts its own ability that is open from the 1st level
+      if (C.unlock[C.abilities.indexOf(C.rclick)] !== 1) out.push(`class ${id}: the right click's ${C.rclick} is not its ability open from the 1st level`);
       for (const [slot, b] of Object.entries(C.start)) if (!BASES[b] || BASES[b].slot !== slot) out.push(`class ${id}: starting ${slot} ${b} is no such base`);
       const S = spawn(0, {}), R = newRun(S, 'campaign', 81, { cls: id }), h = R.hero;
       if (h.cls !== id || h.eq.weapon.b !== C.start.weapon || h.eq.armor.b !== C.start.armor) out.push(`class ${id}: a new hero is not of its class`);
@@ -320,8 +322,10 @@
         const open = (x, y, dx) => cell(m, Math.floor((x + dx) / TILE), Math.floor(y / TILE)) === 1 && losClear(m, x, y, x + dx, y);
         let ok = false; for (let k = 0; k < m.W * m.H && !ok; k++) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
           if (cell(m, k % m.W, Math.floor(k / m.W)) === 1 && open(x, y - TILE, 200) && open(x, y - TILE, -120) && open(x, y, 200) && open(x, y, -120)) { h.x = x; h.y = y; ok = true; } }
-        R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0];   // (steps without a pointer leave the camera NaN)
-        return { S, R, h, foe, ok }; };
+        R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0];
+        const SHOULDER_AIM_DROP = 8;
+        const stepAimedAt = (target, input = {}) => step(S, { keys: [], ...input, ...toPx(R, target.x, h.y - SIMX.RIG.shoulder + SHOULDER_AIM_DROP) });
+        return { S, R, h, foe, ok, stepAimedAt }; };
       { const { S, R, h, foe, ok } = arena('mage');
         if (h.cls !== 'mage' || D.clsOf(h).abs.map((a) => a.id).join() !== 'fireball,shield,frost') out.push('class mage: not fireball, shield and ice wave');
         if (!ok) out.push('class mage: no open floor beside the start to test the ice wave');
@@ -339,6 +343,88 @@
         const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
         if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
         if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); }
+      { const { S, R, h, foe, ok, stepAimedAt } = arena('mage');
+        if (!ok) out.push('class mage: no open floor to test the staff club');
+        else {
+          const staff = BASES.staff, club = staff.club, e = foe(200), far = 200, near = club.trigger - 8;
+          h.eq.weapon.mods.crit = -100;
+          const tick = (distance, press = true) => {
+            Object.assign(e, { x: h.x + distance, y: h.y, st: 'idle', kbx: 0, kby: 0 });
+            stepAimedAt(e, { press });
+          };
+          const swing = (kind) => S.ev.some((q) => q.k === 'swing' && q.kind === kind && q.t === h.atkT);
+          const waitForHit = (distance, windup) => {
+            for (let i = 0; i < Math.ceil(windup / DT) + 2 && !h.atkHit; i++) tick(distance, false);
+          };
+          tick(far);
+          const orbCd = h.cd.atk, orbStart = h.atkT, st = stats(h, S.meta);
+          if (!S.ev.some((q) => q.k === 'swing' && q.shot && q.t === orbStart) ||
+              orbCd !== orbStart + Math.max(D.BOLT.t + DT, staff.spd / (1 + st.aspd / 100))) out.push('class mage: the ranged staff attack uses the wrong mode or cooldown');
+          { const asClub = SIMX.attackShape(h, st, h.eq.weapon.b), asShot = SIMX.attackShape(h, st, null);
+            if (asClub.kind !== 'staffClub' || asClub.frame !== club.windup || asClub.cooldown !== club.cooldown || asShot.kind !== 'shot' || asShot.frame !== D.BOLT.t) out.push('class mage: the attack shape of the club or the shot is wrong'); }
+          tick(near);
+          if (h.atkT !== orbStart) out.push('class mage: staff club cancels an orb windup');
+          waitForHit(far, D.BOLT.t);
+          if (!S.ev.some((q) => q.k === 'bolt')) out.push('class mage: staff orb is not released');
+          R.proj = [];
+          tick(near);
+          const clubStart = h.atkT, clubCd = h.cd.staffClub;
+          if (!swing('staffClub') || clubCd !== clubStart + club.cooldown || h.cd.atk !== orbCd || S.t >= orbCd) out.push('class mage: staff club does not bypass the orb recovery on its own cooldown');
+          const hp = e.hp;
+          if (S.ev.some((q) => q.k === 'hit' && q.kind === 'staffClub')) out.push('class mage: staff club hits before the windup');
+          waitForHit(near, club.windup);
+          const hit = S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id);
+          if (!hit || hit.t - clubStart < club.windup || hit.n !== hp - e.hp || hit.n < Math.round(stats(h, S.meta).atk * club.atkFactor * 0.9) || hit.n > Math.round(stats(h, S.meta).atk * club.atkFactor * 1.1) || R.proj.length) out.push('class mage: staff club does not land as a melee hit of the hero attack times the club factor');
+          tick(near);
+          if (h.atkT !== clubStart) out.push('class mage: staff club repeats during recovery');
+          while (S.t + DT < clubCd) tick(far, false);
+          tick(far);
+          if (h.atkT !== clubStart) out.push('class mage: club recovery allows an early orb');
+          while (S.t + DT < orbCd) tick(far, false);
+          tick(far);
+          if (h.atkT === clubStart || !S.ev.some((q) => q.k === 'swing' && q.shot && q.t === h.atkT)) out.push('class mage: the staff does not resume shooting once both cooldowns expire');
+        } }
+      { const { S, R, h, foe, ok, stepAimedAt } = arena('mage');
+        if (ok) {
+          const club = BASES.staff.club, e = foe(200), POWER = '__clubPower', CRIT_POWER = '__clubCritPower', LEECH = 10, ONHIT = 3, LOW_HP = 1, ATTACK_GROWTH = 3, ROLL_SPREAD = 0.1;
+          const NO_CRIT = -100, CRIT_OVER_CAP = 500, CRIT_TRIES = 24;
+          h.eq.weapon.mods.leech = LEECH; h.eq.weapon.mods.onhit = ONHIT;
+          grant(h, POWER, { trig: 'hit', fx: 'mana', v: 0 }); grant(h, CRIT_POWER, { trig: 'crit', fx: 'mana', v: 0 });
+          const blow = (weaponAttack, critChance) => {
+            // the last blow's hit-stop would hold this one's press
+            h.eq.weapon.atk = weaponAttack; h.eq.weapon.mods.crit = critChance; h.cd.staffClub = 0; h.hp = LOW_HP; R.freeze = 0; S.ev = [];
+            Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
+            stepAimedAt(e, { press: 1 });
+            for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) stepAimedAt(e);
+            return { hit: S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id), stat: stats(h, S.meta), healed: h.hp - LOW_HP, powers: hits(S, POWER), critPowers: hits(S, CRIT_POWER) };
+          };
+          const weak = blow(100, NO_CRIT), strong = blow(100 * ATTACK_GROWTH, NO_CRIT);
+          // the crit chance is capped below certainty, so the crit blow is the first of a few tries that rolls one
+          let critical = null, landed = 0; for (let n = 0; n < CRIT_TRIES && !critical?.hit?.crit; n++) { critical = blow(100, CRIT_OVER_CAP); if (critical.hit) landed++; }
+          delete D.POWERS[POWER]; delete D.POWERS[CRIT_POWER];
+          for (const { hit, stat, healed, powers, critPowers } of [weak, strong]) {
+            const expected = stat.atk * club.atkFactor;
+            if (!hit || hit.n < Math.round(expected * (1 - ROLL_SPREAD)) || hit.n > Math.round(expected * (1 + ROLL_SPREAD))) out.push('class mage: the club blow does not follow the hero attack');
+            else if (healed < hit.n * stat.leech / 100 + stat.onhit - 1e-6 || powers !== 1) out.push('class mage: the club blow loses its leech, on-hit heal or power');
+            else if (critPowers) out.push('class mage: a club blow that does not crit fires an on-crit power');
+          }
+          if (weak.hit && strong.hit && strong.hit.n <= weak.hit.n) out.push('class mage: a stronger hero hits with the club for no more');
+          if (!landed) out.push(`class mage: the club never lands a blow at the crit cap in ${CRIT_TRIES} tries`);
+          else if (!critical.hit?.crit) out.push(`class mage: the club never crits at the cap in ${landed} landed blows of ${CRIT_TRIES}`);
+          else if (critical.critPowers !== 1 || critical.powers !== 1) out.push(`class mage: a club crit fires its on-crit power ${critical.critPowers} times and its on-hit power ${critical.powers} times, not once each`);
+        } }
+      for (const [cls, kind] of [['warrior', 'melee'], ['archer', 'shot']]) { const { S, h, ok } = arena(cls);
+        if (ok && SIMX.attackShape(h, stats(h, S.meta), null).kind !== kind) out.push(`class ${cls}: the attack shape is not a ${kind}`); }
+      { const { S, R, h, foe, ok, stepAimedAt } = arena('mage');
+        if (ok) {
+          const club = BASES.staff.club, e = foe(200);
+          h.eq.weapon.mods.crit = -100;
+          Object.assign(e, { x: h.x + club.trigger - 8, y: h.y, st: 'idle', kbx: 0, kby: 0 });
+          stepAimedAt(e, { press: 1 });
+          const clubStart = h.atkT; h.eq.weapon.b = 'wand';
+          for (let i = 0; i < Math.ceil(club.windup / DT) + 4 && !h.atkHit; i++) stepAimedAt(e);
+          const hit = S.ev.find((q) => q.k === 'hit' && q.kind === 'staffClub' && q.id === e.id);
+          if (!hit || hit.t - clubStart < club.windup || hit.t - clubStart > club.windup + 2 * DT || S.ev.some((q) => q.k === 'bolt')) out.push('class mage: a club blow changes its shape when the weapon is swapped before its hit frame'); } }
       // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
       // onto it and lets it go, the leap carries him back from the aim, AGI (and a little STR, TASKS 1913) grows his bow's damage, a sword is not his
       { const { S, R, h, foe, ok } = arena('archer');
@@ -353,8 +439,9 @@
           for (let i = 0; i < 120 && !arrows(); i++) step(S, { keys: [], ...aimAt }); const lt = S.t - t0;
           if (lt < D.VOLLEY.loose - 1e-9 || lt > D.VOLLEY.loose + 2 * DT) out.push(`class archer: the volley leaves ${lt.toFixed(3)} s after the key, not at the loose (${D.VOLLEY.loose} s)`);
           if (arrows() !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
-          // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w
-          { const vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w + 4) out.push('class archer: the volley does not close on a far cursor'); }
+          // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w; measured down the cursor's column
+          // from the hand, a tilted aim stretches it by up to FAN_SLACK of its width
+          { const FAN_SLACK = 0.12, vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w * (1 + FAN_SLACK)) out.push('class archer: the volley does not close on a far cursor'); }
           R.proj = []; h.mx = h.x + 150; h.my = h.y - 30; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0);
           if (Math.abs(q.x - (h.x + 150)) > 10) out.push('class archer: the trap is not set at the cursor'); h.x -= 120; w.x = q.x + 60; w.y = q.y; w.st = 'idle'; w.calmT = 1e9;
           for (let i = 0; i < 120; i++) { step(S, { keys: [] }); if (w.rootT) break; if (i > 55) w.x -= 2; }
@@ -425,21 +512,29 @@
     // not in a run saved before it (or past it)
     { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, h = R.hero, F = folkOf(R), k = F.find((q) => q.role === 'keeper'), x0 = h.x, y0 = h.y, kx = k.x, ky = k.y;
       if (R.greet !== 1) out.push('welcome: a new game does not arm it');
+      // the first visit has one goal: the tracker's talk with the Keeper; the others' offers show no «!» until his first quest is taken,
+      // the talk opened and left with Esc keeps both
+      const givers = () => F.filter((f) => f.role !== 'keeper' && offerOf(R, f.role)), marked = () => givers().filter((f) => root.SIMX.questMark(R, f.role) === '!').length;
+      const goalHeld = (when) => { if (!root.SIMX.firstGoal(R) || marked()) out.push(`welcome: ${when} the first goal is gone or ${marked()} other givers show «!»`); };
+      if (!givers().length) out.push('welcome: the town has no quest givers but the Keeper, the first goal checks nothing');
+      if (!root.SIMX.firstGoal(R) || marked()) out.push(`welcome: a new hero's first visit has ${root.SIMX.firstGoal(R) ? '' : 'no goal in the tracker and '}${marked()} «!» over the other givers`);
       let n = 0, walked = 0, said = 0; while (S.screen === 'play' && n++ < 120 * 16) { step(S, { keys: n % 40 === 0 ? ['KeyE', 'Space'] : [], left: 1, up: 1 }); walked = Math.max(walked, Math.hypot(k.x - kx, k.y - ky)); if (k.sayS) said = 1; }
       if (Math.hypot(h.x - x0, h.y - y0) > 2) out.push(`welcome: the hero walked ${Math.round(Math.hypot(h.x - x0, h.y - y0))} px while held`);
       if (S.screen !== 'talk' || !S.talk || S.talk.role !== 'keeper') out.push(`welcome: no talk with the Keeper in ${(n / 120).toFixed(1)} s (screen ${S.screen})`);
       else { const of = offerOf(R, 'keeper');
         if (!S.talk.act || S.talk.act.k !== 'take' || !of || S.talk.act.key !== of.q.key || of.q.key !== 'rescue') out.push(`welcome: the talk does not offer the quest about Horatio (${JSON.stringify(S.talk.act)})`);
-        if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`); }
+        if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`);
+        goalHeld('with the Keeper\'s talk open'); }
       if (walked < 100 || Math.hypot(k.x - h.x, k.y - h.y) > 70) out.push(`welcome: the Keeper did not come up to the hero (walked ${Math.round(walked)} px, ${Math.round(Math.hypot(k.x - h.x, k.y - h.y))} px off)`);
       if (!said) out.push('welcome: the Keeper says nothing on the way');
-      step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk');
+      step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk'); else goalHeld('past the talk left with Esc');
       const back = (rs) => { for (let i = 0; i < 120 * 12 && R.greet !== 'done'; i++) step(S, { keys: [] }); return R.greet === 'done'; };
       if (!back()) out.push('welcome: the Keeper does not go back to the fire');
       else if (Math.hypot(k.x - kx, k.y - ky) > 3) out.push(`welcome: the Keeper stops ${Math.round(Math.hypot(k.x - kx, k.y - ky))} px off his place`);
       if (!offerOf(R, 'keeper') || (R.quests || []).some((q) => q.key === 'rescue')) out.push('welcome: Esc lost or took the quest');
       h.x = k.x + 44; h.y = k.y + 12; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
       if (S.screen !== 'talk' || !S.talk.act || S.talk.act.k !== 'take') out.push('welcome: after Esc the Keeper does not offer the quest again');
+      else { root.SIMX.talkAct(S, R, S.talk); if (root.SIMX.firstGoal(R) || marked() !== givers().length) out.push(`welcome: the Keeper's quest taken, the first goal stays or ${givers().length - marked()} givers keep no «!»`); }
       S.screen = 'play'; S.talk = null; const hx = h.x; for (let i = 0; i < 60; i++) step(S, { keys: [], right: 1 }); if (h.x - hx < 20) out.push('welcome: the hero is still held after it');
       enterFloor(S, R, 1); enterFloor(S, R, 0); const k2 = folkOf(R).find((q) => q.role === 'keeper'), k2x = k2.x; let held = 0;
       for (let i = 0; i < 120 * 4; i++) { step(S, { keys: [], down: i < 30 ? 1 : 0 }); if (root.SIMX.greetHold(R)) held = 1; }
@@ -659,12 +754,47 @@
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
       const h = Object.assign({}, R.hero, { vx: dx * RUN, vy: dy * RUN, face: dx < 0 ? -1 : 1, back: dy < 0 ? 1 : 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = heroSt(S);
-      const rate = RUN / root.SIM.Q.stepLen(Math.abs(dx)) * Math.PI, tips = [];
+      const rate = RUN / root.SIM.Q.heroStepLen(h, Math.abs(dx)) * Math.PI, tips = [];
       for (let k = 0; k <= N; k++) { const J = {}; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = () => ({ w: 10, h: 10 }); L.solid = () => {};
         h.gp = 1 + rate * k / FPS; drawHero(h, 300, 300, T0 + k / FPS, st, {}); tips.push(J.tip); }
       const steps = tips.slice(1).map((p, k) => d(p, tips[k])), m = Math.max(...steps);
       if (m > TIP_STEP) out.push(`hero run: ${cls} ${wb}${ob ? ' and ' + ob : ''} running ${dn}: the weapon's tip moves ${m.toFixed(1)} px in a frame at frame ${steps.indexOf(m) + 1}`);
     }
+  }
+  // each class walks its own gait. Its own data: only the gait's numbers, finite; a robe declares its hem's sway; no stride steps more
+  // often than the walk cycles' MAX_STEPS a second (2 / cycle time, the motion check's limit). Over one running cycle every class's
+  // swing foot lifts FOOT_LIFT of the height (the polish check's step); the leading skirt half sways ahead of where it hangs without the sway, one way
+  // only, by at least HEM_SEEN of the gait's hem, and eases in and out (no frame turns it HEM_JUMP of the hem or more)
+  function heroGaitCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), T0 = 10, N = 48, RUN = root.SIM.K.RUN;
+    const MAX_STEPS = 9, FOOT_LIFT = 0.03, HEM_SEEN = 0.3, HEM_JUMP = 0.6, EPS = 1e-6;
+    for (const [cls, C] of Object.entries(D.CLASSES)) for (const [id, own] of [['class', C.look], ...Object.entries(C.looks)]) {
+      for (const [k, v] of Object.entries(own.gait || {})) if (!(k in D.GAIT) || !Number.isFinite(v)) out.push(`hero gait: ${cls} ${id} has a gait ${k} of ${v}`);
+      if (own.robe && !(own.gait && own.gait.hem > 0)) out.push(`hero gait: ${cls} ${id} wears a robe with no hem sway of its own`); }
+    for (const [cls, looks] of Object.entries(D.LOOKS)) for (const id of Object.keys(looks)) for (const ux of [0, 1]) {
+      const sps = RUN / root.SIM.Q.heroStepLen({ cls, look: id }, ux); if (sps > MAX_STEPS) out.push(`hero gait: ${cls} look ${id} takes ${sps.toFixed(2)} steps a second ${ux ? 'sideways' : 'up and down'} (≤ ${MAX_STEPS})`); }
+    const walk = (cls, hem) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; const st = heroSt(S), sl = root.SIM.Q.heroStepLen(R.hero, 1), G = D.gaitOf(R.hero), hem0 = G.hem;
+      const h = Object.assign({}, R.hero, { vx: RUN, vy: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), rig = D.lookOf(h).rig;
+      const hg = { heelL: [], toeL: [], heelR: [], toeR: [] }, thighs = []; let H = 0;
+      if (hem !== undefined) G.hem = hem;
+      try {
+        for (let k = 0; k < N; k++) { const J = {}, th = {}; L.joint = (who, n, p) => { if (who === 'hero') J[n] = p; }; L.solid = () => {};
+          L.sprite = (n, x, y, o) => { const m = n.match(new RegExp('^' + rig + '__thigh([LR])')); if (m && o && o.m) th[m[1]] = Math.atan2(-o.m[2], o.m[3]); return { w: 10, h: 10 }; };
+          h.gp = 2 * Math.PI * k / N; drawHero(h, 300, 300, T0 + k * 2 * sl / RUN / N, st, {}); thighs.push(th); if (!k) H = J.ground[1] - J.top[1];
+          for (const p of Object.keys(hg)) hg[p].push(J['ground' + p.slice(-1)][1] - J[p][1]); }
+      } finally { G.hem = hem0; }
+      // the swing foot's lift as the polish check measures it: a heel or toe's highest over its ground above its lowest
+      const rise = Math.max(...Object.values(hg).map((v) => Math.max(...v) - Math.max(0, Math.min(...v))));
+      return { rise, H, thighs, hem: hem0 }; };
+    const Mg = walk('mage');
+    for (const [cls, g] of [['warrior', walk('warrior')], ['mage', Mg], ['archer', walk('archer')]]) if (g.rise < FOOT_LIFT * g.H) out.push(`hero gait: the ${cls}'s swing foot lifts ${g.rise.toFixed(1)} px (≥ ${(FOOT_LIFT * g.H).toFixed(1)})`);
+    const still = walk('mage', 0), sway = Mg.thighs.map((th, k) => ['L', 'R'].map((sd) => (th[sd] ?? 0) - (still.thighs[k][sd] ?? 0)));
+    const flat = sway.flat(), most = Math.max(...flat.map(Math.abs)), sign = Math.sign(flat.find((v) => Math.abs(v) > EPS) || 0);
+    if (!Mg.thighs.every((th) => th.L !== undefined && th.R !== undefined)) out.push('hero gait: the mage\'s skirt halves are not drawn on every frame of the run');
+    if (most < HEM_SEEN * Mg.hem) out.push(`hero gait: the mage's hem sways ${most.toFixed(3)} rad (≥ ${(HEM_SEEN * Mg.hem).toFixed(3)})`);
+    if (flat.some((v) => v * sign < -EPS)) out.push('hero gait: the mage\'s hem sways both ways');
+    for (const sd of [0, 1]) { const jump = Math.max(...sway.map((q, k) => Math.abs(q[sd] - sway[(k + 1) % N][sd])));
+      if (jump >= HEM_JUMP * Mg.hem) out.push(`hero gait: the mage's hem sway turns ${jump.toFixed(3)} rad in a frame (< ${(HEM_JUMP * Mg.hem).toFixed(3)})`); }
   }
   // (TASKS 2160) the standing hero of each class, either way round, in the world and in the arch: the cape-side arm's hand hangs in
   // front of its elbow (the elbow does not bend backwards), the feet stand apart with a gap between the cape-side toe and the near heel,
@@ -703,23 +833,25 @@
     heroArmPose(out, drawHero, L);
   }
   // (TASKS 2181) the arms against the class sheets, in shares of the height (soles to the top), as tools/measure/chars_ref/reach.py counts
-  // them: at ease the near (cape-side) hand hangs at least OUT outside its shoulder and its forearm is drawn over the body unless a shield
-  // rides it (under the body the warrior's hand lay behind the belt pouch, 0.004 H out); the far fist of the weapon arm stands in its class's
+  // them: at ease the near (cape-side) hand hangs at least OUT outside its shoulder and its forearm is drawn over the body (under the body
+  // the warrior's hand lay behind the belt pouch, 0.004 H out); each shield on it is held before the body, its middle at least SHIELD_FWD
+  // in front of the shoulder (behind it the shield stuck out past the back), its rim under the chin and the shield drawn after the body
+  // (hung at the hip under it, it read as slung on the back); the far fist of the weapon arm stands in its class's
   // band FIST with the forearm at most FORE degrees off plumb (2177 bent it 51–58° out from behind the torso; the sheets: warrior 5°, archer
   // 36°), the mage's at his chest; the orb's palm out beside the body (it lay on the chest, 0.12 H inside); on the run no hand reaches more
   // than RUN_REACH from its shoulder nor drops under RUN_HAND (0.337 and 0.450 before)
   function heroArmPose(out, drawHero, L) {
-    const OUT = 0.03, FIST = { warrior: [0.45, 0.5], archer: [0.46, 0.52], mage: [0.62, 0.72] }, FORE = { warrior: 25, archer: 42 }, ORB = { out: 0.03, h: [0.58, 0.66] }, RUN_REACH = 0.33, RUN_HAND = 0.46, FPS = 60, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-    const KITS = [['warrior', 'sword'], ['archer', 'shortbow'], ['mage', 'staff'], ['mage', 'staff', 'orb'], ['warrior', 'sword', 'shield']], seen = new Set();
+    const OUT = 0.03, SHIELD_FWD = 0.02, FIST = { warrior: [0.45, 0.5], archer: [0.46, 0.52], mage: [0.62, 0.72] }, FORE = { warrior: 25, archer: 42 }, ORB = { out: 0.03, h: [0.58, 0.66] }, RUN_REACH = 0.33, RUN_HAND = 0.46, FPS = 60, d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const SHIELDS = ['shield', 'buckler', 'tower_shield'], KITS = [['warrior', 'sword'], ['archer', 'shortbow'], ['mage', 'staff'], ['mage', 'staff', 'orb'], ...SHIELDS.map((b) => ['warrior', 'sword', b])], seen = new Set();
     for (const [cls, wb, ob] of KITS) for (const face of [1, -1]) for (const menu of [0, 1]) for (const run of [0, 1]) {
       if (menu && run) continue;
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
       const st = heroSt(S), pn = D.CLASSES[cls].look.rig + '__', tag = `${cls}${ob ? ' and ' + ob : ''} ${run ? 'running' : 'at ease'} face ${face}${menu ? ' in the arch' : ''}`;
       const say = (m) => { const k = cls + (ob || '') + run + m.replace(/[\d.-]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`hero arm pose: ${tag}: ${m}`); } };
-      const rate = root.SIM.K.RUN / root.SIM.Q.stepLen(1) * Math.PI;
-      for (let k = 0; k < (run ? 40 : 1); k++) { const J = {}, spr = [];
-        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n) => { spr.push(n); return { w: 10, h: 10 }; }; L.solid = () => {};
+      const rate = root.SIM.K.RUN / root.SIM.Q.heroStepLen(R.hero, 1) * Math.PI;
+      for (let k = 0; k < (run ? 40 : 1); k++) { const J = {}, spr = []; let shieldH = 0;
+        L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push(n); if (/^it_(shield|buckler)/.test(n)) shieldH = o.h; return { w: 10, h: 10 }; }; L.solid = () => {};
         drawHero(Object.assign({}, R.hero, { vx: run ? root.SIM.K.RUN * face : 0, vy: 0, gp: run ? 1 + rate * k / FPS : 0, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), 300, 300, 10 + k / FPS, st, menu ? { menu: 1 } : {});
         const H = J.ground[1] - J.top[1], hh = (s) => (J.ground[1] - J['hand' + s][1]) / H, dx = (s) => (s === 'L' ? -1 : 1) * face * (J['hand' + s][0] - J['sh' + s][0]) / H;
         if (run) { for (const s of ob === 'orb' ? ['R'] : ['L', 'R']) { const r = d(J['sh' + s], J['hand' + s]) / H;
@@ -727,6 +859,11 @@
           if (hh(s) < RUN_HAND && !(cls === 'mage' && s === 'R')) say(`the ${s} hand drops to ${hh(s).toFixed(3)} of the height (at least ${RUN_HAND})`); }
           continue; }
         if (ob === 'orb') { if (dx('L') < ORB.out || hh('L') < ORB.h[0] || hh('L') > ORB.h[1]) say(`the orb's palm is ${dx('L').toFixed(3)} out of the shoulder at ${hh('L').toFixed(3)} of the height (out ${ORB.out}, ${ORB.h.join('..')})`); }
+        else if (SHIELDS.includes(ob)) { const body = spr.findIndex((n) => n.startsWith(pn + 'body')), sh = spr.findIndex((n) => /^it_(shield|buckler)/.test(n)), fwd = face * (J.shield[0] - J.shL[0]) / H;
+          if (fwd < SHIELD_FWD) say(`the shield's middle stands ${fwd.toFixed(3)} of the height before its shoulder (at least ${SHIELD_FWD}): it sticks out behind the back`);
+          if (sh < body) say('the shield is drawn under the body, as if slung on the back');
+          const top = J.shield[1] - shieldH / 2, chin = 2 * J.head[1] - J.top[1];
+          if (top < chin) say(`the shield's rim stands ${((chin - top) / H).toFixed(3)} of the height over the chin`); }
         else { if (dx('L') < OUT) say(`the near hand hangs ${dx('L').toFixed(3)} of the height out of its shoulder (at least ${OUT})`);
           const body = spr.findIndex((n) => n.startsWith(pn + 'body')), fa = spr.findIndex((n) => n.startsWith(pn + 'farmL') && !n.includes('_sock'));
           if (!ob && fa < body) say('the near forearm is drawn under the body'); }
@@ -822,12 +959,24 @@
     // (TASKS 2200) the staff's and the wand's fist on the world grid (sim_checks_grip.js worldFist)
     SIMX.heroLayers.fistsOnGrid(out, 'mage', ['staff', 'wand'], 'hero fist');
   }
+  // a step with no pointer, or with half of one, aims at the screen centre: the camera stays finite and does not look aside
+  function pointerlessStepCheck(out) {
+    const STEPS = 60, LOOK_EPS = 1e-6, finite = (...values) => values.every(Number.isFinite);
+    for (const [name, inp] of [['no pointer', { keys: [] }], ['no py', { keys: [], px: 300 }], ['a NaN pointer', { keys: [], px: NaN, py: NaN }]]) {
+      const { S, R, h } = stage();
+      for (let i = 0; i < STEPS; i++) step(S, inp);
+      if (!finite(R.cam[0], R.cam[1], R.camV[0], R.camV[1])) out.push(`pointerless step (${name}): the camera is ${R.cam.join(', ')}`);
+      if (!finite(h.aim, h.mx, h.my)) out.push(`pointerless step (${name}): the aim is ${h.aim}`);
+      if (!Number.isFinite(inp.px) && (R.camLook || []).some((look) => Math.abs(look) > LOOK_EPS)) out.push(`pointerless step (${name}): the camera looks aside by ${(R.camLook || []).join(', ')}`); }
+  }
+  SIMX.checks.add('pointerlessStepCheck', pointerlessStepCheck);
   SIMX.checks.add('heroPoseCheck', heroPoseCheck);
   SIMX.checks.add('heroFistCheck', heroFistCheck);
   SIMX.checks.add('classCheck', classCheck);
   SIMX.checks.add('heroGripCheck', heroGripCheck);
   SIMX.checks.add('heroTurnCheck', heroTurnCheck);
   SIMX.checks.add('heroRunCheck', heroRunCheck);
+  SIMX.checks.add('heroGaitCheck', heroGaitCheck);
   SIMX.checks.add('heroViewCheck', heroViewCheck);
   SIMX.checks.add('powerCheck', checkPowers);
   SIMX.checks.add('dataLinkCheck', dataLinkCheck);

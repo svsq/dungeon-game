@@ -110,9 +110,18 @@
       const hold = D.BOSSES[e.type] ? T.boss : T.root; q.done = 1; e.rootT = Math.max(e.rootT || 0, t + hold); e.slowK = 0; e.cdT = Math.max(e.cdT || 0, t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
       heroHit(S, R, e, q.dmg, !!q.crit, q.x, q.y, 0); ev(S, { k: 'trapsnap', x: q.x, y: q.y, id: e.id }); SIMX.firePowers(S, R, 'trapsnap', { x: q.x, y: q.y, e, dmg: q.dmg }); }
     R.htraps = R.htraps.filter((q) => !q.done); }
+  // how far past a blow's or a bolt's reach a pot and a big prop are still struck (their bodies' half-width about)
+  const POT_REACH = 10, PROP_REACH = 18;
+  // the props a blow breaks, each with its test (which of its name breaks at all), whether it still stands, and what a blow does to it;
+  // the blows (hitProps) and the bolts (boltPropAt) ask the same registry
+  const BREAKABLE = {
+    wreck_cv: { of: () => true, whole: () => true, hit: (S, R, d) => hitWreck(S, R, d) },
+    bookshelf: { of: (m, d) => d.secret !== undefined, whole: (m, d) => !m.secrets[d.secret].open, hit: (S, R, d) => hitShelf(S, R, R.map.secrets[d.secret]) } };
+  const breakKind = (m, d) => { const B = BREAKABLE[d.n]; return B && B.of(m, d) ? B : null; };
+  const breakable = (m, d) => { const B = breakKind(m, d); return !!B && !d.broken && B.whole(m, d); };
   function breakPots(S, R, x, y, rad, ax, arc) {
     for (const p of R.pots) { if (p.hp <= 0) continue; const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
-      if (d > rad + 10) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, p.x, p.y)) continue;
+      if (d > rad + POT_REACH) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, p.x, p.y)) continue;
       p.hp = 0; p.brokeT = S.t; ev(S, { k: 'break', x: p.x, y: p.y, kind: p.kind });
       if (p.kind === 'gold' || p.kind === 'goldpile') { for (let k = 0; k < (p.rich ? 6 : p.kind === 'goldpile' ? 2 : 3); k++) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 8) + dep(R) * 2 }); }
       else if (p.kind.startsWith('vase')) { drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 9) + dep(R) * 2 }); if (rnd(R) < POT.vase) SIMX.dropPotion(R, p.x, p.y, 0.7); }
@@ -131,7 +140,7 @@
     const m = R.map, hit = R.propHit || (R.propHit = {});
     // things on a wall are struck at their foot on the floor (the wall cell blocks the line), the event stays at the thing
     const knock = (id, p, n, mat = D.PROP_MAT[n] || 'stone', foot = p) => { const dx = foot.x - x, dy = foot.y - y, d = Math.hypot(dx, dy);
-      if (d > rad + 18) return false; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return false; if (!losClear(m, x, y, foot.x, foot.y)) return false;
+      if (d > rad + PROP_REACH) return false; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return false; if (!losClear(m, x, y, foot.x, foot.y)) return false;
       if (S.t - (hit[id] ?? -9) < 0.2) return false; hit[id] = S.t;
       if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
       if (n !== 'merchant') ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, scale: p.s || 1, s: dx >= 0 ? 1 : -1 }); return true; };
@@ -146,8 +155,7 @@
       else if (/^shroom_[ab]$/.test(d.n)) knock('d' + i, d, d.n, 'fungus');
       else if (d.wall && d.n === 'shop_sign') knock('d' + i, d, d.n, 'wood', { x: d.x, y: d.y + 30 });
       else if (d.n === 'coffin') { if (knock('d' + i, d, d.n)) coffinWakes(S, R, d); }
-      else if (d.n === 'wreck_cv') { if (!d.broken && knock('d' + i, d, d.n)) hitWreck(S, R, d); }
-      else if (d.secret !== undefined && d.n === 'bookshelf') { const q = m.secrets[d.secret]; if (!d.broken && !q.open && knock('d' + i, d, d.n)) hitShelf(S, R, q); }
+      else if (breakKind(m, d)) { if (breakable(m, d) && knock('d' + i, d, d.n)) breakKind(m, d).hit(S, R, d); }
       else if (d.solid && !d.wall) knock('d' + i, d, d.n);
       else if (d.wall && d.n === 'banner' && !hidden(m, d) && !(d.secret !== undefined && m.secrets[d.secret].open)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
     if (bonesOnly) return;
@@ -239,8 +247,7 @@
   function shotWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
   function boltPropAt(R, x, y, r) {
     const m = R.map, reaches = (p, pad) => Math.hypot(p.x - x, p.y - y) <= r + pad && losClear(m, x, y, p.x, p.y);
-    return R.pots.some((p) => p.hp > 0 && reaches(p, 10)) || m.decor.some((d) => !d.broken &&
-      (d.n === 'wreck_cv' || (d.n === 'bookshelf' && d.secret !== undefined && !m.secrets[d.secret].open)) && !hidden(m, d) && reaches(d, 18));
+    return R.pots.some((p) => p.hp > 0 && reaches(p, POT_REACH)) || m.decor.some((d) => breakable(m, d) && !hidden(m, d) && reaches(d, PROP_REACH));
   }
   function springAmbush(S, R, P) {
     const m = R.map, h = R.hero;
@@ -255,7 +262,7 @@
   // elites: the first that many of it rise elites (a skull door's last wave, TASKS 2132)
   function summonPack(S, R, ri0, n, summ, some, elites = 0) {
     const m = R.map, h = R.hero, f = dep(R), room = m.rooms[ri0];
-    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
+    const roster = D.oldAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
     if (!roster.length) return 0;
     const group = Array.from({ length: n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = SIMX.solids(R), block = new Set(m.block || []);
     const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;
@@ -387,6 +394,6 @@
 
   Object.assign(SIMX, { looseVolley, setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, shotWebs, boltPropAt, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    openSecret, shelfOf, heroOnPath, secretHow, puzzleNear, usePuzzle, debugSecrets, lootAudit, tearWebs, shotWebs, boltPropAt, BREAKABLE, breakable, springAmbush, summonPack, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
     leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

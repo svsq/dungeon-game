@@ -11,7 +11,7 @@
     for (const a of C.abs) { ab[a.id] = a.unlock <= 1 ? 1 : 0; cd[a.id] = 0; }
     const h = { cls, x: 0, y: 0, vx: 0, vy: 0, face: 1, faceT: -9, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
       base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(D.bagLen(up)).fill(null), ab,
-      cd: Object.assign(cd, { dash: 0, atk: 0 }), atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
+      cd: Object.assign(cd, { dash: 0, atk: 0 }), atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkClub: null, patkClub: null, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
       hurtT: -9, ifr: 0, shield: 0, shieldT: -9, shieldUntil: 0, poison: 0, burn: 0, burnT: -9, spikeT: -9, dist: 0, gp: 0, deadT: -1, regen: 0, bless: 0 };
     for (const k of D.SLOTS) h.eq[k] = null;
     return h;
@@ -103,17 +103,23 @@
   // put its stairs and monsters wrong, so a kept floor whose rebuild has another print is built anew; a floor kept before the print
   // takes the rebuild's
   const mapPrint = (m) => { const s = JSON.stringify(m); let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(36); };
+  // the generator options that lay a floor kept under an older D.GEN_VERSION as it was laid, so its diff still fits; its print (M.mp)
+  // tells which. 38: before the dead-end lava bridges went back to lava and the room floors took their own packs, some of its floors
+  // laid before the library's shelves kept off the passages too
+  const GEN_LEGACY = { 38: [{ legacyBridges: true, legacyRosters: true }, { legacyBridges: true, legacyRosters: true, legacyLibraryPlacement: true }] };
+  // the generator's options with the legacy ones taken off, so a floor is laid by this version
+  const LEGACY_KEYS = new Set(Object.values(GEN_LEGACY).flat().flatMap(Object.keys));
+  const currentGen = (gen) => (gen ? Object.fromEntries(Object.entries(gen).filter(([k]) => !LEGACY_KEYS.has(k))) : gen);
+  // a kept floor built as it was laid: by this generator, or by its legacy options for an older one, which the memo then keeps (with the
+  // version), so its next build (stashFloor, the next visit) is the old one at once and is never generated twice; null when none fits
   function matchingFloor(R, f, M) {
-    const floor = freshFloor(R, f, M), print = mapPrint(floor.map);
-    if (M.gv === D.GEN_VERSION && M.mp && M.mp !== print) {
-      // Floors already visited with the old shelf placement keep their layout so their saved diff still applies.
-      const legacy = freshFloor(R, f, M, { ...M.gen, legacyLibraryPlacement: true });
-      if (mapPrint(legacy.map) === M.mp) return { floor: legacy, print: M.mp };
-    }
-    return { floor, print };
+    if ((M.gv || 1) === D.GEN_VERSION) { const floor = freshFloor(R, f, M); return { floor, print: mapPrint(floor.map) }; }
+    for (const o of (M.mp && GEN_LEGACY[M.gv]) || []) { const gen = { ...M.gen, ...o }, floor = freshFloor(R, f, M, gen);
+      if (mapPrint(floor.map) === M.mp) { M.gen = gen; M.gv = D.GEN_VERSION; return { floor, print: M.mp }; } }
+    return null;
   }
   function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1 || (R.map && R.map.town)) return;
-    const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(matchingFloor(R, f, M).floor), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
+    const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone((matchingFloor(R, f, M) || { floor: freshFloor(R, f, M) }).floor), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
     M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
   // a floor kept by another generator (an old save): its diff fits a map no longer built, so the floor is built anew and only what
   // can't come back carries over: as many of its monsters stay dead as died there, the nearest the way in first, and a slain
@@ -144,8 +150,8 @@
     const st = R.stats && R.stats[f], counted = st ? st.kills - ((R.slain || []).includes(f) ? 1 : 0) : 0;
     const logged = ((R.log && R.log.fl) || []).filter((v) => v.f === f).reduce((s, v) => s + Object.entries(v.kills || {}).filter(([k]) => !D.BOSSES[k.split(' ')[0]]).reduce((a, [, c]) => a + c, 0), 0);
     return Math.max(deadNow + gone, counted, logged); }
-  function restoreFloor(R, f, M) { let old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
-    else { const { floor: B, print: mp } = matchingFloor(R, f, M), same = !M.mp || M.mp === mp; if (!M.mp) M.mp = mp;
+  function restoreFloor(R, f, M) { const kept = matchingFloor(R, f, M); let old = !kept; if (old) migrateFloor(R, f, M);
+    else { const { floor: B, print: mp } = kept, same = !M.mp || M.mp === mp; if (!M.mp) M.mp = mp;
       // a diff that no longer fits the floor built now (TASKS 1917): the floor is built anew as an old generator's is, so the way on is
       // never shut; the explored map stays only on the same layout
       try { if (!same) throw new Error('the floor is built otherwise than it was kept'); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); relinkSconces(B.map); for (const k of FLOOR_KEYS) R[k] = B[k]; }
@@ -246,7 +252,7 @@
   // version of the game from the RNG and ids it was first built with, so a change to the deep floors is measured without playing
   // the floors before them again
   function rebuildArrival(S) { const R = S.run, f = R.floor, M = R.memo && R.memo[f]; if (!M || !R.arrived) return false;
-    R.rs = M.rs; R.nextId = M.id; M.gv = D.GEN_VERSION; buildFloor(R, f, M.gen || undefined); BASE.set(M, snapFloor(R)); M.mp = mapPrint(R.map);
+    R.rs = M.rs; R.nextId = M.id; M.gv = D.GEN_VERSION; M.gen = currentGen(M.gen); buildFloor(R, f, M.gen || undefined); BASE.set(M, snapFloor(R)); M.mp = mapPrint(R.map);
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     SIMX.questPlace(S, R); R.stats[f] = floorStat(R); arrive(S, R, R.arrived); return true; }
 

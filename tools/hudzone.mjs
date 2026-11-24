@@ -40,11 +40,11 @@ try {
     const mid = (z) => [(Math.max(z[0], 0) + Math.min(z[2], W)) / 2, (Math.max(z[1], 0) + Math.min(z[3], Hh)) / 2];
     const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
     const sx = (x) => (x - R.cam[0]) * Z, sy = (y) => (y - R.cam[1]) * Z;
-    const stand = (f, x, y) => { const sh = SZ('town_' + f.role)[1]; f.x = R.cam[0] + x / Z; f.y = R.cam[1] + Math.min(Hh - 4, y + 30 + sh * Z) / Z; return sy(f.y) - sh * Z - 30; };
+    const stand = (f, x, y) => { const sh = SZ(window.DATA.folkSprite(f))[1]; f.x = R.cam[0] + x / Z; f.y = R.cam[1] + Math.min(Hh - 4, y + 30 + sh * Z) / Z; return sy(f.y) - sh * Z - 30; };
     // the hero stands well clear of the spot, so his body is never the reason a mark moves or hides
     const heroAt = (x, y) => { h.x = R.cam[0] + x / Z; h.y = R.cam[1] + y / Z; };
     const away = (x, y) => { const p = [[260, 700], [960, 600], [1660, 700]].sort((a, b) => Math.hypot(b[0] - x, b[1] - y) - Math.hypot(a[0] - x, a[1] - y))[0]; heroAt(...p); };
-    const bodies = () => R.folk.map((f) => { const [w, hh] = SZ(f.role === 'hen' ? 'town_hen_white' : 'town_' + f.role); return { who: f.role, x: sx(f.x) - w * Z / 2, y: sy(f.y) - hh * Z, w: w * Z, h: hh * Z }; })
+    const bodies = () => R.folk.map((f) => { const [w, hh] = SZ(window.DATA.folkSprite(f)); return { who: f.role, x: sx(f.x) - w * Z / 2, y: sy(f.y) - hh * Z, w: w * Z, h: hh * Z }; })
       .concat({ who: 'hero', x: sx(h.x) - 30 * Z, y: sy(h.y) - 84 * Z, w: 60 * Z, h: 90 * Z });
     // the limit is the part's nearest free side, not a fixed reach, so a mark sent the long way round fails
     const esc = (z, x, y) => Math.min(z[0] - 48 >= 0 ? x + 24 - z[0] : Infinity, z[2] + 48 <= W ? z[2] + 24 - x : Infinity, z[1] - 64 >= 0 ? y + 32 - z[1] : Infinity, z[3] + 64 <= Hh ? z[3] + 32 - y : Infinity);
@@ -75,7 +75,7 @@ try {
     { const f = givers[0], src = R.folk.find((q) => q.role !== 'hen' && !SIM.Q.questMark(R, q.role)), keep = R.folk.slice();
       if (!src) out.push('town_quest_marks has no townsman without a quest to wall a giver in with');
       else { givers.forEach((g) => { g.x = R.cam[0] - 4000; }); const ny = stand(f, 960, 420); heroAt(200, 980);
-        const [w, hh] = SZ('town_' + src.role), dx = Math.max(8, w * Z - 12), dy = Math.max(8, hh * Z - 16);
+        const [w, hh] = SZ(window.DATA.folkSprite(src)), dx = Math.max(8, w * Z - 12), dy = Math.max(8, hh * Z - 16);
         for (let y = ny - 340; y <= ny + 340 + hh * Z; y += dy) for (let x = 960 - 400; x <= 960 + 400; x += dx) R.folk.push(Object.assign({}, src, { x: R.cam[0] + x / Z, y: R.cam[1] + y / Z }));
         render(); if (HUD.marks().some((b) => b.i === f.i)) out.push(`a giver walled in by ${R.folk.length - keep.length} townsfolk still shows a mark`);
         R.folk.length = 0; keep.forEach((q) => R.folk.push(q)); } }
