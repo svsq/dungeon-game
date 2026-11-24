@@ -120,7 +120,7 @@
       drawHero(h, 300, 300, GT, heroSt(S), menu ? { menu: 1 } : {});
       const si = spr.findIndex((q) => /^it_(shield|buckler)/.test(q.n)), ai = spr.findIndex((q) => /^hero__farmL/.test(q.n));
       if (si < 0 || ai < 0) { out.push(`warrior fist: ${tag}: the shield or the near forearm is not drawn`); continue; }
-      const body = spr.findIndex((q) => /^hero__body$/.test(q.n)), fi = spr.findIndex((q) => /^hero__fistR/.test(q.n));
+      const body = spr.findIndex((q) => /^hero__body(_menu)?$/.test(q.n)), fi = spr.findIndex((q) => /^hero__fistR/.test(q.n));
       if (body >= 0 && si > body && fi > si) out.push(`warrior fist: ${tag}: the weapon's fist is drawn over the shield held before the body`);
       if (act === 'blow') continue;
       const r = d(J.shield, J.handL) / spr[si].o.h;

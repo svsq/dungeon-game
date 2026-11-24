@@ -114,7 +114,7 @@
     'sim_town.turnAll': 'Сдано: {names}.',
     'sim_town.questLine': 'Сдать в городе',
     'sim_town.firstGoal': 'Знакомство с городом',
-    'sim_town.firstGoal.line': 'Поговорить: {p1}',
+    'sim_town.firstGoal.line': 'Взять задание: {p1}',
     'sim_town.questLine.who': 'Сдать: {p1}',
     'sim_town.questLine.2': '{n} / {need} · с {f}-го этажа',
     'sim_town.questLine.3': '{title} · {f}-й этаж',

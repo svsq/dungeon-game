@@ -42,8 +42,8 @@
   // a class drawn on its own rig has its own portrait (TASKS 1114), and each of its looks (TASKS 2148)
   const portraitOf = (h) => D.lookOf(h).port;
   const PF = D.UI.kit.PORT.frames, portrait = (tex, f, x, y, w, h) => { const P = D.UI.kit.portIn(f, x, y, w, h); L.sprite(tex, P.x, P.y, { w: P.w, h: P.h, src: P.src }); };
-  // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
-  // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
+  // the last frame's measures that hudZones builds the HUD's parts from: the minimap's panel, legend and all (a fixed 440 px let labels
+  // slip under the taller one of a big map), the tracker; KEYP: the windows' key plates drawn this frame
   let MMB = null, TRK = null, KEYP = {};
   // an elite's label slot (TASKS 2032, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
   // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
@@ -643,10 +643,9 @@
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands. A done one is ticked in its
   // box, and a button on the heading folds the done ones away and back (TASKS 1992); the fold is the player's, kept in the meta
   const trkDone = (R) => SIM.Q.journalOf(R).filter((q) => q.st === 'done').length, trkFolded = (S, R) => !!S.meta.trkFold && trkDone(R) > 0;
-  // a new hero's first goal (the talk with the Keeper) heads the list as a row of its own, not a quest
+  // a new hero's first goal (taking the Keeper's quest) heads the list as a row of its own, not a quest
   const trkGoal = (R) => { const g = SIM.Q.firstGoal(R); return g ? [{ goal: g, st: 'taken' }] : []; };
-  const trkQuestName = (q) => D.questName(q);
-  const trkName = (q) => (q.goal ? q.goal.name : trkQuestName(q)), trkLine = (q, R) => (q.goal ? q.goal.line : SIM.Q.questLine(q, R));
+  const trkName = (q) => (q.goal ? q.goal.name : D.questName(q)), trkLine = (q, R) => (q.goal ? q.goal.line : SIM.Q.questLine(q, R));
   const trkAll = (S, R) => trkGoal(R).concat(SIM.Q.journalOf(R).filter((q) => q.st !== 'turned' && !(trkFolded(S, R) && q.st === 'done')));
   const TK = D.UI.kit.TRACKER, TF = TK.size, trkFoldLab = (S, R) => (trkFolded(S, R) ? TXT('hud.tracker.unfold', { n: trkDone(R) }) : TXT('hud.tracker.fold'));
   const trkHidden = (S) => !!S.meta.trkHide, trkChip = (R) => TXT('hud.tracker.chip', { n: trkGoal(R).length + SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').length });

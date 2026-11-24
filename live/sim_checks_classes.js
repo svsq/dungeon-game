@@ -400,7 +400,7 @@
           };
           const weak = blow(100, NO_CRIT), strong = blow(100 * ATTACK_GROWTH, NO_CRIT);
           // the crit chance is capped below certainty, so the crit blow is the first of a few tries that rolls one
-          let critical = null; for (let n = 0; n < CRIT_TRIES && !critical?.hit?.crit; n++) critical = blow(100, CRIT_OVER_CAP);
+          let critical = null, landed = 0; for (let n = 0; n < CRIT_TRIES && !critical?.hit?.crit; n++) { critical = blow(100, CRIT_OVER_CAP); if (critical.hit) landed++; }
           delete D.POWERS[POWER]; delete D.POWERS[CRIT_POWER];
           for (const { hit, stat, healed, powers, critPowers } of [weak, strong]) {
             const expected = stat.atk * club.atkFactor;
@@ -409,7 +409,8 @@
             else if (critPowers) out.push('class mage: a club blow that does not crit fires an on-crit power');
           }
           if (weak.hit && strong.hit && strong.hit.n <= weak.hit.n) out.push('class mage: a stronger hero hits with the club for no more');
-          if (!critical.hit?.crit) out.push(`class mage: the club never crits at the cap in ${CRIT_TRIES} blows`);
+          if (!landed) out.push(`class mage: the club never lands a blow at the crit cap in ${CRIT_TRIES} tries`);
+          else if (!critical.hit?.crit) out.push(`class mage: the club never crits at the cap in ${landed} landed blows of ${CRIT_TRIES}`);
           else if (critical.critPowers !== 1 || critical.powers !== 1) out.push(`class mage: a club crit fires its on-crit power ${critical.critPowers} times and its on-hit power ${critical.powers} times, not once each`);
         } }
       for (const [cls, kind] of [['warrior', 'melee'], ['archer', 'shot']]) { const { S, h, ok } = arena(cls);

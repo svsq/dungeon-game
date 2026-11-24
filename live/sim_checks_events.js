@@ -259,7 +259,9 @@
       if (h.gold !== 1000 || E.st !== 'idle') out.push(`${tag}: «no» leaves ${h.gold} gold, it ${E.st}`);
       const faces = SIMX.diceFacesOf(fate); E.faces = faces.slice(); ask(); const want = 1000 - E.stake + E.stake * P.pay[i], q = S.ev.filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'dice');
       if (h.gold !== want || E.st !== 'done' || E.fate !== fate || q.length !== 1) out.push(`${tag}: «yes» on ${faces} leaves ${h.gold} gold of ${want}, it ${E.st} ${E.fate}, ${q.length} qevent`);
-      if (!R.msg || !faces.every((f) => R.msg.s.includes(String(f)))) out.push(`${tag}: the throw's line does not name ${faces} (${R.msg && R.msg.s})`);
+      // the exact line for these faces, and one that would read the same without them names no faces at all
+      const lineWith = (a, b) => SIMX.DICE_LINE[fate]({ a, b, n: E.stake * P.pay[i], bet: E.stake }), line = lineWith(...faces);
+      if (!R.msg || R.msg.s !== line || line === lineWith('', '')) out.push(`${tag}: the throw's line is not the ${fate} line naming ${faces} (${R.msg && R.msg.s})`);
       key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the table asks again`);
       if (!SIMX.solids(R).some((b) => b.x === E.x && b.y === E.y)) out.push(`${tag}: the table does not stand in the way`);
       if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done' || b.fate !== fate || String(b.faces) !== String(faces)) out.push(`${tag}: a save forgets the throw`); } }

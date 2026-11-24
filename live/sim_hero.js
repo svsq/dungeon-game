@@ -6,7 +6,7 @@
     BAL, BASES, CAM_LOOK, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
     armored, atBrink, camAimY, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
     inWater, isCons, lastFloor, logFloor, losClear, move, onLava, onPlate, potion, pushable, reveal, ri, rise, rnd, rollItem, shove,
-    soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
+    showQueuedMsg, soaked, split, stats, tally, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
   // ---------------- hero helpers ----------------
   const heroSt = (S) => stats(S.run.hero, S.meta);
   const heroRoll = (R, h, st) => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * D.heroDmgK(h))), c]; };
@@ -367,7 +367,7 @@
     // T reads the scroll of return (TASKS 1026: behind the bag alone, a novice never found it)
     if (keys.KeyT) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); if (i >= 0) SIMX.useItem(S, R, i); else ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.stepPlay.s') }); }
     if (keys.KeyR) SIMX.usePotion(S, R, 'mp_potion');
-    if (R.msgNext && !R.msgNext.afterTalk && S.t >= R.msgNext.t) { R.msg = R.msgNext; R.msgNext = null; }
+    if (R.msgNext && !R.msgNext.afterTalk && S.t >= R.msgNext.t) showQueuedMsg(S, R);
     if (keys.KeyE) SIMX.interact(S, R);
     if (R.map !== m) return;
     if (h.read && R.hero === h) SIMX.readStep(S, R, ix || iy ? 1 : 0, dashing);

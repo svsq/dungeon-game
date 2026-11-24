@@ -265,13 +265,16 @@
   // toward the floor's way up along a path that starts at his cage and gets nearer the start, and is done by its end
   // longer than any message stays on screen, so a message raised behind the talk window would be gone by its close
   const LONG_TALK = 10;
+  // a town run on the captive's floor with his cage up, his rescue quest in hand and the hero by the cage: { R, C, rescue } or the reason it cannot be
+  function captiveAtCage(S, who) { const X = root.SIMX, R = S.run = newRun(S, 'campaign', 84, { town: 1 }), C0 = D.CAPTIVES[who]; S.screen = 'play'; enterFloor(S, R, C0.f); const C = R.captives[who];
+    if (C0.boss) { const b = R.en.find((e) => D.BOSSES[e.type]); if (!b) return { fail: `no boss on floor ${C0.f} for the ${who}` }; X.captiveBoss(S, R, b); }
+    if (C.x === undefined) return { fail: `no cage for the ${who}` };
+    const rescueKey = Object.keys(D.QUESTS).find((k) => D.QUESTS[k].type === 'free' && D.QUESTS[k].who === who), rescue = (R.quests || []).find((q) => q.key === rescueKey) || newQuest(R, rescueKey, C0.f, 'keeper');
+    if (!(R.quests = R.quests || []).includes(rescue)) R.quests.push(rescue);
+    R.en = []; R.hero.x = C.x + 40; R.hero.y = C.y + 30; return { R, C, rescue }; }
   function captiveTalkCheck() { const out = [], S = spawn(0, {}), X = root.SIMX;
-    for (const who of Object.keys(D.CAPTIVES)) { const R = S.run = newRun(S, 'campaign', 84, { town: 1 }), C0 = D.CAPTIVES[who]; S.screen = 'play'; enterFloor(S, R, C0.f); const C = R.captives[who];
-      if (C0.boss) { const b = R.en.find((e) => D.BOSSES[e.type]); if (!b) { out.push(`captive talk: no boss on floor ${C0.f} for the ${who}`); continue; } X.captiveBoss(S, R, b); }
-      if (C.x === undefined) { out.push(`captive talk: no cage for the ${who}`); continue; }
-      const rescueKey = Object.keys(D.QUESTS).find((k) => D.QUESTS[k].type === 'free' && D.QUESTS[k].who === who), rescue = (R.quests || []).find((q) => q.key === rescueKey) || newQuest(R, rescueKey, C0.f, 'keeper');
-      if (!(R.quests = R.quests || []).includes(rescue)) R.quests.push(rescue);
-      R.en = []; R.hero.x = C.x + 40; R.hero.y = C.y + 30; X.interact(S, R);
+    for (const who of Object.keys(D.CAPTIVES)) { const C0 = D.CAPTIVES[who], { R, C, rescue, fail } = captiveAtCage(S, who); if (fail) { out.push(`captive talk: ${fail}`); continue; }
+      X.interact(S, R);
       if (S.screen !== 'talk' || !S.talk || S.talk.role !== who || S.talk.pages[0] !== C0.free) { out.push(`captive talk: freeing the ${who} opens ${S.screen}, not his talk`); continue; }
       for (let i = 0; i < 30; i++) step(S, { keys: [] }); if (!C.talk || C.flee) out.push(`captive talk: the ${who} leaves while he talks`);
       S.t += LONG_TALK; step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
@@ -283,6 +286,16 @@
       if (t0.done || Math.hypot(t0.x - C.x, t0.y - C.y) > 0.5 || Math.hypot(t1.x - C.x, t1.y - C.y) < D.CAPTIVE_FLEE.speed / 2 || !end.done) out.push(`captive talk: the ${who} does not run along his way and reach its end`); }
     return out; }
   SIMX.checks.add('captiveTalkCheck', captiveTalkCheck);
+  // a message already waiting when a captive is freed (a chapter banner's follower) keeps its turn: it shows first, the rescue done after it
+  function captiveMsgQueueCheck() { const out = [], S = spawn(0, {}), X = root.SIMX, who = Object.keys(D.CAPTIVES)[0], { R, rescue, fail } = captiveAtCage(S, who);
+    if (fail) return [`captive message queue: ${fail}`];
+    const waiting = { s: 'waiting', t: S.t, d: 1 }, doneText = TXT('sim_town.questOn.msg.s', { name: D.questName(rescue) }); R.msgNext = waiting; X.interact(S, R);
+    S.t += LONG_TALK; step(S, { keys: ['Escape'] }); for (let i = 0; i < 3; i++) step(S, { keys: [] });
+    if (R.msg !== waiting || !R.msgNext || R.msgNext.s !== doneText) out.push(`captive message queue: after the talk the box shows «${R.msg && R.msg.s}» with «${R.msgNext && R.msgNext.s}» next, not the waiting one and then the rescue`);
+    S.t = waiting.t + waiting.d; step(S, { keys: [] });
+    if (!R.msg || R.msg.s !== doneText || R.msgNext) out.push(`captive message queue: once the waiting one has had its time the rescue done is not shown (${R.msg && R.msg.s})`);
+    return out; }
+  SIMX.checks.add('captiveMsgQueueCheck', captiveMsgQueueCheck);
   SIMX.checks.add('questCheck', questCheck);
   SIMX.checks.add('questGiveCheck', questGiveCheck);
 })(typeof window !== 'undefined' ? window : globalThis);

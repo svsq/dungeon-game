@@ -12,8 +12,9 @@
   // about (glance, rad of neck at glanceRate rad/s), so it is never still for long
   const HEN_PECK = { rate: 2.6, sharp: 5, fed: { rate: 3.4, sharp: 3 }, glance: 0.14, glanceRate: 1.9 }, HEN_PECK_PERIOD = 2 * Math.PI / HEN_PECK.rate;
   // the guard's weight shift in his work loop: the body's sway (rad) and the knees' give (px) twice a loop; the enchanter bent over the
-  // book: the head forward (lean), down (dip) and after the turned page (page), the shoulders hunched (hunch), all rig px
-  const GUARD_WORK = { lean: 0.06, knee: 2 }, ENCHANTER_WORK = { lean: 10, dip: 6, page: 5, hunch: 4 };
+  // book: the head forward (lean), down (dip) and after the turned page (page), the shoulders hunched (hunch), all rig px. The head
+  // already sinks with the hunch (0.8 of the lift's 5 px); dip only brings it a px below the shoulders, so it bows, not sinks in
+  const GUARD_WORK = { lean: 0.06, knee: 2 }, ENCHANTER_WORK = { lean: 10, dip: 2, page: 5, hunch: 4 };
   // the guard's look over the yard: its window in the work loop (from, span; it eases in and out over ramp), the head's sweep and the body's shift (rad)
   const GUARD_LOOK = { from: 0.52, span: 0.18, ramp: 0.05, head: 0.4, body: 0.07 };
   // a hen's wings, two short strokes off its back (view px), raised by `lift` rad at most and beating at `rate` rad/s; `rest` the share

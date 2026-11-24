@@ -5,7 +5,7 @@
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
     eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, exitKind, campaignDone, leverNear,
-    mapw, openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
+    mapw, msgChain, openChest, openDoor, openSecret, pick, potion, pullLever, queueMsg, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
   // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
@@ -285,7 +285,7 @@
     if (Q.type === 'room') return (e.k === 'clear' || e.k === 'qevent') && R.floor === q.f && !R.town && e.room === q.room ? 1 : 0;
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
-      q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.questName(q) }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
+      q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.questName(q) }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, queueMsg(R, M); else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
   const unmarkFoe = (e) => { delete e.quest; if (!e.was) return; const k = e.max ? e.hp / e.max : 1, w = e.was; delete e.mods; delete e.ward; Object.assign(e, w); for (const q of ['mods', 'ward']) if (w[q] === undefined) delete e[q]; e.hp = Math.max(1, Math.round(e.max * k)); delete e.was; delete e.title; delete e.elite; };
   // a kept floor's diff patches its foes by index, and the dead shift them: a mark is taken off on the way back in, on the live foe
   const dropMarks = (R, M) => { for (const id of M.dropQ || []) { for (const c of R.chests) if (c.quest === id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === id) unmarkFoe(e); } delete M.dropQ; };
@@ -383,8 +383,8 @@
   // freed, the captive says his thanks in the talk window and stays by his cage while it is up (C.talk); stepCaptives sends him off
   // once it is closed. The message box shows only in play, so a quest done by the freeing waits in R.msgNext behind the window
   function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y });
-    const shown = R.msg, queued = R.msgNext; ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y });
-    if (R.msg !== shown) { R.msgNext = R.msg; R.msg = shown; } if (R.msgNext && R.msgNext !== queued) R.msgNext.afterTalk = 1;
+    const shown = R.msg, waiting = new Set(msgChain(R)); ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y });
+    if (R.msg !== shown) { queueMsg(R, R.msg); R.msg = shown; } for (const M of msgChain(R)) if (!waiting.has(M)) M.afterTalk = 1;
     C.talk = 1; S.talk = { role: C.who, i: 0, pages: [D.CAPTIVES[C.who].free], p: 0, act: null }; S.screen = 'talk'; S.hover = ''; S.saveN++; ev(S, { k: 'say', x: C.x, y: C.y, role: C.who }); }
   // the way off: from the open side of the cage, down the floor's field toward its start (the way up, through its shut doors too), CAPTIVE_FLEE.cells of it
   function fleePath(R, C) { const m = R.map, F = SIMX.flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), true), cell = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
@@ -392,8 +392,9 @@
     if (!near.length) return [[C.x, C.y]]; let k = near.sort((a, b) => F[a] - F[b] || a - b)[0]; const path = [[C.x, C.y], cell(k)];
     for (let i = 0; i < D.CAPTIVE_FLEE.cells && F[k] > 0; i++) { k = [k + 1, k - 1, k + m.W, k - m.W].filter((j) => F[j] >= 0 && F[j] < F[k]).sort((a, b) => F[a] - F[b] || a - b)[0]; if (k === undefined) break; path.push(cell(k)); }
     return path; }
-  const releaseAfterTalk = (S, R) => { if (!R.msgNext || !R.msgNext.afterTalk) return; delete R.msgNext.afterTalk; R.msg = Object.assign(R.msgNext, { t: S.t }); R.msgNext = null; };
-  function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C) }; releaseAfterTalk(S, R); S.saveN++; } }
+  // the talk closed: what waited behind it takes its turn in the queue, shown by the play step once due
+  const releaseAfterTalk = (R) => { for (const M of msgChain(R)) delete M.afterTalk; };
+  function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C) }; releaseAfterTalk(R); S.saveN++; } }
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
     return D.storyChain(R.mode).find((s) => (D.QUESTS[s.key].type === 'free' ? !!capOf(R, D.QUESTS[s.key].who) && !isFree(R, D.QUESTS[s.key].who) : s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
   // what a townsman offers now: the quest as it would be taken (its floor set, its foe's name or its keepsake drawn), or null

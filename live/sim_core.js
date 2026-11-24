@@ -28,6 +28,12 @@
   const ev = (S, e) => { e.t = S.t;
     S.ev.push(e); if (!(S.run && S.run.test) && META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log) note(S, e); };
+  // a message that has to wait (behind a chapter banner or a talk window) queues on R.msgNext through .next: each one shows once
+  // the one before it has had its full time on screen, so a later one never overwrites one still waiting
+  const MSG_SHOWN_FOR = 3.5;
+  const queueMsg = (R, M) => { let q = R.msgNext; if (!q) { R.msgNext = M; return; } while (q.next) q = q.next; q.next = M; };
+  const msgChain = (R) => { const out = []; for (let q = R.msgNext; q; q = q.next) out.push(q); return out; };
+  const showQueuedMsg = (S, R) => { const M = R.msgNext; R.msgNext = M.next || null; delete M.next; M.t = Math.max(M.t, S.t); R.msg = M; if (R.msgNext) R.msgNext.t = Math.max(R.msgNext.t, M.t + (M.d || MSG_SHOWN_FOR)); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
   // reads the depth, the run's own floor numbers only place its bosses, guards and end
@@ -315,7 +321,7 @@
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, VIEW, VIEW_H, viewFor, setView, uiDy,
-    zoomOf, WIN, toPx, K, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
+    zoomOf, WIN, toPx, K, EEL_MOUTH, rnd, ri, pick, ev, queueMsg, msgChain, showQueuedMsg, FROM, sealOf, RUN, STAGE, dep, lastFloor, exitKind, campaignDone, dif, who, statsOf, initStats, tally, deathOf, hardcore,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, inSolid, solidC, pinch,
     losClear, overLava, doorLock, doorTwin, flow, homeFlow, reveal, clampCam, snapCam, camAimY, camEdges, CAM_FEET, CAM_LOOK });

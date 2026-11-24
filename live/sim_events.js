@@ -162,5 +162,5 @@
   function stepEvents(S, R) { const h = R.hero;
     for (const E of eventsOf(R)) if (E.st === 'idle' && D.EVENTS.pool[E.id].walk && h.deadT < 0 && DG.roomAt(R.map, h.x, h.y) === E.room) eventStart(S, R, E);
     for (const E of eventsOf(R)) if (E.st === 'on') { const F = EVENT_RULES[E.id]; if (F && F.step) F.step(S, R, E); } }
-  Object.assign(SIMX, { EVENT_RULES, DICE_FATES, diceFate, diceFacesOf, eventBet, trialN, trialPay, eventSay, trialWaveOf, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
+  Object.assign(SIMX, { EVENT_RULES, DICE_FATES, DICE_LINE, diceFate, diceFacesOf, eventBet, trialN, trialPay, eventSay, trialWaveOf, lootK, darkMask, hexN, eventsArrive, eventsOf, eventsBuild, eventNear, eventUse, eventStart, eventsLeave, stepEvents });
 })(typeof window !== 'undefined' ? window : globalThis);
