@@ -533,9 +533,10 @@
     const footK = (side) => (1 - (1 - BACK_VIEW.footFs) * backV) * (1 - (1 - (side === 'L' ? STANCE.frontFoot : STANCE.nearFoot)) * (1 - run) * (1 - backV));
     // (TASKS 2196) the skirt's halves go over both legs: after its own leg only, the near shin with its dark top lay over the far half and
     // read as a leg torn off under the robe
-    // the hem sways once a step, a little after the foot that pushed it
-    const hemSway = LK.gait.hem * run * Math.sin(2 * P.p - HEM_LAG);
-    const thigh = (side, u) => { const g = legs[side]; part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), robe ? (robe + (ROBE_SWING - robe) * Math.abs(pdx) * (g.r1 > 0 ? 1 : 0)) * g.r1 + hemSway : g.r1, u, robe ? 1 : g.k1); };
+    // the hem sways once a step, a little after the foot that pushed it: the trailing half flares back and returns, never forward,
+    // which would bare the trailing boot above the hem
+    const hemSway = LK.gait.hem * run * (0.5 + 0.5 * Math.sin(2 * P.p - HEM_LAG));
+    const thigh = (side, u) => { const g = legs[side], trailing = g.r1 > 0 ? 1 : 0; part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), robe ? (robe + (ROBE_SWING - robe) * Math.abs(pdx) * trailing) * g.r1 + hemSway * trailing : g.r1, u, robe ? 1 : g.k1); };
     const drawLeg = (side, u) => { const g = legs[side];
       if (!robe) thigh(side, u);
       part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02 + heel[side], u, 1, 0, footK(side)); };
