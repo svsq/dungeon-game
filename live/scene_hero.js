@@ -23,7 +23,9 @@
   // leaves the trailing foot by ROBE_KICK while it is still behind: the shin stood out past the skirt's back edge to the knee, 20 px² of
   // boot above the hem
   // (TASKS 2202) but never lower than SOLE_CLEAR world px while it swings: held to the floor the trailing foot slid along it (p95 3.9 px a frame)
-  const SOLE_CLEAR = 2, BLADE_BACK = 0.3, ROBE_BACK = 0.09, ROBE_FOLD = 0.7, ROBE_SWING = 0.8, ROBE_KICK = 0.8;
+  const SOLE_CLEAR = 2, BLADE_BACK = 0.3, ROBE_BACK = 0.09, ROBE_FOLD = 0.7, ROBE_SWING = 0.8, ROBE_KICK = 0.8, HEM_LAG = 0.6;
+  // the hem's sway comes in over the thigh's first HEM_RAMP rad past plumb (switched on as it passed plumb, the hem jumped 1.5 px)
+  const HEM_RAMP = 0.25;
   const NOCKS = { it_bow_s: [[0.894, 0.174], [0.255, 0.863]], it_bow_l: [[0.937, 0.072], [0.096, 0.941]] };
   const STRING_WORLD = [0.36, 0.34, 0.31];
   // the wrapped grip on the stave, where the fist holds it (TASKS 2145: held by the middle of its picture the fist closed on air by the string)
@@ -117,7 +119,7 @@
     const dirx = sp > 1 ? dv[0] / sp : 0, diry = sp > 1 ? dv[1] / sp : 0;
     // (dead, the sim stops his stride's phase in a frame: the render runs it on at his speed, eased out over the run's own fade, or a
     // hero killed mid-run stopped his legs and cape dead, TASKS 1803)
-    const sl = SIM.Q.stepLen(Math.abs(dirx)), dT = h.deadT >= 0 ? GT - h.deadT : 0, p = (h.gp || 0) + (dT > 0 ? sp / sl * Math.PI * 0.08 * (1 - Math.exp(-dT / 0.08)) : 0), u0 = ((p / (2 * Math.PI)) % 1 + 1) % 1;
+    const sl = SIM.Q.heroStepLen(h, Math.abs(dirx)), dT = h.deadT >= 0 ? GT - h.deadT : 0, p = (h.gp || 0) + (dT > 0 ? sp / sl * Math.PI * 0.08 * (1 - Math.exp(-dT / 0.08)) : 0), u0 = ((p / (2 * Math.PI)) % 1 + 1) % 1;
     return { RG, s, run, dirx: dirx * h.face, diry, p, u0, sl };
   }
   // the melee swing in rig angles: a short pull back, an ease-in strike that crosses the aim on the sim's damage frame (K.HIT),
@@ -235,7 +237,7 @@
     const hurt = GT - h.hurtT < 0.12, alpha = o.alpha === undefined ? 1 : o.alpha;
     // body: hip rides the stance leg (low at double support), slow breath at rest
     const dbl = 0.5 + 0.5 * Math.cos(4 * Math.PI * P.u0), breath = (1 - run) * Math.sin(GT * 2.1) * 0.9;
-    const bodyDy = run * (2.6 - 0.9 * Math.abs(pdx)) * dbl;
+    const bodyDy = run * (2.6 - 0.9 * Math.abs(pdx)) * dbl * LK.gait.bob;
     // dash and hurt lean the upper body about the hip (the feet stay planted): eased in and out, never a one-frame switch
     const dA = GT - h.dashT, dashE = SS(0, (h.castK === 'charge' && GT - h.castT < 0.5) || leapQ < 1 ? 0.15 : 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
     const hA = GT - h.hurtT, hurtE = h.deadT >= 0 ? 0 : SS(0, 0.07, hA) * (1 - SS(0.12, 0.3, hA));
@@ -307,7 +309,7 @@
       const A0 = RG['ankle' + side], u = ((P.u0 + (side === 'L' ? 0 : 0.5)) % 1), A = P.sl / 2 / s * run;   // half a step in rig px: stance slides back at body speed
       // (TASKS 1802: the longer step tilts the leg in depth by 0.88 of its travel; at 1 the knee folded 29° a frame walking down)
       let off, lift = 0;
-      if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2, e = SS(0.12, 0.95, w); off = -A + 2 * A * e; const full = Math.pow(Math.sin(Math.PI * w), 0.6) * (13 + 2 * Math.abs(pdx)) * run; lift = Math.max(full * (1 - ROBE_KICK * (LK.robe ? 1 : 0) * Math.abs(pdx) * (1 - e)), Math.min(full, SOLE_CLEAR / s)); }
+      if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2, e = SS(0.12, 0.95, w); off = -A + 2 * A * e; const full = Math.pow(Math.sin(Math.PI * w), 0.6) * (13 + 2 * Math.abs(pdx)) * run * LK.gait.lift; lift = Math.max(full * (1 - ROBE_KICK * (LK.robe ? 1 : 0) * Math.abs(pdx) * (1 - e)), Math.min(full, SOLE_CLEAR / s)); }
       tg[side] = { tx: A0[0] + off * pdx + (side === 'L' ? -1 : 1) * (STANCE.halfBy[cls] ?? STANCE.half) * (1 - run * 0.6), ty: A0[1] - lift, lift, dz: 0.88 * (off * P.diry - 0.5 * A * Math.abs(P.diry)) };
     }
     // the dash pose: the near leg reaches toward the dash, the far one trails with its knee bent (the gait does not run while dashing)
@@ -533,7 +535,10 @@
     const footK = (side) => (1 - (1 - BACK_VIEW.footFs) * backV) * (1 - (1 - (side === 'L' ? STANCE.frontFoot : STANCE.nearFoot)) * (1 - run) * (1 - backV));
     // (TASKS 2196) the skirt's halves go over both legs: after its own leg only, the near shin with its dark top lay over the far half and
     // read as a leg torn off under the robe
-    const thigh = (side, u) => { const g = legs[side]; part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), robe ? (robe + (ROBE_SWING - robe) * Math.abs(pdx) * (g.r1 > 0 ? 1 : 0)) * g.r1 : g.r1, u, robe ? 1 : g.k1); };
+    // the hem sways once a step, a little after the foot that pushed it: the leading half flares forward with its leg and returns.
+    // The trailing half keeps to its thigh: swayed either way it bared the trailing boot above the hem (5–9 px², the robe check's 3)
+    const hemSway = LK.gait.hem * run * (0.5 + 0.5 * Math.sin(2 * P.p - HEM_LAG));
+    const thigh = (side, u) => { const g = legs[side]; part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), robe ? (robe + (ROBE_SWING - robe) * Math.abs(pdx) * (g.r1 > 0 ? 1 : 0)) * g.r1 - hemSway * SS(0, HEM_RAMP, -g.r1) : g.r1, u, robe ? 1 : g.k1); };
     const drawLeg = (side, u) => { const g = legs[side];
       if (!robe) thigh(side, u);
       part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02 + heel[side], u, 1, 0, footK(side)); };

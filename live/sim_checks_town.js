@@ -668,7 +668,30 @@
       if (shut.length) out.push(`town reach ${sd}: ${shut.length} open cells look reachable but the hero's body cannot get there ${JSON.stringify(shut)}`); }
     return out;
   }
+  // a robed townsperson struck by the hero cowers: drawn in the pose the flinch makes of its work pose, its shoulders and head sink
+  // (y down) from where they stand in that work pose, and before the blow and after the flinch there is no flinch
+  function robedFlinchCheck(out) {
+    const { MONSTERS: monsterDraw, L } = require('./sandbox.cjs').monsterStage(D), F = D.FOLK_FLINCH, H = 80, KEYS = ['shL', 'shR', 'head'], WORK = { lift: 1, headR: 0.05 };
+    const at = (n, robe) => { const J = {}; L.joint = (id, k, p) => { J[k] = p; }; monsterDraw.robed({ id: 'q', n, x: 300, y: 300, H, t: 0, face: 1, U: {}, lift: robe.lift, headR: robe.headR }); return J; };
+    for (const age of [-0.1, F.time]) if (D.folkFlinchAt(age).k !== 0) out.push(`robed flinch: a flinch ${age} s from the blow`);
+    const hit = D.folkFlinchAt(F.time / 2);
+    for (const n of ['town_enchanter', 'town_sweeper']) { const rest = at(n, WORK), struck = at(n, D.robeFlinched(WORK, hit));
+      for (const k of KEYS) if (!rest[k] || !struck[k]) out.push(`robed flinch: ${n} draws no ${k}`); else if (!(struck[k][1] > rest[k][1])) out.push(`robed flinch: ${n}'s ${k} goes up ${(rest[k][1] - struck[k][1]).toFixed(2)} px on a blow`); }
+  }
+  // a walking sweeper's broom is ahead as each shoe plants: at the step phase where a shoe stands forward-most against the root, the
+  // sweep is at least AHEAD of its reach forward
+  function broomStepCheck(out) {
+    const { MONSTERS: monsterDraw, L } = require('./sandbox.cjs').monsterStage(D), n = 'town_sweeper', H = 75, N = 64, AHEAD = 0.9, st = monsterDraw.robeStride(n, H);
+    if (!st) { out.push('broom step: the sweeper has no robe stride'); return; }
+    const best = { ankleL: [-Infinity, 0], ankleR: [-Infinity, 0] };
+    for (let k = 0; k < N; k++) { const d = k * st / N, J = {}; L.joint = (id, q, p) => { J[q] = p; }; monsterDraw.robed({ id: 'q', n, x: 300, y: 300, H, t: 0, face: 1, U: {}, dist: d, vx: 20, vy: 0 });
+      for (const a of Object.keys(best)) { if (!J[a]) continue; if (J[a][0] - 300 > best[a][0]) best[a] = [J[a][0] - 300, d]; } }
+    for (const [a, [x, d]] of Object.entries(best)) { if (x === -Infinity) { out.push(`broom step: the sweeper draws no ${a}`); continue; }
+      const q = D.walkSweepAt(monsterDraw.robePhase(n, H, d)); if (q < AHEAD) out.push(`broom step: as the ${a === 'ankleL' ? 'far' : 'near'} shoe plants the broom stands at ${q.toFixed(2)} of its sweep (≥ ${AHEAD})`); }
+  }
   SIMX.checks.add('townCheck', townCheck);
+  SIMX.checks.add('robedFlinchCheck', robedFlinchCheck);
+  SIMX.checks.add('broomStepCheck', broomStepCheck);
   SIMX.checks.add('townReachCheck', townReachCheck, { slow: true });
   SIMX.checks.add('deathModeCheck', deathModeCheck);
   SIMX.checks.add('folkHoldCheck', folkHoldCheck);

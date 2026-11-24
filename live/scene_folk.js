@@ -15,6 +15,10 @@
   // book: the head forward (lean), down (dip) and after the turned page (page), the shoulders hunched (hunch), all rig px. The head
   // already sinks with the hunch (0.8 of the lift's 5 px); dip only brings it a px below the shoulders, so it bows, not sinks in
   const GUARD_WORK = { lean: 0.06, knee: 2 }, ENCHANTER_WORK = { lean: 10, dip: 2, page: 5, hunch: 4 };
+  // a walker's hands and tools blend from their work pose at a stop into the walk over this far from the stop behind and the one ahead (world px)
+  const FOLK_AWAY_CLEAR = 30;
+  const awayFromStops = (f, route, stop) => { if (!stop || !f.go) return 0; const prev = route[(f.way + route.length - 1) % route.length];
+    return Math.min(SS(0, FOLK_AWAY_CLEAR, Math.hypot(f.x - prev.x, f.y - prev.y)), SS(0, FOLK_AWAY_CLEAR, Math.hypot(f.x - stop.x, f.y - stop.y))); };
   // the guard's look over the yard: its window in the work loop (from, span; it eases in and out over ramp), the head's sweep and the body's shift (rad)
   const GUARD_LOOK = { from: 0.52, span: 0.18, ramp: 0.05, head: 0.4, body: 0.07 };
   // a hen's wings, two short strokes off its back (view px), raised by `lift` rad at most and beating at `rate` rad/s; `rest` the share
@@ -158,7 +162,7 @@
       // the throw eases in over FD.ease from the stop and out from the start (TASKS 2124): switched on by the stop, the hand jumped 18 px
       const throwK = !route || tw >= 0.5 ? 0 : atStop ? SS(0, FD.ease, pu) : 1 - SS(0, FD.ease, GT - (f.goT ?? -9));
       const hr = throwK > 0 ? lerp2(rest, u < 0.3 ? lerp2(rest, dip, E01(u / 0.3)) : u < 0.47 ? lerp2(dip, out, E01((u - 0.3) / 0.17)) : lerp2(out, rest, E01((u - 0.47) / 0.4)), throwK) : rest;
-      const away = !stop || !f.go ? 0 : Math.min(SS(0, 30, Math.hypot(f.x - route[(f.way + route.length - 1) % route.length].x, f.y - route[(f.way + route.length - 1) % route.length].y)), SS(0, 30, Math.hypot(f.x - stop.x, f.y - stop.y)));
+      const away = awayFromStops(f, route, stop);
       // walking, the hand stays on IK: let go to the rig's free swing at the end of the blend, the elbow jumped 4.7 px (TASKS 2124)
       const walkR = handAt('R'), sw = swingAt(1);
       tg = { L: bag, R: tw > 0 ? lerp2(hr, talkR, tw) : route ? lerp2(hr, [walkR[0] + face * sw, walkR[1] - Math.abs(sw) * 0.3], away) : null };
@@ -168,9 +172,11 @@
       // sweeps at each stop: the near hand drives the broom to and fro, the far hand higher up the handle, the bristles on the floor
       const sweeping = !moving && tw < 0.99, ph = 2 * Math.PI * u, L0 = SZ('town_tool_broom')[1], grip = 0.3;
       // the broom eases out of the sweep near the stops, or the hands jumped between the two poses on arriving and setting off (TASKS 1433)
-      const away = !route || !f.go ? 0 : Math.min(SS(0, 30, Math.hypot(f.x - route[(f.way + route.length - 1) % route.length].x, f.y - route[(f.way + route.length - 1) % route.length].y)), SS(0, 30, Math.hypot(f.x - stop.x, f.y - stop.y))), carry = Math.max(away, SS(0.6, 0.99, tw));
-      const hr = lerp2(P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)), P(0.2, -0.45), carry);
-      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = lerp1(Math.asin(down), 0.8 + 0.09 * Math.sin(f.dist / 9), carry);
+      const away = awayFromStops(f, route, stop), carry = Math.max(away, SS(0.6, 0.99, tw));
+      // walking, the broom brushes ahead once a step, on the robe's own step phase, so it keeps time with the shoes
+      const WS = FD.walkSweep, stepSweep = MONSTERS.robeStride(nm, H) ? D.walkSweepAt(MONSTERS.robePhase(nm, H, f.dist)) : 0;
+      const hr = lerp2(P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)), P(0.2 + WS.reach * stepSweep, -0.45), carry);
+      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = lerp1(Math.asin(down), WS.rest + WS.tilt * stepSweep, carry);
       const dir = [-face * Math.cos(th), -Math.sin(th)];   // up the handle, away from the bristles
       const abs = Math.atan2(dir[1], dir[0] * face);
       tg = { R: hr, L: [hr[0] + dir[0] * 0.24 * L0, hr[1] + dir[1] * 0.24 * L0] };
@@ -197,8 +203,8 @@
       lean *= 1 - rk; crouch *= 1 - rk; headR = lerp1(headR, -0.08, rk); if (robe) robe.headR = lerp1(robe.headR, -0.08, rk); if (rk > 0.3) fx = null; }
     if (tw > 0 && !robe) headR = lerp1(headR, -0.06 + 0.04 * Math.sin(GT * 4.1 + i), tw);
     // struck by the hero's blow (TASKS 1033): a flinch back from it, knees giving, the head ducked, over half a second
-    { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
-      if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
+    { const fl = D.folkFlinchAt(GT - (f.hitT ?? -9));
+      if (fl.k > 0) { lean -= face * fl.lean; crouch += fl.crouch; headR += fl.headR; if (robe) robe = D.robeFlinched(robe, fl); } }
     drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { stride: FD.stride, faceW: jointW, hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * jointW / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
@@ -260,5 +266,5 @@
       if (k > 0) L.solid(Math.round(x), Math.round(y), 2, 2, [0.86, 0.74, 0.42], 0, 0, 0, k); } }
 
   Object.assign(SCX, {
-    FOLK0, HEN_PECK_PERIOD, drawFolk, drawFolkRig, drawCart });
+    FOLK0, HEN_PECK_PERIOD, FOLK_AWAY_CLEAR, drawFolk, drawFolkRig, drawCart });
 })(typeof window !== 'undefined' ? window : globalThis);

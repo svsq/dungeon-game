@@ -754,12 +754,47 @@
       const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; R.hero.eq.weapon = { id: 0, b: wb, rar: 0, lvl: 1, mods: {}, atk: 6 };
       if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
       const h = Object.assign({}, R.hero, { vx: dx * RUN, vy: dy * RUN, face: dx < 0 ? -1 : 1, back: dy < 0 ? 1 : 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), st = heroSt(S);
-      const rate = RUN / root.SIM.Q.stepLen(Math.abs(dx)) * Math.PI, tips = [];
+      const rate = RUN / root.SIM.Q.heroStepLen(h, Math.abs(dx)) * Math.PI, tips = [];
       for (let k = 0; k <= N; k++) { const J = {}; L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = () => ({ w: 10, h: 10 }); L.solid = () => {};
         h.gp = 1 + rate * k / FPS; drawHero(h, 300, 300, T0 + k / FPS, st, {}); tips.push(J.tip); }
       const steps = tips.slice(1).map((p, k) => d(p, tips[k])), m = Math.max(...steps);
       if (m > TIP_STEP) out.push(`hero run: ${cls} ${wb}${ob ? ' and ' + ob : ''} running ${dn}: the weapon's tip moves ${m.toFixed(1)} px in a frame at frame ${steps.indexOf(m) + 1}`);
     }
+  }
+  // each class walks its own gait. Its own data: only the gait's numbers, finite; a robe declares its hem's sway; no stride steps more
+  // often than the walk cycles' MAX_STEPS a second (2 / cycle time, the motion check's limit). Over one running cycle every class's
+  // swing foot lifts FOOT_LIFT of the height (the polish check's step); the leading skirt half sways ahead of where it hangs without the sway, one way
+  // only, by at least HEM_SEEN of the gait's hem, and eases in and out (no frame turns it HEM_JUMP of the hem or more)
+  function heroGaitCheck(out) {
+    const SB = require('./sandbox.cjs'), { drawHero, L } = SB.heroBox(D, root.SIM, SB.assets()), T0 = 10, N = 48, RUN = root.SIM.K.RUN;
+    const MAX_STEPS = 9, FOOT_LIFT = 0.03, HEM_SEEN = 0.3, HEM_JUMP = 0.6, EPS = 1e-6;
+    for (const [cls, C] of Object.entries(D.CLASSES)) for (const [id, own] of [['class', C.look], ...Object.entries(C.looks)]) {
+      for (const [k, v] of Object.entries(own.gait || {})) if (!(k in D.GAIT) || !Number.isFinite(v)) out.push(`hero gait: ${cls} ${id} has a gait ${k} of ${v}`);
+      if (own.robe && !(own.gait && own.gait.hem > 0)) out.push(`hero gait: ${cls} ${id} wears a robe with no hem sway of its own`); }
+    for (const [cls, looks] of Object.entries(D.LOOKS)) for (const id of Object.keys(looks)) for (const ux of [0, 1]) {
+      const sps = RUN / root.SIM.Q.heroStepLen({ cls, look: id }, ux); if (sps > MAX_STEPS) out.push(`hero gait: ${cls} look ${id} takes ${sps.toFixed(2)} steps a second ${ux ? 'sideways' : 'up and down'} (≤ ${MAX_STEPS})`); }
+    const walk = (cls, hem) => { const S = spawn(0, {}), R = newRun(S, 'campaign', 5, { cls }); S.run = R; const st = heroSt(S), sl = root.SIM.Q.heroStepLen(R.hero, 1), G = D.gaitOf(R.hero), hem0 = G.hem;
+      const h = Object.assign({}, R.hero, { vx: RUN, vy: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), rig = D.lookOf(h).rig;
+      const hg = { heelL: [], toeL: [], heelR: [], toeR: [] }, thighs = []; let H = 0;
+      if (hem !== undefined) G.hem = hem;
+      try {
+        for (let k = 0; k < N; k++) { const J = {}, th = {}; L.joint = (who, n, p) => { if (who === 'hero') J[n] = p; }; L.solid = () => {};
+          L.sprite = (n, x, y, o) => { const m = n.match(new RegExp('^' + rig + '__thigh([LR])')); if (m && o && o.m) th[m[1]] = Math.atan2(-o.m[2], o.m[3]); return { w: 10, h: 10 }; };
+          h.gp = 2 * Math.PI * k / N; drawHero(h, 300, 300, T0 + k * 2 * sl / RUN / N, st, {}); thighs.push(th); if (!k) H = J.ground[1] - J.top[1];
+          for (const p of Object.keys(hg)) hg[p].push(J['ground' + p.slice(-1)][1] - J[p][1]); }
+      } finally { G.hem = hem0; }
+      // the swing foot's lift as the polish check measures it: a heel or toe's highest over its ground above its lowest
+      const rise = Math.max(...Object.values(hg).map((v) => Math.max(...v) - Math.max(0, Math.min(...v))));
+      return { rise, H, thighs, hem: hem0 }; };
+    const Mg = walk('mage');
+    for (const [cls, g] of [['warrior', walk('warrior')], ['mage', Mg], ['archer', walk('archer')]]) if (g.rise < FOOT_LIFT * g.H) out.push(`hero gait: the ${cls}'s swing foot lifts ${g.rise.toFixed(1)} px (≥ ${(FOOT_LIFT * g.H).toFixed(1)})`);
+    const still = walk('mage', 0), sway = Mg.thighs.map((th, k) => ['L', 'R'].map((sd) => (th[sd] ?? 0) - (still.thighs[k][sd] ?? 0)));
+    const flat = sway.flat(), most = Math.max(...flat.map(Math.abs)), sign = Math.sign(flat.find((v) => Math.abs(v) > EPS) || 0);
+    if (!Mg.thighs.every((th) => th.L !== undefined && th.R !== undefined)) out.push('hero gait: the mage\'s skirt halves are not drawn on every frame of the run');
+    if (most < HEM_SEEN * Mg.hem) out.push(`hero gait: the mage's hem sways ${most.toFixed(3)} rad (≥ ${(HEM_SEEN * Mg.hem).toFixed(3)})`);
+    if (flat.some((v) => v * sign < -EPS)) out.push('hero gait: the mage\'s hem sways both ways');
+    for (const sd of [0, 1]) { const jump = Math.max(...sway.map((q, k) => Math.abs(q[sd] - sway[(k + 1) % N][sd])));
+      if (jump >= HEM_JUMP * Mg.hem) out.push(`hero gait: the mage's hem sway turns ${jump.toFixed(3)} rad in a frame (< ${(HEM_JUMP * Mg.hem).toFixed(3)})`); }
   }
   // (TASKS 2160) the standing hero of each class, either way round, in the world and in the arch: the cape-side arm's hand hangs in
   // front of its elbow (the elbow does not bend backwards), the feet stand apart with a gap between the cape-side toe and the near heel,
@@ -814,7 +849,7 @@
       if (ob) R.hero.eq.offhand = { id: 0, b: ob, rar: 0, lvl: 1, mods: {}, def: 2 };
       const st = heroSt(S), pn = D.CLASSES[cls].look.rig + '__', tag = `${cls}${ob ? ' and ' + ob : ''} ${run ? 'running' : 'at ease'} face ${face}${menu ? ' in the arch' : ''}`;
       const say = (m) => { const k = cls + (ob || '') + run + m.replace(/[\d.-]+/g, ''); if (!seen.has(k)) { seen.add(k); out.push(`hero arm pose: ${tag}: ${m}`); } };
-      const rate = root.SIM.K.RUN / root.SIM.Q.stepLen(1) * Math.PI;
+      const rate = root.SIM.K.RUN / root.SIM.Q.heroStepLen(R.hero, 1) * Math.PI;
       for (let k = 0; k < (run ? 40 : 1); k++) { const J = {}, spr = []; let shieldH = 0;
         L.joint = (id, n, p) => { if (id === 'hero') J[n] = p; }; L.sprite = (n, x, y, o) => { spr.push(n); if (/^it_(shield|buckler)/.test(n)) shieldH = o.h; return { w: 10, h: 10 }; }; L.solid = () => {};
         drawHero(Object.assign({}, R.hero, { vx: run ? root.SIM.K.RUN * face : 0, vy: 0, gp: run ? 1 + rate * k / FPS : 0, face, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 }), 300, 300, 10 + k / FPS, st, menu ? { menu: 1 } : {});
@@ -941,6 +976,7 @@
   SIMX.checks.add('heroGripCheck', heroGripCheck);
   SIMX.checks.add('heroTurnCheck', heroTurnCheck);
   SIMX.checks.add('heroRunCheck', heroRunCheck);
+  SIMX.checks.add('heroGaitCheck', heroGaitCheck);
   SIMX.checks.add('heroViewCheck', heroViewCheck);
   SIMX.checks.add('powerCheck', checkPowers);
   SIMX.checks.add('dataLinkCheck', dataLinkCheck);

@@ -491,13 +491,15 @@
   // Walking (o.dist, o.vx, o.vy, TASKS 1031): the shoes below the hem are cut from the body and step in turn, phased by the distance
   // walked so a planted shoe holds the floor; the body rides up over each passing step, rocks a little and the hem swings after the
   // stepping leg. hem: the cut's row (a few rows of skirt go with the shoes, so a rising body leaves no gap); split: the column between
-  // the shoes; step: a shoe's travel either side of the hem (rig px), one stride = 4 steps' travel
-  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 26, k: 2.4 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
+  // the shoes; step: a shoe's travel either side of the hem (rig px), one stride = 4 steps' travel; up: a swinging shoe's rise (rig px).
+  // The shoes give the rig its ankles (the far one L, as the far arm), so a walk is read and checked by its feet
+  const ROBE_SHOE_UP = 7, ROBE = { town_sweeper: { hem: 286, split: 76, step: 26, k: 2.4, up: 12 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
   MON.robeStride = (n, H) => { const q = ROBE[n]; return q && RIGS[n] ? 4 * q.step * H / RIGS[n].h : 0; };
+  MON.robePhase = (n, H, dist) => (dist || 0) / MON.robeStride(n, H) * TAU;
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
     const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, fw = o.faceW ?? f, Q = ROBE[o.n];   // fw: the joints' width through a turn (biped's faceW)
-    const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? (o.dist || 0) / MON.robeStride(o.n, o.H) * TAU : 0;
+    const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? MON.robePhase(o.n, o.H, o.dist) : 0;
     const gk = (Q && Q.k) || 1, bob = run * 1.5 * gk * Math.sin(ph) ** 2, rot = fw * run * 0.022 * gk * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
     const S2 = (px, py) => { const x = fw * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);
@@ -513,11 +515,12 @@
     drawArm(far);
     if (Q) {
       // a shoe's place off the hem over its phase: planted from +step back to -step, then lifted and swung forward again
-      const shoe = (x0, x1, k) => { const q = ((ph + k * Math.PI) % TAU + TAU) % TAU, st = q < Math.PI, x = st ? Q.step * (1 - 2 * q / Math.PI) : -Q.step * Math.cos(q - Math.PI),
-          up = st ? 0 : 7 * Math.sin(q - Math.PI), w = (x1 - x0) * s, h = (RG.h - Q.hem) * s;
-        L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(root[0] + fw * (x0 - gx + run * x) * s, root[1] + (Q.hem - gy - run * up) * s), M.s(f, 1)), w, h, src: [x0 / RG.w, Q.hem / RG.h, x1 / RG.w, 1], u: o.U }); };
+      const shoe = (x0, x1, k, side) => { const q = ((ph + k * Math.PI) % TAU + TAU) % TAU, st = q < Math.PI, x = st ? Q.step * (1 - 2 * q / Math.PI) : -Q.step * Math.cos(q - Math.PI),
+          up = st ? 0 : (Q.up ?? ROBE_SHOE_UP) * Math.sin(q - Math.PI), w = (x1 - x0) * s, h = (RG.h - Q.hem) * s;
+        L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(root[0] + fw * (x0 - gx + run * x) * s, root[1] + (Q.hem - gy - run * up) * s), M.s(f, 1)), w, h, src: [x0 / RG.w, Q.hem / RG.h, x1 / RG.w, 1], u: o.U });
+        L.joint(o.id, 'ankle' + side, [root[0] + fw * ((x0 + x1) / 2 - gx + run * x) * s, root[1] - run * up * s]); };
       // the far shoe (the drawing's right one, standing higher) first
-      shoe(Q.split, RG.w, 1); shoe(0, Q.split, 0);
+      shoe(Q.split, RG.w, 1, far); shoe(0, Q.split, 0, near);
       L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...S2(gx, gy)), M.r(rot), M.s(f, 1)), w: RG.w * s, h: (Q.hem + 8) * s, src: [0, 0, 1, (Q.hem + 8) / RG.h], pivot: [gx * s, gy * s], pad: 0.04,
         u: Object.assign({}, o.U, { lean: [-0.03 * gk * run * Math.cos(ph), 1] }) }); }
     else L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...root), M.s(f, 1)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
