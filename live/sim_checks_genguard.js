@@ -52,6 +52,19 @@
         for (const [k, v] of objects(o)) queue.push([v, p + '.' + k]); }
       if (out.length > MAX_FAILS) break; }
   }
+  // a floor rebuilt from its seed is the floor first laid (saved floors are rebuilt from their seeds): the same seed twice in one process,
+  // with every mode's floors and the event marking laid in between, gives the same map
+  const REPEAT_FLOORS = [['magma', 4, 3], ['cave', 2, 2], ['campaign', 3, 4], ['endless', 5, 2]];
+  function genRepeatCheck(out) {
+    const seedOf = (runSeed, f) => (runSeed * 31 + f * 1013) >>> 0, print = (m) => require('crypto').createHash('sha1').update(JSON.stringify(m)).digest('hex');
+    const lay = ([mode, runSeed, f], opts = {}) => DG.genFloor(seedOf(runSeed, f), f, Object.assign({ mode, runSeed }, opts));
+    const first = REPEAT_FLOORS.map((q) => [print(lay(q)), print(lay(q, { events: ['probe'] }))]);
+    for (const mode of MODES) for (let f = 1; f <= Math.min(D.RUNS[mode].floors, 4); f++) { lay([mode, 1, f]); lay([mode, 1, f], { events: ['probe'] }); }
+    REPEAT_FLOORS.forEach((q, i) => { const again = [print(lay(q)), print(lay(q, { events: ['probe'] }))];
+      if (again[0] !== first[i][0]) out.push(`gen repeat: ${q.join(' ')} is laid otherwise the second time`);
+      if (again[1] !== first[i][1]) out.push(`gen repeat: ${q.join(' ')} with an event is laid otherwise the second time`); });
+  }
+  SIMX.checks.add('genRepeatCheck', genRepeatCheck);
   Object.assign(SIMX.checks.kit, { samecheckFloors });
   SIMX.checks.add('genStageCheck', stageCheck, { slow: true });
   SIMX.checks.add('stFieldsCheck', stFieldsCheck);
