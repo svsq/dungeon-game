@@ -1814,7 +1814,7 @@
     const captiveS = (who, f, stage) => climbS(f, (S, R, m, h) => { if (D.CAPTIVES[who].boss) SIMX.captiveBoss(S, R, R.en.find((e) => D.BOSSES[e.type])); const C = R.captives[who]; if (!C || C.x === undefined) return;
       h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); SIMX.interact(S, R); if (stage === 'talk') return;
       SIM.step(S, { keys: ['Escape'] }); SIM.step(S, { keys: [] }); if (!C.flee) return;
-      const until = stage === 'run' ? CAPTIVE_RUN_AT : (D.captiveFleeAt(C.flee, 1e3).dist - D.captiveFleeAt(C.flee, 1e3).over * D.CAPTIVE_FLEE.speed) / D.CAPTIVE_FLEE.speed + CAPTIVE_GONE_AT;
+      const until = stage === 'start' ? 0 : stage === 'run' ? CAPTIVE_RUN_AT : 1e3 - D.captiveFleeAt(C.flee, 1e3).over + CAPTIVE_GONE_AT;
       while (S.t - C.flee.t < until) SIM.step(S, { keys: [] }); });
     states.push(['captive_freed', captiveS('merchant', 1, 'talk')]);
     for (const [who, f] of [['merchant', 1], ['smith', 3], ['enchanter', 4]]) for (const stage of ['talk', 'run', 'gone']) states.push([`captive_${stage}_${who}`, captiveS(who, f, stage)]);
@@ -1899,6 +1899,18 @@
       const S0 = keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key, f: 6, need: 1, n: 1, st: 'done', from, rw: D.questReward(['scroll', 'item', 'shards', 'xp'], 6) }];
         S.talk = { role: from, i: 0, pages: [''], p: 0, act: { k: 'turn', id: 900, ids: [900], rw: '' } }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); });
       for (let p = 0; p < S0.talk.got.pages; p++) { const S = structuredClone(S0); S.talk.p = p; states.push([`town_quest_turned_${key}_${p}`, S]); } }
+    // the reward strip: an item and experience, two scrolls and experience, several different items and experience
+    const turnedS = (rewards, keys, f) => keeperS((S, R) => { R.offers = []; R.quests = keys.map((key, i) => ({ id: 900 + i, key, f: f + i, need: 5, n: 5, st: 'done', from: 'guard', title: TXT('QA.P'), rw: D.questReward(rewards, f + i) }));
+      const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); });
+    // the offer's reward line: a scroll, experience and shards; and a fetch quest's, the keepsake before the reward
+    states.push(['town_quest_offer_reward', keeperS((S, R) => { R.offers = [{ key: 'elites', from: 'guard', q: 0 }]; const qt = SIM.questTalk(R, 'guard'); qt.act.rw = D.questReward(['scroll', 'xp', 'shards'], 8);
+      S.talk = { role: 'guard', i: 0, pages: qt.pages, p: qt.pages.length - 1, act: qt.act }; S.screen = 'talk'; })]);
+    states.push(['town_quest_offer_reward_fetch', keeperS((S, R) => { R.offers = [{ key: 'fetch', from: 'sweeper', q: 0 }]; const qt = SIM.questTalk(R, 'sweeper'); qt.act.rw = D.questReward(['scroll', 'gold', 'xp', 'shards'], 8);
+      S.talk = { role: 'sweeper', i: 0, pages: qt.pages, p: qt.pages.length - 1, act: qt.act }; S.screen = 'talk'; })]);
+    states.push(['town_quest_turned_item', turnedS(['item', 'xp'], ['elites'], 6)]);
+    states.push(['town_quest_turned_scrolls', turnedS(['scroll', 'xp'], ['elites'], 10)]);
+    states.push(['town_quest_turned_items', turnedS(['item', 'xp'], ['elites', 'cull', 'named'], 6)]);
+    states.push(['town_quest_turned_mixed', turnedS(['scroll', 'gold', 'item', 'xp', 'shards'], ['elites', 'cull'], 8)]);
     // town_game_r10 5: the Keeper on the run's first fall in the normal mode
     states.push(['town_keeper_fell', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: TXT.talk('keeper').events.fell.slice(), p: 0, act: null }; S.screen = 'talk'; S.hover = 'next'; })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });

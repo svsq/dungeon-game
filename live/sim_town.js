@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
-    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, exitKind, campaignDone, leverNear,
+    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemIcon, itemName, itemPower, exitKind, campaignDone, leverNear,
     mapw, msgChain, openChest, openDoor, openSecret, pick, potion, pullLever, queueMsg, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
@@ -300,7 +300,7 @@
     if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
     if (W.scroll) { const sc = potion('scroll', W.scroll); if (!bagAdd(R, sc)) drop(R, h.x, h.y + 20, { kind: 'item', item: sc }); }
     if (W.gold) h.gold += W.gold; if (W.xp) gainXp(S, R, W.xp); if (W.shards) giveShards(S, R, W.shards, h.x, h.y, TXT('sim_town.turnIn'));
-    if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2, own: 1 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
+    if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2, own: 1 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; W.ic = itemIcon(it); }
     q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: TXT('sim_town.turnIn.msg.s', { name: D.questName(q) }), t: S.t }; S.saveN++; return true; }
   // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
   // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
@@ -394,7 +394,7 @@
     return path; }
   // the talk closed: what waited behind it takes its turn in the queue, shown by the play step once due
   const releaseAfterTalk = (R) => { for (const M of msgChain(R)) delete M.afterTalk; };
-  function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C) }; releaseAfterTalk(R); S.saveN++; } }
+  function stepCaptives(S, R) { if (S.screen === 'talk') return; for (const C of Object.values(R.captives || {})) if (C.talk) { delete C.talk; C.flee = { t: S.t, path: fleePath(R, C), face0: R.hero.x < C.x ? -1 : 1 }; releaseAfterTalk(R); S.saveN++; } }
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
     return D.storyChain(R.mode).find((s) => (D.QUESTS[s.key].type === 'free' ? !!capOf(R, D.QUESTS[s.key].who) && !isFree(R, D.QUESTS[s.key].who) : s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
   // what a townsman offers now: the quest as it would be taken (its floor set, its foe's name or its keepsake drawn), or null
@@ -416,12 +416,24 @@
   const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) && !(role !== 'keeper' && meetKeeperFirst(R)) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
-  const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
+  const RW_ORDER = ['scroll', 'gold', 'xp', 'item', 'shards'];
+  const RW_TEXT = { scroll: (W) => W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), gold: (W) => TXT('sim_town.rwLine.2', { gold: W.gold }), xp: (W) => TXT('sim_town.rwLine.3', { xp: W.xp }),
+    item: (W) => (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), shards: (W) => W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards) };
+  const rwLine = (W) => RW_ORDER.filter((k) => W[k]).map((k) => RW_TEXT[k](W)).join(' · ');
+  // the reward as the talk window draws it: what is a thing of the bag is an icon with its count, a currency its name and count, the rest (experience) a text part;
+  // the same icon of several things is one part with the count of them
+  const RW_CURRENCIES = ['gold', 'shards'];
+  const RW_ICONS = { scroll: (W) => [[D.CONSUMABLES.scroll.icon, W.scroll]], item: (W) => (W.ics && W.ics.length === W.item ? W.ics.map((ic) => [ic, 1]) : null) };
+  const RW_PARTS_ORDER = ['scroll', 'item', 'gold', 'xp', 'shards'];
+  const rwParts = (W) => RW_PARTS_ORDER.filter((k) => W[k]).flatMap((k) => { const pics = RW_ICONS[k] && RW_ICONS[k](W);
+    if (RW_CURRENCIES.includes(k)) return [{ cur: k, n: W[k] }];
+    if (!pics) return [{ text: RW_TEXT[k](W) }]; const sum = new Map(); for (const [ic, n] of pics) sum.set(ic, (sum.get(ic) || 0) + n); return [...sum].map(([ic, n]) => ({ ic, n })); });
   // a talk card holds about four lines of sixty letters (tools/measure/game/talk_stats.cjs)
   const TALK_PAGE = 260;
   // the rewards of several quests as one line: the counts summed, the items got by name
-  const rwSum = (L) => { const W = {}; for (const q of L) for (const k of ['scroll', 'gold', 'xp', 'shards']) if (q.rw[k]) W[k] = (W[k] || 0) + q.rw[k];
-    const got = L.filter((q) => q.rw.item).map((q) => q.rw.got); if (got.length) { W.item = got.length; if (got.every(Boolean)) W.got = got.join('», «'); } return rwLine(W); };
+  const rwTotal = (L) => { const W = {}; for (const q of L) for (const k of ['scroll', 'gold', 'xp', 'shards']) if (q.rw[k]) W[k] = (W[k] || 0) + q.rw[k];
+    const got = L.filter((q) => q.rw.item); if (got.length) { W.item = got.length; if (got.every((q) => q.rw.got)) W.got = got.map((q) => q.rw.got).join('», «'); if (got.every((q) => q.rw.ic)) W.ics = got.map((q) => q.rw.ic); } return W; };
+  const rwSum = (L) => rwLine(rwTotal(L));
   // the count of this giver's turned quests of the kind steps the pick, so the same words never come twice in a row (TASKS 1985)
   function turnSay(R, role, q) { const ty = D.QUESTS[q.key].type, L = D.QUEST_SAY[role].turnin[ty], n = (R.quests || []).filter((o) => o.st === 'turned' && o.from === role && D.QUESTS[o.key].type === ty).length;
     return D.turnFill(L[(D.mix32((R.seed >>> 0) + [...role + ty].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)) + n) % L.length], q); }
@@ -451,7 +463,7 @@
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const L = (a.ids || [a.id]).map((id) => (R.quests || []).find((o) => o.id === id)).filter((q) => turnIn(S, R, q)); if (!L.length) return;
     const nx = talkOf(R, T.role), pages = turnPages(T.role, L); T.pages = pages.concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null;
-    T.got = { firstPage: T.pages[0], pages: pages.length, rw: rwSum(L) }; }
+    const W = rwTotal(L); T.got = { firstPage: T.pages[0], pages: pages.length, rw: rwLine(W), parts: rwParts(W) }; }
   // the turn-in's reward block stands on its own pages while the talk still shows them; compared by the words, as a talk restored
   // from a save or a hot reload holds copies of its pages
   const talkGotShown = (T) => !!(T && T.got && T.got.rw && T.pages[0] === T.got.firstPage && T.p < T.got.pages);
@@ -669,7 +681,7 @@
 
   Object.assign(SIMX, {
     folkR, HEN_APART, folkOf, folkFree, stepFolk, greetHold, meetKeeperFirst, firstGoal, solids, interact, openCraft, CRAFT_OF, atExitGate, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
-    craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
+    craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, dealOffers, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine, rwParts,
     nameElites, nickOf, namedPool, notePlace, noteNear, openNote, libraryNote, captivePut, captivePlace, captiveBoss, captiveNear, stepCaptives, fleePath, dropStaleOffers, shopShut, craftShut, folkHere, questTalk, talkGotShown, keyNames, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, giverFirst, svcAt, wayNear, keeperPages, stashOf, settleStash,
     stashPut, stashTake, movePart, roomFor, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell, CART_V, railLen, folkPause });
