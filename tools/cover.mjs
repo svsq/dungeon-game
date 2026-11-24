@@ -1,5 +1,6 @@
 // node tools/cover.mjs [--out docs/cover.png] [--mode cave|magma] [--seed N] [--floor N] [--at col,row] [--cls warrior|archer|mage]
-//   [--zoom Z] [--row 0..1] [--foes type:dx:dy,...] [--chest dx,dy] [--pose idle|swing] [--aim degrees] [--brightness B]
+//   [--zoom Z] [--row 0..1] [--foes type:dx:dy[:state:age],...] [--shots kind:dx:dy:targetDx:targetDy[:age],...] [--chest dx,dy]
+//   [--pose idle|swing] [--aim degrees] [--brightness B]
 // The README cover: a flooded-cave floor rendered by the game with its own menu title lettering (the HUD's label of the main menu).
 import http from 'node:http';
 import fs from 'node:fs';
@@ -25,13 +26,18 @@ const CANVAS_CROP_TOP = 0.5;
 const CHEST_TIER = 2;
 const CHEST_CLEAR_TILES = 1.8;
 const CHEST_OPEN_AGE = 3;
+const DEFAULT_FOES = 'skeleton:-2.6:0.9,crab:-5.6:1.9,spider:3.3:0.8:strike:0.2,skel_archer:-7.4:-0.9:wind:0.7,skel_mage:-3.9:-2.6:wind:0.5,ghost:4.6:2.4';
+const DEFAULT_SHOTS = 'orb:-3.9:-2.6:0:-0.2:0.3';
+const DEFAULT_SHOT_SPEED = 250;
+const SHOT_KINDS = { arrow: { gz: 66, own: 'en' }, orb: { gz: 44, own: 'en', water: 1 }, hex: { gz: 44, own: 'en' } };
 
 const mode = option('--mode', 'cave'), seed = Number(option('--seed', '8')), floor = Number(option('--floor', '4'));
 const heroCell = option('--at', '47,54').split(',').map(Number);
-const heroClass = option('--cls', 'warrior'), zoom = Number(option('--zoom', '2.1')), heroRow = Number(option('--row', '0.7'));
-const foes = option('--foes', 'skeleton:-3:0.3,crab:-5.4:1.8').split(',').filter(Boolean).map((spec) => { const [type, dx, dy] = spec.split(':'); return { type, dx: Number(dx), dy: Number(dy) }; });
-const chest = option('--chest', '2.6,1.6').split(',').filter(Boolean).map(Number);
-const pose = option('--pose', 'swing'), aim = Number(option('--aim', '170')), brightness = Number(option('--brightness', '1.12'));
+const heroClass = option('--cls', 'mage'), zoom = Number(option('--zoom', '2.1')), heroRow = Number(option('--row', '0.7'));
+const foes = option('--foes', DEFAULT_FOES).split(',').filter(Boolean).map((spec) => { const [type, dx, dy, st, age] = spec.split(':'); return { type, dx: Number(dx), dy: Number(dy), st: st || 'chase', age: Number(age || 0) }; });
+const shots = option('--shots', DEFAULT_SHOTS).split(',').filter(Boolean).map((spec) => { const [kind, dx, dy, tx, ty, age] = spec.split(':').map((v, i) => (i ? Number(v) : v)); return { kind, dx, dy, tx, ty, age: age || 0.3 }; });
+const chest = option('--chest', '2.4,2.7').split(',').filter(Boolean).map(Number);
+const pose = option('--pose', 'idle'), aim = Number(option('--aim', '170')), brightness = Number(option('--brightness', '1.12'));
 const out = option('--out', 'docs/cover.png');
 
 fs.mkdirSync(path.dirname(out), { recursive: true });
@@ -70,7 +76,10 @@ try {
     if (o.chest.length === 2) R.chests.push({ x: h.x + o.chest[0] * TILE, y: h.y + o.chest[1] * TILE, tier: o.chestTier, gold: 1, open: 1, openT: S.t - o.chestOpenAge });
     m.traps = m.traps.filter((q) => !around(q.x, q.y));
     R.en = o.foes.map((f, i) => { const E = DATA.ENEMIES[f.type], x = h.x + f.dx * TILE, y = h.y + f.dy * TILE;
-      return Object.assign({ id: 900 + i, type: f.type, x, y, hp: E.hp, max: E.hp, face: f.dx > 0 ? -1 : 1 }, o.foeFields); });
+      return Object.assign({ id: 900 + i, type: f.type, x, y, hp: E.hp, max: E.hp, face: f.dx > 0 ? -1 : 1 }, o.foeFields, { st: f.st, t0: S.t - f.age, aimA: Math.atan2(-f.dy, -f.dx) }); });
+    R.proj = o.shots.map((q, i) => { const kindSpeed = { arrow: DATA.ENEMIES.skel_archer.arrow.spd, orb: DATA.ENEMIES.skel_mage.orb.spd }[q.kind] || o.shotSpeed;
+      const x = h.x + q.dx * TILE, y = h.y + q.dy * TILE, a = Math.atan2(q.ty - q.dy, q.tx - q.dx), shape = o.shotKinds[q.kind];
+      return Object.assign({ id: 9900 + i, k: q.kind, kind: shape.water ? 'water' : q.kind, x: x + Math.cos(a) * kindSpeed * q.age, y: y + Math.sin(a) * kindSpeed * q.age, vx: Math.cos(a) * kindSpeed, vy: Math.sin(a) * kindSpeed, t0: S.t - q.age, life: 2, dmg: 1, own: shape.own, r: 6, gz: shape.gz }, q.kind === 'orb' ? { hitR: 26 } : {}); });
     if (o.pose === 'swing') { const age = SIM.K.HIT + o.swingPhase; h.atkT = S.t - age; h.atkA = h.aim; S.ev.push({ k: 'swing', t: S.t - age, x: h.x, y: h.y, a: h.aim, f: h.face }); }
     frame();
     HUD.draw = () => {
@@ -90,8 +99,8 @@ try {
     `;
     document.head.appendChild(style);
     return { foes: R.en.map((e) => e.type), heroCell: o.cell, chests: R.chests.length, deadHero: h.deadT >= 0 };
-  }, { mode, seed, floor, cell: heroCell, heroClass, zoom, row: heroRow, foes, chest, pose, aim, brightness, settle: SETTLE_STEPS, input: SETTLE_INPUT, clear: CLEAR_RADIUS_TILES,
-    decals: DECALS_REMOVED, foeFields: FOE_FIELDS, swingPhase: SWING_PHASE, aimReach: AIM_REACH, chestTier: CHEST_TIER, chestClear: CHEST_CLEAR_TILES, chestOpenAge: CHEST_OPEN_AGE, view: VIEW, cover: COVER, band: TITLE_BAND, style: TITLE_STYLE, titleCrop: CANVAS_CROP_TOP });
+  }, { mode, seed, floor, cell: heroCell, heroClass, zoom, row: heroRow, foes, shots, chest, pose, aim, brightness, settle: SETTLE_STEPS, input: SETTLE_INPUT, clear: CLEAR_RADIUS_TILES,
+    decals: DECALS_REMOVED, foeFields: FOE_FIELDS, swingPhase: SWING_PHASE, shotKinds: SHOT_KINDS, shotSpeed: DEFAULT_SHOT_SPEED, aimReach: AIM_REACH, chestTier: CHEST_TIER, chestClear: CHEST_CLEAR_TILES, chestOpenAge: CHEST_OPEN_AGE, view: VIEW, cover: COVER, band: TITLE_BAND, style: TITLE_STYLE, titleCrop: CANVAS_CROP_TOP });
   if (errors.length) throw new Error(errors.join('\n'));
   await p.screenshot({ path: out, animations: 'disabled' });
   console.log(JSON.stringify({ out, ...COVER, mode, seed, floor, heroClass, ...report }));
