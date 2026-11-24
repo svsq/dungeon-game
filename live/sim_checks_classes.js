@@ -932,7 +932,7 @@
       for (let i = 0; i < STEPS; i++) step(S, inp);
       if (!finite(R.cam[0], R.cam[1], R.camV[0], R.camV[1])) out.push(`pointerless step (${name}): the camera is ${R.cam.join(', ')}`);
       if (!finite(h.aim, h.mx, h.my)) out.push(`pointerless step (${name}): the aim is ${h.aim}`);
-      if (!inp.px && (R.camLook || []).some((look) => Math.abs(look) > LOOK_EPS)) out.push(`pointerless step (${name}): the camera looks aside by ${(R.camLook || []).join(', ')}`); }
+      if (!Number.isFinite(inp.px) && (R.camLook || []).some((look) => Math.abs(look) > LOOK_EPS)) out.push(`pointerless step (${name}): the camera looks aside by ${(R.camLook || []).join(', ')}`); }
   }
   SIMX.checks.add('pointerlessStepCheck', pointerlessStepCheck);
   SIMX.checks.add('heroPoseCheck', heroPoseCheck);

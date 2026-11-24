@@ -8,16 +8,28 @@
   // a floor as laid with no event of the pool drawn: the drawn ones would take the probe's rooms and clear their packs
   const bare = (f) => { const P = D.EVENTS.pool, w = Object.fromEntries(Object.entries(P).map(([k, E]) => [k, E.w])); for (const E of Object.values(P)) E.w = 0;
     try { return f(); } finally { for (const [k, v] of Object.entries(w)) P[k].w = v; } };
+  // the event check's floors: every mode, run seeds 1–6, the first five floors of each run
+  function* eventFloors() {
+    for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= Math.min(5, D.RUNS[mode].floors); f++)
+      yield { tag: `${mode}${o.town ? ' (town)' : ''} ${sd}/${f}`, seed: (sd * 31 + f * 1013) >>> 0, floor: f, opts: Object.assign({ mode, runSeed: sd }, o), runSeed: sd }; }
+  const layPlain = (q) => bare(() => DG.genFloor(q.seed, q.floor, q.opts)), layProbed = (q) => bare(() => DG.genFloor(q.seed, q.floor, Object.assign({ events: ['probe'] }, q.opts)));
+  // a marked floor and its plain twin as JSON with the event rooms' marks, packs and webs left out: equal unless marking moved something else
+  const eventStripped = (marked, plain) => { const evR = new Set((marked.events || []).map((e) => e.room)), strip = (q) => JSON.stringify(Object.assign({}, q, { rooms: q.rooms.map((r) => { const c = Object.assign({}, r); delete c.event; return c; }), enemies: q.enemies.filter((e) => !evR.has(e.room)), webs: q.webs.filter((w) => !evR.has(DG.roomAt(q, w.x, w.y))), events: undefined }));
+    return [strip(marked), strip(plain)]; };
+  // floors where the probe lands, laid again once every other floor of the check is laid: a floor rebuilt from its seed (as saved
+  // floors are) must be the floor first laid, with its event and without; the probe must land, or the event half proves nothing
+  const REPEAT_FLOORS = new Set(['magma 4/4', 'cave 4/3', 'campaign 3/4', 'campaign (town) 2/2']);
+  const printOf = (m) => require('crypto').createHash('sha1').update(JSON.stringify(m)).digest('hex');
   function checkEventGen(out) {
-    let floors = 0, marked = 0;
-    for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= Math.min(5, D.RUNS[mode].floors); f++) {
-      const seed = (sd * 31 + f * 1013) >>> 0, op = Object.assign({ mode, runSeed: sd }, o), tag = `events ${mode}${o.town ? ' (town)' : ''} ${sd}/${f}`;
-      const plain = bare(() => DG.genFloor(seed, f, op)), m = bare(() => DG.genFloor(seed, f, Object.assign({ events: ['probe'] }, op))), again = sd <= 2 ? bare(() => DG.genFloor(seed, f, Object.assign({ events: ['probe'] }, op))) : m;
+    let floors = 0, marked = 0; const firstPrints = new Map();
+    for (const q of eventFloors()) { const tag = `events ${q.tag}`;
+      const plain = layPlain(q), m = layProbed(q), again = q.runSeed <= 2 ? layProbed(q) : m;
       if (plain.events || plain.rooms.some((r) => r.event)) out.push(`${tag}: an event on a floor whose pool draws none`);
       if (JSON.stringify(m) !== JSON.stringify(again)) out.push(`${tag}: the same seed marks its events otherwise`);
-      const evR = new Set((m.events || []).map((e) => e.room)), strip = (q) => JSON.stringify(Object.assign({}, q, { rooms: q.rooms.map((r) => { const c = Object.assign({}, r); delete c.event; return c; }), enemies: q.enemies.filter((e) => !evR.has(e.room)), webs: q.webs.filter((w) => !evR.has(DG.roomAt(q, w.x, w.y))), events: undefined }));
-      if (strip(m) !== strip(plain)) out.push(`${tag}: marking an event moved something else on the floor`);
-      floors++; if (!m.events) continue; marked++;
+      const [strippedMarked, strippedPlain] = eventStripped(m, plain);
+      if (strippedMarked !== strippedPlain) out.push(`${tag}: marking an event moved something else on the floor`);
+      if (REPEAT_FLOORS.has(q.tag)) { if (!(m.events || []).some((e) => e.id === 'probe')) out.push(`${tag}: the probe does not land on a floor the repeat check needs it on`); firstPrints.set(q.tag, [q, printOf(plain), printOf(m)]); }
+      floors++; if (!m.events) continue; marked++; const evR = new Set(m.events.map((e) => e.room));
       const W = m.W, s = m.rooms[m.start], way = DG.wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx), sp = DG.specials(m);
       if (new Set(sp.map((q) => q.room)).size !== sp.length) out.push(`${tag}: a room with two special roles ${JSON.stringify(sp)}`);
       if (evR.size !== m.events.length) out.push(`${tag}: two events in one room`);
@@ -32,6 +44,10 @@
         if (!seen[m.exit.ty * W + m.exit.tx] && !seen[(m.exit.ty + 1) * W + m.exit.tx]) out.push(`${tag}: a prop on the ${E.id} event's spot cuts the way to the stairs`); } }
     // (0.7 since TASKS 362: a room with an elite is no treasure event's, as the elite is the room's reward)
     if (marked < floors * 0.7) out.push(`events: only ${marked} of ${floors} floors find a room for the probe`);
+    if (firstPrints.size !== REPEAT_FLOORS.size) out.push(`gen repeat: only ${firstPrints.size} of ${REPEAT_FLOORS.size} repeat floors are among the event check's floors`);
+    for (const [tag, [q, plainPrint, markedPrint]] of firstPrints) {
+      if (printOf(layPlain(q)) !== plainPrint) out.push(`gen repeat: ${tag} is laid otherwise the second time`);
+      if (printOf(layProbed(q)) !== markedPrint) out.push(`gen repeat: ${tag} with an event is laid otherwise the second time`); }
     checkTrialGen(out);
     // (TASKS 363, 364) every event the pool draws comes on its own on some floor of each run it is for
     // (12 seeds since TASKS 366: with seven events in the pool the cave's fountain fell on none of the first 6 seeds' floors)
@@ -451,6 +467,7 @@
     }
     return out;
   }
+  Object.assign(SIMX.checks.kit, { eventFloors, layPlain, layProbed, eventStripped });
   SIMX.checks.add('eventGenCheck', checkEventGen);
   SIMX.checks.add('eventPlayCheck', checkEventPlay);
   SIMX.checks.add('captiveGoalsCheck', checkCaptiveGoals);

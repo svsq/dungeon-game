@@ -451,5 +451,5 @@
 
   Object.assign(SIMX, {
     heroSt, heroRoll, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, killHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
-    stepPlay, withPointer, fellRetryHint, fellRetryShown, FELL_RETRY_KEYS, FELL_RETRY_KEY_NAMES });
+    stepPlay, fellRetryHint, fellRetryShown, FELL_RETRY_KEYS, FELL_RETRY_KEY_NAMES });
 })(typeof window !== 'undefined' ? window : globalThis);
