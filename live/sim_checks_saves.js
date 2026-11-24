@@ -178,16 +178,19 @@
       try { spawn(1, P); } catch (e) { out.push('old save: a saved run holding a sconce that no torch carries stops the game from starting'); } finally { console.error = err; } }
     return out;
   }
-  function librarySaveCheck() {
+  const OLD_LIBRARY_GENS = [
+    { gv: 38, seed: 10, options: { legacyLibraryPlacement: true, legacyBridges: true, legacyRosters: true, legacyFreeStandingShelves: true }, kept: 'legacyLibraryPlacement' },
+    { gv: 39, seed: 1, options: { legacyFreeStandingShelves: true }, kept: 'legacyFreeStandingShelves' }];
+  function librarySaveCheck() { return OLD_LIBRARY_GENS.flatMap(libraryKeptFloor); }
+  function libraryKeptFloor({ gv: OLD_GEN, seed, options, kept }) {
     const out = [], S = spawn(0, {}), f = 2;
-    S.run = newRun(S, 'campaign', 10, { town: 1, allFree: 1 }); S.screen = 'play';
+    S.run = newRun(S, 'campaign', seed, { town: 1, allFree: 1 }); S.screen = 'play';
     const R = S.run;
-    // a floor laid by the generator of version 38 before the library's shelves kept off the passages: its memo as that game kept it
-    const OLD_GEN = 38;
-    enterFloor(S, R, f, { legacyLibraryPlacement: true, legacyBridges: true, legacyRosters: true });
+    // a floor laid by an older generator before the library's shelves kept off the passages or stood only by the back wall: its memo as that game kept it
+    enterFloor(S, R, f, options);
     R.memo[f].gen = null; R.memo[f].gv = OLD_GEN;
     const { mp } = R.memo[f], shelf = R.map.decor.find((d) => d.lib), chest = R.chests[0], loot = R.nextId++;
-    if (!shelf || !chest) return ['old library save: no original shelf or chest on the floor'];
+    if (!shelf || !chest) return [`old library save v${OLD_GEN}: no original shelf or chest on the floor`];
     chest.open = 1; R.seen[7] = 1;
     R.drops.push({ id: loot, kind: 'gold', x: chest.x, y: chest.y, n: 77 });
     const snapshot = () => JSON.parse(JSON.stringify(persist(S))), active = snapshot();
@@ -200,9 +203,9 @@
       if (Q.memo[f].mp !== mp || !Q.map.decor.some((d) => d.lib && d.x === shelf.x && d.y === shelf.y) ||
           !Q.chests.some((c) => c.open && c.x === chest.x && c.y === chest.y) || Q.seen[7] !== 1 ||
           !Q.drops.some((d) => d.id === loot && d.n === 77))
-        out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} loses its layout, open chest, explored cells or loose loot`);
+        out.push(`old library save v${OLD_GEN}: a floor saved ${wasActive ? 'in play' : 'while away'} loses its layout, open chest, explored cells or loose loot`);
       // the old placement found once is kept in the floor's memo: the next build is the old one at once, not a new one thrown away
-      if (!(Q.memo[f].gen && Q.memo[f].gen.legacyLibraryPlacement) || Q.memo[f].gv !== D.GEN_VERSION) out.push(`old library save: a floor saved ${wasActive ? 'in play' : 'while away'} does not keep its old shelf placement, so every visit builds it twice`);
+      if (!(Q.memo[f].gen && Q.memo[f].gen[kept]) || Q.memo[f].gv !== D.GEN_VERSION) out.push(`old library save v${OLD_GEN}: a floor saved ${wasActive ? 'in play' : 'while away'} does not keep its old shelf placement, so every visit builds it twice`);
     }
     return out;
   }
@@ -212,7 +215,7 @@
   // by GEN_LEGACY, on a floor the new generator lays otherwise: its open chest and its dead stay, its memo takes the new version
   function oldGenSaveCheck() { const out = [], S = spawn(0, {}), f = 2, OLD_GEN = 38;
     S.run = newRun(S, 'campaign', 12, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run;
-    enterFloor(S, R, f, { legacyBridges: true, legacyRosters: true }); const M = R.memo[f]; M.gen = null; M.gv = OLD_GEN;
+    enterFloor(S, R, f, { legacyBridges: true, legacyRosters: true, legacyFreeStandingShelves: true }); const M = R.memo[f]; M.gen = null; M.gv = OLD_GEN;
     const { mp } = M, chest = R.chests[0], foe = R.en.find((e) => !D.BOSSES[e.type]);
     if (!chest || !foe) return ['old generator save: no chest or monster on the floor'];
     chest.open = 1; foe.hp = 0; foe.deadT = S.t; enterFloor(S, R, 0);

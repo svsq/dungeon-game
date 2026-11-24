@@ -755,27 +755,31 @@
     if (blocked()) out.push('back wall prop: a broken bookshelf still blocks the floor');
     return out;
   }
-  // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
-  // 2nd that are no boss's, about half of them, each of the five, no flood on the fire floors; each one does what it says over the
-  // same floor laid without it; the banner names it; gold and a hoard's ambush answer it in the sim
+  // the floor modifiers (TASKS 381): drawn only in the endless descent (RUNS.floorMods), on its rooms floors from the 3rd that are no
+  // boss's, about half of them, each of the five, no flood on the fire floors; no campaign, cave or magma floor has one, and a floor
+  // of the campaign laid under a descent that starts above it has none; each one does what it says over the same floor laid without
+  // it; the banner names it; gold and a hoard's ambush answer it in the sim; a run saved with one outside the descent loses it
   function floorModCheck() {
-    const out = [], ids = Object.keys(D.FLOOR_MODS), got = {}; let on = 0, may = 0;
-    for (let sd = 1; sd <= 200; sd++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const st = D.stageOf('campaign', f, sd);
-      if (st.mod !== D.stageOf('campaign', f, sd).mod) out.push(`floor mod: campaign ${sd}/${f} draws another modifier the second time`);
-      const can = f >= D.FLOOR_MOD.from && !st.boss && !st.arch && f <= D.RUNS.campaign.chapter;
-      if (st.mod && !can) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a floor that takes none`);
-      if (st.mod && (D.FLOOR_MODS[st.mod].not || []).includes(st.biome)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» in ${st.biome}`);
-      if (st.mod && (D.FLOOR_MODS[st.mod].notLay || []).includes(st.lay)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a ${st.lay} floor`);
-      if (can) { may++; if (st.mod) { on++; got[st.mod] = 1; } } }
-    if (on < may * 0.4 || on > may * 0.6) out.push(`floor mod: ${on} of ${may} campaign floors drew one, not about half`);
-    for (const k of ids) if (!got[k]) out.push(`floor mod: «${k}» never drawn on 200 campaign runs`);
-    for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 24; f++) { const st = D.stageOf('endless', f, sd); if (st.mod && (st.boss || st.arch || f < D.FLOOR_MOD.from)) out.push(`floor mod: descent ${sd}/${f} has «${st.mod}» on a boss's, cave's or early floor`); }
-    // the banner never names a modifier its floor lacks (PR 30: campaign 24/3 drew «flood» and laid no stream), and few floors lose theirs
+    const out = [], ids = Object.keys(D.FLOOR_MODS), got = {}, DESCENT_SEEDS = 200, DESCENT_FLOORS = 24, DESCENT_START = 17; let on = 0, may = 0;
+    for (let sd = 1; sd <= DESCENT_SEEDS; sd++) { for (const mode of Object.keys(D.RUNS)) if (!D.RUNS[mode].floorMods) for (let f = 1; f <= Math.min(D.RUNS[mode].floors, DESCENT_FLOORS); f++) { const st = D.stageOf(mode, f, sd);
+        if (st.mod) out.push(`floor mod: ${mode} ${sd}/${f} has «${st.mod}» outside the descent`); }
+      for (let f = 1; f < DESCENT_START; f++) if (D.stageOf('endless', f, sd, DESCENT_START).mod) out.push(`floor mod: descent ${sd}/${f} has «${D.stageOf('endless', f, sd, DESCENT_START).mod}» above where it starts`);
+      for (let f = 1; f <= DESCENT_FLOORS; f++) { const st = D.stageOf('endless', f, sd);
+        if (st.mod !== D.stageOf('endless', f, sd).mod) out.push(`floor mod: descent ${sd}/${f} draws another modifier the second time`);
+        const can = f >= D.FLOOR_MOD.from && !st.boss && !st.arch;
+        if (st.mod && !can) out.push(`floor mod: descent ${sd}/${f} has «${st.mod}» on a boss's, cave's or early floor`);
+        if (st.mod && (D.FLOOR_MODS[st.mod].not || []).includes(st.biome)) out.push(`floor mod: descent ${sd}/${f} has «${st.mod}» in ${st.biome}`);
+        if (st.mod && (D.FLOOR_MODS[st.mod].notLay || []).includes(st.lay)) out.push(`floor mod: descent ${sd}/${f} has «${st.mod}» on a ${st.lay} floor`);
+        if (can) { may++; if (st.mod) { on++; got[st.mod] = 1; } } } }
+    if (on < may * 0.4 || on > may * 0.6) out.push(`floor mod: ${on} of ${may} descent floors drew one, not about half`);
+    for (const k of ids) if (!got[k]) out.push(`floor mod: «${k}» never drawn on ${DESCENT_SEEDS} descents`);
+    for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 14; f++) if (D.stageOf('campaign', f, sd).mod === undefined && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 }).mod) out.push(`floor mod: campaign ${sd}/${f} is laid with a modifier`);
+    // the banner never names a modifier its floor lacks (PR 30: a floor drew «flood» and laid no stream), and few floors lose theirs
     const held = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
-    { let drew = 0, lost = 0; for (let sd = 1; sd <= 60; sd++) for (const f of [3, 5, 7]) { const st = D.stageOf('campaign', f, sd); if (!st.mod) continue;
-        const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }); drew++; if (!m.mod) { lost++; continue; }
-        if (m.mod !== st.mod || (held[m.mod] && !held[m.mod](m))) out.push(`floor mod: campaign ${sd}/${f} names «${m.mod}» and does not have it`); }
-      if (lost > drew * 0.05) out.push(`floor mod: ${lost} of ${drew} campaign floors laid without their modifier`); }
+    { let drew = 0, lost = 0; for (let sd = 1; sd <= 60; sd++) for (const f of [3, 5, 7]) { const st = D.stageOf('endless', f, sd); if (!st.mod) continue;
+        const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'endless', runSeed: sd }); drew++; if (!m.mod) { lost++; continue; }
+        if (m.mod !== st.mod || (held[m.mod] && !held[m.mod](m))) out.push(`floor mod: descent ${sd}/${f} names «${m.mod}» and does not have it`); }
+      if (lost > drew * 0.05) out.push(`floor mod: ${lost} of ${drew} descent floors laid without their modifier`); }
     const gen = (sd, f, mod) => DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, stage: { mod } });
     const sum = (mod, fn) => { let n = 0; for (let sd = 1; sd <= 6; sd++) for (const f of [3, 7]) n += fn(gen(sd, f, mod), sd, f); return n; };
     const walls = (m) => m.torches.filter((t) => t.kind === 'wall').length, rows = (m) => new Set(m.traps.filter((t) => t.run !== undefined).map((t) => t.run)).size;
@@ -786,7 +790,7 @@
       if (!m.chests.some((c) => c.lair && c.tier === D.FLOOR_MODS.lair.chest)) out.push(`floor mod: lair ${sd}/${f} has no chest of the top tier`); return 0; });
     if (sum('cursed', rows) < 2 * Math.max(1, sum(undefined, rows))) out.push('floor mod: a cursed floor has not the plate rows of all its long corridors');
     if (sum('quiet', (m) => m.enemies.length) > 0.8 * sum(undefined, (m) => m.enemies.length)) out.push('floor mod: a quiet floor holds not about 30 % fewer monsters');
-    { const m = gen(1, 3, 'quiet'); if (m.mod !== 'quiet' || !D.placeName(3, 'campaign', 1, 1, m).includes(D.FLOOR_MODS.quiet.name)) out.push('floor mod: the banner does not name the modifier'); }
+    { const m = gen(1, 3, 'quiet'); if (m.mod !== 'quiet' || !D.placeName(3, 'endless', 1, 1, m).includes(D.FLOOR_MODS.quiet.name)) out.push('floor mod: the banner does not name the modifier'); }
     // gold picked up, and a hoard's chest springing its ambush on a draw between its plain chance and the doubled one
     const run = (mod) => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77); S.screen = 'play'; const R = S.run; for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; } R.map.mod = mod; return [S, R]; };
     for (const mod of [undefined, 'cursed']) { const [S, R] = run(mod), h = R.hero, g0 = h.gold, want = Math.round(100 * heroSt(S).gold * ((D.FLOOR_MODS[mod] || {}).gold || 1));
@@ -796,11 +800,15 @@
       let rs = 1; for (; rs < 1e6; rs++) { const v = rnd({ rs }); if (v > 0.06 && v < 0.09) break; }
       R.map.rooms[room].type = 'secret'; R.rs = rs; S.ev = []; openChest(S, R, { x: h.x, y: h.y, tier: 1, open: 0, loot: [] }); R.map.rooms[room].type = was;
       if (S.ev.some((e) => e.k === 'ambush') !== !!mod) out.push(`floor mod: a cache's chest on a ${mod || 'plain'} floor ${mod ? 'does not spring' : 'springs'} an ambush on a draw of 0.06–0.09`); }
+    const DEEP = 3, loadedMod = (mode, seed, mod) => { const S = spawn(0, {}); S.run = newRun(S, mode, seed); S.run.floor = DEEP; S.run.map.mod = mod; return spawn(0, JSON.parse(JSON.stringify(root.SIM.persist(S)))).saved.map.mod; };
+    const modSeed = Array.from({ length: DESCENT_SEEDS }, (_, i) => i + 1).find((sd) => D.stageOf('endless', DEEP, sd).mod);
+    if (loadedMod('campaign', modSeed, 'dark')) out.push('floor mod: a campaign run saved with a modifier keeps it on load');
+    if (loadedMod('endless', modSeed, D.stageOf('endless', DEEP, modSeed).mod) !== D.stageOf('endless', DEEP, modSeed).mod) out.push('floor mod: a descent run saved with a modifier loses it on load');
     return out;
   }
   // the generator's print (TASKS 1917): a kept floor is a diff against its rebuild, so floors laid otherwise under the same
   // D.GEN_VERSION patch the wrong floor; a change to what the generator lays needs a new version and its print here
-  const GEN_PRINT = { 34: 'b7a355cecbaeeced', 35: 'edd1cbff1ee0d267', 36: '527b8453fdd5c2c5', 37: '5dff955eb1297435', 38: 'e60a42b935688c8a', 39: '86a5cd49dc6d1735' };
+  const GEN_PRINT = { 34: 'b7a355cecbaeeced', 35: 'edd1cbff1ee0d267', 36: '527b8453fdd5c2c5', 37: '5dff955eb1297435', 38: 'e60a42b935688c8a', 39: '86a5cd49dc6d1735', 40: 'cff211c811a7d4c8' };
   function genPrintCheck() { const h = require('crypto').createHash('sha1');
     for (const mode of Object.keys(D.RUNS)) for (const sd of [1, 586791]) for (let f = 1; f <= (mode === 'campaign' ? 8 : 3); f++) h.update(JSON.stringify(DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, from: 1, town: mode === 'campaign' ? 1 : 0 })));
     h.update(JSON.stringify(DG.genTown(31))); const p = h.digest('hex').slice(0, 16);

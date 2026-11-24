@@ -105,8 +105,9 @@
   const mapPrint = (m) => { const s = JSON.stringify(m); let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193); return (h >>> 0).toString(36); };
   // the generator options that lay a floor kept under an older D.GEN_VERSION as it was laid, so its diff still fits; its print (M.mp)
   // tells which. 38: before the dead-end lava bridges went back to lava and the room floors took their own packs, some of its floors
-  // laid before the library's shelves kept off the passages too
-  const GEN_LEGACY = { 38: [{ legacyBridges: true, legacyRosters: true }, { legacyBridges: true, legacyRosters: true, legacyLibraryPlacement: true }] };
+  // laid before the library's shelves kept off the passages too; 39: before the library's shelves stood only against the back wall
+  const GEN_LEGACY = { 38: [{ legacyBridges: true, legacyRosters: true, legacyFreeStandingShelves: true }, { legacyBridges: true, legacyRosters: true, legacyLibraryPlacement: true, legacyFreeStandingShelves: true }],
+    39: [{ legacyFreeStandingShelves: true }] };
   // the generator's options with the legacy ones taken off, so a floor is laid by this version
   const LEGACY_KEYS = new Set(Object.values(GEN_LEGACY).flat().flatMap(Object.keys));
   const currentGen = (gen) => (gen ? Object.fromEntries(Object.entries(gen).filter(([k]) => !LEGACY_KEYS.has(k))) : gen);

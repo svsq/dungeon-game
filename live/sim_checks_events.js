@@ -450,6 +450,7 @@
     for (const [mode, o] of MODES) for (let sd = 1; sd <= 6; sd++) for (let f = 1; f <= D.RUNS[mode].floors; f++) { const m2 = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, Object.assign({ mode, runSeed: sd }, o));
       if ((m2.events || []).some((x) => x.id === 'library') && (!o.town || !P.biomes.includes(m2.biome))) out.push(`${tag}: drawn in the ${mode}${o.town ? ' (town)' : ''} run on a ${m2.biome} floor ${f}`); }
   }
+  const LIBRARY_WALL_SEEDS = 12, LIBRARY_WALL_FLOORS = 6;
   function libraryPassageCheck() {
     const out = [], half = D.PROP_W.bookshelf / 2;
     for (const [seed, floor, options] of [[10 * 31 + 2 * 1013, 2, { runSeed: 10 }], [6, 1, { runSeed: 6, events: ['library'] }], [7, 2, { runSeed: 7, events: ['library'] }]]) {
@@ -458,12 +459,17 @@
       if (seed !== 6 && !m.events?.some((e) => e.id === 'library')) out.push(`library seed ${seed} f${floor}: no viable room kept`);
       for (const d of shelves) {
         const r = m.rooms[d.r], y = Math.floor(d.y / TILE);
+        if (!DG.shelfAgainstBackWall(m, r, d.x, d.y)) out.push(`library seed ${seed} f${floor}: a shelf stands off the back wall at ${Math.floor(d.x / TILE)},${y}`);
         const left = Math.floor((d.x - half) / TILE), right = Math.floor((d.x + half) / TILE);
         for (let cy = y - 1; cy <= y + 1; cy++) for (let cx = left; cx <= right; cx++) {
           if (!DG.inRm(r, cx, cy) && DG.isPassageCell(m.cells[cy * m.W + cx]))
             out.push(`library seed ${seed} f${floor}: a shelf overlaps the corridor at ${cx},${cy}`);
         }
       }
+    }
+    for (let sd = 1; sd <= LIBRARY_WALL_SEEDS; sd++) for (let f = 1; f <= LIBRARY_WALL_FLOORS; f++) {
+      const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', town: 1, runSeed: sd, events: ['library'] });
+      for (const d of m.decor) if (d.n === 'bookshelf' && d.lib && !DG.shelfAgainstBackWall(m, m.rooms[d.r], d.x, d.y)) out.push(`library seed ${sd} f${f}: a shelf stands off the back wall at ${Math.floor(d.x / TILE)},${Math.floor(d.y / TILE)}`);
     }
     return out;
   }
