@@ -322,7 +322,7 @@
   }
   // the captive (TASKS 366) in each run: a monster of his room's pack keeps the cage's key and drops it; E with no key asks nothing,
   // «no» keeps the key; «yes» spends it and he walks out. Led along the way to his first way out (the merchant, or with none on the floor
-  // the stairs up), he keeps to open floor and comes home: one `qevent`, the shop's prices down by `off` or his shards paid. A waking
+  // the stairs up), he keeps to open floor and comes home at the first of his ways out he passes: one `qevent`, the shop's prices down by `off` or his shards paid. A waking
   // monster near him stops him, `hits` blows send him off unpaid with no `qevent`; the floor left and come back to, and a save, keep him
   function checkCaptivePlay(out) {
     const P = D.EVENTS.pool.captive, cellOf = (m, x, y) => m.cells[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
@@ -335,7 +335,7 @@
       if (E.st !== 'idle' || R.keys !== 1) out.push(`${tag}: «no» leaves it ${E.st} with ${R.keys} keys`);
       const prices = R.shop ? R.shop.goods.map((g) => g.price) : [], sh0 = R.shards; ask();
       if (E.st !== 'on' || R.keys !== 0 || E.px === undefined) { out.push(`${tag}: «yes» leaves it ${E.st} with ${R.keys} keys`); continue; }
-      const goal = SIMX.captiveGoals(R)[0]; if (goal.k !== (m.shop ? 'shop' : 'up')) out.push(`${tag}: his first way out is the ${goal.k} on a floor ${m.shop ? 'with' : 'without'} a merchant`);
+      const goals = SIMX.captiveGoals(R), goal = goals[0]; if (goal.k !== (m.shop ? 'shop' : 'up')) out.push(`${tag}: his first way out is the ${goal.k} on a floor ${m.shop ? 'with' : 'without'} a merchant`);
       key('KeyE'); if (S.screen === 'event') out.push(`${tag}: the open cage asks again`);
       for (const d of m.doors || []) if (!d.open && !SIMX.doorLock(m, d)) SIMX.openDoor(S, R, d, 0);
       const W = m.W, g0 = Math.floor(goal.y / TILE) * W + Math.floor(goal.x / TILE), blk = new Set(m.block), dist = new Int32Array(W * m.H).fill(-1), q = [g0]; dist[g0] = 0;
@@ -345,10 +345,10 @@
       for (; n < 120 * 150 && E.st === 'on'; n++) { if (n % 20 === 0) { const k = ahead(Math.floor(E.py / TILE) * W + Math.floor(E.px / TILE)); if (dist[k] >= 0) { h.x = (k % W + 0.5) * TILE; h.y = (Math.floor(k / W) + 0.5) * TILE; } }
         h.vx = h.vy = 0; R.freeze = 0; S.screen = 'play'; step(S, { keys: [] }); if (cellOf(m, E.px, E.py) !== 1) off++; }
       const qe = S.ev.slice(q0).filter((e) => e.k === 'qevent' && e.room === E.room && e.event === 'captive').length;
-      if (E.st !== 'done' || E.lost || qe !== 1 || !E.goal || E.goal.k !== goal.k) out.push(`${tag}: led to the ${goal.k} for ${(n / 120).toFixed(0)} s he is ${E.st}${E.lost ? ' (fled)' : ''} home at the ${E.goal && E.goal.k}, ${qe} qevent, ${Math.round(Math.hypot(E.px - goal.x, E.py - goal.y))} px off it`);
+      if (E.st !== 'done' || E.lost || qe !== 1 || !E.goal || !goals.some((g) => g.k === E.goal.k)) out.push(`${tag}: led to the ${goal.k} for ${(n / 120).toFixed(0)} s he is ${E.st}${E.lost ? ' (fled)' : ''} home at the ${E.goal && E.goal.k}, ${qe} qevent, ${Math.round(Math.hypot(E.px - goal.x, E.py - goal.y))} px off it`);
       if (off) out.push(`${tag}: he stood ${off} steps off the open floor`);
-      if (E.st === 'done' && E.goal.k === 'shop' && !R.shop.goods.every((gd, i) => gd.price === Math.max(1, Math.round(prices[i] * (1 - P.off))))) out.push(`${tag}: home at the merchant's, the prices are ${R.shop.goods.map((gd) => gd.price)} of ${prices}`);
-      if (E.st === 'done' && E.goal.k === 'up' && R.shards - sh0 !== Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R))) out.push(`${tag}: home by the stairs up, he pays ${R.shards - sh0} shards`);
+      if (E.st === 'done' && E.goal && E.goal.k === 'shop' && !R.shop.goods.every((gd, i) => gd.price === Math.max(1, Math.round(prices[i] * (1 - P.off))))) out.push(`${tag}: home at the merchant's, the prices are ${R.shop.goods.map((gd) => gd.price)} of ${prices}`);
+      if (E.st === 'done' && E.goal && E.goal.k === 'up' && R.shards - sh0 !== Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R))) out.push(`${tag}: home by the stairs up, he pays ${R.shards - sh0} shards`);
       if (o.town) { const T = spawn(1, JSON.parse(JSON.stringify(SIMX.persist(S)))), b = T.saved && (T.saved.events || []).find((x) => x.room === E.room); if (!b || b.st !== 'done') out.push(`${tag}: a save forgets him home`); } }
     { const { S, R, E, ask } = evRun('campaign', { town: 1 }, 'captive'); if (!E) return; const m = R.map, h = R.hero, f = R.floor; R.keys = 1; ask(); if (E.st !== 'on') return;
       const foe = (dx, st) => ({ id: R.nextId++, type: 'skeleton', x: E.px + dx, y: E.py, hp: 10, deadT: -1, st, vx: 0, vy: 0 });
@@ -373,7 +373,7 @@
   function checkCaptiveGoals(out) {
     const P = D.EVENTS.pool.captive, mode = 'campaign', S = spawn(0, {}), R = S.run = newRun(S, mode, 77, { allFree: 1, town: 1 }); S.screen = 'play';
     // (each try on a floor starts him over from his cage: the floor kept holds him home from the last one)
-    let entered = -1; const freeAt = (f) => { if (entered !== f) { entered = f; enterFloor(S, R, f, { events: ['captive'] }); } R.en = []; const E = (R.events || []).find((q) => q.id === 'captive'); if (!E) return null;
+    let entered = -1, arrived = null; const freeAt = (f) => { if (entered !== f) { entered = f; enterFloor(S, R, f, { events: ['captive'] }, 'down'); arrived = { x: R.hero.x, y: R.hero.y }; } R.en = []; const E = (R.events || []).find((q) => q.id === 'captive'); if (!E) return null;
       E.st = 'idle'; delete E.lost; R.keys = 1; SIMX.eventStart(S, R, E); return E.st === 'on' ? E : null; };
     const bringTo = (E, x, y) => { Object.assign(E, { px: x, py: y, vx: 0, vy: 0 }); R.hero.x = x; R.hero.y = y; const q0 = S.ev.length;
       S.t += SIMX.DT; SIMX.stepEvents(S, R); return S.ev.slice(q0).filter((e) => e.k === 'qevent' && e.event === 'captive').length; };
@@ -384,18 +384,21 @@
       if (E.st !== 'done' || E.lost || qe !== 1 || !E.goal || E.goal.k !== goal.k) out.push(`${tag}: brought to the ${goal.k} he is ${E.st}, home at the ${E.goal && E.goal.k}, ${qe} qevent`);
       else if (goal.k === 'up' && R.shards - sh0 !== Math.round(P.shards[0] + P.shards[1] * SIMX.dep(R))) out.push(`${tag}: home by the stairs up, he pays ${R.shards - sh0} shards`);
       else if (goal.k === 'shop' && !R.shop.goods.every((g, i) => g.price === Math.max(1, Math.round(pr0[i] * (1 - P.off))))) out.push(`${tag}: home at the merchant's, the prices stay ${R.shop.goods.map((g) => g.price)}`); };
-    let shopSeen = 0, upSeen = 0;
-    for (let f = 1; f <= D.RUNS[mode].floors && !(shopSeen && upSeen); f++) { const E = freeAt(f); if (!E) continue; const m = R.map, goals = SIMX.captiveGoals(R), up = goals.find((g) => g.k === 'up'), shop = goals.find((g) => g.k === 'shop');
+    let shopSeen = 0, upSeen = 0, startSeen = 0;
+    for (let f = 1; f <= D.RUNS[mode].floors && !(shopSeen && upSeen && startSeen); f++) { const E = freeAt(f); if (!E) continue; const m = R.map, goals = SIMX.captiveGoals(R), up = goals.find((g) => g.k === 'up'), shop = goals.find((g) => g.k === 'shop');
       if (!m.up) { out.push(`captive goals floor ${f}: the town's run laid no stairs up`); continue; }
-      const stand = DG.arrivalAt(m.up, m.biome); if (Math.hypot(up.x - stand[0], up.y - stand[1]) > 1) out.push(`captive goals floor ${f}: his way up is not where the hero stands at the stairs`);
-      if (!!shop !== !!(m.shop && R.shop)) out.push(`captive goals floor ${f}: the merchant is ${shop ? '' : 'not '}his way out on a floor ${m.shop ? 'with' : 'without'} one`);
+      if (Math.hypot(up.x - arrived.x, up.y - arrived.y) >= P.reach) out.push(`captive goals floor ${f}: his way up is ${Math.round(Math.hypot(up.x - arrived.x, up.y - arrived.y))} px off where the hero comes down the stairs`);
+      const unlockLine = TXT(shop ? 'EVENTS.captive.go.both' : 'EVENTS.captive.go.up'); if (!R.msg || R.msg.s !== unlockLine) out.push(`captive goals floor ${f}: as he walks out he does not name ${shop ? 'both his ways out' : 'the stairs up'}`);
+      if (R.shop && !shop) out.push(`captive goals floor ${f}: the floor's merchant is not his way out`);
+      if (shop) { R.hero.x = shop.x; R.hero.y = shop.y; if (!SIMX.atCounter(R)) out.push(`captive goals floor ${f}: his way to the merchant is off the counter`); }
       const oldUp = { k: 'up', x: m.spawn.x, y: m.spawn.y };
       if (!upSeen) { upSeen = 1; homeAt(up); homeAt(up, oldUp); }
       if (shop && !shopSeen) { shopSeen = 1; homeAt(shop); homeAt(shop, oldUp); }
       waitsAt('his cage', E.x, E.y + 40);
-      if (goals.every((g) => Math.hypot(g.x - m.spawn.x, g.y - m.spawn.y) >= P.reach)) { waitsAt('the start room\'s middle', m.spawn.x, m.spawn.y); waitsAt('the start room\'s middle (older save)', m.spawn.x, m.spawn.y, oldUp); } }
+      if (goals.every((g) => Math.hypot(g.x - m.spawn.x, g.y - m.spawn.y) >= P.reach)) { startSeen = 1; waitsAt('the start room\'s middle', m.spawn.x, m.spawn.y); waitsAt('the start room\'s middle (older save)', m.spawn.x, m.spawn.y, oldUp); } }
     if (!upSeen) out.push('captive goals: no floor of the town\'s run lays the captive');
     if (!shopSeen) out.push('captive goals: no floor of the town\'s run with the captive has a merchant');
+    if (!startSeen) out.push('captive goals: no floor tried has its start room\'s middle off the stairs, so its not counting goes untested');
   }
   // the library (TASKS 368) in the town's run: a lectern on its spot that stands in the way, shelves on its back wall whose cells the
   // way fields go round, the room's open floor still one piece. E asks nothing: it opens a plain note of the floor's era in the notes'

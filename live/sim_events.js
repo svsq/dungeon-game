@@ -86,12 +86,17 @@
   const DARK = {
     start(S, R, E) { R.msg = { s: TXT('EVENTS.dark.enter'), t: S.t, d: 4 }; ev(S, { k: 'dark', x: E.x, y: E.y }); },
     step(S, R, E) { if (!darkFoes(R, E).length) eventDone(S, R, E); } };
-  // the captive's way out: the floor's merchant, if it has one, and the stairs up (where the hero stands at them), or the start room on
-  // a floor laid with no stairs up. Read from the map each step, so a save made on his way, older ones too, keeps leading him right
-  const captiveGoals = (R) => { const m = R.map, up = m.up ? DG.arrivalAt(m.up, m.biome) : [m.spawn.x, m.spawn.y];
-    return [...(m.shop && R.shop ? [{ k: 'shop', x: m.shop.front.x, y: m.shop.front.y }] : []), { k: 'up', x: up[0], y: up[1] }]; };
+  // the captive's ways out: the floor's merchant, if it has one, and the stairs up (where the hero stands at them); on a floor laid
+  // with no stairs up, the merchant or else the start room. Read from the map each step, so a save made on his way, older ones too,
+  // keeps leading him right
+  const captiveGoals = (R) => { const m = R.map, shop = m.shop && R.shop ? [{ k: 'shop', x: m.shop.front.x, y: m.shop.front.y }] : [];
+    if (m.up) { const [x, y] = DG.arrivalAt(m.up, m.biome); return [...shop, { k: 'up', x, y }]; }
+    return shop.length ? shop : [{ k: 'up', x: m.spawn.x, y: m.spawn.y }]; };
+  // his thanks as he walks out name the ways out he has on this floor
+  const captiveGoLine = (goals) => { const has = (k) => goals.some((g) => g.k === k);
+    return !has('shop') ? TXT('EVENTS.captive.go.up') : has('up') ? TXT('EVENTS.captive.go.both') : TXT('EVENTS.captive.go.shop'); };
   const captiveGoalReached = (R, x, y) => captiveGoals(R).find((g) => Math.hypot(g.x - x, g.y - y) < D.EVENTS.pool.captive.reach);
-  // the captive (TASKS 366): he walks out after the hero and is home at whichever of his goals he is brought to first.
+  // the captive: he walks out after the hero and is home at whichever of his goals he is brought to first.
   // He paths by the monsters' way field to the hero's cell, never straight at him (a straight line takes no account of his cage), so he walks only where a monster could (never lava, a shut door or a
   // grate); out of its reach he waits. The floor left, he stays where he stood (no leave rule) and goes on when the hero is back
   const awake = (e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'home';
@@ -101,7 +106,7 @@
     can(S, R, E) { if (R.keys > 0) return true; R.msg = { s: TXT('EVENTS.captive.nokey'), t: S.t, d: 3 }; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y }); return false; },
     start(S, R, E) { const P = D.EVENTS.pool.captive; R.keys--;
       delete E.goal; Object.assign(E, { px: E.x, py: E.y + 40, vx: 0, vy: 0, dist: 0, hits: P.hits, hurtT: -9 });
-      ev(S, { k: 'unlatch', x: E.x, y: E.y }); R.msg = { s: captiveGoals(R)[0].k === 'shop' ? TXT('EVENTS.captive.go.shop') : TXT('EVENTS.captive.go.up'), t: S.t, d: 4 }; },
+      ev(S, { k: 'unlatch', x: E.x, y: E.y }); R.msg = { s: captiveGoLine(captiveGoals(R)), t: S.t, d: 4 }; },
     step(S, R, E) { const P = D.EVENTS.pool.captive, m = R.map, h = R.hero, o = { x: E.px, y: E.py, vx: E.vx, vy: E.vy };
       if (h.deadT >= 0) return;
       const foes = R.en.filter((e) => awake(e) && Math.hypot(e.x - o.x, e.y - o.y) < P.fear);
