@@ -276,8 +276,8 @@
         name: TXT('EVENTS.dark.name'), done: TXT('EVENTS.dark.done') },
       // the captive (TASKS 366): a wayfarer caged in a room whose pack keeps it, one of the pack carrying its key (`key` 'cage' on him,
       // dropped as a door's is, TASKS 78; any key of the floor fits, so it may go to the locked door instead). Unlocked, he follows the
-      // hero to the floor's merchant, who takes `off` off his prices, or with no merchant on the floor to the spawn by the stairs up, where
-      // he pays shards[0] + shards[1] × depth. He never fights: he stops while a waking monster is within `fear`, and `hits` blows from
+      // hero to the floor's merchant, who takes `off` off his prices, or to the stairs up, where he pays shards[0] + shards[1] × depth,
+      // whichever first; on a floor with no stairs up, to the merchant or else the start room. He never fights: he stops while a waking monster is within `fear`, and `hits` blows from
       // monsters at his side (one each `cd` s) send him running off alone, unpaid. He waits where he stands while the floor is left.
       // gap: how near he keeps; reach: how near the goal ends it; rig: his figure, a townsfolk rig (his own is TASKS 2025)
       captive: { w: 2, minF: 1, room: 'combat', ask: 1, goal: 1, near: 84, tag: 130, cage: 1, r: 11, spd: 150, gap: 64, fear: 150, hits: 3, cd: 0.9, reach: 90,
